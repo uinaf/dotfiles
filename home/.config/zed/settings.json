@@ -1,0 +1,39 @@
+{
+  "project_panel": {
+    "dock": "left",
+  },
+  "outline_panel": {
+    "dock": "left",
+  },
+  "collaboration_panel": {
+    "dock": "left",
+  },
+  "agent": {
+    "dock": "right",
+    "favorite_models": [],
+    "model_parameters": [],
+  },
+  "git_panel": {
+    "dock": "left",
+  },
+  "disable_ai": true,
+  "telemetry": {
+    "diagnostics": false,
+    "metrics": false,
+  },
+  "vim_mode": true,
+  "base_keymap": "VSCode",
+  "theme": {
+    "mode": "system",
+    "light": "Ayu Light",
+    "dark": "VSCode Dark Modern",
+  },
+  "ui_font_family": "Berkeley Mono Variable",
+  "ui_font_size": 16.0,
+  "buffer_font_size": 16.0,
+  "buffer_font_family": "Berkeley Mono Variable",
+  "terminal": {
+    "font_size": 16.0,
+    "font_family": "Berkeley Mono Variable",
+  },
+}

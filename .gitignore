@@ -1,0 +1,6 @@
+tizen-migration-*.tar.gz
+*.tar.gz
+*.tgz
+.DS_Store
+.zcompdump*
+home/.codex/
