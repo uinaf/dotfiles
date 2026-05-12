@@ -19,6 +19,18 @@ them inside the smallest wrapper that needs them. Generated secret files must be
 owner-only, usually a `0711` root-owned directory and `0400` service-user-owned
 file when another Unix user has to read them.
 
+## Local Audits
+
+Run `./scripts/security-audit.sh` for repo secret scans and optional
+check-only macOS Security Compliance Project checks. Run
+`./scripts/security-audit-personal.sh` on personal Macs and
+`./scripts/security-audit-devbox.sh` on each shared devbox user to check local
+secret boundaries, identity state, and common stale backup locations. These
+scripts are non-destructive and do not print secret values.
+
+See [Security audits](docs/security-audits.md) for the audit layers, mSCP setup,
+CI secret scanning, devbox drift checks, and maintenance rules.
+
 ## What to Include
 
 - Affected file, script, or setup step.

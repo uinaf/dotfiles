@@ -23,8 +23,8 @@ verify the machine. Keep the repo public-safe. Keep machine state local.
   plists, process-compose YAML, or dotenv files. It belongs in machine-local
   secret storage, such as a root-owned token file on a headless devbox, and
   should be fetched by the narrow wrapper that needs it.
-- Keep `README.md` and this file short. Move migration detail to
-  `docs/migration.md` or a dedicated doc.
+- Keep `README.md` and this file short. Move detailed operational guidance to
+  dedicated docs.
 
 ## Setup Flow
 
@@ -69,7 +69,11 @@ bash -n scripts/*.sh
 shellcheck scripts/*.sh
 git diff --check
 gitleaks detect --source . --verbose
+./scripts/security-audit.sh --skip-mscp
 ```
+
+Follow [Security audits](docs/security-audits.md) when changing audit scripts,
+secret scanning, mSCP integration, or devbox security checks.
 
 Run `./scripts/verify.sh --profile personal` or `./scripts/verify.sh --profile
 devbox` only on a machine where the bootstrap is meant to be active. It checks

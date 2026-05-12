@@ -183,20 +183,19 @@ That check verifies the supervisor binary, process-compose state, secret-file
 modes, absence of default shell token export, and the configured root-owned
 service-account token file.
 
-## Migration Checklist
+Run the devbox security audit for each devbox user:
 
-When moving an existing devbox to this model:
+```zsh
+./scripts/security-audit-devbox.sh
+```
 
-1. Create the target vaults.
-2. Move each secret to the narrowest matching vault.
-3. Create one service account per runtime.
-4. Update local devbox config to reference the new service-account scope.
-5. Rotate secrets that were previously exposed through shell env, launchd,
-   process-compose config, or broad dotenv files.
-6. Reinstall services so plists and process-compose config contain paths and
-   commands, not secret values.
-7. Verify default shells do not export service tokens.
-8. Verify generated env files are service-user-readable only and do not include
-   `OP_SERVICE_ACCOUNT_TOKEN`.
-9. Remove stale Slack, GitHub, repo, and 1Password access from identities that
-   no longer need it.
+That audit is stricter than verification. It checks for stale secret-looking
+backups, generated env symlink drift, Git/GitHub identity state, SSH key file
+permissions, admin group drift, Tailscale health, and raw service-account token
+references in local service config. It does not print secret values.
+
+For OS-level posture, run `./scripts/security-audit.sh` after generating a
+macOS Security Compliance Project check-only script for the host's macOS
+version. Start with check-only results and review exceptions before applying
+any remediation outside this repo. See [Security audits](security-audits.md) for
+the full audit model.

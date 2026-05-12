@@ -111,6 +111,9 @@ verification commands.
 | `scripts/install-devbox-env-refresh.sh` | Install the root-owned devbox env refresh helper and LaunchDaemon. |
 | `scripts/install-blacksmith.sh` | Install the Blacksmith CLI from its official checksum-verifying installer. |
 | `scripts/pull-repos.sh` | Clone or fast-forward shared bootstrap repos. |
+| `scripts/security-audit.sh` | Run repo secret scans and an optional mSCP check-only macOS audit. |
+| `scripts/security-audit-personal.sh` | Audit personal Mac secret boundaries, identity state, and local drift. |
+| `scripts/security-audit-devbox.sh` | Audit devbox secret boundaries, identity state, process-compose, and local drift. |
 | `scripts/verify.sh` | Check the current machine bootstrap. |
 | `scripts/verify-devbox.sh` | Check devbox supervisor, secret-file, and 1Password-token boundaries. |
 | `scripts/tizen-install.sh` | Install Samsung Tizen Studio from the CLI installer. |
@@ -138,8 +141,13 @@ See [Contributing](CONTRIBUTING.md).
 
 Report vulnerabilities privately. See [Security](SECURITY.md).
 
+For local posture checks, run `./scripts/security-audit.sh` and
+`./scripts/security-audit-personal.sh`. On a shared devbox, run
+`./scripts/security-audit-devbox.sh` from each devbox user instead of the
+personal audit.
+GitHub Actions runs Gitleaks and TruffleHog on pushes, pull requests, weekly
+schedule, and manual dispatch. See [Security audits](docs/security-audits.md).
+
 ## License
 
 MIT. See [License](LICENSE).
-
-Old-machine migration notes live in [Migration checklist](docs/migration.md).
