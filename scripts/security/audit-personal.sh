@@ -167,8 +167,8 @@ while IFS= read -r path; do
   check_pattern_absent "$path" "$op_reference_pattern" "1Password item references" warn
 done < <(
   {
-    find_matching_files "$HOME" -maxdepth 1 -type f \( -name '.zsh_history' -o -name '.bash_history' -o -name '.zshenv' -o -name '.zprofile' -o -name '.zshrc' -o -name '.gitconfig.local' \)
-    find_matching_files "$HOME/.ssh" -maxdepth 1 -type f \( -name 'config' -o -name 'config.local' \)
+    find_matching_files "$HOME" -maxdepth 1 -type f \( -name '.zsh_history' -o -name '.bash_history' -o -name '.zshenv*' -o -name '.zprofile*' -o -name '.zshrc*' -o -name '.gitconfig*' \)
+    find_matching_files "$HOME/.ssh" -maxdepth 1 -type f \( -name 'config' -o -name 'config.*' \)
     find_matching_files "$HOME/Library/LaunchAgents" -maxdepth 1 -type f -name 'com.uinaf.*.plist'
   } | sort -u
 )

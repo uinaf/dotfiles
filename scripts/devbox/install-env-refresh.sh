@@ -39,6 +39,18 @@ shell_quote() {
   printf '%q' "$1"
 }
 
+prepare_log_file() {
+  local path="$1"
+
+  if [ -L "$path" ]; then
+    fail "$path must not be a symlink"
+  fi
+
+  touch "$path"
+  chown root:wheel "$path"
+  chmod 0640 "$path"
+}
+
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --identity)
@@ -188,9 +200,13 @@ plutil -lint "$tmp_plist" >/dev/null
 install -o root -g wheel -m 0644 "$tmp_plist" "$plist_path"
 rm -f "$tmp_plist"
 
+prepare_log_file "$log_path"
+prepare_log_file "$err_path"
+
 printf 'installed helper: %s\n' "$helper_path"
 printf 'installed config: %s\n' "$config_path"
 printf 'installed plist: %s\n' "$plist_path"
+printf 'prepared logs: %s, %s\n' "$log_path" "$err_path"
 printf 'token file expected at: %s\n' "$token_file"
 
 if [ "$load_now" -eq 1 ]; then

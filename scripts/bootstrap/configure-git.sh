@@ -195,6 +195,10 @@ fi
   printf '\tgpgsign = %s\n' "$sign_commits"
   printf '\n[tag]\n'
   printf '\tgpgsign = %s\n' "$sign_commits"
+  if [ "$profile" = "devbox" ]; then
+    printf '\n[safe]\n'
+    printf '\tdirectory = /opt/homebrew\n'
+  fi
   if [ "$sign_commits" = "true" ] || [ -n "$op_ssh_vault" ]; then
     printf '\n[gpg "ssh"]\n'
     if [ "$sign_commits" = "true" ]; then

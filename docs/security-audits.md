@@ -119,6 +119,8 @@ It checks:
 - process-compose is isolated through the configured socket or port
 - local service config, backup files, and shell history do not contain obvious
   secret references
+- shell startup backups, Git config backups, SSH config backups, process-compose
+  backups, and OpenClaw rollback files do not contain raw secret material
 - Git identity, GitHub auth, and commit signing are configured
 - SSH private key files are not group/world-readable
 - admin group membership, when `UINAF_EXPECTED_ADMIN_USERS` is configured

@@ -250,7 +250,8 @@ done < <(
   {
     find_matching_files "$HOME/.config/process-compose" -type f \( -name '*.yaml' -o -name '*.yml' -o -name '*.bak' \)
     find_matching_files "$HOME/.openclaw" -type f \( -name '*.json' -o -name '*.env' -o -name '*.bak' -o -name '*.last-good' \)
-    find_matching_files "$HOME" -maxdepth 1 -type f \( -name '.zsh_history' -o -name '.bash_history' \)
+    find_matching_files "$HOME" -maxdepth 1 -type f \( -name '.zsh_history' -o -name '.bash_history' -o -name '.zshenv*' -o -name '.zprofile*' -o -name '.zshrc*' -o -name '.gitconfig*' \)
+    find_matching_files "$HOME/.ssh" -maxdepth 1 -type f \( -name 'config' -o -name 'config.*' \)
     find_matching_files /Library/LaunchDaemons -maxdepth 1 -type f -name 'com.uinaf.*.plist'
     find_matching_files "$HOME/Library/LaunchAgents" -maxdepth 1 -type f -name 'com.uinaf.*.plist'
   } | sort -u

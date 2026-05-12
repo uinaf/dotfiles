@@ -136,6 +136,8 @@ example:
 
 Use a compatibility symlink from `~/.openclaw/.env` only when a service still
 expects that path.
+The refresh helper logs live at `/var/log/uinaf-devbox-env-refresh.<identity>.*`
+and should be root-owned mode `0640`.
 
 Install the root-owned refresh helper with explicit local values:
 
@@ -172,6 +174,10 @@ Run the normal bootstrap check for each user:
 ```zsh
 ./scripts/bootstrap/verify.sh --profile devbox
 ```
+
+Devbox Git config includes `/opt/homebrew` as a safe directory so both admin
+users can operate on the shared Homebrew prefix without Git dubious-ownership
+failures.
 
 Run the devbox-specific boundary check for each devbox user:
 
