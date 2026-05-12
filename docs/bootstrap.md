@@ -96,13 +96,18 @@ user:
 ```zsh
 GIT_USER_NAME='Devbox Name' \
 GIT_USER_EMAIL='devbox@example.com' \
-GIT_SIGNING_KEY='ssh-ed25519 ...' \
+GIT_SIGNING_KEY="$HOME/.ssh/devbox-key" \
 OP_SSH_VAULT='Devbox Vault' \
   ./scripts/bootstrap/configure-git.sh --profile devbox --non-interactive
 ```
 
 Devbox Git config writes identity and `/opt/homebrew` Git safe-directory state
-to `~/.gitconfig.local`, not to the tracked shared config.
+to `~/.gitconfig.local`, not to the tracked shared config. When
+`GIT_SIGNING_KEY` is a local private key path, devbox setup also writes a
+managed `Host github.com` block to `~/.ssh/config.local` so normal
+`git@github.com:...` remotes work over SSH in headless sessions without relying
+on the 1Password GUI agent socket. Use `GIT_SSH_IDENTITY_FILE` when GitHub SSH
+auth should use a different local key path than commit signing.
 
 If the devbox runs long-lived OpenClaw or agent services, follow
 [Devbox setup](devbox.md). The short version:
@@ -161,6 +166,10 @@ can hang.
   retry verification.
 - If Git reports dubious ownership under `/opt/homebrew`, rerun
   `configure-git.sh` for the correct profile.
+- If `git@github.com` fails on a devbox but the key is present, rerun
+  `configure-git.sh --profile devbox --non-interactive` with
+  `GIT_SIGNING_KEY` or `GIT_SSH_IDENTITY_FILE` pointing at the exported
+  1Password-backed private key.
 - If `op` works in the GUI but not SSH, check the devbox service-account flow
   in [Devbox setup](devbox.md) instead of exporting the token in shell startup.
 - If `codex` is not installed yet, `install.sh` skips Codex defaults; rerun it

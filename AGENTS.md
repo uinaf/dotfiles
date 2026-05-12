@@ -57,13 +57,15 @@ be configured from explicit values:
 ```zsh
 GIT_USER_NAME='Devbox Name' \
 GIT_USER_EMAIL='devbox@example.com' \
-GIT_SIGNING_KEY='ssh-ed25519 ...' \
+GIT_SIGNING_KEY="$HOME/.ssh/devbox-key" \
 OP_SSH_VAULT='Devbox Vault' \
   ./scripts/bootstrap/configure-git.sh --profile devbox --non-interactive
 ```
 
 Do not put identity-specific values in tracked files. `configure-git.sh` writes
-them to `~/.gitconfig.local`.
+them to `~/.gitconfig.local`. On devboxes, use the 1Password-backed local SSH
+key file for GitHub SSH auth; `configure-git.sh` writes the matching
+`~/.ssh/config.local` override when the signing key is a local path.
 
 ## Verification
 

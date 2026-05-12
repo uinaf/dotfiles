@@ -313,6 +313,17 @@ else
   fail_check "gh is missing"
 fi
 
+if command -v ssh >/dev/null 2>&1; then
+  github_ssh_output="$(ssh -o BatchMode=yes -T git@github.com 2>&1 || true)"
+  if grep -q 'successfully authenticated' <<< "$github_ssh_output"; then
+    ok "git@github.com SSH auth works"
+  else
+    fail_check "git@github.com SSH auth failed"
+  fi
+else
+  fail_check "ssh is missing"
+fi
+
 section "SSH key file permissions"
 
 if [ -d "$HOME/.ssh" ]; then

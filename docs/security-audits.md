@@ -122,6 +122,7 @@ It checks:
 - shell startup backups, Git config backups, SSH config backups, process-compose
   backups, and OpenClaw rollback files do not contain raw secret material
 - Git identity, GitHub auth, and commit signing are configured
+- GitHub SSH auth works for `git@github.com`
 - SSH private key files are not group/world-readable
 - admin group membership, when `UINAF_EXPECTED_ADMIN_USERS` is configured
 - Tailscale CLI status works

@@ -87,6 +87,14 @@ identity's Slack, GitHub, CI, or 1Password capabilities.
 If an identity needs access outside its normal context for a specific task,
 grant it explicitly and temporarily, then remove that access after the task.
 
+For GitHub, devbox repos should use SSH remotes. The per-user GitHub key should
+come from that identity's 1Password-backed SSH key material, exported to an
+owner-only local key file during bootstrap. Because the 1Password desktop SSH
+agent socket may not exist in SSH sessions, `configure-git.sh --profile devbox`
+writes a `Host github.com` override in `~/.ssh/config.local` when the signing
+key is a local path. That override uses the local key file directly and sets
+`IdentityAgent none` for GitHub only.
+
 ## Local Contract
 
 Each devbox user should have a local config file outside Git:
@@ -197,8 +205,9 @@ Run the devbox security audit for each devbox user:
 
 That audit is stricter than verification. It checks for stale secret-looking
 backups, generated env symlink drift, Git/GitHub identity state, SSH key file
-permissions, admin group drift, Tailscale health, and raw service-account token
-references in local service config. It does not print secret values.
+permissions, GitHub SSH auth, admin group drift, Tailscale health, and raw
+service-account token references in local service config. It does not print
+secret values.
 
 For OS-level posture, run `./scripts/security/audit.sh` after generating a
 macOS Security Compliance Project check-only script for the host's macOS

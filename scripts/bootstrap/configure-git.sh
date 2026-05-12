@@ -9,6 +9,7 @@ signing_key="${GIT_SIGNING_KEY:-}"
 sign_commits="${GIT_SIGN_COMMITS:-}"
 allowed_signer_principal="${GIT_ALLOWED_SIGNER_PRINCIPAL:-}"
 op_ssh_vault="${OP_SSH_VAULT:-}"
+git_ssh_identity_file="${GIT_SSH_IDENTITY_FILE:-}"
 
 usage() {
   cat <<EOF
@@ -24,6 +25,7 @@ Environment:
   GIT_SIGNING_KEY
   GIT_SIGN_COMMITS    true|false
   GIT_ALLOWED_SIGNER_PRINCIPAL optional SSH signing verification principal; defaults to GIT_USER_EMAIL
+  GIT_SSH_IDENTITY_FILE optional SSH private key path for git@github.com; devbox defaults to GIT_SIGNING_KEY when it is a path
   OP_SSH_VAULT        optional 1Password SSH agent vault
   OP_SERVICE_ACCOUNT_TOKEN may be used by 1Password tooling, but is not read or written here
 EOF
@@ -117,6 +119,54 @@ resolve_ssh_public_key() {
   exit 1
 }
 
+write_github_ssh_config() {
+  local identity_file="$1"
+  local ssh_config_dir="$HOME/.ssh"
+  local ssh_config_local="$ssh_config_dir/config.local"
+  local tmp_config
+
+  case "$identity_file" in
+    ssh-*|"")
+      return
+      ;;
+  esac
+
+  if [ ! -f "$identity_file" ]; then
+    printf 'cannot configure git@github.com SSH auth; identity file does not exist: %s\n' "$identity_file" >&2
+    exit 1
+  fi
+
+  mkdir -p "$ssh_config_dir"
+  chmod 0700 "$ssh_config_dir"
+
+  tmp_config="$(mktemp)"
+  if [ -f "$ssh_config_local" ]; then
+    awk '
+      $0 == "# uinaf-dotfiles: github-ssh begin" { skip = 1; next }
+      $0 == "# uinaf-dotfiles: github-ssh end" { skip = 0; next }
+      !skip { print }
+    ' "$ssh_config_local" > "$tmp_config"
+    if [ -s "$tmp_config" ] && [ "$(tail -c 1 "$tmp_config")" != "" ]; then
+      printf '\n' >> "$tmp_config"
+    fi
+  fi
+
+  cat >> "$tmp_config" <<EOF
+# uinaf-dotfiles: github-ssh begin
+Host github.com
+  HostName github.com
+  User git
+  IdentityFile $identity_file
+  IdentitiesOnly yes
+  IdentityAgent none
+# uinaf-dotfiles: github-ssh end
+EOF
+
+  install -m 0600 "$tmp_config" "$ssh_config_local"
+  rm -f "$tmp_config"
+  printf 'wrote %s\n' "$ssh_config_local"
+}
+
 default_name="$(git config --global --get user.name 2>/dev/null || true)"
 default_email="$(git config --global --get user.email 2>/dev/null || true)"
 
@@ -170,6 +220,16 @@ if [ "$sign_commits" = "true" ] && [ -z "$signing_key" ]; then
   exit 1
 fi
 
+if [ -z "$git_ssh_identity_file" ] && [ "$profile" = "devbox" ]; then
+  case "$signing_key" in
+    ssh-*)
+      ;;
+    *)
+      git_ssh_identity_file="$signing_key"
+      ;;
+  esac
+fi
+
 gitconfig_local="$HOME/.gitconfig.local"
 allowed_signers_file="$HOME/.config/git/allowed_signers.local"
 tmp="$(mktemp)"
@@ -216,6 +276,10 @@ fi
 
 install -m 0600 "$tmp" "$gitconfig_local"
 printf 'wrote %s\n' "$gitconfig_local"
+
+if [ "$profile" = "devbox" ]; then
+  write_github_ssh_config "$git_ssh_identity_file"
+fi
 
 if [ -z "$op_ssh_vault" ] && [ "$non_interactive" -eq 0 ]; then
   op_ssh_vault="$(prompt '1Password SSH agent vault (blank to skip)' "$op_ssh_vault")"
