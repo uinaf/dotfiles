@@ -3,18 +3,14 @@
 
 # Taps
 tap "antoniorodr/memo"
-tap "chill-institute/tap"
 tap "openhue/cli"
 tap "schpet/tap"
 tap "steipete/tap"
 tap "xcodesorg/made"
 
 # Headless-friendly apps and remote desktop helpers
-cask "1password-cli"
 cask "betterdisplay"
-cask "codex"
 cask "gcloud-cli"
-cask "ghostty"
 cask "raycast"
 
 # Agent and devbox CLIs
@@ -22,13 +18,6 @@ brew "tmux"
 brew "uv"
 brew "tailscale"
 brew "yt-dlp"
-brew "xcodes"
-
-# Containers
-brew "colima"
-brew "docker"
-brew "docker-buildx"
-brew "docker-compose"
 
 # Document, media, and OCR helpers
 brew "oath-toolkit"
@@ -42,7 +31,6 @@ brew "summarize"
 
 # Devbox tools observed on the shared Mac mini
 brew "antoniorodr/memo/memo"
-brew "chill-institute/tap/chilly"
 brew "openhue/cli/openhue-cli"
 brew "schpet/tap/linear"
 brew "steipete/tap/gogcli"

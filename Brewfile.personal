@@ -2,22 +2,14 @@
 # Run through ./scripts/brew-bundle.sh so the shared Brewfile installs first.
 
 # Taps
-tap "chill-institute/tap"
 tap "jesseduffield/lazydocker"
 tap "openclaw/tap"
-tap "putdotio/tap"
 tap "steipete/tap"
 
-# Terminal and editors
-cask "ghostty"
-cask "zed"
-
 # Browser and auth
-cask "google-chrome"
 cask "firefox"
 cask "brave-browser"
 cask "1password"
-cask "1password-cli"
 cask "google-drive"
 cask "yubico-authenticator"
 
@@ -32,9 +24,7 @@ cask "telegram"
 cask "zoom"
 
 # Agent tools
-cask "codex"
 cask "codex-app"
-cask "claude-code"
 cask "codexbar"
 
 # Design and work apps
@@ -56,11 +46,6 @@ cask "parsec"
 cask "the-unarchiver"
 cask "vlc"
 
-# Containers
-brew "colima"
-brew "docker"
-brew "docker-buildx"
-brew "docker-compose"
 brew "lazydocker"
 
 # Platform CLIs
@@ -68,7 +53,5 @@ brew "gradle"
 brew "ykman"
 
 # Project tools
-brew "chill-institute/tap/chilly"
 brew "openclaw/tap/crabbox"
 brew "openclaw/tap/gitcrawl"
-brew "putdotio/tap/putio-cli"
