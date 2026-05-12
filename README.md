@@ -97,7 +97,8 @@ its sync script.
 
 Agents helping with setup should read [Agent guide](AGENTS.md). It contains the
 bootstrap order, local-state boundaries, devbox signing expectations, and
-verification commands.
+verification commands. See [Agent readiness](docs/agent-readiness.md) for the
+repo verification model and current gaps.
 
 ## Scripts
 
@@ -105,6 +106,7 @@ See [Script guide](scripts/README.md) for the directory layout.
 
 | Script | Purpose |
 | --- | --- |
+| `scripts/bootstrap/verify-repo.sh` | Run repo-level shell, workflow, diff, entrypoint, and secret-scan checks. |
 | `scripts/bootstrap/brew-bundle.sh` | Install the shared Brewfile plus a selected profile Brewfile. |
 | `scripts/bootstrap/install.sh` | Link tracked files from `home/` into `~`. |
 | `scripts/bootstrap/configure-codex.sh` | Merge portable Codex defaults into local config. |
@@ -144,7 +146,8 @@ See [Contributing](CONTRIBUTING.md).
 
 Report vulnerabilities privately. See [Security](SECURITY.md).
 
-For local posture checks, run `./scripts/security/audit.sh` and
+For local repo checks, run `./scripts/bootstrap/verify-repo.sh`. For local
+posture checks, run `./scripts/security/audit.sh` and
 `./scripts/security/audit-personal.sh`. On a shared devbox, run
 `./scripts/devbox/security-audit.sh` from each devbox user instead of the
 personal audit.

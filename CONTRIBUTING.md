@@ -22,10 +22,7 @@ cd ~/projects/uinaf/dotfiles
 Before opening a pull request, run:
 
 ```zsh
-find scripts -name '*.sh' -print0 | xargs -0 bash -n
-find scripts -name '*.sh' -print0 | xargs -0 shellcheck
-git diff --check
-gitleaks detect --source . --verbose
+./scripts/bootstrap/verify-repo.sh
 ```
 
 Run `./scripts/bootstrap/verify.sh` only on a machine where these dotfiles are

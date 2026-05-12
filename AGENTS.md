@@ -65,15 +65,18 @@ process-compose config, or generated runtime dotenv files.
 Before committing repo changes, run:
 
 ```zsh
-find scripts -name '*.sh' -print0 | xargs -0 bash -n
-find scripts -name '*.sh' -print0 | xargs -0 shellcheck
-git diff --check
-gitleaks detect --source . --verbose
-./scripts/security/audit.sh --skip-mscp
+./scripts/bootstrap/verify-repo.sh
 ```
+
+That command runs shell syntax checks, ShellCheck, Actionlint, diff hygiene,
+agent-entrypoint checks, and repo secret scans. Use
+`./scripts/bootstrap/verify-repo.sh --skip-security` only for a quick local
+loop before the final check.
 
 Follow [Security audits](docs/security-audits.md) when changing audit scripts,
 secret scanning, mSCP integration, or devbox security checks.
+Follow [Agent readiness](docs/agent-readiness.md) when changing verification
+entrypoints, CI gates, or machine-bootstrap checks.
 
 Run `./scripts/bootstrap/verify.sh --profile personal` or
 `./scripts/bootstrap/verify.sh --profile devbox` only on a machine where the

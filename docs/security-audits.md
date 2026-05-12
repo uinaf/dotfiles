@@ -23,8 +23,13 @@ Gitleaks run does not prove launchd or process-compose state is safe.
 Run locally before committing security-sensitive setup changes:
 
 ```zsh
-./scripts/security/audit.sh --skip-mscp
+./scripts/bootstrap/verify-repo.sh
 ```
+
+That command runs the repository secret scan through
+`./scripts/security/audit.sh --skip-mscp` after the normal shell, workflow, and
+diff checks. Run `./scripts/security/audit.sh --skip-mscp` directly when you
+only need the secret scanners.
 
 GitHub Actions also runs Gitleaks and TruffleHog on pushes to `main`, pull
 requests, weekly schedule, and manual dispatch through

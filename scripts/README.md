@@ -14,6 +14,8 @@ Run scripts from the repository root unless a script says otherwise.
 ## Common Commands
 
 ```zsh
+./scripts/bootstrap/verify-repo.sh
+
 ./scripts/bootstrap/brew-bundle.sh personal
 ./scripts/bootstrap/install.sh
 ./scripts/bootstrap/configure-git.sh --profile personal
@@ -29,6 +31,5 @@ Run scripts from the repository root unless a script says otherwise.
 Before committing script changes:
 
 ```zsh
-find scripts -name '*.sh' -print0 | xargs -0 bash -n
-find scripts -name '*.sh' -print0 | xargs -0 shellcheck
+./scripts/bootstrap/verify-repo.sh
 ```
