@@ -13,17 +13,34 @@ Run scripts from the repository root unless a script says otherwise.
 
 ## Common Commands
 
+Repository-only verification:
+
 ```zsh
 ./scripts/bootstrap/verify-repo.sh
+```
+
+Personal bootstrap:
+
+```zsh
 
 ./scripts/bootstrap/brew-bundle.sh personal
 ./scripts/bootstrap/install.sh
 ./scripts/bootstrap/configure-chrome.sh
 ./scripts/bootstrap/configure-git.sh --profile personal
 ./scripts/bootstrap/verify.sh --profile personal
+```
+
+Security audits:
+
+```zsh
 
 ./scripts/security/audit.sh --skip-mscp
 ./scripts/security/audit-personal.sh
+```
+
+Devbox checks:
+
+```zsh
 
 ./scripts/devbox/verify.sh
 ./scripts/devbox/security-audit.sh

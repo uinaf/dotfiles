@@ -4,95 +4,109 @@ Guidance for agents helping with this repo.
 
 ## Role
 
-This is a public Mac bootstrap repo for uinaf machines.
+This is a public Mac bootstrap repo for uinaf machines. Help the user install
+tools, link dotfiles, configure local identity, and verify a machine without
+turning private machine state into repository state.
 
-Help the user install tools, link dotfiles, configure local Git identity, and
-verify the machine. Keep the repo public-safe. Keep machine state local.
+Start with [README](README.md). Use [Bootstrap guide](docs/bootstrap.md) for
+install steps, [Devbox setup](docs/devbox.md) for shared agent hosts, and
+[Agent readiness](docs/agent-readiness.md) for verification expectations.
 
-## Boundaries
+`CLAUDE.md` is a symlink to this file. Keep `AGENTS.md` as the only authored
+agent guide.
 
-- Do not commit secrets, tokens, private keys, certificates, Tizen archives, or
-  machine-local config.
-- Do not back up, copy, link, or summarize the full `~/.codex/config.toml`,
-  Browser approvals, Codex auth, sessions, caches, worktrees, or app state.
-  Only `scripts/bootstrap/configure-codex.sh` may merge the portable Codex defaults; use
-  `codex features enable` for feature flags when the CLI is available.
-- Do not invent Git identities, signing keys, 1Password vault names, or service
-  account tokens. Ask the user or use explicit environment variables.
-- Do not store `OP_SERVICE_ACCOUNT_TOKEN` in Git, shell rc files, launchd
-  plists, process-compose YAML, or dotenv files. It belongs in machine-local
-  secret storage, such as a root-owned token file on a headless devbox, and
-  should be fetched by the narrow wrapper that needs it.
-- Keep `README.md` and this file short. Move detailed operational guidance to
-  dedicated docs.
+## Hard Boundaries
+
+- Do not commit secrets, tokens, private keys, certificates, Tizen archives,
+  machine-local config, or generated env files.
+- Do not back up, copy, link, or summarize full Codex config, Browser
+  approvals, auth files, sessions, caches, worktrees, or app state.
+- Do not invent Git identities, signing keys, 1Password vault names, service
+  account tokens, or 1Password item references.
+- Do not store `OP_SERVICE_ACCOUNT_TOKEN` in Git, shell startup, launchd
+  plists, process-compose YAML, or dotenv files.
+- Keep examples public-safe. Avoid private machine names, vault item names, and
+  identity context.
+
+Machine-local secrets belong in explicit local storage. On a headless devbox,
+that usually means a root-owned token file read only by a narrow wrapper.
+
+## Agent Operating Checklist
+
+1. Run `git status --short --branch` before editing.
+2. Identify the target profile: `personal`, `devbox`, or repo-only docs/scripts.
+3. Read only the relevant deep doc:
+   - personal or first-machine setup: [Bootstrap guide](docs/bootstrap.md)
+   - shared agent host: [Devbox setup](docs/devbox.md)
+   - audits or secret boundaries: [Security audits](docs/security-audits.md)
+   - CI and GitHub workflows: [GitHub pipelines](docs/github-pipelines.md)
+4. Keep top-level docs short; put operational detail under `docs/`.
+5. Use repo scripts as the source of truth. Do not replace them with one-off
+   shell snippets unless you are diagnosing a failure.
+6. Verify with the narrowest useful command, then run the final repo gate before
+   committing.
 
 ## Setup Flow
 
-Use this order when helping a user bootstrap a Mac:
+For a human-operated Mac, follow [Personal Mac](docs/bootstrap.md#personal-mac).
 
-1. Install Xcode Command Line Tools.
-2. Install Homebrew.
-3. Install `git` and `gh`.
-4. Sign in with `gh auth login`.
-5. Clone `uinaf/dotfiles` to `~/projects/uinaf/dotfiles`.
-6. Run `./scripts/bootstrap/brew-bundle.sh personal` or `./scripts/bootstrap/brew-bundle.sh devbox`.
-7. Install Oh My Zsh.
-8. Run `./scripts/bootstrap/install.sh`.
-9. Optionally quit Chrome and run `./scripts/bootstrap/configure-chrome.sh`.
-10. Run `./scripts/bootstrap/configure-git.sh --profile personal` or
-   `./scripts/bootstrap/configure-git.sh --profile devbox --non-interactive`.
-11. Run `mise install`.
-12. Run `./scripts/bootstrap/pull-repos.sh`.
-13. Run `./scripts/bootstrap/verify.sh --profile personal` or
-    `./scripts/bootstrap/verify.sh --profile devbox`.
-
-For a devbox, commit signing is expected. Provide at least:
+For a shared agent host, follow [Devbox Mac](docs/bootstrap.md#devbox-mac) and
+then [Devbox setup](docs/devbox.md). Devbox commit signing is expected and must
+be configured from explicit values:
 
 ```zsh
-GIT_USER_NAME='Devbox' \
+GIT_USER_NAME='Devbox Name' \
 GIT_USER_EMAIL='devbox@example.com' \
 GIT_SIGNING_KEY='ssh-ed25519 ...' \
-OP_SSH_VAULT='Devbox' \
+OP_SSH_VAULT='Devbox Vault' \
   ./scripts/bootstrap/configure-git.sh --profile devbox --non-interactive
 ```
 
-If the devbox uses a 1Password service account, install the token into
-machine-local secret storage and run 1Password-backed steps through a wrapper
-that fetches it at runtime. Do not put the raw token in shell startup, launchd,
-process-compose config, or generated runtime dotenv files.
+Do not put identity-specific values in tracked files. `configure-git.sh` writes
+them to `~/.gitconfig.local`.
 
 ## Verification
 
-Before committing repo changes, run:
+Before committing repo changes:
 
 ```zsh
 ./scripts/bootstrap/verify-repo.sh
 ```
 
-That command runs shell syntax checks, ShellCheck, Actionlint, diff hygiene,
-agent-entrypoint checks, and repo secret scans. Use
-`./scripts/bootstrap/verify-repo.sh --skip-security` only for a quick local
-loop before the final check.
+For fast local script loops before the final check:
 
-Follow [Security audits](docs/security-audits.md) when changing audit scripts,
-secret scanning, mSCP integration, or devbox security checks.
-Follow [Agent readiness](docs/agent-readiness.md) when changing verification
-entrypoints, CI gates, or machine-bootstrap checks.
-Follow [GitHub pipelines](docs/github-pipelines.md) before adding, removing, or
-renaming workflows. This repo intentionally has no deploy or release pipeline.
+```zsh
+./scripts/bootstrap/verify-repo.sh --skip-security
+```
 
-Run `./scripts/bootstrap/verify.sh --profile personal` or
-`./scripts/bootstrap/verify.sh --profile devbox` only on a machine where the
-bootstrap is meant to be active. It checks the live home directory and
-installed tools.
+For a live machine that should use these dotfiles:
+
+```zsh
+./scripts/bootstrap/verify.sh --profile personal
+./scripts/bootstrap/verify.sh --profile devbox
+```
+
+For devbox users:
+
+```zsh
+./scripts/devbox/verify.sh
+./scripts/devbox/security-audit.sh
+```
+
+For personal security drift:
+
+```zsh
+./scripts/security/audit-personal.sh
+```
 
 ## Repo Rules
 
 - Use Conventional Commits.
-- Keep Git history clean while this repo is still being shaped as a public
-  bootstrap source.
-- Keep `Brewfile` shared and profile-neutral. Put laptop-only apps in
-  `Brewfile.personal` and shared Mac mini/devbox tools in `Brewfile.devbox`.
-- Keep Codex setup install-only here. Agent rule links belong to `uinaf/agents`.
+- Keep `Brewfile` shared and profile-neutral.
+- Put laptop-only apps in `Brewfile.personal`.
+- Put shared Mac mini and devbox tools in `Brewfile.devbox`.
+- Keep Codex setup install-only here; agent rule links belong to `uinaf/agents`.
+- Update docs when scripts, profile behavior, audit behavior, or workflow names
+  change.
 - Follow the uinaf repo-doc voice: proper-case headings, sentence-case body,
-  short direct prose, no emoji, no SaaS copy.
+  short direct prose, no emoji, no marketing copy.

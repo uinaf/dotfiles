@@ -10,12 +10,14 @@ Codex state, browser profiles, app caches, and project checkouts stay local.
 ## Local Setup
 
 ```zsh
-brew install git gh shellcheck gitleaks
+brew install git gh shellcheck actionlint gitleaks trufflehog
 gh auth login
 
 gh repo clone uinaf/dotfiles ~/projects/uinaf/dotfiles
 cd ~/projects/uinaf/dotfiles
 ```
+
+For full machine bootstrap, use [Bootstrap guide](docs/bootstrap.md).
 
 ## Daily Workflow
 
@@ -28,6 +30,9 @@ Before opening a pull request, run:
 Run `./scripts/bootstrap/verify.sh` only on a machine where these dotfiles are
 actively installed. It checks the live home directory.
 
+Use `./scripts/bootstrap/verify-repo.sh --skip-security` for a fast local loop,
+but run the full command before committing or pushing.
+
 ## Brewfiles
 
 - `Brewfile` is the shared app and CLI set for every uinaf Mac.
@@ -39,3 +44,6 @@ actively installed. It checks the live home directory.
 Use Conventional Commits.
 
 Keep pull requests focused. Include the commands you ran and any skipped checks.
+If a change affects setup behavior, update [Bootstrap guide](docs/bootstrap.md),
+[Agent guide](AGENTS.md), or [Agent readiness](docs/agent-readiness.md) in the
+same change.

@@ -1,55 +1,80 @@
 # Agent Readiness
 
-This repo is a Mac bootstrap and dotfiles repo, not a long-running app. Agent
-readiness means agents can validate repo changes mechanically and can tell
-whether a target machine matches the expected bootstrap shape.
+This repo is a bootstrap repo, not an app. There is no server to boot and no UI
+flow to drive. Agent readiness means an agent can:
+
+1. understand which machine profile it is working on
+2. make a scoped repo change safely
+3. verify repository health mechanically
+4. verify live host drift only when it is operating on that host
+5. avoid copying private machine state into Git
 
 ## Current Grade
 
 | Dimension | Status | Evidence | Gap |
 | --- | --- | --- | --- |
-| Bootable | pass | `scripts/bootstrap/brew-bundle.sh` installs shared plus profile layers; `scripts/bootstrap/install.sh` links tracked files. | First-time macOS setup still needs Command Line Tools, Homebrew, and GitHub auth. |
-| Testable | pass | `scripts/bootstrap/verify-repo.sh` runs syntax checks, ShellCheck, Actionlint, diff hygiene, entrypoint sanity, and repo secret scans locally. | Live machine behavior still needs a matching personal or devbox host. |
-| Observable | partial | Verification and audit scripts print sectioned output; GitHub Actions exposes logs for repo checks and secret scans. | No structured machine-readable report format yet. |
-| Verifiable | pass | `.github/workflows/verify.yml`, `.github/workflows/secrets.yml`, `scripts/bootstrap/verify.sh`, and `scripts/devbox/verify.sh`. | Devbox process-compose and service-token checks are host-local by design. |
+| Bootable | pass | `scripts/bootstrap/brew-bundle.sh` installs shared plus profile bundles; `scripts/bootstrap/install.sh` links tracked files. | First-time macOS still needs Command Line Tools, Homebrew, and GitHub auth. |
+| Testable | pass | `scripts/bootstrap/verify-repo.sh` runs shell syntax, ShellCheck, Actionlint, diff hygiene, agent-entrypoint checks, and repo secret scans. | Live bootstrap checks require a matching personal or devbox Mac. |
+| Observable | partial | Verification and audit scripts print stable sectioned output; CI exposes Verify and Secret scanning logs. | Scripts do not emit JSON or SARIF reports yet. |
+| Verifiable | pass | `.github/workflows/verify.yml`, `.github/workflows/secrets.yml`, `scripts/bootstrap/verify.sh`, `scripts/devbox/verify.sh`, and audit scripts. | Host-local service and token checks cannot run meaningfully on GitHub-hosted CI. |
 
-Overall grade: **B for a bootstrap repo**. The repo has a single local
-verification command, separate CI gates for repo checks and secret scanning, and
-Dependabot coverage for GitHub Actions updates. The remaining gaps are
-machine-local observability and optional pre-push hook installation.
+Overall grade: **B for a bootstrap repo**.
+
+The repo has a reliable repo gate, CI gates, and separate host-local audits.
+The remaining readiness gap is structured machine-readable audit output.
+
+## Verification Matrix
+
+| Situation | Command | What it proves |
+| --- | --- | --- |
+| Before committing repo changes | `./scripts/bootstrap/verify-repo.sh` | Scripts parse, ShellCheck passes, workflows lint, diffs are clean, agent entrypoints are valid, and secret scanners pass. |
+| Fast local loop | `./scripts/bootstrap/verify-repo.sh --skip-security` | Same repo checks without Gitleaks/TruffleHog. Run the full command before commit. |
+| Personal Mac bootstrap | `./scripts/bootstrap/verify.sh --profile personal` | Required CLIs, Homebrew bundle, mise, Codex defaults, and linked config exist on the live host. |
+| Devbox bootstrap | `./scripts/bootstrap/verify.sh --profile devbox` | Shared/devbox CLIs, Homebrew bundle, mise, Codex defaults, and linked config exist on the live host. |
+| Devbox service boundary | `./scripts/devbox/verify.sh` | process-compose and generated env/token boundaries match the local devbox contract. |
+| Devbox security drift | `./scripts/devbox/security-audit.sh` | Secret boundaries, Git/GitHub identity, SSH key modes, admin drift, and Tailscale health are sane for that Unix user. |
+| Personal security drift | `./scripts/security/audit-personal.sh` | Personal shell, Git, SSH, Codex, and local secret boundaries do not show obvious drift. |
+| Repository and macOS audit | `./scripts/security/audit.sh` | Gitleaks/TruffleHog pass; optional mSCP check-only audit runs when configured. |
 
 ## Agent Workflow
 
-For repository changes, run:
+For docs or script changes:
 
-```zsh
-./scripts/bootstrap/verify-repo.sh
-```
+1. Read [Agent guide](../AGENTS.md) and the specific doc for the surface being
+   changed.
+2. Run `git status --short --branch`.
+3. Make the smallest scoped change.
+4. Run `./scripts/bootstrap/verify-repo.sh`.
+5. Commit only the scoped diff.
 
-For live bootstrap checks, run the profile that matches the machine:
+For live machine setup:
 
-```zsh
-./scripts/bootstrap/verify.sh --profile personal
-./scripts/bootstrap/verify.sh --profile devbox
-```
+1. Confirm whether the target is `personal` or `devbox`.
+2. Follow [Bootstrap guide](bootstrap.md).
+3. Run the matching live verification command.
+4. For devbox users, also run `./scripts/devbox/verify.sh` and
+   `./scripts/devbox/security-audit.sh`.
+5. Do not copy private values from the live machine into the repo.
 
-For devbox boundary checks, run from each devbox user:
+## CI Contract
 
-```zsh
-./scripts/devbox/verify.sh
-./scripts/devbox/security-audit.sh
-```
+GitHub Actions has two separate gates:
 
-Use `./scripts/security/audit.sh --skip-mscp` for repository secret scanning
-without the host-level macOS Security Compliance Project audit.
+- Verify: repo checks that do not need secrets.
+- Secret scanning: Gitleaks and TruffleHog with full Git history.
 
-See [GitHub pipelines](github-pipelines.md) for the CI contract and the
-intentional deploy/release non-goals.
+See [GitHub pipelines](github-pipelines.md) for triggers and non-goals.
 
 ## Non-Goals
 
-- This repo does not provide app e2e tests, seed data, or service health
-  endpoints because it does not run an application.
-- This repo does not make machine-local secrets, Codex state, browser profiles,
-  or service-account tokens part of Git.
-- This repo does not automatically remediate mSCP findings.
+- No app boot command, seed data, browser e2e, or service health endpoint.
+- No automatic mSCP remediation.
+- No tracked Codex state, browser profiles, service-account tokens, or generated
+  devbox env files.
+- No deploy or release pipeline unless the repo starts publishing an artifact.
+
+## Future Improvements
+
+- Add optional JSON output to audit scripts for easier agent parsing.
+- Add an installable pre-push hook that runs `verify-repo.sh --skip-security`.
+- Add a short machine-readable summary mode for `security-audit.sh` scripts.
