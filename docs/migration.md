@@ -7,7 +7,13 @@ Use this when moving an existing Mac onto this repo.
 Install the app and CLI layer:
 
 ```zsh
-brew bundle --file ./Brewfile
+./scripts/brew-bundle.sh personal
+```
+
+For a shared Mac mini or other agent host:
+
+```zsh
+./scripts/brew-bundle.sh devbox
 ```
 
 Use mise for runtimes:

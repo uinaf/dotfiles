@@ -35,14 +35,15 @@ Use this order when helping a user bootstrap a Mac:
 3. Install `git` and `gh`.
 4. Sign in with `gh auth login`.
 5. Clone `uinaf/dotfiles` to `~/projects/uinaf/dotfiles`.
-6. Run `brew bundle --file ./Brewfile`.
+6. Run `./scripts/brew-bundle.sh personal` or `./scripts/brew-bundle.sh devbox`.
 7. Install Oh My Zsh.
 8. Run `./scripts/install.sh`.
 9. Run `./scripts/configure-git.sh --profile personal` or
    `./scripts/configure-git.sh --profile devbox --non-interactive`.
 10. Run `mise install`.
 11. Run `./scripts/pull-repos.sh`.
-12. Run `./scripts/verify.sh`.
+12. Run `./scripts/verify.sh --profile personal` or
+    `./scripts/verify.sh --profile devbox`.
 
 For a devbox, commit signing is expected. Provide at least:
 
@@ -70,16 +71,17 @@ git diff --check
 gitleaks detect --source . --verbose
 ```
 
-Run `./scripts/verify.sh` only on a machine where the bootstrap is meant to be
-active. It checks the live home directory and installed tools.
+Run `./scripts/verify.sh --profile personal` or `./scripts/verify.sh --profile
+devbox` only on a machine where the bootstrap is meant to be active. It checks
+the live home directory and installed tools.
 
 ## Repo Rules
 
 - Use Conventional Commits.
 - Keep Git history clean while this repo is still being shaped as a public
   bootstrap source.
-- Keep `Brewfile` complete. uinaf machines install the same apps and CLIs by
-  default; avoid reintroducing profile-specific Brewfiles.
+- Keep `Brewfile` shared and profile-neutral. Put laptop-only apps in
+  `Brewfile.personal` and shared Mac mini/devbox tools in `Brewfile.devbox`.
 - Keep Codex setup install-only here. Agent rule links belong to `uinaf/agents`.
 - Follow the uinaf repo-doc voice: proper-case headings, sentence-case body,
   short direct prose, no emoji, no SaaS copy.

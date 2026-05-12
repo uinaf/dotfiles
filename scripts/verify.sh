@@ -1,10 +1,58 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-cli_checks=(
+profile="personal"
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+usage() {
+  cat <<'USAGE'
+Usage:
+  scripts/verify.sh [--profile personal|devbox]
+
+Checks the live machine bootstrap for the selected profile. The default profile
+is personal for backward compatibility.
+USAGE
+}
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --profile)
+      shift
+      if [ "$#" -eq 0 ]; then
+        usage >&2
+        exit 2
+      fi
+      profile="$1"
+      ;;
+    personal|devbox)
+      profile="$1"
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      usage >&2
+      exit 2
+      ;;
+  esac
+  shift
+done
+
+case "$profile" in
+  personal|devbox)
+    ;;
+  *)
+    usage >&2
+    exit 2
+    ;;
+esac
+
+common_cli_checks=(
   "brew --version"
   "git --version"
   "gh auth status"
+  "mise --version"
   "node --version"
   "bun --version"
   "python --version"
@@ -12,12 +60,23 @@ cli_checks=(
   "uv --version"
   "op --version"
   "codex --version"
-  "gitcrawl --version"
-  "blacksmith --version"
   "tailscale status --peers=false"
 )
 
-config_paths=(
+personal_cli_checks=(
+  "gitcrawl --version"
+  "blacksmith --version"
+)
+
+devbox_cli_checks=(
+  "process-compose version"
+  "tmux -V"
+  "qpdf --version"
+  "qrencode --version"
+  "xcodes version"
+)
+
+common_config_paths=(
   "$HOME/.config/zed/settings.json"
   "$HOME/.config/zed/keymap.json"
   "$HOME/.codex/config.toml"
@@ -67,19 +126,6 @@ check_no_legacy_tool_versions() {
   printf 'ok no ~/.tool-versions\n'
 }
 
-check_config_paths() {
-  local path
-
-  section "config files"
-  for path in "${config_paths[@]}"; do
-    if [ -e "$path" ]; then
-      printf 'ok %s\n' "$path"
-    else
-      fail "missing $path"
-    fi
-  done
-}
-
 check_codex_config() {
   local config="$HOME/.codex/config.toml"
 
@@ -104,15 +150,48 @@ check_mise() {
 check_cli_tools() {
   local check
 
-  for check in "${cli_checks[@]}"; do
+  for check in "${common_cli_checks[@]}"; do
     run_zsh_check "$check"
+  done
+
+  if [ "$profile" = "personal" ]; then
+    for check in "${personal_cli_checks[@]}"; do
+      run_zsh_check "$check"
+    done
+  else
+    for check in "${devbox_cli_checks[@]}"; do
+      run_zsh_check "$check"
+    done
+  fi
+}
+
+check_brew_bundle() {
+  local file
+
+  section "brew bundle checks"
+  for file in Brewfile "Brewfile.$profile"; do
+    brew bundle check --file "$repo_root/$file" || fail "missing Homebrew dependencies from $file"
+  done
+}
+
+check_config_paths() {
+  local path
+
+  section "config files"
+  for path in "${common_config_paths[@]}"; do
+    if [ -e "$path" ]; then
+      printf 'ok %s\n' "$path"
+    else
+      fail "missing $path"
+    fi
   done
 }
 
 check_mise
+check_brew_bundle
 check_cli_tools
 check_no_legacy_tool_versions
 check_config_paths
 check_codex_config
 
-printf '\nbootstrap verification ok\n'
+printf '\nbootstrap verification ok (%s)\n' "$profile"

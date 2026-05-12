@@ -22,7 +22,7 @@ mkdir -p ~/projects/uinaf
 gh repo clone uinaf/dotfiles ~/projects/uinaf/dotfiles
 cd ~/projects/uinaf/dotfiles
 
-brew bundle --file ./Brewfile
+./scripts/brew-bundle.sh personal
 ./scripts/install-blacksmith.sh
 sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
 
@@ -30,12 +30,14 @@ sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/too
 ./scripts/configure-git.sh --profile personal
 mise install
 ./scripts/pull-repos.sh
-./scripts/verify.sh
+./scripts/verify.sh --profile personal
 ```
 
 For a devbox:
 
 ```zsh
+./scripts/brew-bundle.sh devbox
+
 GIT_USER_NAME='Devbox' \
 GIT_USER_EMAIL='devbox@example.com' \
 GIT_SIGNING_KEY='ssh-ed25519 ...' \
@@ -52,9 +54,9 @@ process-compose YAML, or dotenv files. This repo does not store it.
 
 | Path | Purpose |
 | --- | --- |
-| `Brewfile` | Homebrew apps and CLIs for every uinaf Mac. |
-| `Brewfile.personal` | Deprecated compatibility file. |
-| `Brewfile.devbox` | Deprecated compatibility file. |
+| `Brewfile` | Shared Homebrew CLIs for every uinaf Mac. |
+| `Brewfile.personal` | Personal Mac apps, GUI tools, and local development extras. |
+| `Brewfile.devbox` | Devbox apps and CLIs for shared Mac mini agent hosts. |
 | `home/.zshenv` | Minimal zsh environment. |
 | `home/.zprofile` | Login-shell Homebrew and mise bootstrap. |
 | `home/.zshrc` | Interactive zsh, Oh My Zsh, mise, direnv, and PATH. |
@@ -100,6 +102,7 @@ verification commands.
 
 | Script | Purpose |
 | --- | --- |
+| `scripts/brew-bundle.sh` | Install the shared Brewfile plus a selected profile Brewfile. |
 | `scripts/install.sh` | Link tracked files from `home/` into `~`. |
 | `scripts/configure-codex.sh` | Merge portable Codex defaults into local config. |
 | `scripts/configure-git.sh` | Write local Git identity and optional 1Password SSH config. |

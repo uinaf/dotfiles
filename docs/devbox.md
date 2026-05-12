@@ -7,7 +7,7 @@ secrets or identities part of the public dotfiles repo.
 
 Tracked here:
 
-- portable tools in `Brewfile`
+- portable tools in `Brewfile` and `Brewfile.devbox`
 - shared shell, Git, SSH, mise, editor, and Codex defaults
 - public-safe scripts and validation
 - templates and contracts for local service setup
@@ -170,7 +170,7 @@ That generated file is owned by the target service user and mode `0400`.
 Run the normal bootstrap check for each user:
 
 ```zsh
-./scripts/verify.sh
+./scripts/verify.sh --profile devbox
 ```
 
 Run the devbox-specific boundary check for each devbox user:
