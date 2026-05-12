@@ -7,6 +7,7 @@ git_name="${GIT_USER_NAME:-}"
 git_email="${GIT_USER_EMAIL:-}"
 signing_key="${GIT_SIGNING_KEY:-}"
 sign_commits="${GIT_SIGN_COMMITS:-}"
+allowed_signer_principal="${GIT_ALLOWED_SIGNER_PRINCIPAL:-}"
 op_ssh_vault="${OP_SSH_VAULT:-}"
 
 usage() {
@@ -22,6 +23,7 @@ Environment:
   GIT_USER_EMAIL
   GIT_SIGNING_KEY
   GIT_SIGN_COMMITS    true|false
+  GIT_ALLOWED_SIGNER_PRINCIPAL optional SSH signing verification principal; defaults to GIT_USER_EMAIL
   OP_SSH_VAULT        optional 1Password SSH agent vault
   OP_SERVICE_ACCOUNT_TOKEN may be used by 1Password tooling, but is not read or written here
 EOF
@@ -88,6 +90,33 @@ toml_basic_string() {
   printf '"%s"' "$value"
 }
 
+resolve_ssh_public_key() {
+  local value="$1"
+
+  if [[ "$value" = ssh-* ]]; then
+    printf '%s\n' "$value"
+    return
+  fi
+
+  if [ -f "$value" ]; then
+    if [[ "$value" = *.pub ]]; then
+      sed -n '1p' "$value"
+      return
+    fi
+
+    if [ -f "$value.pub" ]; then
+      sed -n '1p' "$value.pub"
+      return
+    fi
+
+    ssh-keygen -y -f "$value"
+    return
+  fi
+
+  printf 'cannot resolve SSH public key from GIT_SIGNING_KEY=%s\n' "$value" >&2
+  exit 1
+}
+
 default_name="$(git config --global --get user.name 2>/dev/null || true)"
 default_email="$(git config --global --get user.email 2>/dev/null || true)"
 
@@ -142,8 +171,18 @@ if [ "$sign_commits" = "true" ] && [ -z "$signing_key" ]; then
 fi
 
 gitconfig_local="$HOME/.gitconfig.local"
+allowed_signers_file="$HOME/.config/git/allowed_signers.local"
 tmp="$(mktemp)"
 trap 'rm -f "$tmp"' EXIT
+
+if [ "$sign_commits" = "true" ]; then
+  allowed_signer_principal="${allowed_signer_principal:-$git_email}"
+  signing_public_key="$(resolve_ssh_public_key "$signing_key")"
+  mkdir -p "$(dirname "$allowed_signers_file")"
+  printf '%s %s\n' "$allowed_signer_principal" "$signing_public_key" > "$allowed_signers_file"
+  chmod 0600 "$allowed_signers_file"
+  printf 'wrote %s\n' "$allowed_signers_file"
+fi
 
 {
   printf '[user]\n'
@@ -156,9 +195,14 @@ trap 'rm -f "$tmp"' EXIT
   printf '\tgpgsign = %s\n' "$sign_commits"
   printf '\n[tag]\n'
   printf '\tgpgsign = %s\n' "$sign_commits"
-  if [ -n "$op_ssh_vault" ]; then
+  if [ "$sign_commits" = "true" ] || [ -n "$op_ssh_vault" ]; then
     printf '\n[gpg "ssh"]\n'
-    printf '\tprogram = /Applications/1Password.app/Contents/MacOS/op-ssh-sign\n'
+    if [ "$sign_commits" = "true" ]; then
+      printf '\tallowedSignersFile = %s\n' "$allowed_signers_file"
+    fi
+    if [ -n "$op_ssh_vault" ]; then
+      printf '\tprogram = /Applications/1Password.app/Contents/MacOS/op-ssh-sign\n'
+    fi
   fi
 } > "$tmp"
 
