@@ -118,7 +118,7 @@ See [Script guide](scripts/README.md) for the directory layout.
 | `scripts/devbox/refresh-openclaw-env.sh` | Refresh a generated OpenClaw env from one 1Password item. |
 | `scripts/devbox/install-op-token.sh` | Install a devbox 1Password service-account token from stdin into root-owned local storage. |
 | `scripts/devbox/install-env-refresh.sh` | Install the root-owned devbox env refresh helper and LaunchDaemon. |
-| `scripts/bootstrap/install-blacksmith.sh` | Install the Blacksmith CLI from its official checksum-verifying installer. |
+| `scripts/bootstrap/install-blacksmith.sh` | Install the Blacksmith CLI through its official vendor installer. |
 | `scripts/bootstrap/pull-repos.sh` | Clone or fast-forward shared bootstrap repos. |
 | `scripts/security/audit.sh` | Run repo secret scans and an optional mSCP check-only macOS audit. |
 | `scripts/security/audit-personal.sh` | Audit personal Mac secret boundaries, identity state, and local drift. |

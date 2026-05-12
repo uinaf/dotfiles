@@ -3,7 +3,6 @@
 
 # Taps
 tap "steipete/tap"
-tap "xcodesorg/made"
 
 # Headless-friendly apps and remote desktop helpers
 cask "betterdisplay"

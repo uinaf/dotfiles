@@ -2,9 +2,7 @@
 # Run through ./scripts/bootstrap/brew-bundle.sh so the shared Brewfile installs first.
 
 # Taps
-tap "jesseduffield/lazydocker"
 tap "openclaw/tap"
-tap "steipete/tap"
 
 # Browser and auth
 cask "firefox"
