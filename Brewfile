@@ -1,6 +1,7 @@
 # Taps
 tap "1password/tap"
 tap "chill-institute/tap"
+tap "f1bonacc1/tap"
 tap "jesseduffield/lazydocker"
 tap "openclaw/tap"
 tap "putdotio/tap"
@@ -98,3 +99,4 @@ brew "chill-institute/tap/chilly"
 brew "openclaw/tap/crabbox"
 brew "openclaw/tap/gitcrawl"
 brew "putdotio/tap/putio-cli"
+brew "f1bonacc1/tap/process-compose"

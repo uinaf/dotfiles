@@ -44,8 +44,9 @@ OP_SSH_VAULT='Devbox' \
 ```
 
 If the devbox uses a 1Password service account, provide
-`OP_SERVICE_ACCOUNT_TOKEN` through the machine's secret manager or launch
-environment. This repo does not store it.
+`OP_SERVICE_ACCOUNT_TOKEN` through machine-local secret storage and a narrow
+runtime wrapper. Do not put the raw token in shell startup, launchd plists,
+process-compose YAML, or dotenv files. This repo does not store it.
 
 ## Managed Files
 
@@ -76,6 +77,9 @@ These stay outside the repo:
 - Docker and Colima state.
 - `node_modules`, language-server caches, and build output.
 
+See [Devbox setup](docs/devbox.md) for the process-compose and 1Password
+pattern used by always-on agent hosts.
+
 `./scripts/configure-git.sh` writes `~/.gitconfig.local`. Set `OP_SSH_VAULT` if
 the machine should also get a local 1Password SSH agent config.
 
@@ -99,9 +103,13 @@ verification commands.
 | `scripts/install.sh` | Link tracked files from `home/` into `~`. |
 | `scripts/configure-codex.sh` | Merge portable Codex defaults into local config. |
 | `scripts/configure-git.sh` | Write local Git identity and optional 1Password SSH config. |
+| `scripts/devbox-refresh-openclaw-env.sh` | Refresh a generated OpenClaw env from one 1Password item. |
+| `scripts/install-devbox-op-token.sh` | Install a devbox 1Password service-account token from stdin into root-owned local storage. |
+| `scripts/install-devbox-env-refresh.sh` | Install the root-owned devbox env refresh helper and LaunchDaemon. |
 | `scripts/install-blacksmith.sh` | Install the Blacksmith CLI from its official checksum-verifying installer. |
 | `scripts/pull-repos.sh` | Clone or fast-forward shared bootstrap repos. |
 | `scripts/verify.sh` | Check the current machine bootstrap. |
+| `scripts/verify-devbox.sh` | Check devbox supervisor, secret-file, and 1Password-token boundaries. |
 | `scripts/tizen-install.sh` | Install Samsung Tizen Studio from the CLI installer. |
 | `scripts/tizen-pack.sh` | Archive Tizen cert/profile state. |
 | `scripts/tizen-restore.sh` | Restore a Tizen cert/profile archive. |

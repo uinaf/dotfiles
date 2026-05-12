@@ -19,8 +19,10 @@ verify the machine. Keep the repo public-safe. Keep machine state local.
   `codex features enable` for feature flags when the CLI is available.
 - Do not invent Git identities, signing keys, 1Password vault names, or service
   account tokens. Ask the user or use explicit environment variables.
-- Do not store `OP_SERVICE_ACCOUNT_TOKEN`. It belongs in the machine's secret
-  manager or launch environment.
+- Do not store `OP_SERVICE_ACCOUNT_TOKEN` in Git, shell rc files, launchd
+  plists, process-compose YAML, or dotenv files. It belongs in machine-local
+  secret storage, such as a root-owned token file on a headless devbox, and
+  should be fetched by the narrow wrapper that needs it.
 - Keep `README.md` and this file short. Move migration detail to
   `docs/migration.md` or a dedicated doc.
 
@@ -52,9 +54,10 @@ OP_SSH_VAULT='Devbox' \
   ./scripts/configure-git.sh --profile devbox --non-interactive
 ```
 
-If the devbox uses a 1Password service account, set
-`OP_SERVICE_ACCOUNT_TOKEN` outside this repo before running 1Password-backed
-steps.
+If the devbox uses a 1Password service account, install the token into
+machine-local secret storage and run 1Password-backed steps through a wrapper
+that fetches it at runtime. Do not put the raw token in shell startup, launchd,
+process-compose config, or generated runtime dotenv files.
 
 ## Verification
 

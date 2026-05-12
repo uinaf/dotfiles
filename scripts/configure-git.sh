@@ -73,6 +73,21 @@ prompt() {
   printf '%s' "${value:-$default}"
 }
 
+toml_basic_string() {
+  local value="$1"
+
+  case "$value" in
+    *$'\n'*|*$'\r'*)
+      printf 'TOML string values cannot contain newlines\n' >&2
+      exit 2
+      ;;
+  esac
+
+  value="${value//\\/\\\\}"
+  value="${value//\"/\\\"}"
+  printf '"%s"' "$value"
+}
+
 default_name="$(git config --global --get user.name 2>/dev/null || true)"
 default_email="$(git config --global --get user.email 2>/dev/null || true)"
 
@@ -156,6 +171,7 @@ fi
 
 if [ -n "$op_ssh_vault" ]; then
   op_agent_config="$HOME/.config/1Password/ssh/agent.toml"
+  op_ssh_vault_toml="$(toml_basic_string "$op_ssh_vault")"
 
   mkdir -p "$(dirname "$op_agent_config")"
   if [ -L "$op_agent_config" ]; then
@@ -164,7 +180,7 @@ if [ -n "$op_ssh_vault" ]; then
 
   cat > "$op_agent_config" <<EOF
 [[ssh-keys]]
-vault = "$op_ssh_vault"
+vault = $op_ssh_vault_toml
 EOF
   chmod 0600 "$op_agent_config"
   printf 'wrote %s\n' "$op_agent_config"
