@@ -28,5 +28,4 @@ brew "summarize"
 # Devbox tools observed on the shared Mac mini
 brew "steipete/tap/gogcli"
 brew "steipete/tap/peekaboo"
-brew "steipete/tap/remindctl"
 brew "uinaf/tap/healthd"
