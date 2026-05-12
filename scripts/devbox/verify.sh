@@ -9,6 +9,28 @@ process_compose_socket="${UINAF_PROCESS_COMPOSE_SOCKET:-}"
 token_file="${UINAF_OP_SERVICE_ACCOUNT_TOKEN_FILE:-/var/db/uinaf/devbox-secrets/$devbox_user/op-sa-token}"
 openclaw_env_file="${UINAF_OPENCLAW_ENV_FILE:-/var/db/uinaf/devbox-env/$devbox_user/openclaw.env}"
 
+usage() {
+  cat <<'USAGE'
+Usage:
+  scripts/devbox/verify.sh
+
+Checks devbox supervisor, secret-file, and 1Password-token boundaries for the
+current Unix user. Configure paths through ~/.config/uinaf/devbox.env or the
+UINAF_DEVBOX_* environment variables.
+USAGE
+}
+
+if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
+  usage
+  exit 0
+fi
+
+if [ "$#" -gt 0 ]; then
+  printf 'unknown argument: %s\n' "$1" >&2
+  usage >&2
+  exit 2
+fi
+
 section() {
   printf '\n## %s\n' "$1"
 }

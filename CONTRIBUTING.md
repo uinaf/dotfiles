@@ -22,22 +22,20 @@ cd ~/projects/uinaf/dotfiles
 Before opening a pull request, run:
 
 ```zsh
-bash -n scripts/*.sh
-shellcheck scripts/*.sh
+find scripts -name '*.sh' -print0 | xargs -0 bash -n
+find scripts -name '*.sh' -print0 | xargs -0 shellcheck
 git diff --check
 gitleaks detect --source . --verbose
 ```
 
-Run `./scripts/verify.sh` only on a machine where these dotfiles are actively
-installed. It checks the live home directory.
+Run `./scripts/bootstrap/verify.sh` only on a machine where these dotfiles are
+actively installed. It checks the live home directory.
 
 ## Brewfiles
 
-- `Brewfile` is the complete app and CLI set for uinaf Macs.
-- `Brewfile.personal` and `Brewfile.devbox` are deprecated compatibility files.
-
-Do not split tools into profile Brewfiles unless there is a concrete machine
-conflict.
+- `Brewfile` is the shared app and CLI set for every uinaf Mac.
+- `Brewfile.personal` contains personal Mac apps and local development extras.
+- `Brewfile.devbox` contains shared Mac mini/devbox tools.
 
 ## Pull Requests
 

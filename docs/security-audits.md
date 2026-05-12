@@ -10,10 +10,10 @@ Use separate checks for separate risk surfaces:
 | Layer | Tooling | Purpose |
 | --- | --- | --- |
 | Repository content | `gitleaks`, `trufflehog`, `.github/workflows/secrets.yml` | Detect committed or proposed secrets. |
-| macOS posture | macOS Security Compliance Project through `scripts/security-audit.sh` | Check host security settings against a generated baseline. |
-| Personal drift | `scripts/security-audit-personal.sh` | Check non-devbox user secret boundaries, identity state, and local stale files. |
-| Devbox drift | `scripts/security-audit-devbox.sh` | Check agent-machine secret boundaries, identity state, and local stale files. |
-| Functional bootstrap | `scripts/verify.sh`, `scripts/verify-devbox.sh` | Confirm tools and expected services work. |
+| macOS posture | macOS Security Compliance Project through `scripts/security/audit.sh` | Check host security settings against a generated baseline. |
+| Personal drift | `scripts/security/audit-personal.sh` | Check non-devbox user secret boundaries, identity state, and local stale files. |
+| Devbox drift | `scripts/devbox/security-audit.sh` | Check agent-machine secret boundaries, identity state, and local stale files. |
+| Functional bootstrap | `scripts/bootstrap/verify.sh`, `scripts/devbox/verify.sh` | Confirm tools and expected services work. |
 
 Do not treat one layer as a substitute for another. For example, a clean
 Gitleaks run does not prove launchd or process-compose state is safe.
@@ -23,7 +23,7 @@ Gitleaks run does not prove launchd or process-compose state is safe.
 Run locally before committing security-sensitive setup changes:
 
 ```zsh
-./scripts/security-audit.sh --skip-mscp
+./scripts/security/audit.sh --skip-mscp
 ```
 
 GitHub Actions also runs Gitleaks and TruffleHog on pushes to `main`, pull
@@ -39,7 +39,7 @@ If either scanner reports a real secret:
 
 ## macOS Security Compliance Project
 
-`scripts/security-audit.sh` can run an existing mSCP compliance script in
+`scripts/security/audit.sh` can run an existing mSCP compliance script in
 check-only mode. It never runs `--fix`.
 
 Prepare mSCP outside this repo:
@@ -61,7 +61,7 @@ Use the branch matching the host macOS version, such as `sequoia`, `sonoma`, or
 `ventura`. Then run:
 
 ```zsh
-./scripts/security-audit.sh --allow-sudo-prompt
+./scripts/security/audit.sh --allow-sudo-prompt
 ```
 
 Review non-compliant rules and decide exceptions before applying remediation.
@@ -73,7 +73,7 @@ shared devboxes.
 Run this from a normal personal Mac user:
 
 ```zsh
-./scripts/security-audit-personal.sh
+./scripts/security/audit-personal.sh
 ```
 
 It checks:
@@ -99,7 +99,7 @@ setup.
 Run this from each devbox user:
 
 ```zsh
-./scripts/security-audit-devbox.sh
+./scripts/devbox/security-audit.sh
 ```
 
 It checks:

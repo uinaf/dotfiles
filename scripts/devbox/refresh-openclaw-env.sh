@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-usage: devbox-refresh-openclaw-env.sh CONFIG
+usage: scripts/devbox/refresh-openclaw-env.sh CONFIG
 
 Refresh a devbox user's generated OpenClaw env from a narrowly scoped
 1Password service account token. The config file is local machine state and

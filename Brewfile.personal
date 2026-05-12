@@ -1,5 +1,5 @@
 # Personal Mac Homebrew layer.
-# Run through ./scripts/brew-bundle.sh so the shared Brewfile installs first.
+# Run through ./scripts/bootstrap/brew-bundle.sh so the shared Brewfile installs first.
 
 # Taps
 tap "jesseduffield/lazydocker"

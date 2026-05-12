@@ -50,4 +50,4 @@ if [ "$actual_sha" != "$expected_sha" ]; then
 fi
 
 printf 'checksum ok: %s\n' "$actual_sha"
-"$script_dir/tizen-restore.sh" "$output"
+"$script_dir/restore.sh" "$output"

@@ -15,7 +15,7 @@ verify the machine. Keep the repo public-safe. Keep machine state local.
   machine-local config.
 - Do not back up, copy, link, or summarize the full `~/.codex/config.toml`,
   Browser approvals, Codex auth, sessions, caches, worktrees, or app state.
-  Only `scripts/configure-codex.sh` may merge the portable Codex defaults; use
+  Only `scripts/bootstrap/configure-codex.sh` may merge the portable Codex defaults; use
   `codex features enable` for feature flags when the CLI is available.
 - Do not invent Git identities, signing keys, 1Password vault names, or service
   account tokens. Ask the user or use explicit environment variables.
@@ -35,15 +35,15 @@ Use this order when helping a user bootstrap a Mac:
 3. Install `git` and `gh`.
 4. Sign in with `gh auth login`.
 5. Clone `uinaf/dotfiles` to `~/projects/uinaf/dotfiles`.
-6. Run `./scripts/brew-bundle.sh personal` or `./scripts/brew-bundle.sh devbox`.
+6. Run `./scripts/bootstrap/brew-bundle.sh personal` or `./scripts/bootstrap/brew-bundle.sh devbox`.
 7. Install Oh My Zsh.
-8. Run `./scripts/install.sh`.
-9. Run `./scripts/configure-git.sh --profile personal` or
-   `./scripts/configure-git.sh --profile devbox --non-interactive`.
+8. Run `./scripts/bootstrap/install.sh`.
+9. Run `./scripts/bootstrap/configure-git.sh --profile personal` or
+   `./scripts/bootstrap/configure-git.sh --profile devbox --non-interactive`.
 10. Run `mise install`.
-11. Run `./scripts/pull-repos.sh`.
-12. Run `./scripts/verify.sh --profile personal` or
-    `./scripts/verify.sh --profile devbox`.
+11. Run `./scripts/bootstrap/pull-repos.sh`.
+12. Run `./scripts/bootstrap/verify.sh --profile personal` or
+    `./scripts/bootstrap/verify.sh --profile devbox`.
 
 For a devbox, commit signing is expected. Provide at least:
 
@@ -52,7 +52,7 @@ GIT_USER_NAME='Devbox' \
 GIT_USER_EMAIL='devbox@example.com' \
 GIT_SIGNING_KEY='ssh-ed25519 ...' \
 OP_SSH_VAULT='Devbox' \
-  ./scripts/configure-git.sh --profile devbox --non-interactive
+  ./scripts/bootstrap/configure-git.sh --profile devbox --non-interactive
 ```
 
 If the devbox uses a 1Password service account, install the token into
@@ -65,19 +65,20 @@ process-compose config, or generated runtime dotenv files.
 Before committing repo changes, run:
 
 ```zsh
-bash -n scripts/*.sh
-shellcheck scripts/*.sh
+find scripts -name '*.sh' -print0 | xargs -0 bash -n
+find scripts -name '*.sh' -print0 | xargs -0 shellcheck
 git diff --check
 gitleaks detect --source . --verbose
-./scripts/security-audit.sh --skip-mscp
+./scripts/security/audit.sh --skip-mscp
 ```
 
 Follow [Security audits](docs/security-audits.md) when changing audit scripts,
 secret scanning, mSCP integration, or devbox security checks.
 
-Run `./scripts/verify.sh --profile personal` or `./scripts/verify.sh --profile
-devbox` only on a machine where the bootstrap is meant to be active. It checks
-the live home directory and installed tools.
+Run `./scripts/bootstrap/verify.sh --profile personal` or
+`./scripts/bootstrap/verify.sh --profile devbox` only on a machine where the
+bootstrap is meant to be active. It checks the live home directory and
+installed tools.
 
 ## Repo Rules
 

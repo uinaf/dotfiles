@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 home_root="$repo_root/home"
 
 backup_path() {
@@ -89,4 +89,4 @@ fi
   link_file "$source" "$HOME/$rel"
 done
 
-"$repo_root/scripts/configure-codex.sh"
+"$repo_root/scripts/bootstrap/configure-codex.sh"

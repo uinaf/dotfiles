@@ -140,7 +140,7 @@ expects that path.
 Install the root-owned refresh helper with explicit local values:
 
 ```zsh
-sudo ./scripts/install-devbox-env-refresh.sh \
+sudo ./scripts/devbox/install-env-refresh.sh \
   --identity example \
   --target-user example \
   --op-account example.1password.com \
@@ -152,7 +152,7 @@ Then install the service-account token at the path printed by the installer:
 
 ```zsh
 op read 'op://<human-vault>/<service-account-token-item>/password' \
-  | sudo ./scripts/install-devbox-op-token.sh --identity example
+  | sudo ./scripts/devbox/install-op-token.sh --identity example
 ```
 
 The token file must be root-owned and mode `0400` or `0600`. The helper reads
@@ -170,13 +170,13 @@ That generated file is owned by the target service user and mode `0400`.
 Run the normal bootstrap check for each user:
 
 ```zsh
-./scripts/verify.sh --profile devbox
+./scripts/bootstrap/verify.sh --profile devbox
 ```
 
 Run the devbox-specific boundary check for each devbox user:
 
 ```zsh
-./scripts/verify-devbox.sh
+./scripts/devbox/verify.sh
 ```
 
 That check verifies the supervisor binary, process-compose state, secret-file
@@ -186,7 +186,7 @@ service-account token file.
 Run the devbox security audit for each devbox user:
 
 ```zsh
-./scripts/security-audit-devbox.sh
+./scripts/devbox/security-audit.sh
 ```
 
 That audit is stricter than verification. It checks for stale secret-looking
@@ -194,7 +194,7 @@ backups, generated env symlink drift, Git/GitHub identity state, SSH key file
 permissions, admin group drift, Tailscale health, and raw service-account token
 references in local service config. It does not print secret values.
 
-For OS-level posture, run `./scripts/security-audit.sh` after generating a
+For OS-level posture, run `./scripts/security/audit.sh` after generating a
 macOS Security Compliance Project check-only script for the host's macOS
 version. Start with check-only results and review exceptions before applying
 any remediation outside this repo. See [Security audits](security-audits.md) for

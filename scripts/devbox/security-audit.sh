@@ -16,7 +16,7 @@ fail_count=0
 usage() {
   cat <<'USAGE'
 Usage:
-  scripts/security-audit-devbox.sh [options]
+  scripts/devbox/security-audit.sh [options]
 
 Runs a non-destructive devbox drift audit for the current Unix user.
 

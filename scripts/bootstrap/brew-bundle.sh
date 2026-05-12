@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 profile=""
 
 usage() {
   cat <<'USAGE'
 Usage:
-  scripts/brew-bundle.sh personal
-  scripts/brew-bundle.sh devbox
-  scripts/brew-bundle.sh --shared-only
+  scripts/bootstrap/brew-bundle.sh personal
+  scripts/bootstrap/brew-bundle.sh devbox
+  scripts/bootstrap/brew-bundle.sh --shared-only
 
 Installs the shared Brewfile first, then the selected profile Brewfile.
 USAGE

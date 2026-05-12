@@ -1,7 +1,7 @@
 # Shared Homebrew layer for every uinaf Mac.
 # Install with one profile:
-#   ./scripts/brew-bundle.sh personal
-#   ./scripts/brew-bundle.sh devbox
+#   ./scripts/bootstrap/brew-bundle.sh personal
+#   ./scripts/bootstrap/brew-bundle.sh devbox
 
 # Taps
 tap "1password/tap"

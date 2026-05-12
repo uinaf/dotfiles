@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 mscp_dir="${MSCP_DIR:-$HOME/projects/security/macos_security}"
 mscp_baseline="${MSCP_BASELINE:-800-53r5_moderate}"
 mscp_script="${MSCP_SCRIPT:-}"
@@ -13,7 +13,7 @@ fail_count=0
 usage() {
   cat <<'USAGE'
 Usage:
-  scripts/security-audit.sh [options]
+  scripts/security/audit.sh [options]
 
 Runs a non-destructive security audit for this Mac bootstrap repo:
   - repository secret scans with gitleaks and, when installed, trufflehog

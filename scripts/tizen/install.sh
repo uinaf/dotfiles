@@ -199,4 +199,4 @@ fi
 printf '\nTizen SDK install step finished.\n'
 printf 'Package catalog lookup is intentionally skipped by default; use --show-pkgs only when needed.\n'
 printf 'Next, restore cert/profile state if needed:\n'
-printf '  ./scripts/tizen-restore.sh ~/Desktop/tizen-certs-YYYYMMDDHHMMSS.tar.gz\n'
+printf '  ./scripts/tizen/restore.sh ~/Desktop/tizen-certs-YYYYMMDDHHMMSS.tar.gz\n'
