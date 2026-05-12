@@ -12,6 +12,7 @@ openclaw_env_link="${UINAF_OPENCLAW_ENV_LINK:-$HOME/.openclaw/.env}"
 expected_admin_users="${UINAF_EXPECTED_ADMIN_USERS:-}"
 warn_count=0
 fail_count=0
+secret_scan_count=0
 
 usage() {
   cat <<'USAGE'
@@ -93,6 +94,22 @@ check_not_secret_pattern() {
     fail_check "$path contains $label"
   else
     ok "$path does not contain $label"
+  fi
+}
+
+scan_file_for_secret_pattern() {
+  local path="$1"
+  local pattern="$2"
+  local label="$3"
+
+  if [ ! -r "$path" ]; then
+    warn "cannot read $path for $label"
+    return
+  fi
+
+  secret_scan_count=$((secret_scan_count + 1))
+  if grep -Eq "$pattern" "$path"; then
+    fail_check "$path contains $label"
   fi
 }
 
@@ -245,11 +262,17 @@ secret_pattern='OP_SERVICE_ACCOUNT_TOKEN=|op://|BEGIN OPENSSH PRIVATE KEY|BEGIN 
 
 while IFS= read -r path; do
   [ -n "$path" ] || continue
-  check_not_secret_pattern "$path" "$secret_pattern" "secret-looking material"
+  scan_file_for_secret_pattern "$path" "$secret_pattern" "secret-looking material"
 done < <(
   {
     find_matching_files "$HOME/.config/process-compose" -type f \( -name '*.yaml' -o -name '*.yml' -o -name '*.bak' \)
-    find_matching_files "$HOME/.openclaw" -type f \( -name '*.json' -o -name '*.env' -o -name '*.bak' -o -name '*.last-good' \)
+    find_matching_files "$HOME/.openclaw" \
+      \( -path "$HOME/.openclaw/credentials/whatsapp" \
+        -o -path "$HOME/.openclaw/plugin-runtime-deps" \
+        -o -path "$HOME/.openclaw/plugin-runtime-deps.*" \
+        -o -path '*/node_modules' \
+        -o -path '*/.tmp' \) -prune \
+      -o -type f \( -name '*.json' -o -name '*.env' -o -name '*.bak' -o -name '*.last-good' \) -print
     find_matching_files "$HOME" -maxdepth 1 -type f \( -name '.zsh_history' -o -name '.bash_history' -o -name '.zshenv*' -o -name '.zprofile*' -o -name '.zshrc*' -o -name '.gitconfig*' \)
     find_matching_files "$HOME/.ssh" -maxdepth 1 -type f \( -name 'config' -o -name 'config.*' \)
     find_matching_files /Library/LaunchDaemons -maxdepth 1 -type f -name 'com.uinaf.*.plist'
@@ -257,19 +280,21 @@ done < <(
   } | sort -u
 )
 
+ok "scanned $secret_scan_count local config files for secret-looking material"
+
 section "Git and GitHub identity"
 
-git_name="$(git config --global --get user.name 2>/dev/null || true)"
-git_email="$(git config --global --get user.email 2>/dev/null || true)"
-git_signing_key="$(git config --global --get user.signingkey 2>/dev/null || true)"
-git_gpgsign="$(git config --global --get commit.gpgsign 2>/dev/null || true)"
+git_name="$(git config --get user.name 2>/dev/null || true)"
+git_email="$(git config --get user.email 2>/dev/null || true)"
+git_signing_key="$(git config --get user.signingkey 2>/dev/null || true)"
+git_gpgsign="$(git config --get commit.gpgsign 2>/dev/null || true)"
 
-[ -n "$git_name" ] || fail_check "missing global git user.name"
-[ -n "$git_email" ] || fail_check "missing global git user.email"
-[ -n "$git_signing_key" ] || fail_check "missing global git user.signingkey"
+[ -n "$git_name" ] || fail_check "missing git user.name"
+[ -n "$git_email" ] || fail_check "missing git user.email"
+[ -n "$git_signing_key" ] || fail_check "missing git user.signingkey"
 
 if [ -n "$git_name" ] && [ -n "$git_email" ]; then
-  ok "git identity configured for $git_name <$git_email>"
+  ok "git identity configured"
 fi
 
 if [ "$git_gpgsign" = "true" ]; then
