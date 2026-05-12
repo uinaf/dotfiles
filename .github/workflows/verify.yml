@@ -25,7 +25,7 @@ jobs:
         uses: actions/checkout@v6.0.2
 
       - name: Install verification tools
-        run: brew install actionlint shellcheck gitleaks trufflehog
+        run: brew install actionlint shellcheck
 
       - name: Verify repository
-        run: ./scripts/bootstrap/verify-repo.sh
+        run: ./scripts/bootstrap/verify-repo.sh --skip-security

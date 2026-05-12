@@ -77,6 +77,8 @@ Follow [Security audits](docs/security-audits.md) when changing audit scripts,
 secret scanning, mSCP integration, or devbox security checks.
 Follow [Agent readiness](docs/agent-readiness.md) when changing verification
 entrypoints, CI gates, or machine-bootstrap checks.
+Follow [GitHub pipelines](docs/github-pipelines.md) before adding, removing, or
+renaming workflows. This repo intentionally has no deploy or release pipeline.
 
 Run `./scripts/bootstrap/verify.sh --profile personal` or
 `./scripts/bootstrap/verify.sh --profile devbox` only on a machine where the

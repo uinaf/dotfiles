@@ -98,7 +98,9 @@ its sync script.
 Agents helping with setup should read [Agent guide](AGENTS.md). It contains the
 bootstrap order, local-state boundaries, devbox signing expectations, and
 verification commands. See [Agent readiness](docs/agent-readiness.md) for the
-repo verification model and current gaps.
+repo verification model and current gaps. See
+[GitHub pipelines](docs/github-pipelines.md) for CI, security scanning, and
+the deploy/release non-goals.
 
 ## Scripts
 

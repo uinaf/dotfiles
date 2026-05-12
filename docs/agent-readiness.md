@@ -9,12 +9,13 @@ whether a target machine matches the expected bootstrap shape.
 | Dimension | Status | Evidence | Gap |
 | --- | --- | --- | --- |
 | Bootable | pass | `scripts/bootstrap/brew-bundle.sh` installs shared plus profile layers; `scripts/bootstrap/install.sh` links tracked files. | First-time macOS setup still needs Command Line Tools, Homebrew, and GitHub auth. |
-| Testable | pass | `scripts/bootstrap/verify-repo.sh` runs syntax checks, ShellCheck, Actionlint, diff hygiene, entrypoint sanity, and repo secret scans. | Live machine behavior still needs a matching personal or devbox host. |
+| Testable | pass | `scripts/bootstrap/verify-repo.sh` runs syntax checks, ShellCheck, Actionlint, diff hygiene, entrypoint sanity, and repo secret scans locally. | Live machine behavior still needs a matching personal or devbox host. |
 | Observable | partial | Verification and audit scripts print sectioned output; GitHub Actions exposes logs for repo checks and secret scans. | No structured machine-readable report format yet. |
 | Verifiable | pass | `.github/workflows/verify.yml`, `.github/workflows/secrets.yml`, `scripts/bootstrap/verify.sh`, and `scripts/devbox/verify.sh`. | Devbox process-compose and service-token checks are host-local by design. |
 
 Overall grade: **B for a bootstrap repo**. The repo has a single local
-verification command and CI gates for repo changes. The remaining gaps are
+verification command, separate CI gates for repo checks and secret scanning, and
+Dependabot coverage for GitHub Actions updates. The remaining gaps are
 machine-local observability and optional pre-push hook installation.
 
 ## Agent Workflow
@@ -41,6 +42,9 @@ For devbox boundary checks, run from each devbox user:
 
 Use `./scripts/security/audit.sh --skip-mscp` for repository secret scanning
 without the host-level macOS Security Compliance Project audit.
+
+See [GitHub pipelines](github-pipelines.md) for the CI contract and the
+intentional deploy/release non-goals.
 
 ## Non-Goals
 

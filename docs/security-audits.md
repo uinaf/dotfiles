@@ -34,6 +34,9 @@ only need the secret scanners.
 GitHub Actions also runs Gitleaks and TruffleHog on pushes to `main`, pull
 requests, weekly schedule, and manual dispatch through
 `.github/workflows/secrets.yml`.
+The separate Verify workflow skips scanner work in CI and leaves that surface
+to the dedicated Secret scanning workflow. See
+[GitHub pipelines](github-pipelines.md) for the workflow split.
 
 If either scanner reports a real secret:
 
