@@ -96,4 +96,5 @@ brew "uinaf/tap/tccutil-rs"
 # Project tools
 brew "chill-institute/tap/chilly"
 brew "openclaw/tap/crabbox"
+brew "openclaw/tap/gitcrawl"
 brew "putdotio/tap/putio-cli"

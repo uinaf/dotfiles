@@ -12,6 +12,8 @@ cli_checks=(
   "uv --version"
   "op --version"
   "codex --version"
+  "gitcrawl --version"
+  "blacksmith --version"
   "tailscale status --peers=false"
 )
 

@@ -23,6 +23,7 @@ gh repo clone uinaf/dotfiles ~/projects/uinaf/dotfiles
 cd ~/projects/uinaf/dotfiles
 
 brew bundle --file ./Brewfile
+./scripts/install-blacksmith.sh
 sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
 
 ./scripts/install.sh
@@ -98,6 +99,7 @@ verification commands.
 | `scripts/install.sh` | Link tracked files from `home/` into `~`. |
 | `scripts/configure-codex.sh` | Merge portable Codex defaults into local config. |
 | `scripts/configure-git.sh` | Write local Git identity and optional 1Password SSH config. |
+| `scripts/install-blacksmith.sh` | Install the Blacksmith CLI from its official checksum-verifying installer. |
 | `scripts/pull-repos.sh` | Clone or fast-forward shared bootstrap repos. |
 | `scripts/verify.sh` | Check the current machine bootstrap. |
 | `scripts/tizen-install.sh` | Install Samsung Tizen Studio from the CLI installer. |
