@@ -156,6 +156,10 @@ trap 'rm -f "$tmp"' EXIT
   printf '\tgpgsign = %s\n' "$sign_commits"
   printf '\n[tag]\n'
   printf '\tgpgsign = %s\n' "$sign_commits"
+  if [ -n "$op_ssh_vault" ]; then
+    printf '\n[gpg "ssh"]\n'
+    printf '\tprogram = /Applications/1Password.app/Contents/MacOS/op-ssh-sign\n'
+  fi
 } > "$tmp"
 
 if [ -L "$gitconfig_local" ]; then
