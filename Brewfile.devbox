@@ -15,7 +15,6 @@ cask "raycast"
 
 # Agent and devbox CLIs
 brew "tmux"
-brew "uv"
 brew "tailscale"
 brew "yt-dlp"
 
