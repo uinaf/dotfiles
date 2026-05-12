@@ -2,7 +2,6 @@
 # Run through ./scripts/brew-bundle.sh so the shared Brewfile installs first.
 
 # Taps
-tap "schpet/tap"
 tap "steipete/tap"
 tap "xcodesorg/made"
 
@@ -27,7 +26,6 @@ brew "woff2"
 brew "summarize"
 
 # Devbox tools observed on the shared Mac mini
-brew "schpet/tap/linear"
 brew "steipete/tap/gogcli"
 brew "steipete/tap/peekaboo"
 brew "steipete/tap/remindctl"
