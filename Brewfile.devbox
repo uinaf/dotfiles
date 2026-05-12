@@ -20,12 +20,12 @@ cask "raycast"
 # Agent and devbox CLIs
 brew "tmux"
 brew "uv"
-brew "tailscale", restart_service: :changed
+brew "tailscale"
 brew "yt-dlp"
 brew "xcodes"
 
 # Containers
-brew "colima", restart_service: :changed
+brew "colima"
 brew "docker"
 brew "docker-buildx"
 brew "docker-compose"
