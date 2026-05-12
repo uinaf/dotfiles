@@ -8,7 +8,6 @@ tap "xcodesorg/made"
 # Headless-friendly apps and remote desktop helpers
 cask "betterdisplay"
 cask "gcloud-cli"
-cask "raycast"
 
 # Agent and devbox CLIs
 brew "tmux"
