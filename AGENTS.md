@@ -107,7 +107,8 @@ For personal security drift:
 - Keep `Brewfile` shared and profile-neutral.
 - Put laptop-only apps in `Brewfile.personal`.
 - Put shared Mac mini and devbox tools in `Brewfile.devbox`.
-- Keep Codex setup install-only here; agent rule links belong to `uinaf/agents`.
+- Keep Codex setup install-only here; agent rule links belong to
+  [uinaf/agents](https://github.com/uinaf/agents).
 - Update docs when scripts, profile behavior, audit behavior, or workflow names
   change.
 - Follow the uinaf repo-doc voice: proper-case headings, sentence-case body,

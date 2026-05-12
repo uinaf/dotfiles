@@ -116,7 +116,8 @@ Security Compliance Project flow.
 - Java is mise-managed through Temurin. Do not install a global Homebrew
   OpenJDK for this setup.
 - Ruby is not global. Repos that need Ruby should declare it repo-locally.
-- `~/.codex/AGENTS.md` is owned by `uinaf/agents`, not this repo.
+- `~/.codex/AGENTS.md` is owned by
+  [uinaf/agents](https://github.com/uinaf/agents), not this repo.
 
 ## License
 
