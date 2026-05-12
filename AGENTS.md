@@ -13,8 +13,10 @@ verify the machine. Keep the repo public-safe. Keep machine state local.
 
 - Do not commit secrets, tokens, private keys, certificates, Tizen archives, or
   machine-local config.
-- Do not back up, copy, link, or summarize `~/.codex/config.toml`, Browser
-  approvals, Codex auth, sessions, caches, worktrees, or app state.
+- Do not back up, copy, link, or summarize the full `~/.codex/config.toml`,
+  Browser approvals, Codex auth, sessions, caches, worktrees, or app state.
+  Only `scripts/configure-codex.sh` may merge the portable Codex defaults; use
+  `codex features enable` for feature flags when the CLI is available.
 - Do not invent Git identities, signing keys, 1Password vault names, or service
   account tokens. Ask the user or use explicit environment variables.
 - Do not store `OP_SERVICE_ACCOUNT_TOKEN`. It belongs in the machine's secret

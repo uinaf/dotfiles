@@ -88,3 +88,5 @@ fi
   fi
   link_file "$source" "$HOME/$rel"
 done
+
+"$repo_root/scripts/configure-codex.sh"

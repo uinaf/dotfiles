@@ -3,7 +3,8 @@
 Mac bootstrap files and scripts for uinaf machines.
 
 This repo manages the portable layer: Homebrew apps, zsh startup, mise
-runtimes, Git defaults, SSH defaults, Zed, Ghostty, and setup scripts.
+runtimes, Git defaults, SSH defaults, Codex defaults, Zed, Ghostty, and setup
+scripts.
 
 It does not manage secrets, Codex state, browser profiles, app caches,
 dependency folders, build output, or machine-specific project checkouts.
@@ -68,8 +69,7 @@ These stay outside the repo:
 - Git identity, signing key, and commit-signing preference.
 - 1Password SSH agent vault selection.
 - 1Password service-account tokens.
-- Codex config, Browser approvals, auth, sessions, caches, worktrees, and app
-  state.
+- Codex auth, Browser approvals, sessions, caches, worktrees, and app state.
 - SSH private keys.
 - Browser profiles.
 - Docker and Colima state.
@@ -78,6 +78,9 @@ These stay outside the repo:
 `./scripts/configure-git.sh` writes `~/.gitconfig.local`. Set `OP_SSH_VAULT` if
 the machine should also get a local 1Password SSH agent config.
 
+`./scripts/install.sh` merges the default Codex model and reasoning effort, then
+uses `codex features enable` for portable feature defaults, without linking or
+owning the full Codex state file.
 `~/.codex/AGENTS.md` is owned by `uinaf/agents`, not this repo.
 `./scripts/pull-repos.sh` clones or updates `uinaf/agents` and runs its sync
 script.
@@ -93,6 +96,7 @@ verification commands.
 | Script | Purpose |
 | --- | --- |
 | `scripts/install.sh` | Link tracked files from `home/` into `~`. |
+| `scripts/configure-codex.sh` | Merge portable Codex defaults into local config. |
 | `scripts/configure-git.sh` | Write local Git identity and optional 1Password SSH config. |
 | `scripts/pull-repos.sh` | Clone or fast-forward shared bootstrap repos. |
 | `scripts/verify.sh` | Check the current machine bootstrap. |

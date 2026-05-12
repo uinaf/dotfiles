@@ -18,9 +18,6 @@ typeset -U path PATH
 # User binaries
 path+=("$HOME/.local/bin")
 
-# Optional agent/tool bins
-path+=("$HOME/.opencode/bin")
-
 # Vite+
 if [ -f "$HOME/.vite-plus/env" ]; then
   . "$HOME/.vite-plus/env"
