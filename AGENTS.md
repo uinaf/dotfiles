@@ -38,11 +38,12 @@ Use this order when helping a user bootstrap a Mac:
 6. Run `./scripts/bootstrap/brew-bundle.sh personal` or `./scripts/bootstrap/brew-bundle.sh devbox`.
 7. Install Oh My Zsh.
 8. Run `./scripts/bootstrap/install.sh`.
-9. Run `./scripts/bootstrap/configure-git.sh --profile personal` or
+9. Optionally quit Chrome and run `./scripts/bootstrap/configure-chrome.sh`.
+10. Run `./scripts/bootstrap/configure-git.sh --profile personal` or
    `./scripts/bootstrap/configure-git.sh --profile devbox --non-interactive`.
-10. Run `mise install`.
-11. Run `./scripts/bootstrap/pull-repos.sh`.
-12. Run `./scripts/bootstrap/verify.sh --profile personal` or
+11. Run `mise install`.
+12. Run `./scripts/bootstrap/pull-repos.sh`.
+13. Run `./scripts/bootstrap/verify.sh --profile personal` or
     `./scripts/bootstrap/verify.sh --profile devbox`.
 
 For a devbox, commit signing is expected. Provide at least:

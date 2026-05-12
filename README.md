@@ -27,6 +27,7 @@ cd ~/projects/uinaf/dotfiles
 sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
 
 ./scripts/bootstrap/install.sh
+./scripts/bootstrap/configure-chrome.sh
 ./scripts/bootstrap/configure-git.sh --profile personal
 mise install
 ./scripts/bootstrap/pull-repos.sh
@@ -111,6 +112,7 @@ See [Script guide](scripts/README.md) for the directory layout.
 | `scripts/bootstrap/verify-repo.sh` | Run repo-level shell, workflow, diff, entrypoint, and secret-scan checks. |
 | `scripts/bootstrap/brew-bundle.sh` | Install the shared Brewfile plus a selected profile Brewfile. |
 | `scripts/bootstrap/install.sh` | Link tracked files from `home/` into `~`. |
+| `scripts/bootstrap/configure-chrome.sh` | Enable or disable Chrome's local vertical-tabs flag. |
 | `scripts/bootstrap/configure-codex.sh` | Merge portable Codex defaults into local config. |
 | `scripts/bootstrap/configure-git.sh` | Write local Git identity and optional 1Password SSH config. |
 | `scripts/devbox/refresh-openclaw-env.sh` | Refresh a generated OpenClaw env from one 1Password item. |

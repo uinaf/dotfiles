@@ -18,6 +18,7 @@ Run scripts from the repository root unless a script says otherwise.
 
 ./scripts/bootstrap/brew-bundle.sh personal
 ./scripts/bootstrap/install.sh
+./scripts/bootstrap/configure-chrome.sh
 ./scripts/bootstrap/configure-git.sh --profile personal
 ./scripts/bootstrap/verify.sh --profile personal
 
