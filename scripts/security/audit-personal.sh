@@ -200,7 +200,7 @@ check_mode_any "$HOME/.codex/config.toml" 600
 
 section "local secret scan"
 
-raw_secret_pattern='OP_SERVICE_ACCOUNT_TOKEN=|BEGIN OPENSSH PRIVATE KEY|BEGIN RSA PRIVATE KEY|BEGIN EC PRIVATE KEY|"auth"[[:space:]]*:|^[[:space:]]*machine[[:space:]].*password[[:space:]]|aws_access_key_id|aws_secret_access_key'
+raw_secret_pattern='OP_SERVICE_ACCOUNT_TOKEN=|BEGIN OPENSSH PRIVATE KEY|BEGIN RSA PRIVATE KEY|BEGIN EC PRIVATE KEY|^[[:space:]]*machine[[:space:]].*password[[:space:]]|aws_access_key_id|aws_secret_access_key'
 op_reference_pattern='op://'
 
 while IFS= read -r path; do
@@ -216,6 +216,10 @@ done < <(
     find_matching_files "$HOME/Library/LaunchAgents" -maxdepth 1 -type f -name '*.plist'
   } | sort -u
 )
+
+if [ -e "$HOME/.docker/config.json" ]; then
+  check_pattern_absent "$HOME/.docker/config.json" '"auth"[[:space:]]*:' "inline Docker auth material" fail
+fi
 
 section "Git and GitHub identity"
 

@@ -310,7 +310,7 @@ fi
 
 section "local config secret scan"
 
-secret_pattern='OP_SERVICE_ACCOUNT_TOKEN=|op://|BEGIN OPENSSH PRIVATE KEY|BEGIN RSA PRIVATE KEY|"auth"[[:space:]]*:|^[[:space:]]*machine[[:space:]].*password[[:space:]]|aws_access_key_id|aws_secret_access_key'
+secret_pattern='OP_SERVICE_ACCOUNT_TOKEN=|op://|BEGIN OPENSSH PRIVATE KEY|BEGIN RSA PRIVATE KEY|^[[:space:]]*machine[[:space:]].*password[[:space:]]|aws_access_key_id|aws_secret_access_key'
 
 while IFS= read -r path; do
   [ -n "$path" ] || continue
@@ -335,6 +335,10 @@ done < <(
 )
 
 ok "scanned $secret_scan_count local config files for secret-looking material"
+
+if [ -e "$HOME/.docker/config.json" ]; then
+  scan_file_for_secret_pattern "$HOME/.docker/config.json" '"auth"[[:space:]]*:' "inline Docker auth material"
+fi
 
 section "Codex trust boundaries"
 
