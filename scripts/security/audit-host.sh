@@ -161,8 +161,6 @@ else
     warn "running Lynis without sudo; rerun with --allow-sudo-prompt for deeper OS checks"
   fi
 
-  lynis_version="$(lynis --version 2>/dev/null || true)"
-
   if [ "$lynis_status" -ne 0 ]; then
     fail_check "lynis exited with status $lynis_status"
     if [ "$json_output" -eq 0 ]; then
@@ -171,6 +169,7 @@ else
   fi
 
   if [ -r "$report_file" ]; then
+    lynis_version="$(lynis_field "$report_file" lynis_version)"
     hardening_index="$(lynis_field "$report_file" hardening_index)"
     tests_performed="$(lynis_field "$report_file" lynis_tests_done)"
     lynis_warning_count="$(lynis_entry_count "$report_file" warning)"
@@ -178,6 +177,7 @@ else
 
     hardening_index="${hardening_index:-0}"
     tests_performed="${tests_performed:-0}"
+    lynis_version="${lynis_version:-unknown}"
     lynis_warning_count="${lynis_warning_count:-0}"
     lynis_suggestion_count="${lynis_suggestion_count:-0}"
 
@@ -208,6 +208,7 @@ else
       fi
     fi
   else
+    lynis_version="unknown"
     hardening_index=0
     tests_performed=0
     lynis_warning_count=0
