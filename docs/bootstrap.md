@@ -63,6 +63,10 @@ Install optional external tools:
 sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
 ```
 
+Editor and terminal defaults prefer `Berkeley Mono Variable`, which is a
+licensed font and must be installed manually when available. The shared Brewfile
+installs `FiraCode Nerd Font` as the free fallback for Ghostty and Zed.
+
 Link dotfiles and configure local state:
 
 ```zsh

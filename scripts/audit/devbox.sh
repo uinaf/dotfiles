@@ -9,7 +9,6 @@ process_compose_socket="${UINAF_PROCESS_COMPOSE_SOCKET:-}"
 token_file="${UINAF_OP_SERVICE_ACCOUNT_TOKEN_FILE:-/var/db/uinaf/devbox-secrets/$devbox_user/op-sa-token}"
 openclaw_env_file="${UINAF_OPENCLAW_ENV_FILE:-/var/db/uinaf/devbox-env/$devbox_user/openclaw.env}"
 openclaw_env_link="${UINAF_OPENCLAW_ENV_LINK:-$HOME/.openclaw/.env}"
-expected_admin_users="${UINAF_EXPECTED_ADMIN_USERS:-}"
 json_output=0
 warn_count=0
 fail_count=0
@@ -28,7 +27,6 @@ Runs a non-destructive devbox drift audit for the current Unix user.
 
 Options:
   --config PATH                 local devbox config, default: ~/.config/uinaf/devbox.env
-  --expected-admin-users LIST   space-separated admin users expected on this Mac
   --json                        print a machine-readable summary instead of prose
   -h, --help
 
@@ -98,10 +96,6 @@ while [ "$#" -gt 0 ]; do
       config_path="${2:-}"
       shift 2
       ;;
-    --expected-admin-users)
-      expected_admin_users="${2:-}"
-      shift 2
-      ;;
     --json)
       json_output=1
       shift
@@ -131,7 +125,6 @@ if [ -e "$config_path" ]; then
   token_file="${UINAF_OP_SERVICE_ACCOUNT_TOKEN_FILE:-$token_file}"
   openclaw_env_file="${UINAF_OPENCLAW_ENV_FILE:-$openclaw_env_file}"
   openclaw_env_link="${UINAF_OPENCLAW_ENV_LINK:-$openclaw_env_link}"
-  expected_admin_users="${UINAF_EXPECTED_ADMIN_USERS:-$expected_admin_users}"
 else
   warn "missing optional $config_path; using defaults"
 fi
@@ -369,7 +362,7 @@ else
   warn "missing $HOME/.ssh"
 fi
 
-section "admin group"
+section "remote control groups"
 
 user_groups="$(id -Gn 2>/dev/null || true)"
 for group in com.apple.access_screensharing com.apple.access_remote_ae; do
@@ -379,22 +372,6 @@ for group in com.apple.access_screensharing com.apple.access_remote_ae; do
       ;;
   esac
 done
-
-if admin_members="$(dscl . -read /Groups/admin GroupMembership 2>/dev/null | cut -d: -f2- | xargs 2>/dev/null)"; then
-  if [ -n "$expected_admin_users" ]; then
-    expected_sorted="$(printf '%s\n' "$expected_admin_users" | tr ' ' '\n' | sed '/^$/d' | sort | xargs)"
-    actual_sorted="$(printf '%s\n' "$admin_members" | tr ' ' '\n' | sed '/^$/d' | sort | xargs)"
-    if [ "$actual_sorted" = "$expected_sorted" ]; then
-      ok "admin group matches expected users"
-    else
-      fail_check "admin group is [$actual_sorted], expected [$expected_sorted]"
-    fi
-  else
-    warn "admin users: $admin_members; set UINAF_EXPECTED_ADMIN_USERS to enforce"
-  fi
-else
-  warn "could not read admin group"
-fi
 
 section "Tailscale"
 

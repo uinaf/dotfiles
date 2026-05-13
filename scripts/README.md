@@ -31,7 +31,6 @@ Install the local pre-push guard:
 Personal bootstrap:
 
 ```zsh
-
 ./scripts/bootstrap/brew-bundle.sh personal
 ./scripts/bootstrap/install.sh
 ./scripts/bootstrap/configure-chrome.sh
@@ -43,7 +42,6 @@ Personal bootstrap:
 Security audits:
 
 ```zsh
-
 ./scripts/audit/repo.sh --skip-mscp
 ./scripts/audit/host.sh
 ./scripts/audit/host.sh --json
@@ -54,7 +52,6 @@ Security audits:
 Devbox checks:
 
 ```zsh
-
 ./scripts/verify/devbox-services.sh
 ./scripts/audit/devbox.sh
 ./scripts/audit/devbox.sh --json

@@ -2,4 +2,5 @@ theme = Github Dark High Contrast
 background = 000000
 
 font-family = Berkeley Mono Variable
+font-family = FiraCode Nerd Font Mono
 font-size = 16

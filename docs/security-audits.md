@@ -158,13 +158,11 @@ It checks:
 - SSH private key files are not group/world-readable
 - Codex log databases are surfaced when they grow beyond local privacy and disk
   budget thresholds
-- admin group membership, when `UINAF_EXPECTED_ADMIN_USERS` is configured
 - Tailscale CLI status works when installed
 
-Warnings are normal when a personal Mac intentionally does not enforce signing
-or admin membership. Failures mean raw secrets, unsafe file permissions, missing
-GitHub auth, or devbox-only service-account state leaked into the personal
-setup.
+Warnings are normal when a personal Mac intentionally keeps optional services or
+large local logs. Failures mean raw secrets, unsafe file permissions, missing
+GitHub auth, or devbox-only service-account state leaked into the personal setup.
 
 ## Devbox Drift Audit
 
@@ -205,7 +203,6 @@ It checks:
 - SSH private key files are not group/world-readable
 - screen-sharing and remote-Apple-event group membership is surfaced as a
   warning
-- admin group membership, when `UINAF_EXPECTED_ADMIN_USERS` is configured
 - Tailscale CLI status works
 
 The script is intentionally conservative. Warnings mean the auditor should

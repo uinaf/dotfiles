@@ -118,15 +118,6 @@ audit, and macOS Security Compliance Project flow.
 | Report a vulnerability | [Security](SECURITY.md) |
 | Find scripts | [Script guide](scripts/README.md) |
 
-## Notes
-
-- Install Berkeley Mono separately for the intended Ghostty and Zed font setup.
-- Java is mise-managed through Temurin. Do not install a global Homebrew
-  OpenJDK for this setup.
-- Ruby is not global. Repos that need Ruby should declare it repo-locally.
-- `~/.codex/AGENTS.md` is owned by
-  [uinaf/agents](https://github.com/uinaf/agents), not this repo.
-
 ## License
 
 MIT. See [License](LICENSE).

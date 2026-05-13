@@ -11,6 +11,7 @@ tap "uinaf/tap"
 
 # Terminal, browser, and agent apps
 cask "ghostty"
+cask "font-fira-code-nerd-font"
 cask "zed"
 cask "google-chrome"
 cask "1password-cli"

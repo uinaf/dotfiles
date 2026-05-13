@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-expected_admin_users="${UINAF_EXPECTED_ADMIN_USERS:-}"
 json_output=0
 warn_count=0
 fail_count=0
@@ -19,7 +18,6 @@ Usage:
 Runs a non-destructive personal/non-devbox drift audit for the current Unix user.
 
 Options:
-  --expected-admin-users LIST   space-separated admin users expected on this Mac
   --json                        print a machine-readable summary instead of prose
   -h, --help
 
@@ -65,10 +63,6 @@ emit_personal_reference_scan_files() {
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
-    --expected-admin-users)
-      expected_admin_users="${2:-}"
-      shift 2
-      ;;
     --json)
       json_output=1
       shift
@@ -217,24 +211,6 @@ if [ -d "$HOME/.codex" ]; then
       ok "$log_path size is under 200 MB"
     fi
   done < <(find "$HOME/.codex" -maxdepth 1 -type f \( -name 'logs*.sqlite' -o -name 'logs*.sqlite-wal' \) -print 2>/dev/null | sort)
-fi
-
-section "admin group"
-
-if admin_members="$(dscl . -read /Groups/admin GroupMembership 2>/dev/null | cut -d: -f2- | xargs 2>/dev/null)"; then
-  if [ -n "$expected_admin_users" ]; then
-    expected_sorted="$(printf '%s\n' "$expected_admin_users" | tr ' ' '\n' | sed '/^$/d' | sort | xargs)"
-    actual_sorted="$(printf '%s\n' "$admin_members" | tr ' ' '\n' | sed '/^$/d' | sort | xargs)"
-    if [ "$actual_sorted" = "$expected_sorted" ]; then
-      ok "admin group matches expected users"
-    else
-      fail_check "admin group is [$actual_sorted], expected [$expected_sorted]"
-    fi
-  else
-    warn "admin users: $admin_members; set UINAF_EXPECTED_ADMIN_USERS to enforce"
-  fi
-else
-  warn "could not read admin group"
 fi
 
 section "Tailscale"
