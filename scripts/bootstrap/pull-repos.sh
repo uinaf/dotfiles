@@ -54,8 +54,7 @@ if [ -x "$agents_sync" ]; then
   printf 'syncing uinaf agents\n'
   "$agents_sync"
 else
-  printf 'missing or non-executable %s\n' "$agents_sync" >&2
-  exit 1
+  printf 'warning: missing or non-executable %s; skipping agent sync\n' "$agents_sync" >&2
 fi
 
 printf 'repos are ready under %s\n' "$projects_root"

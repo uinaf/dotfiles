@@ -102,8 +102,8 @@ It checks:
 - default shells do not export `OP_SERVICE_ACCOUNT_TOKEN`
 - devbox-only token and generated env paths are absent for the current user
 - local Git, SSH, and Codex config files are owner-only where expected
-- shell startup, shell history, SSH config, and uinaf LaunchAgents do not contain
-  raw secret material
+- shell startup, shell history, SSH config, common credential files, Docker
+  config, and LaunchAgents do not contain raw secret material
 - 1Password item references in those local files are surfaced as warnings
 - Git identity, GitHub auth, signing key, and commit-signing state are visible
 - SSH private key files are not group/world-readable
@@ -136,7 +136,12 @@ It checks:
 - local service config, backup files, and shell history do not contain obvious
   secret references
 - shell startup backups, Git config backups, SSH config backups, process-compose
-  backups, and OpenClaw rollback files do not contain raw secret material
+  backups, OpenClaw rollback files, common credential files, Docker config,
+  LaunchAgents, and uinaf LaunchDaemons do not contain raw secret material
+- Codex trusted project paths do not cross into another Unix user's home, point
+  at missing paths, or trust broad home-root directories
+- the home root does not contain stray project artifacts such as `node_modules`
+  or lockfiles
 - Git identity, GitHub auth, and commit signing are configured
 - GitHub SSH auth works for `git@github.com`
 - SSH private key files are not group/world-readable

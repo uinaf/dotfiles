@@ -154,6 +154,14 @@ find_matching_files() {
   fi
 }
 
+list_codex_project_paths() {
+  local config="$1"
+
+  if [ -r "$config" ]; then
+    sed -nE 's/^\[projects\."([^"]+)"\]$/\1/p' "$config"
+  fi
+}
+
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --config)
@@ -302,7 +310,7 @@ fi
 
 section "local config secret scan"
 
-secret_pattern='OP_SERVICE_ACCOUNT_TOKEN=|op://|BEGIN OPENSSH PRIVATE KEY|BEGIN RSA PRIVATE KEY'
+secret_pattern='OP_SERVICE_ACCOUNT_TOKEN=|op://|BEGIN OPENSSH PRIVATE KEY|BEGIN RSA PRIVATE KEY|"auth"[[:space:]]*:|^[[:space:]]*machine[[:space:]].*password[[:space:]]|aws_access_key_id|aws_secret_access_key'
 
 while IFS= read -r path; do
   [ -n "$path" ] || continue
@@ -310,6 +318,8 @@ while IFS= read -r path; do
 done < <(
   {
     find_matching_files "$HOME/.config/process-compose" -type f \( -name '*.yaml' -o -name '*.yml' -o -name '*.bak' \)
+    find_matching_files "$HOME/.aws" -maxdepth 1 -type f -name 'credentials'
+    find_matching_files "$HOME/.docker" -maxdepth 1 -type f -name 'config.json'
     find_matching_files "$HOME/.openclaw" \
       \( -path "$HOME/.openclaw/credentials/whatsapp" \
         -o -path "$HOME/.openclaw/plugin-runtime-deps" \
@@ -317,14 +327,61 @@ done < <(
         -o -path '*/node_modules' \
         -o -path '*/.tmp' \) -prune \
       -o -type f \( -name '*.json' -o -name '*.env' -o -name '*.bak' -o -name '*.last-good' \) -print
-    find_matching_files "$HOME" -maxdepth 1 -type f \( -name '.zsh_history' -o -name '.bash_history' -o -name '.zshenv*' -o -name '.zprofile*' -o -name '.zshrc*' -o -name '.gitconfig*' \)
+    find_matching_files "$HOME" -maxdepth 1 -type f \( -name '.zsh_history' -o -name '.bash_history' -o -name '.zshenv*' -o -name '.zprofile*' -o -name '.zshrc*' -o -name '.gitconfig*' -o -name '.netrc' -o -name '.git-credentials' \)
     find_matching_files "$HOME/.ssh" -maxdepth 1 -type f \( -name 'config' -o -name 'config.*' \)
-    find_matching_files /Library/LaunchDaemons -maxdepth 1 -type f -name 'com.uinaf.*.plist'
-    find_matching_files "$HOME/Library/LaunchAgents" -maxdepth 1 -type f -name 'com.uinaf.*.plist'
+    find_matching_files /Library/LaunchDaemons -maxdepth 1 -type f -name '*.plist'
+    find_matching_files "$HOME/Library/LaunchAgents" -maxdepth 1 -type f -name '*.plist'
   } | sort -u
 )
 
 ok "scanned $secret_scan_count local config files for secret-looking material"
+
+section "Codex trust boundaries"
+
+codex_config="$HOME/.codex/config.toml"
+if [ -e "$codex_config" ]; then
+  check_mode_any "$codex_config" 600
+  trusted_project_count=0
+  home_parent="$(dirname "$HOME")"
+
+  while IFS= read -r trusted_path; do
+    [ -n "$trusted_path" ] || continue
+    trusted_project_count=$((trusted_project_count + 1))
+
+    if [ ! -e "$trusted_path" ]; then
+      warn "Codex trusts missing project path: $trusted_path"
+    fi
+
+    case "$trusted_path" in
+      "$HOME"|"$HOME/projects")
+        warn "Codex trusts broad home path: $trusted_path"
+        ;;
+      "$HOME"/*)
+        ok "Codex trusted path stays under this user: $trusted_path"
+        ;;
+      "$home_parent"/*)
+        fail_check "Codex trusts another user's path: $trusted_path"
+        ;;
+      *)
+        warn "Codex trusts path outside this home: $trusted_path"
+        ;;
+    esac
+  done < <(list_codex_project_paths "$codex_config")
+
+  if [ "$trusted_project_count" -eq 0 ]; then
+    warn "Codex has no trusted project entries"
+  fi
+else
+  warn "missing $codex_config"
+fi
+
+section "home root pollution"
+
+for path in "$HOME/node_modules" "$HOME/package.json" "$HOME/package-lock.json" "$HOME/pnpm-lock.yaml" "$HOME/yarn.lock"; do
+  if [ -e "$path" ]; then
+    warn "home root contains project artifact: $path"
+  fi
+done
 
 section "Git and GitHub identity"
 
