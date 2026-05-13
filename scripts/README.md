@@ -7,6 +7,7 @@ Scripts are grouped by operational surface:
 | `bootstrap/` | Mac bootstrap, local config, repo sync, and functional verification. |
 | `security/` | Repo, macOS posture, and personal-machine audit checks. |
 | `devbox/` | Shared agent-host setup, token/env refresh, and devbox audit checks. |
+| `lib/` | Shared shell helpers used by scripts. |
 | `tizen/` | Samsung Tizen Studio install and certificate/profile archive helpers. |
 
 Run scripts from the repository root unless a script says otherwise.

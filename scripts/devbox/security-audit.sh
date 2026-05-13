@@ -14,6 +14,10 @@ json_output=0
 warn_count=0
 fail_count=0
 secret_scan_count=0
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+
+# shellcheck source=scripts/lib/audit.sh
+. "$repo_root/scripts/lib/audit.sh"
 
 usage() {
   cat <<'USAGE'
@@ -34,35 +38,6 @@ It does not print secret values.
 USAGE
 }
 
-section() {
-  [ "$json_output" -eq 1 ] && return
-  printf '\n## %s\n' "$1"
-}
-
-ok() {
-  [ "$json_output" -eq 1 ] && return
-  printf 'ok %s\n' "$1"
-}
-
-warn() {
-  warn_count=$((warn_count + 1))
-  [ "$json_output" -eq 1 ] && return
-  printf 'warn %s\n' "$1" >&2
-}
-
-fail_check() {
-  fail_count=$((fail_count + 1))
-  [ "$json_output" -eq 1 ] && return
-  printf 'FAILED: %s\n' "$1" >&2
-}
-
-json_string() {
-  local value="$1"
-  value="${value//\\/\\\\}"
-  value="${value//\"/\\\"}"
-  printf '"%s"' "$value"
-}
-
 print_json_summary() {
   local status="pass"
   if [ "$fail_count" -gt 0 ]; then
@@ -80,151 +55,6 @@ print_json_summary() {
   printf ',"devbox_user":'
   json_string "$devbox_user"
   printf ',"secret_scan_count":%s}\n' "$secret_scan_count"
-}
-
-mode_of() {
-  stat -f '%Lp' "$1"
-}
-
-owner_of() {
-  stat -f '%Su' "$1"
-}
-
-check_mode_any() {
-  local path="$1"
-  shift
-  local mode
-  local expected
-
-  if [ ! -e "$path" ]; then
-    fail_check "missing $path"
-    return
-  fi
-
-  mode="$(mode_of "$path")"
-  for expected in "$@"; do
-    if [ "$mode" = "$expected" ]; then
-      ok "$path mode $mode"
-      return
-    fi
-  done
-
-  fail_check "$path mode is $mode, expected one of: $*"
-}
-
-check_not_secret_pattern() {
-  local path="$1"
-  local pattern="$2"
-  local label="$3"
-
-  if [ ! -r "$path" ]; then
-    warn "cannot read $path for $label"
-    return
-  fi
-
-  if grep -Eq "$pattern" "$path"; then
-    fail_check "$path contains $label"
-  else
-    ok "$path does not contain $label"
-  fi
-}
-
-scan_file_for_secret_pattern() {
-  local path="$1"
-  local pattern="$2"
-  local label="$3"
-
-  if [ ! -r "$path" ]; then
-    warn "cannot read $path for $label"
-    return
-  fi
-
-  secret_scan_count=$((secret_scan_count + 1))
-  if grep -Eq "$pattern" "$path"; then
-    fail_check "$path contains $label"
-  fi
-}
-
-scan_files_with_gitleaks() {
-  local scan_root
-  local path
-  local rel_path
-  local link_path
-  local linked_count=0
-
-  if ! command -v gitleaks >/dev/null 2>&1; then
-    fail_check "gitleaks is missing for local secret scan"
-    return
-  fi
-
-  scan_root="$(mktemp -d "${TMPDIR:-/tmp}/uinaf-secret-scan.XXXXXX")"
-  chmod 700 "$scan_root"
-
-  while IFS= read -r path; do
-    [ -n "$path" ] || continue
-
-    if [ ! -r "$path" ]; then
-      warn "cannot read $path for gitleaks secret scan"
-      continue
-    fi
-
-    secret_scan_count=$((secret_scan_count + 1))
-
-    case "$path" in
-      "$HOME"/*) rel_path="home/${path#"$HOME"/}" ;;
-      /*) rel_path="root/${path#/}" ;;
-      *) rel_path="relative/$path" ;;
-    esac
-
-    link_path="$scan_root/$rel_path"
-    mkdir -p "$(dirname "$link_path")"
-    ln -s "$path" "$link_path"
-    linked_count=$((linked_count + 1))
-  done
-
-  if [ "$linked_count" -eq 0 ]; then
-    warn "no readable local config files found for gitleaks secret scan"
-    rm -rf "$scan_root"
-    return
-  fi
-
-  if [ "$json_output" -eq 1 ]; then
-    if gitleaks dir --follow-symlinks --redact --no-banner --log-level error "$scan_root" >/dev/null 2>&1; then
-      ok "gitleaks found no leaks in $linked_count local config files"
-    else
-      fail_check "gitleaks reported possible leaks in local config files"
-    fi
-  elif gitleaks dir --follow-symlinks --redact --no-banner "$scan_root"; then
-    ok "gitleaks found no leaks in $linked_count local config files"
-  else
-    fail_check "gitleaks reported possible leaks in local config files"
-  fi
-
-  rm -rf "$scan_root"
-}
-
-find_matching_files() {
-  local base="$1"
-  shift
-
-  if [ -d "$base" ]; then
-    find "$base" "$@" -print 2>/dev/null || true
-  fi
-}
-
-emit_path_if_exists() {
-  local path="$1"
-
-  if [ -e "$path" ]; then
-    printf '%s\n' "$path"
-  fi
-}
-
-emit_home_dotfiles() {
-  find_matching_files "$HOME" -maxdepth 1 -type f -name '.*' \
-    ! -name '.CFUserTextEncoding' \
-    ! -name '.DS_Store' \
-    ! -name '.localized'
 }
 
 emit_openclaw_boundary_files() {
@@ -291,7 +121,7 @@ done
 section "local devbox config"
 
 if [ -e "$config_path" ]; then
-  check_mode_any "$config_path" 600
+  check_mode_any fail "$config_path" 600
   # shellcheck disable=SC1090
   . "$config_path"
   devbox_user="${UINAF_DEVBOX_USER:-$devbox_user}"
@@ -339,7 +169,7 @@ section "1Password service account token file"
 if [ "$(id -u)" -ne 0 ] && [ ! -e "$token_file" ]; then
   warn "$token_file is not visible to this user; run with sudo to verify root-owned token storage"
 else
-  check_mode_any "$token_file" 400 600
+  check_mode_any fail "$token_file" 400 600
   if [ -e "$token_file" ]; then
     if [ "$(owner_of "$token_file")" = "root" ]; then
       ok "$token_file is root-owned"
@@ -353,8 +183,8 @@ section "generated runtime env"
 
 if [ -e "$openclaw_env_file" ]; then
   env_dir="$(dirname "$openclaw_env_file")"
-  check_mode_any "$env_dir" 700 711
-  check_mode_any "$openclaw_env_file" 400 600
+  check_mode_any fail "$env_dir" 700 711
+  check_mode_any fail "$openclaw_env_file" 400 600
 
   if [ -L "$openclaw_env_file" ]; then
     fail_check "$openclaw_env_file must not be a symlink"
@@ -367,7 +197,7 @@ if [ -e "$openclaw_env_file" ]; then
     fail_check "$openclaw_env_file owner is $env_owner, expected $devbox_user"
   fi
 
-  check_not_secret_pattern "$openclaw_env_file" '^OP_SERVICE_ACCOUNT_TOKEN=' "OP service account token"
+  check_pattern_absent "$openclaw_env_file" '^OP_SERVICE_ACCOUNT_TOKEN=' "OP service account token" fail
 else
   warn "missing $openclaw_env_file"
 fi
@@ -422,7 +252,7 @@ section "Codex trust boundaries"
 
 codex_config="$HOME/.codex/config.toml"
 if [ -e "$codex_config" ]; then
-  check_mode_any "$codex_config" 600
+  check_mode_any fail "$codex_config" 600
   trusted_project_count=0
   home_parent="$(dirname "$HOME")"
 

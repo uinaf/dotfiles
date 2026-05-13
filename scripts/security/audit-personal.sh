@@ -5,6 +5,11 @@ expected_admin_users="${UINAF_EXPECTED_ADMIN_USERS:-}"
 json_output=0
 warn_count=0
 fail_count=0
+secret_scan_count=0
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+
+# shellcheck source=scripts/lib/audit.sh
+. "$repo_root/scripts/lib/audit.sh"
 
 usage() {
   cat <<'USAGE'
@@ -24,35 +29,6 @@ drifted onto a personal setup. It does not print secret values.
 USAGE
 }
 
-section() {
-  [ "$json_output" -eq 1 ] && return
-  printf '\n## %s\n' "$1"
-}
-
-ok() {
-  [ "$json_output" -eq 1 ] && return
-  printf 'ok %s\n' "$1"
-}
-
-warn() {
-  warn_count=$((warn_count + 1))
-  [ "$json_output" -eq 1 ] && return
-  printf 'warn %s\n' "$1" >&2
-}
-
-fail_check() {
-  fail_count=$((fail_count + 1))
-  [ "$json_output" -eq 1 ] && return
-  printf 'FAILED: %s\n' "$1" >&2
-}
-
-json_string() {
-  local value="$1"
-  value="${value//\\/\\\\}"
-  value="${value//\"/\\\"}"
-  printf '"%s"' "$value"
-}
-
 print_json_summary() {
   local status="pass"
   if [ "$fail_count" -gt 0 ]; then
@@ -68,138 +44,6 @@ print_json_summary() {
   printf ',"failed":%s,"warnings":%s,"user":' "$fail_count" "$warn_count"
   json_string "$USER"
   printf '}\n'
-}
-
-mode_of() {
-  stat -f '%Lp' "$1"
-}
-
-check_mode_any() {
-  local path="$1"
-  shift
-  local mode
-  local expected
-
-  if [ ! -e "$path" ]; then
-    warn "missing $path"
-    return
-  fi
-
-  mode="$(mode_of "$path")"
-  for expected in "$@"; do
-    if [ "$mode" = "$expected" ]; then
-      ok "$path mode $mode"
-      return
-    fi
-  done
-
-  fail_check "$path mode is $mode, expected one of: $*"
-}
-
-check_pattern_absent() {
-  local path="$1"
-  local pattern="$2"
-  local label="$3"
-  local severity="$4"
-
-  if [ ! -e "$path" ]; then
-    return
-  fi
-
-  if [ ! -r "$path" ]; then
-    warn "cannot read $path for $label"
-    return
-  fi
-
-  if grep -Eq "$pattern" "$path"; then
-    if [ "$severity" = "fail" ]; then
-      fail_check "$path contains $label"
-    else
-      warn "$path contains $label"
-    fi
-  else
-    ok "$path does not contain $label"
-  fi
-}
-
-scan_files_with_gitleaks() {
-  local scan_root
-  local path
-  local rel_path
-  local link_path
-  local linked_count=0
-
-  if ! command -v gitleaks >/dev/null 2>&1; then
-    fail_check "gitleaks is missing for local secret scan"
-    return
-  fi
-
-  scan_root="$(mktemp -d "${TMPDIR:-/tmp}/uinaf-secret-scan.XXXXXX")"
-  chmod 700 "$scan_root"
-
-  while IFS= read -r path; do
-    [ -n "$path" ] || continue
-
-    if [ ! -r "$path" ]; then
-      warn "cannot read $path for gitleaks secret scan"
-      continue
-    fi
-
-    case "$path" in
-      "$HOME"/*) rel_path="home/${path#"$HOME"/}" ;;
-      /*) rel_path="root/${path#/}" ;;
-      *) rel_path="relative/$path" ;;
-    esac
-
-    link_path="$scan_root/$rel_path"
-    mkdir -p "$(dirname "$link_path")"
-    ln -s "$path" "$link_path"
-    linked_count=$((linked_count + 1))
-  done
-
-  if [ "$linked_count" -eq 0 ]; then
-    warn "no readable local config files found for gitleaks secret scan"
-    rm -rf "$scan_root"
-    return
-  fi
-
-  if [ "$json_output" -eq 1 ]; then
-    if gitleaks dir --follow-symlinks --redact --no-banner --log-level error "$scan_root" >/dev/null 2>&1; then
-      ok "gitleaks found no leaks in $linked_count local config files"
-    else
-      fail_check "gitleaks reported possible leaks in local config files"
-    fi
-  elif gitleaks dir --follow-symlinks --redact --no-banner "$scan_root"; then
-    ok "gitleaks found no leaks in $linked_count local config files"
-  else
-    fail_check "gitleaks reported possible leaks in local config files"
-  fi
-
-  rm -rf "$scan_root"
-}
-
-find_matching_files() {
-  local base="$1"
-  shift
-
-  if [ -d "$base" ]; then
-    find "$base" "$@" -print 2>/dev/null || true
-  fi
-}
-
-emit_path_if_exists() {
-  local path="$1"
-
-  if [ -e "$path" ]; then
-    printf '%s\n' "$path"
-  fi
-}
-
-emit_home_dotfiles() {
-  find_matching_files "$HOME" -maxdepth 1 -type f -name '.*' \
-    ! -name '.CFUserTextEncoding' \
-    ! -name '.DS_Store' \
-    ! -name '.localized'
 }
 
 emit_personal_secret_scan_paths() {
@@ -281,9 +125,9 @@ fi
 
 section "local config file modes"
 
-check_mode_any "$HOME/.gitconfig.local" 600
-check_mode_any "$HOME/.ssh/config.local" 600
-check_mode_any "$HOME/.codex/config.toml" 600
+check_mode_any warn "$HOME/.gitconfig.local" 600
+check_mode_any warn "$HOME/.ssh/config.local" 600
+check_mode_any warn "$HOME/.codex/config.toml" 600
 
 section "local secret scan"
 
