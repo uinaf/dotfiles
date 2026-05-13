@@ -31,6 +31,12 @@ That command runs the repository secret scan through
 diff checks. Run `./scripts/security/audit.sh --skip-mscp` directly when you
 only need the secret scanners.
 
+For agent or dashboard consumption, add `--json`:
+
+```zsh
+./scripts/security/audit.sh --skip-mscp --json
+```
+
 GitHub Actions also runs Gitleaks and TruffleHog on pushes to `main`, pull
 requests, weekly schedule, and manual dispatch through
 `.github/workflows/secrets.yml`.
@@ -84,6 +90,9 @@ Run this from a normal personal Mac user:
 ./scripts/security/audit-personal.sh
 ```
 
+Use `./scripts/security/audit-personal.sh --json` when an agent needs a compact
+status summary.
+
 It checks:
 
 - default shells do not export `OP_SERVICE_ACCOUNT_TOKEN`
@@ -109,6 +118,9 @@ Run this from each devbox user:
 ```zsh
 ./scripts/devbox/security-audit.sh
 ```
+
+Use `./scripts/devbox/security-audit.sh --json` when collecting per-user devbox
+audit summaries over SSH.
 
 It checks:
 

@@ -10,6 +10,7 @@ token_file="${UINAF_OP_SERVICE_ACCOUNT_TOKEN_FILE:-/var/db/uinaf/devbox-secrets/
 openclaw_env_file="${UINAF_OPENCLAW_ENV_FILE:-/var/db/uinaf/devbox-env/$devbox_user/openclaw.env}"
 openclaw_env_link="${UINAF_OPENCLAW_ENV_LINK:-$HOME/.openclaw/.env}"
 expected_admin_users="${UINAF_EXPECTED_ADMIN_USERS:-}"
+json_output=0
 warn_count=0
 fail_count=0
 secret_scan_count=0
@@ -24,6 +25,7 @@ Runs a non-destructive devbox drift audit for the current Unix user.
 Options:
   --config PATH                 local devbox config, default: ~/.config/uinaf/devbox.env
   --expected-admin-users LIST   space-separated admin users expected on this Mac
+  --json                        print a machine-readable summary instead of prose
   -h, --help
 
 The script checks secret boundaries, process-compose isolation, Git/GitHub
@@ -33,21 +35,49 @@ USAGE
 }
 
 section() {
+  [ "$json_output" -eq 1 ] && return
   printf '\n## %s\n' "$1"
 }
 
 ok() {
+  [ "$json_output" -eq 1 ] && return
   printf 'ok %s\n' "$1"
 }
 
 warn() {
   warn_count=$((warn_count + 1))
+  [ "$json_output" -eq 1 ] && return
   printf 'warn %s\n' "$1" >&2
 }
 
 fail_check() {
   fail_count=$((fail_count + 1))
+  [ "$json_output" -eq 1 ] && return
   printf 'FAILED: %s\n' "$1" >&2
+}
+
+json_string() {
+  local value="$1"
+  value="${value//\\/\\\\}"
+  value="${value//\"/\\\"}"
+  printf '"%s"' "$value"
+}
+
+print_json_summary() {
+  local status="pass"
+  if [ "$fail_count" -gt 0 ]; then
+    status="fail"
+  fi
+
+  printf '{"audit":'
+  json_string "devbox-security"
+  printf ',"status":'
+  json_string "$status"
+  printf ',"failed":%s,"warnings":%s,"user":' "$fail_count" "$warn_count"
+  json_string "$USER"
+  printf ',"devbox_user":'
+  json_string "$devbox_user"
+  printf ',"secret_scan_count":%s}\n' "$secret_scan_count"
 }
 
 mode_of() {
@@ -132,6 +162,10 @@ while [ "$#" -gt 0 ]; do
       expected_admin_users="${2:-}"
       shift 2
       ;;
+    --json)
+      json_output=1
+      shift
+      ;;
     --help|-h)
       usage
       exit 0
@@ -176,7 +210,15 @@ else
   fail_check "current shell exports OP_SERVICE_ACCOUNT_TOKEN"
 fi
 
-if zsh -lic 'test -z "${OP_SERVICE_ACCOUNT_TOKEN+x}"'; then
+if [ "$json_output" -eq 1 ]; then
+  zsh_login_has_no_token="$(zsh -lic 'test -z "${OP_SERVICE_ACCOUNT_TOKEN+x}"' >/dev/null 2>&1; printf '%s' "$?")"
+elif zsh -lic 'test -z "${OP_SERVICE_ACCOUNT_TOKEN+x}"'; then
+  zsh_login_has_no_token=0
+else
+  zsh_login_has_no_token=1
+fi
+
+if [ "$zsh_login_has_no_token" = "0" ]; then
   ok "login shell does not export OP_SERVICE_ACCOUNT_TOKEN"
 else
   fail_check "login shell exports OP_SERVICE_ACCOUNT_TOKEN"
@@ -370,7 +412,11 @@ else
   fail_check "tailscale is missing"
 fi
 
-printf '\ndevbox security audit summary: %s failed, %s warnings\n' "$fail_count" "$warn_count"
+if [ "$json_output" -eq 1 ]; then
+  print_json_summary
+else
+  printf '\ndevbox security audit summary: %s failed, %s warnings\n' "$fail_count" "$warn_count"
+fi
 
 if [ "$fail_count" -gt 0 ]; then
   exit 1

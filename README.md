@@ -77,6 +77,12 @@ Use repo checks before committing:
 ./scripts/bootstrap/verify-repo.sh
 ```
 
+To install the local pre-push guard for the fast repo gate:
+
+```zsh
+./scripts/bootstrap/install-git-hooks.sh
+```
+
 Use live-machine checks only on a machine that should actually use these
 dotfiles:
 

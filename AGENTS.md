@@ -81,6 +81,12 @@ For fast local script loops before the final check:
 ./scripts/bootstrap/verify-repo.sh --skip-security
 ```
 
+To install the same fast gate as a local pre-push hook:
+
+```zsh
+./scripts/bootstrap/install-git-hooks.sh
+```
+
 For a live machine that should use these dotfiles:
 
 ```zsh

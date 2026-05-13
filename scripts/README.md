@@ -19,6 +19,12 @@ Repository-only verification:
 ./scripts/bootstrap/verify-repo.sh
 ```
 
+Install the local pre-push guard:
+
+```zsh
+./scripts/bootstrap/install-git-hooks.sh
+```
+
 Personal bootstrap:
 
 ```zsh
@@ -36,6 +42,7 @@ Security audits:
 
 ./scripts/security/audit.sh --skip-mscp
 ./scripts/security/audit-personal.sh
+./scripts/security/audit-personal.sh --json
 ```
 
 Devbox checks:
@@ -44,6 +51,7 @@ Devbox checks:
 
 ./scripts/devbox/verify.sh
 ./scripts/devbox/security-audit.sh
+./scripts/devbox/security-audit.sh --json
 ```
 
 Before committing script changes:
