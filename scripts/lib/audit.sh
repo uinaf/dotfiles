@@ -111,15 +111,21 @@ scan_file_for_secret_pattern() {
   fi
 }
 
-scan_files_with_gitleaks() {
+scan_files_for_secrets() {
   local scan_root
   local path
   local rel_path
   local link_path
   local linked_count=0
+  local trufflehog_status
 
   if ! command -v gitleaks >/dev/null 2>&1; then
     fail_check "gitleaks is missing for local secret scan"
+    return
+  fi
+
+  if ! command -v trufflehog >/dev/null 2>&1; then
+    fail_check "trufflehog is missing for local secret scan"
     return
   fi
 
@@ -166,7 +172,42 @@ scan_files_with_gitleaks() {
     fail_check "gitleaks reported possible leaks in local config files"
   fi
 
+  trufflehog_status=0
+  if [ "$json_output" -eq 1 ]; then
+    trufflehog filesystem \
+      --no-update \
+      --no-color \
+      --results=verified \
+      --fail \
+      --force-skip-binaries \
+      --force-skip-archives \
+      --max-symlink-depth=1 \
+      "$scan_root" >/dev/null 2>&1 || trufflehog_status=$?
+  else
+    trufflehog filesystem \
+      --no-update \
+      --no-color \
+      --results=verified \
+      --fail \
+      --force-skip-binaries \
+      --force-skip-archives \
+      --max-symlink-depth=1 \
+      "$scan_root" || trufflehog_status=$?
+  fi
+
+  if [ "$trufflehog_status" -eq 0 ]; then
+    ok "trufflehog found no verified leaks in $linked_count local config files"
+  elif [ "$trufflehog_status" -eq 183 ]; then
+    fail_check "trufflehog reported verified leaks in local config files"
+  else
+    fail_check "trufflehog local config scan failed"
+  fi
+
   rm -rf "$scan_root"
+}
+
+scan_files_with_gitleaks() {
+  scan_files_for_secrets "$@"
 }
 
 find_matching_files() {

@@ -47,6 +47,7 @@ brew "teamookla/speedtest/speedtest"
 
 # Security
 brew "gitleaks"
+brew "lynis"
 brew "trufflehog"
 
 # uinaf tools

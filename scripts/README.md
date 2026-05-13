@@ -42,6 +42,8 @@ Security audits:
 ```zsh
 
 ./scripts/security/audit.sh --skip-mscp
+./scripts/security/audit-host.sh
+./scripts/security/audit-host.sh --json
 ./scripts/security/audit-personal.sh
 ./scripts/security/audit-personal.sh --json
 ```

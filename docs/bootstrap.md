@@ -72,6 +72,7 @@ Verify:
 
 ```zsh
 ./scripts/bootstrap/verify.sh --profile personal
+./scripts/security/audit-host.sh
 ./scripts/security/audit-personal.sh
 ```
 
@@ -122,6 +123,7 @@ Verify each devbox user:
 
 ```zsh
 ./scripts/bootstrap/verify.sh --profile devbox
+./scripts/security/audit-host.sh
 ./scripts/devbox/verify.sh
 ./scripts/devbox/security-audit.sh
 ```

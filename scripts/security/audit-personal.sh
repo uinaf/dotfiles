@@ -133,7 +133,7 @@ section "local secret scan"
 
 op_reference_pattern='op://'
 
-scan_files_with_gitleaks < <(
+scan_files_for_secrets < <(
   emit_personal_secret_scan_paths | sort -u
 )
 

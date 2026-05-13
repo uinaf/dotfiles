@@ -209,8 +209,12 @@ permissions, GitHub SSH auth, admin group drift, Tailscale health, and raw
 service-account token references in local service config. It does not print
 secret values.
 
-For OS-level posture, run `./scripts/security/audit.sh` after generating a
-macOS Security Compliance Project check-only script for the host's macOS
-version. Start with check-only results and review exceptions before applying
-any remediation outside this repo. See [Security audits](security-audits.md) for
-the full audit model.
+For broad OS-level posture, run `./scripts/security/audit-host.sh`. It uses
+Lynis as a maintained host scanner and keeps full reports out of the repo by
+default.
+
+For compliance-style OS posture, run `./scripts/security/audit.sh` after
+generating a macOS Security Compliance Project check-only script for the host's
+macOS version. Start with check-only results and review exceptions before
+applying any remediation outside this repo. See
+[Security audits](security-audits.md) for the full audit model.

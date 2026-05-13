@@ -36,6 +36,7 @@ SARIF for tools that can emit it cleanly.
 | Devbox service boundary | `./scripts/devbox/verify.sh` | process-compose and generated env/token boundaries match the local devbox contract. |
 | Devbox security drift | `./scripts/devbox/security-audit.sh` | Secret boundaries, Git/GitHub identity, SSH key modes, admin drift, and Tailscale health are sane for that Unix user. |
 | Personal security drift | `./scripts/security/audit-personal.sh` | Personal shell, Git, SSH, Codex, and local secret boundaries do not show obvious drift. |
+| Host hardening audit | `./scripts/security/audit-host.sh` | Lynis runs as a maintained broad host scanner and reports hardening index, warnings, and suggestions. |
 | Repository and macOS audit | `./scripts/security/audit.sh` | Gitleaks/TruffleHog pass; optional mSCP check-only audit runs when configured. |
 
 ## Agent Workflow
@@ -70,7 +71,7 @@ See [GitHub pipelines](github-pipelines.md) for triggers and non-goals.
 ## Non-Goals
 
 - No app boot command, seed data, browser e2e, or service health endpoint.
-- No automatic mSCP remediation.
+- No automatic Lynis or mSCP remediation.
 - No tracked Codex state, browser profiles, service-account tokens, or generated
   devbox env files.
 - No deploy or release pipeline unless the repo starts publishing an artifact.

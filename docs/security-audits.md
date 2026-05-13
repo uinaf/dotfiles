@@ -10,7 +10,8 @@ Use separate checks for separate risk surfaces:
 | Layer | Tooling | Purpose |
 | --- | --- | --- |
 | Repository content | `gitleaks`, `trufflehog`, `.github/workflows/secrets.yml` | Detect committed or proposed secrets. |
-| macOS posture | macOS Security Compliance Project through `scripts/security/audit.sh` | Check host security settings against a generated baseline. |
+| Host hardening | `lynis`, `scripts/security/audit-host.sh` | Run a maintained Unix/macOS host audit without adopting enterprise management. |
+| macOS compliance baseline | macOS Security Compliance Project through `scripts/security/audit.sh` | Check host security settings against a generated baseline. |
 | Personal drift | `scripts/security/audit-personal.sh` | Check non-devbox user secret boundaries, identity state, and local stale files. |
 | Devbox drift | `scripts/devbox/security-audit.sh` | Check agent-machine secret boundaries, identity state, and local stale files. |
 | Functional bootstrap | `scripts/bootstrap/verify.sh`, `scripts/devbox/verify.sh` | Confirm tools and expected services work. |
@@ -54,6 +55,33 @@ If either scanner reports a real secret:
 2. Rotate or revoke it in the owning system.
 3. Remove the secret from the repo and commit history when needed.
 4. Document only the affected surface and rotation outcome, not the secret.
+
+## Host Hardening Audit
+
+Use Lynis for broad host checks that should not live as custom repo shell
+logic:
+
+```zsh
+./scripts/security/audit-host.sh
+```
+
+Use `./scripts/security/audit-host.sh --json` when an agent needs a compact
+summary. The default run does not prompt for sudo, so it is safe for routine
+personal and devbox checks. For a deeper local audit:
+
+```zsh
+./scripts/security/audit-host.sh --allow-sudo-prompt
+```
+
+The script captures Lynis output in a temporary owner-only directory, summarizes
+the hardening index, warning count, and suggestion count, then deletes the full
+report. Use `--keep-artifacts DIR` only for manual review; Lynis reports can
+contain hostnames, local paths, package inventory, and network details.
+
+Treat Lynis as a discovery tool, not a policy engine. Review warnings and
+suggestions, decide what fits a personal or shared devbox setup, then encode
+only durable repo-specific drift checks in `audit-personal.sh` or
+`devbox/security-audit.sh`.
 
 ## macOS Security Compliance Project
 
@@ -102,8 +130,8 @@ It checks:
 - default shells do not export `OP_SERVICE_ACCOUNT_TOKEN`
 - devbox-only token and generated env paths are absent for the current user
 - local Git, SSH, and Codex config files are owner-only where expected
-- Gitleaks does not report leaks in shell startup, shell history, SSH config,
-  common credential files, Docker config, or LaunchAgents
+- Gitleaks and TruffleHog do not report leaks in shell startup, shell history,
+  SSH config, common credential files, Docker config, or LaunchAgents
 - 1Password item references in those local files are surfaced as warnings
 - Git identity, GitHub auth, signing key, and commit-signing state are visible
 - SSH private key files are not group/world-readable
@@ -135,9 +163,10 @@ It checks:
 - process-compose is isolated through the configured socket or port
 - local service config, backup files, and shell history do not contain obvious
   secret references
-- Gitleaks does not report leaks in shell startup backups, Git config backups,
-  SSH config backups, process-compose backups, OpenClaw rollback files, common
-  credential files, Docker config, LaunchAgents, or uinaf LaunchDaemons
+- Gitleaks and TruffleHog do not report leaks in shell startup backups, Git
+  config backups, SSH config backups, process-compose backups, OpenClaw
+  rollback files, common credential files, Docker config, LaunchAgents, or
+  uinaf LaunchDaemons
 - OpenClaw runtime credential stores are not part of the default Gitleaks pass;
   this audit checks their surrounding boundaries without dumping or scanning
   expected auth state.
@@ -159,9 +188,22 @@ inspect the machine; failures mean the setup violates the expected boundary.
 - Keep audit scripts non-destructive by default.
 - Do not print secret values, token contents, full env dumps, or raw launchd
   environment output.
-- Add new checks when a real incident, migration, or setup decision introduces a
-  repeatable drift risk.
+- Prefer maintained scanners such as Lynis, Gitleaks, TruffleHog, and mSCP for
+  generic detection. Add custom shell checks only for repo-specific boundaries
+  that those tools cannot understand.
+- Add new custom checks when a real incident, migration, or setup decision
+  introduces a repeatable drift risk.
 - Update this document whenever audit scripts, CI scan behavior, or devbox
   secret boundaries change.
 - Keep local machine names, vault item names, and private identity context out
   of public examples.
+
+## Tool References
+
+- [Lynis documentation](https://cisofy.com/documentation/lynis/) for host
+  audit behavior and command options.
+- [macOS Security Compliance Project](https://pages.nist.gov/macos_security/)
+  for macOS baselines and check-only compliance scripts.
+- [Gitleaks](https://gitleaks.org/) and
+  [TruffleHog](https://docs.trufflesecurity.com/) for maintained secret
+  detection.

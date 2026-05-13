@@ -95,12 +95,13 @@ For security posture:
 
 ```zsh
 ./scripts/security/audit.sh --skip-mscp
+./scripts/security/audit-host.sh
 ./scripts/security/audit-personal.sh
 ./scripts/devbox/security-audit.sh
 ```
 
-See [Security audits](docs/security-audits.md) for the audit layers and macOS
-Security Compliance Project flow.
+See [Security audits](docs/security-audits.md) for the audit layers, Lynis host
+audit, and macOS Security Compliance Project flow.
 
 ## Docs Map
 

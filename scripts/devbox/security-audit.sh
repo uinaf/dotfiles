@@ -240,7 +240,7 @@ fi
 
 section "local config secret scan"
 
-scan_files_with_gitleaks < <(
+scan_files_for_secrets < <(
   emit_devbox_secret_scan_paths | sort -u
 )
 
