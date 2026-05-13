@@ -145,6 +145,64 @@ scan_file_for_secret_pattern() {
   fi
 }
 
+scan_files_with_gitleaks() {
+  local scan_root
+  local path
+  local rel_path
+  local link_path
+  local linked_count=0
+
+  if ! command -v gitleaks >/dev/null 2>&1; then
+    fail_check "gitleaks is missing for local secret scan"
+    return
+  fi
+
+  scan_root="$(mktemp -d "${TMPDIR:-/tmp}/uinaf-secret-scan.XXXXXX")"
+  chmod 700 "$scan_root"
+
+  while IFS= read -r path; do
+    [ -n "$path" ] || continue
+
+    if [ ! -r "$path" ]; then
+      warn "cannot read $path for gitleaks secret scan"
+      continue
+    fi
+
+    secret_scan_count=$((secret_scan_count + 1))
+
+    case "$path" in
+      "$HOME"/*) rel_path="home/${path#"$HOME"/}" ;;
+      /*) rel_path="root/${path#/}" ;;
+      *) rel_path="relative/$path" ;;
+    esac
+
+    link_path="$scan_root/$rel_path"
+    mkdir -p "$(dirname "$link_path")"
+    ln -s "$path" "$link_path"
+    linked_count=$((linked_count + 1))
+  done
+
+  if [ "$linked_count" -eq 0 ]; then
+    warn "no readable local config files found for gitleaks secret scan"
+    rm -rf "$scan_root"
+    return
+  fi
+
+  if [ "$json_output" -eq 1 ]; then
+    if gitleaks dir --follow-symlinks --redact --no-banner --log-level error "$scan_root" >/dev/null 2>&1; then
+      ok "gitleaks found no leaks in $linked_count local config files"
+    else
+      fail_check "gitleaks reported possible leaks in local config files"
+    fi
+  elif gitleaks dir --follow-symlinks --redact --no-banner "$scan_root"; then
+    ok "gitleaks found no leaks in $linked_count local config files"
+  else
+    fail_check "gitleaks reported possible leaks in local config files"
+  fi
+
+  rm -rf "$scan_root"
+}
+
 find_matching_files() {
   local base="$1"
   shift
@@ -310,12 +368,7 @@ fi
 
 section "local config secret scan"
 
-secret_pattern='OP_SERVICE_ACCOUNT_TOKEN=|op://|BEGIN OPENSSH PRIVATE KEY|BEGIN RSA PRIVATE KEY|^[[:space:]]*machine[[:space:]].*password[[:space:]]|aws_access_key_id|aws_secret_access_key'
-
-while IFS= read -r path; do
-  [ -n "$path" ] || continue
-  scan_file_for_secret_pattern "$path" "$secret_pattern" "secret-looking material"
-done < <(
+scan_files_with_gitleaks < <(
   {
     find_matching_files "$HOME/.config/process-compose" -type f \( -name '*.yaml' -o -name '*.yml' -o -name '*.bak' \)
     find_matching_files "$HOME/.aws" -maxdepth 1 -type f -name 'credentials'
@@ -333,8 +386,6 @@ done < <(
     find_matching_files "$HOME/Library/LaunchAgents" -maxdepth 1 -type f -name '*.plist'
   } | sort -u
 )
-
-ok "scanned $secret_scan_count local config files for secret-looking material"
 
 if [ -e "$HOME/.docker/config.json" ]; then
   scan_file_for_secret_pattern "$HOME/.docker/config.json" '"auth"[[:space:]]*:' "inline Docker auth material"

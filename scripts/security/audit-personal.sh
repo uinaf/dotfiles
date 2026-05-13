@@ -122,6 +122,62 @@ check_pattern_absent() {
   fi
 }
 
+scan_files_with_gitleaks() {
+  local scan_root
+  local path
+  local rel_path
+  local link_path
+  local linked_count=0
+
+  if ! command -v gitleaks >/dev/null 2>&1; then
+    fail_check "gitleaks is missing for local secret scan"
+    return
+  fi
+
+  scan_root="$(mktemp -d "${TMPDIR:-/tmp}/uinaf-secret-scan.XXXXXX")"
+  chmod 700 "$scan_root"
+
+  while IFS= read -r path; do
+    [ -n "$path" ] || continue
+
+    if [ ! -r "$path" ]; then
+      warn "cannot read $path for gitleaks secret scan"
+      continue
+    fi
+
+    case "$path" in
+      "$HOME"/*) rel_path="home/${path#"$HOME"/}" ;;
+      /*) rel_path="root/${path#/}" ;;
+      *) rel_path="relative/$path" ;;
+    esac
+
+    link_path="$scan_root/$rel_path"
+    mkdir -p "$(dirname "$link_path")"
+    ln -s "$path" "$link_path"
+    linked_count=$((linked_count + 1))
+  done
+
+  if [ "$linked_count" -eq 0 ]; then
+    warn "no readable local config files found for gitleaks secret scan"
+    rm -rf "$scan_root"
+    return
+  fi
+
+  if [ "$json_output" -eq 1 ]; then
+    if gitleaks dir --follow-symlinks --redact --no-banner --log-level error "$scan_root" >/dev/null 2>&1; then
+      ok "gitleaks found no leaks in $linked_count local config files"
+    else
+      fail_check "gitleaks reported possible leaks in local config files"
+    fi
+  elif gitleaks dir --follow-symlinks --redact --no-banner "$scan_root"; then
+    ok "gitleaks found no leaks in $linked_count local config files"
+  else
+    fail_check "gitleaks reported possible leaks in local config files"
+  fi
+
+  rm -rf "$scan_root"
+}
+
 find_matching_files() {
   local base="$1"
   shift
@@ -200,17 +256,23 @@ check_mode_any "$HOME/.codex/config.toml" 600
 
 section "local secret scan"
 
-raw_secret_pattern='OP_SERVICE_ACCOUNT_TOKEN=|BEGIN OPENSSH PRIVATE KEY|BEGIN RSA PRIVATE KEY|BEGIN EC PRIVATE KEY|^[[:space:]]*machine[[:space:]].*password[[:space:]]|aws_access_key_id|aws_secret_access_key'
 op_reference_pattern='op://'
 
-while IFS= read -r path; do
-  [ -n "$path" ] || continue
-  check_pattern_absent "$path" "$raw_secret_pattern" "raw secret material" fail
-  check_pattern_absent "$path" "$op_reference_pattern" "1Password item references" warn
-done < <(
+scan_files_with_gitleaks < <(
   {
     find_matching_files "$HOME/.aws" -maxdepth 1 -type f -name 'credentials'
     find_matching_files "$HOME/.docker" -maxdepth 1 -type f -name 'config.json'
+    find_matching_files "$HOME" -maxdepth 1 -type f \( -name '.zsh_history' -o -name '.bash_history' -o -name '.zshenv*' -o -name '.zprofile*' -o -name '.zshrc*' -o -name '.gitconfig*' -o -name '.netrc' -o -name '.git-credentials' \)
+    find_matching_files "$HOME/.ssh" -maxdepth 1 -type f \( -name 'config' -o -name 'config.*' \)
+    find_matching_files "$HOME/Library/LaunchAgents" -maxdepth 1 -type f -name '*.plist'
+  } | sort -u
+)
+
+while IFS= read -r path; do
+  [ -n "$path" ] || continue
+  check_pattern_absent "$path" "$op_reference_pattern" "1Password item references" warn
+done < <(
+  {
     find_matching_files "$HOME" -maxdepth 1 -type f \( -name '.zsh_history' -o -name '.bash_history' -o -name '.zshenv*' -o -name '.zprofile*' -o -name '.zshrc*' -o -name '.gitconfig*' -o -name '.netrc' -o -name '.git-credentials' \)
     find_matching_files "$HOME/.ssh" -maxdepth 1 -type f \( -name 'config' -o -name 'config.*' \)
     find_matching_files "$HOME/Library/LaunchAgents" -maxdepth 1 -type f -name '*.plist'
