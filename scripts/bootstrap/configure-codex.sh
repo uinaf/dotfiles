@@ -46,5 +46,6 @@ fi
 
 CODEX_HOME="$codex_home" codex features enable goals >/dev/null
 CODEX_HOME="$codex_home" codex features enable memories >/dev/null
+CODEX_HOME="$codex_home" codex features enable remote_connections >/dev/null
 
 printf 'configured Codex defaults in %s\n' "$config_path"
