@@ -219,9 +219,37 @@ find_matching_files() {
   fi
 }
 
+load_uinaf_audit_policy() {
+  local policy_path="${UINAF_AUDIT_POLICY_FILE:-$HOME/.config/uinaf/audit.env}"
+
+  [ -e "$policy_path" ] || return
+
+  # Public-safe local policy only. Do not put secrets in this file.
+  # shellcheck disable=SC1090
+  . "$policy_path"
+  ok "loaded audit policy from $policy_path"
+}
+
+word_in_list() {
+  local needle="$1"
+  local words="$2"
+  local word
+
+  for word in $words; do
+    if [ "$word" = "$needle" ]; then
+      return 0
+    fi
+  done
+
+  return 1
+}
+
 warn_on_broad_gh_scopes() {
+  local sensitive_scopes="${UINAF_GH_SENSITIVE_SCOPES:-delete_repo workflow admin:org admin:public_key admin:repo_hook write:packages}"
+  local accepted_scopes="${UINAF_GH_ACCEPTED_SCOPES:-}"
   local status_output
   local scopes_line
+  local normalized_scopes
   local scope
 
   command -v gh >/dev/null 2>&1 || return
@@ -229,13 +257,16 @@ warn_on_broad_gh_scopes() {
   status_output="$(gh auth status -h github.com 2>&1 || true)"
   scopes_line="$(printf '%s\n' "$status_output" | sed -nE "s/.*Token scopes: (.*)/\1/p" | tail -n 1)"
   [ -n "$scopes_line" ] || return
+  normalized_scopes="$(printf '%s\n' "$scopes_line" | tr -d "',")"
 
-  for scope in delete_repo workflow admin:org admin:public_key admin:repo_hook write:packages; do
-    case "$scopes_line" in
-      *"$scope"*)
-        warn "gh token has broad scope: $scope"
-        ;;
-    esac
+  for scope in $sensitive_scopes; do
+    if word_in_list "$scope" "$normalized_scopes"; then
+      if word_in_list "$scope" "$accepted_scopes"; then
+        ok "gh token broad scope accepted by policy: $scope"
+      else
+        warn "gh token has broad scope outside policy: $scope"
+      fi
+    fi
   done
 }
 

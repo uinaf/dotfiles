@@ -85,6 +85,8 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 
+load_uinaf_audit_policy
+
 section "default shell secret boundary"
 
 if [ -z "${OP_SERVICE_ACCOUNT_TOKEN+x}" ]; then

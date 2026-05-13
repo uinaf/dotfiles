@@ -142,6 +142,8 @@ else
   ok "devbox user matches current user: $devbox_user"
 fi
 
+load_uinaf_audit_policy
+
 section "default shell secret boundary"
 
 if [ -z "${OP_SERVICE_ACCOUNT_TOKEN+x}" ]; then

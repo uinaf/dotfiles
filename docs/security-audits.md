@@ -42,6 +42,25 @@ JSON summaries use `status=pass` only when there are no failures or warnings,
 `status=warn` when checks completed with warnings, and `status=fail` when any
 check failed.
 
+## Local Audit Policy
+
+Shared audit policy lives in `~/.config/uinaf/audit.env`, installed from the
+tracked `home/.config/uinaf/audit.env`. Keep it public-safe: it may contain
+accepted scope names and drift thresholds, but never secrets, tokens, 1Password
+references, or identity-specific values.
+
+GitHub CLI scope checks use this file:
+
+```sh
+UINAF_GH_SENSITIVE_SCOPES="delete_repo workflow admin:org admin:public_key admin:repo_hook write:packages"
+UINAF_GH_ACCEPTED_SCOPES="delete_repo workflow admin:org admin:public_key admin:repo_hook write:packages"
+```
+
+Scopes in `UINAF_GH_SENSITIVE_SCOPES` are audited centrally. A scope also
+listed in `UINAF_GH_ACCEPTED_SCOPES` is reported as accepted by policy instead
+of warning. Override with `UINAF_AUDIT_POLICY_FILE=/path/to/file` for local
+experiments.
+
 GitHub Actions also runs Gitleaks and TruffleHog on pushes to `main`, pull
 requests, weekly schedule, and manual dispatch through
 `.github/workflows/secrets.yml`.
@@ -134,7 +153,8 @@ It checks:
   SSH config, common credential files, Docker config, or LaunchAgents
 - 1Password item references in those local files are surfaced as warnings
 - Git identity, GitHub auth, signing key, and commit-signing state are visible
-- broad GitHub CLI token scopes such as `workflow` are surfaced as warnings
+- broad GitHub CLI token scopes are checked against the central local audit
+  policy
 - SSH private key files are not group/world-readable
 - Codex log databases are surfaced when they grow beyond local privacy and disk
   budget thresholds
@@ -179,8 +199,8 @@ It checks:
   or lockfiles
 - project directories under `~/projects` are not readable by other local users
 - Git identity, GitHub auth, and commit signing are configured
-- broad GitHub CLI token scopes such as `delete_repo` and `workflow` are
-  surfaced as warnings
+- broad GitHub CLI token scopes are checked against the central local audit
+  policy
 - GitHub SSH auth works for `git@github.com`
 - SSH private key files are not group/world-readable
 - screen-sharing and remote-Apple-event group membership is surfaced as a
