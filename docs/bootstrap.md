@@ -46,6 +46,10 @@ Install Homebrew dependencies:
 ./scripts/bootstrap/brew-bundle.sh personal
 ```
 
+The personal Brewfile may include Mac App Store entries through `mas`. Those
+require the interactive user to be signed into the App Store, and macOS may ask
+for the local account password during install.
+
 Install optional external tools:
 
 ```zsh
