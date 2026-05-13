@@ -144,7 +144,9 @@ write_github_ssh_config() {
     awk '
       $0 == "# uinaf-dotfiles: github-ssh begin" { skip = 1; next }
       $0 == "# uinaf-dotfiles: github-ssh end" { skip = 0; next }
-      !skip { print }
+      $1 == "Host" && $2 == "github.com" { skip_github = 1; next }
+      $1 == "Host" { skip_github = 0 }
+      !skip && !skip_github { print }
     ' "$ssh_config_local" > "$tmp_config"
     if [ -s "$tmp_config" ] && [ "$(tail -c 1 "$tmp_config")" != "" ]; then
       printf '\n' >> "$tmp_config"
@@ -165,6 +167,26 @@ EOF
   install -m 0600 "$tmp_config" "$ssh_config_local"
   rm -f "$tmp_config"
   printf 'wrote %s\n' "$ssh_config_local"
+}
+
+default_git_ssh_identity_file() {
+  local value="$1"
+
+  case "$value" in
+    ssh-*|"")
+      return
+      ;;
+    *.pub)
+      if [ -f "${value%.pub}" ]; then
+        printf '%s\n' "${value%.pub}"
+      else
+        printf '%s\n' "$value"
+      fi
+      ;;
+    *)
+      printf '%s\n' "$value"
+      ;;
+  esac
 }
 
 default_name="$(git config --global --get user.name 2>/dev/null || true)"
@@ -225,9 +247,11 @@ if [ -z "$git_ssh_identity_file" ] && [ "$profile" = "devbox" ]; then
     ssh-*)
       ;;
     *)
-      git_ssh_identity_file="$signing_key"
+      git_ssh_identity_file="$(default_git_ssh_identity_file "$signing_key")"
       ;;
   esac
+else
+  git_ssh_identity_file="$(default_git_ssh_identity_file "$git_ssh_identity_file")"
 fi
 
 gitconfig_local="$HOME/.gitconfig.local"
