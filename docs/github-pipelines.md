@@ -13,10 +13,10 @@ It does not deploy a running service or publish a versioned package.
 The local canonical command remains:
 
 ```zsh
-./scripts/bootstrap/verify-repo.sh
+./scripts/verify/repo.sh
 ```
 
-The Verify workflow runs `./scripts/bootstrap/verify-repo.sh --skip-security`
+The Verify workflow runs `./scripts/verify/repo.sh --skip-security`
 because the dedicated Secret scanning workflow performs the CI scanner pass.
 
 ## Deploy Pipeline

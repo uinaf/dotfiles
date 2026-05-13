@@ -21,10 +21,10 @@ file when another Unix user has to read them.
 
 ## Local Audits
 
-Run `./scripts/security/audit.sh` for repo secret scans and optional
+Run `./scripts/audit/repo.sh` for repo secret scans and optional
 check-only macOS Security Compliance Project checks. Run
-`./scripts/security/audit-personal.sh` on personal Macs and
-`./scripts/devbox/security-audit.sh` on each shared devbox user to check local
+`./scripts/audit/personal.sh` on personal Macs and
+`./scripts/audit/devbox.sh` on each shared devbox user to check local
 secret boundaries, identity state, and common stale backup locations. These
 scripts are non-destructive and do not print secret values.
 

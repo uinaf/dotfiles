@@ -71,9 +71,9 @@ Chrome vertical tabs are a local browser preference. Quit Chrome first, then:
 Verify:
 
 ```zsh
-./scripts/bootstrap/verify.sh --profile personal
-./scripts/security/audit-host.sh
-./scripts/security/audit-personal.sh
+./scripts/verify/bootstrap.sh --profile personal
+./scripts/audit/host.sh
+./scripts/audit/personal.sh
 ```
 
 ## Devbox Mac
@@ -114,18 +114,18 @@ If the devbox runs long-lived OpenClaw or agent services, follow
 [Devbox setup](devbox.md). The short version:
 
 1. Store the 1Password service-account token in machine-local secret storage.
-2. Use `scripts/devbox/install-env-refresh.sh` to install the root-owned env
+2. Use `scripts/secrets/install-env-refresh.sh` to install the root-owned env
    refresh helper.
-3. Pipe the service-account token into `scripts/devbox/install-op-token.sh`.
+3. Pipe the service-account token into `scripts/secrets/install-op-token.sh`.
 4. Run services from process-compose with generated owner-only env files.
 
 Verify each devbox user:
 
 ```zsh
-./scripts/bootstrap/verify.sh --profile devbox
-./scripts/security/audit-host.sh
-./scripts/devbox/verify.sh
-./scripts/devbox/security-audit.sh
+./scripts/verify/bootstrap.sh --profile devbox
+./scripts/audit/host.sh
+./scripts/verify/devbox-services.sh
+./scripts/audit/devbox.sh
 ```
 
 ## Updating an Existing Machine
@@ -138,7 +138,7 @@ git pull --ff-only
 ./scripts/bootstrap/brew-bundle.sh personal
 ./scripts/bootstrap/install.sh
 mise install
-./scripts/bootstrap/verify.sh --profile personal
+./scripts/verify/bootstrap.sh --profile personal
 ```
 
 Use `devbox` instead of `personal` on shared agent hosts.

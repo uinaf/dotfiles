@@ -24,13 +24,13 @@ For full machine bootstrap, use [Bootstrap guide](docs/bootstrap.md).
 Before opening a pull request, run:
 
 ```zsh
-./scripts/bootstrap/verify-repo.sh
+./scripts/verify/repo.sh
 ```
 
-Run `./scripts/bootstrap/verify.sh` only on a machine where these dotfiles are
+Run `./scripts/verify/bootstrap.sh` only on a machine where these dotfiles are
 actively installed. It checks the live home directory.
 
-Use `./scripts/bootstrap/verify-repo.sh --skip-security` for a fast local loop,
+Use `./scripts/verify/repo.sh --skip-security` for a fast local loop,
 but run the full command before committing or pushing.
 
 ## Brewfiles

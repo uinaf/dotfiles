@@ -10,11 +10,11 @@ Use separate checks for separate risk surfaces:
 | Layer | Tooling | Purpose |
 | --- | --- | --- |
 | Repository content | `gitleaks`, `trufflehog`, `.github/workflows/secrets.yml` | Detect committed or proposed secrets. |
-| Host hardening | `lynis`, `scripts/security/audit-host.sh` | Run a maintained Unix/macOS host audit without adopting enterprise management. |
-| macOS compliance baseline | macOS Security Compliance Project through `scripts/security/audit.sh` | Check host security settings against a generated baseline. |
-| Personal drift | `scripts/security/audit-personal.sh` | Check non-devbox user secret boundaries, identity state, and local stale files. |
-| Devbox drift | `scripts/devbox/security-audit.sh` | Check agent-machine secret boundaries, identity state, and local stale files. |
-| Functional bootstrap | `scripts/bootstrap/verify.sh`, `scripts/devbox/verify.sh` | Confirm tools and expected services work. |
+| Host hardening | `lynis`, `scripts/audit/host.sh` | Run a maintained Unix/macOS host audit without adopting enterprise management. |
+| macOS compliance baseline | macOS Security Compliance Project through `scripts/audit/repo.sh` | Check host security settings against a generated baseline. |
+| Personal drift | `scripts/audit/personal.sh` | Check non-devbox user secret boundaries, identity state, and local stale files. |
+| Devbox drift | `scripts/audit/devbox.sh` | Check agent-machine secret boundaries, identity state, and local stale files. |
+| Functional bootstrap | `scripts/verify/bootstrap.sh`, `scripts/verify/devbox-services.sh` | Confirm tools and expected services work. |
 
 Do not treat one layer as a substitute for another. For example, a clean
 Gitleaks run does not prove launchd or process-compose state is safe.
@@ -24,18 +24,18 @@ Gitleaks run does not prove launchd or process-compose state is safe.
 Run locally before committing security-sensitive setup changes:
 
 ```zsh
-./scripts/bootstrap/verify-repo.sh
+./scripts/verify/repo.sh
 ```
 
 That command runs the repository secret scan through
-`./scripts/security/audit.sh --skip-mscp` after the normal shell, workflow, and
-diff checks. Run `./scripts/security/audit.sh --skip-mscp` directly when you
+`./scripts/audit/repo.sh --skip-mscp` after the normal shell, workflow, and
+diff checks. Run `./scripts/audit/repo.sh --skip-mscp` directly when you
 only need the secret scanners.
 
 For agent or dashboard consumption, add `--json`:
 
 ```zsh
-./scripts/security/audit.sh --skip-mscp --json
+./scripts/audit/repo.sh --skip-mscp --json
 ```
 
 JSON summaries use `status=pass` only when there are no failures or warnings,
@@ -62,15 +62,15 @@ Use Lynis for broad host checks that should not live as custom repo shell
 logic:
 
 ```zsh
-./scripts/security/audit-host.sh
+./scripts/audit/host.sh
 ```
 
-Use `./scripts/security/audit-host.sh --json` when an agent needs a compact
+Use `./scripts/audit/host.sh --json` when an agent needs a compact
 summary. The default run does not prompt for sudo, so it is safe for routine
 personal and devbox checks. For a deeper local audit:
 
 ```zsh
-./scripts/security/audit-host.sh --allow-sudo-prompt
+./scripts/audit/host.sh --allow-sudo-prompt
 ```
 
 The script captures Lynis output in a temporary owner-only directory, summarizes
@@ -80,12 +80,12 @@ contain hostnames, local paths, package inventory, and network details.
 
 Treat Lynis as a discovery tool, not a policy engine. Review warnings and
 suggestions, decide what fits a personal or shared devbox setup, then encode
-only durable repo-specific drift checks in `audit-personal.sh` or
-`devbox/security-audit.sh`.
+only durable repo-specific drift checks in `scripts/audit/personal.sh` or
+`scripts/audit/devbox.sh`.
 
 ## macOS Security Compliance Project
 
-`scripts/security/audit.sh` can run an existing mSCP compliance script in
+`scripts/audit/repo.sh` can run an existing mSCP compliance script in
 check-only mode. It never runs `--fix`.
 
 Prepare mSCP outside this repo:
@@ -107,7 +107,7 @@ Use the branch matching the host macOS version, such as `sequoia`, `sonoma`, or
 `ventura`. Then run:
 
 ```zsh
-./scripts/security/audit.sh --allow-sudo-prompt
+./scripts/audit/repo.sh --allow-sudo-prompt
 ```
 
 Review non-compliant rules and decide exceptions before applying remediation.
@@ -119,10 +119,10 @@ shared devboxes.
 Run this from a normal personal Mac user:
 
 ```zsh
-./scripts/security/audit-personal.sh
+./scripts/audit/personal.sh
 ```
 
-Use `./scripts/security/audit-personal.sh --json` when an agent needs a compact
+Use `./scripts/audit/personal.sh --json` when an agent needs a compact
 status summary.
 
 It checks:
@@ -148,10 +148,10 @@ setup.
 Run this from each devbox user:
 
 ```zsh
-./scripts/devbox/security-audit.sh
+./scripts/audit/devbox.sh
 ```
 
-Use `./scripts/devbox/security-audit.sh --json` when collecting per-user devbox
+Use `./scripts/audit/devbox.sh --json` when collecting per-user devbox
 audit summaries over SSH.
 
 It checks:

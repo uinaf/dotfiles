@@ -35,7 +35,7 @@ cd ~/projects/uinaf/dotfiles
 ./scripts/bootstrap/configure-git.sh --profile personal
 mise install
 ./scripts/bootstrap/pull-repos.sh
-./scripts/bootstrap/verify.sh --profile personal
+./scripts/verify/bootstrap.sh --profile personal
 ```
 
 For the full first-machine flow, devbox setup, Chrome vertical tabs, Blacksmith,
@@ -74,7 +74,7 @@ files are owner-only, and normal shells do not export long-lived tokens.
 Use repo checks before committing:
 
 ```zsh
-./scripts/bootstrap/verify-repo.sh
+./scripts/verify/repo.sh
 ```
 
 To install the local pre-push guard for the fast repo gate:
@@ -87,17 +87,17 @@ Use live-machine checks only on a machine that should actually use these
 dotfiles:
 
 ```zsh
-./scripts/bootstrap/verify.sh --profile personal
-./scripts/bootstrap/verify.sh --profile devbox
+./scripts/verify/bootstrap.sh --profile personal
+./scripts/verify/bootstrap.sh --profile devbox
 ```
 
 For security posture:
 
 ```zsh
-./scripts/security/audit.sh --skip-mscp
-./scripts/security/audit-host.sh
-./scripts/security/audit-personal.sh
-./scripts/devbox/security-audit.sh
+./scripts/audit/repo.sh --skip-mscp
+./scripts/audit/host.sh
+./scripts/audit/personal.sh
+./scripts/audit/devbox.sh
 ```
 
 See [Security audits](docs/security-audits.md) for the audit layers, Lynis host

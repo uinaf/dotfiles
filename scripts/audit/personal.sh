@@ -14,7 +14,7 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 usage() {
   cat <<'USAGE'
 Usage:
-  scripts/security/audit-personal.sh [options]
+  scripts/audit/personal.sh [options]
 
 Runs a non-destructive personal/non-devbox drift audit for the current Unix user.
 

@@ -33,7 +33,7 @@ set -euo pipefail
 
 # uinaf-dotfiles: pre-push
 repo_root="$(git rev-parse --show-toplevel)"
-exec "$repo_root/scripts/bootstrap/verify-repo.sh" --skip-security
+exec "$repo_root/scripts/verify/repo.sh" --skip-security
 HOOK
 
 chmod 0755 "$pre_push"

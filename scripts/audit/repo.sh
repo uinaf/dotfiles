@@ -17,7 +17,7 @@ fail_count=0
 usage() {
   cat <<'USAGE'
 Usage:
-  scripts/security/audit.sh [options]
+  scripts/audit/repo.sh [options]
 
 Runs a non-destructive security audit for this Mac bootstrap repo:
   - repository secret scans with gitleaks and, when installed, trufflehog

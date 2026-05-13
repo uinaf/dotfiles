@@ -12,7 +12,7 @@ openclaw_env_file="${UINAF_OPENCLAW_ENV_FILE:-/var/db/uinaf/devbox-env/$devbox_u
 usage() {
   cat <<'USAGE'
 Usage:
-  scripts/devbox/verify.sh
+  scripts/verify/devbox-services.sh
 
 Checks devbox supervisor, secret-file, and 1Password-token boundaries for the
 current Unix user. Configure paths through ~/.config/uinaf/devbox.env or the

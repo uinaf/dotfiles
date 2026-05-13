@@ -22,7 +22,7 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 usage() {
   cat <<'USAGE'
 Usage:
-  scripts/devbox/security-audit.sh [options]
+  scripts/audit/devbox.sh [options]
 
 Runs a non-destructive devbox drift audit for the current Unix user.
 

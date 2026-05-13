@@ -72,13 +72,13 @@ key file for GitHub SSH auth; `configure-git.sh` writes the matching
 Before committing repo changes:
 
 ```zsh
-./scripts/bootstrap/verify-repo.sh
+./scripts/verify/repo.sh
 ```
 
 For fast local script loops before the final check:
 
 ```zsh
-./scripts/bootstrap/verify-repo.sh --skip-security
+./scripts/verify/repo.sh --skip-security
 ```
 
 To install the same fast gate as a local pre-push hook:
@@ -90,21 +90,21 @@ To install the same fast gate as a local pre-push hook:
 For a live machine that should use these dotfiles:
 
 ```zsh
-./scripts/bootstrap/verify.sh --profile personal
-./scripts/bootstrap/verify.sh --profile devbox
+./scripts/verify/bootstrap.sh --profile personal
+./scripts/verify/bootstrap.sh --profile devbox
 ```
 
 For devbox users:
 
 ```zsh
-./scripts/devbox/verify.sh
-./scripts/devbox/security-audit.sh
+./scripts/verify/devbox-services.sh
+./scripts/audit/devbox.sh
 ```
 
 For personal security drift:
 
 ```zsh
-./scripts/security/audit-personal.sh
+./scripts/audit/personal.sh
 ```
 
 ## Repo Rules

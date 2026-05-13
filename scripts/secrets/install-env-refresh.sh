@@ -15,7 +15,7 @@ load_now=0
 
 usage() {
   cat <<'EOF'
-usage: sudo scripts/devbox/install-env-refresh.sh --identity ID --target-user USER --op-account ACCOUNT --op-vault VAULT [options]
+usage: sudo scripts/secrets/install-env-refresh.sh --identity ID --target-user USER --op-account ACCOUNT --op-vault VAULT [options]
 
 Installs the root-owned devbox env refresh helper and LaunchDaemon.
 This script does not install or read the service-account token.
@@ -143,7 +143,7 @@ log_path="/var/log/uinaf-devbox-env-refresh.$identity.log"
 err_path="/var/log/uinaf-devbox-env-refresh.$identity.err.log"
 
 install -d -o root -g wheel -m 0755 "$helper_dir"
-install -o root -g wheel -m 0755 "$repo_root/scripts/devbox/refresh-openclaw-env.sh" "$helper_path"
+install -o root -g wheel -m 0755 "$repo_root/scripts/secrets/refresh-openclaw-env.sh" "$helper_path"
 
 install -d -o root -g wheel -m 0711 "$state_dir" "$env_base_dir" "$env_dir"
 install -d -o root -g wheel -m 0700 "$config_dir" "$secret_base_dir" "$secret_dir" "$op_config_base_dir" "$op_config_dir"

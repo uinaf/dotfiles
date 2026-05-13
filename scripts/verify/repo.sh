@@ -7,7 +7,7 @@ run_security=1
 usage() {
   cat <<'USAGE'
 Usage:
-  scripts/bootstrap/verify-repo.sh [--skip-security]
+  scripts/verify/repo.sh [--skip-security]
 
 Runs repository-level verification for dotfiles changes:
   - shell syntax checks for scripts
@@ -15,10 +15,10 @@ Runs repository-level verification for dotfiles changes:
   - Actionlint for GitHub workflows
   - whitespace/conflict-marker checks through git diff --check
   - AGENTS.md / CLAUDE.md entrypoint sanity
-  - repo secret scan through scripts/security/audit.sh --skip-mscp
+  - repo secret scan through scripts/audit/repo.sh --skip-mscp
 
 This checks the repository, not the live machine bootstrap. Use
-scripts/bootstrap/verify.sh for live personal/devbox setup checks.
+scripts/verify/bootstrap.sh for live personal/devbox setup checks.
 USAGE
 }
 
@@ -99,7 +99,7 @@ printf 'ok AGENTS.md and CLAUDE.md\n'
 
 if [ "$run_security" -eq 1 ]; then
   section "repository security audit"
-  ./scripts/security/audit.sh --skip-mscp
+  ./scripts/audit/repo.sh --skip-mscp
 fi
 
 printf '\nrepository verification ok\n'

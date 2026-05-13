@@ -15,7 +15,7 @@ keep_artifacts_dir=""
 usage() {
   cat <<'USAGE'
 Usage:
-  scripts/security/audit-host.sh [options]
+  scripts/audit/host.sh [options]
 
 Runs a non-destructive host security audit with Lynis.
 

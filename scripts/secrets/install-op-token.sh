@@ -5,7 +5,7 @@ identity=""
 
 usage() {
   cat <<'EOF'
-usage: sudo scripts/devbox/install-op-token.sh --identity ID
+usage: sudo scripts/secrets/install-op-token.sh --identity ID
 
 Reads a 1Password service-account token from stdin and installs it into the
 root-owned devbox token path:

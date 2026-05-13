@@ -7,7 +7,7 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 usage() {
   cat <<'USAGE'
 Usage:
-  scripts/bootstrap/verify.sh [--profile personal|devbox]
+  scripts/verify/bootstrap.sh [--profile personal|devbox]
 
 Checks the live machine bootstrap for the selected profile. The default profile
 is personal for backward compatibility.

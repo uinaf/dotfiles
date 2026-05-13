@@ -28,4 +28,4 @@ jobs:
         run: brew install actionlint shellcheck
 
       - name: Verify repository
-        run: ./scripts/bootstrap/verify-repo.sh --skip-security
+        run: ./scripts/verify/repo.sh --skip-security
