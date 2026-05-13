@@ -4,6 +4,7 @@ Scripts are grouped by functionality:
 
 | Directory | Purpose |
 | --- | --- |
+| `app-store/` | Mac App Store app installs/removals through `mas`. |
 | `audit/` | Check-only security and drift audits for repo, host, personal, and devbox contexts. |
 | `bootstrap/` | Install and configure Homebrew, dotfiles, Git, Codex, Chrome, and repos. |
 | `lib/` | Shared shell helpers used by scripts. |
@@ -35,6 +36,7 @@ Personal bootstrap:
 ./scripts/bootstrap/install.sh
 ./scripts/bootstrap/configure-chrome.sh
 ./scripts/bootstrap/configure-git.sh --profile personal
+./scripts/app-store/personal.sh
 ./scripts/verify/bootstrap.sh --profile personal
 ```
 

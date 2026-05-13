@@ -46,9 +46,15 @@ Install Homebrew dependencies:
 ./scripts/bootstrap/brew-bundle.sh personal
 ```
 
-The personal Brewfile may include Mac App Store entries through `mas`. Those
-require the interactive user to be signed into the App Store, and macOS may ask
-for the local account password during install.
+Install personal Mac App Store apps and remove bundled apps this setup does not
+use:
+
+```zsh
+./scripts/app-store/personal.sh
+```
+
+This uses `mas`, requires the interactive user to be signed into the App Store,
+and may ask for the local account password during install or uninstall.
 
 Install optional external tools:
 

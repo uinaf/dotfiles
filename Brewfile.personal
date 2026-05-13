@@ -47,9 +47,6 @@ cask "vlc"
 brew "lazydocker"
 brew "mas"
 
-# Mac App Store
-mas "Endel: Focus, Sleep, Relax", id: 1346247457
-
 # Platform CLIs
 brew "gradle"
 brew "ykman"

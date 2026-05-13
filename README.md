@@ -33,6 +33,7 @@ cd ~/projects/uinaf/dotfiles
 ./scripts/bootstrap/brew-bundle.sh personal
 ./scripts/bootstrap/install.sh
 ./scripts/bootstrap/configure-git.sh --profile personal
+./scripts/app-store/personal.sh
 mise install
 ./scripts/bootstrap/pull-repos.sh
 ./scripts/verify/bootstrap.sh --profile personal
