@@ -57,6 +57,8 @@ print_json_summary() {
   local status="pass"
   if [ "$fail_count" -gt 0 ]; then
     status="fail"
+  elif [ "$warn_count" -gt 0 ]; then
+    status="warn"
   fi
 
   printf '{"audit":'

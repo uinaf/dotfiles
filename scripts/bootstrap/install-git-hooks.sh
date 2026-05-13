@@ -2,13 +2,20 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-hooks_dir="$repo_root/.git/hooks"
-pre_push="$hooks_dir/pre-push"
 
-if [ ! -d "$repo_root/.git" ]; then
-  printf 'not a normal Git checkout: %s\n' "$repo_root" >&2
+git_common_dir="$(git -C "$repo_root" rev-parse --git-common-dir 2>/dev/null || true)"
+if [ -z "$git_common_dir" ]; then
+  printf 'not a Git checkout: %s\n' "$repo_root" >&2
   exit 1
 fi
+
+case "$git_common_dir" in
+  /*) ;;
+  *) git_common_dir="$repo_root/$git_common_dir" ;;
+esac
+
+hooks_dir="$git_common_dir/hooks"
+pre_push="$hooks_dir/pre-push"
 
 mkdir -p "$hooks_dir"
 

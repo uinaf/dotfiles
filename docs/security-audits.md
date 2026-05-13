@@ -37,6 +37,10 @@ For agent or dashboard consumption, add `--json`:
 ./scripts/security/audit.sh --skip-mscp --json
 ```
 
+JSON summaries use `status=pass` only when there are no failures or warnings,
+`status=warn` when checks completed with warnings, and `status=fail` when any
+check failed.
+
 GitHub Actions also runs Gitleaks and TruffleHog on pushes to `main`, pull
 requests, weekly schedule, and manual dispatch through
 `.github/workflows/secrets.yml`.
