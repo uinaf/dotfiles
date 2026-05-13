@@ -43,6 +43,7 @@ print_json_summary() {
   json_string "$status"
   printf ',"failed":%s,"warnings":%s,"user":' "$fail_count" "$warn_count"
   json_string "$USER"
+  printf ',"secret_scan_count":%s' "$secret_scan_count"
   printf '}\n'
 }
 
@@ -176,6 +177,7 @@ fi
 if command -v gh >/dev/null 2>&1; then
   if gh auth status -h github.com >/dev/null 2>&1; then
     ok "gh auth works for github.com"
+    warn_on_broad_gh_scopes
   else
     fail_check "gh auth is not working for github.com"
   fi
@@ -197,6 +199,22 @@ if [ -d "$HOME/.ssh" ]; then
   done < <(find "$HOME/.ssh" -maxdepth 1 -type f ! -name '*.pub' ! -name 'known_hosts*' ! -name 'config' -print 2>/dev/null | sort)
 else
   warn "missing $HOME/.ssh"
+fi
+
+section "Codex log size"
+
+if [ -d "$HOME/.codex" ]; then
+  while IFS= read -r log_path; do
+    [ -n "$log_path" ] || continue
+    log_size="$(stat -f '%z' "$log_path" 2>/dev/null || printf 0)"
+    if [ "$log_size" -ge 524288000 ]; then
+      fail_check "$log_path is larger than 500 MB"
+    elif [ "$log_size" -ge 209715200 ]; then
+      warn "$log_path is larger than 200 MB"
+    else
+      ok "$log_path size is under 200 MB"
+    fi
+  done < <(find "$HOME/.codex" -maxdepth 1 -type f \( -name 'logs*.sqlite' -o -name 'logs*.sqlite-wal' \) -print 2>/dev/null | sort)
 fi
 
 section "admin group"

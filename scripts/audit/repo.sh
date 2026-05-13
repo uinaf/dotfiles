@@ -135,10 +135,10 @@ else
 fi
 
 if command -v trufflehog >/dev/null 2>&1; then
-  if run_audit_command trufflehog git "file://$repo_root" --no-update --only-verified; then
-    ok "trufflehog found no verified leaks"
+  if run_audit_command trufflehog git "file://$repo_root" --no-update --results=verified,unknown --fail; then
+    ok "trufflehog found no verified or unknown leaks"
   else
-    fail_check "trufflehog reported verified leaks or failed"
+    fail_check "trufflehog reported verified/unknown leaks or failed"
   fi
 else
   warn "trufflehog is not installed"

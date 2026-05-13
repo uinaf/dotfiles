@@ -134,7 +134,10 @@ It checks:
   SSH config, common credential files, Docker config, or LaunchAgents
 - 1Password item references in those local files are surfaced as warnings
 - Git identity, GitHub auth, signing key, and commit-signing state are visible
+- broad GitHub CLI token scopes such as `workflow` are surfaced as warnings
 - SSH private key files are not group/world-readable
+- Codex log databases are surfaced when they grow beyond local privacy and disk
+  budget thresholds
 - admin group membership, when `UINAF_EXPECTED_ADMIN_USERS` is configured
 - Tailscale CLI status works when installed
 
@@ -174,9 +177,14 @@ It checks:
   at missing paths, or trust broad home-root directories
 - the home root does not contain stray project artifacts such as `node_modules`
   or lockfiles
+- project directories under `~/projects` are not readable by other local users
 - Git identity, GitHub auth, and commit signing are configured
+- broad GitHub CLI token scopes such as `delete_repo` and `workflow` are
+  surfaced as warnings
 - GitHub SSH auth works for `git@github.com`
 - SSH private key files are not group/world-readable
+- screen-sharing and remote-Apple-event group membership is surfaced as a
+  warning
 - admin group membership, when `UINAF_EXPECTED_ADMIN_USERS` is configured
 - Tailscale CLI status works
 

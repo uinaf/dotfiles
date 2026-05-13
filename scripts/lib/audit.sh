@@ -219,6 +219,26 @@ find_matching_files() {
   fi
 }
 
+warn_on_broad_gh_scopes() {
+  local status_output
+  local scopes_line
+  local scope
+
+  command -v gh >/dev/null 2>&1 || return
+
+  status_output="$(gh auth status -h github.com 2>&1 || true)"
+  scopes_line="$(printf '%s\n' "$status_output" | sed -nE "s/.*Token scopes: (.*)/\1/p" | tail -n 1)"
+  [ -n "$scopes_line" ] || return
+
+  for scope in delete_repo workflow admin:org admin:public_key admin:repo_hook write:packages; do
+    case "$scopes_line" in
+      *"$scope"*)
+        warn "gh token has broad scope: $scope"
+        ;;
+    esac
+  done
+}
+
 emit_path_if_exists() {
   local path="$1"
 

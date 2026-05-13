@@ -295,6 +295,19 @@ for path in "$HOME/node_modules" "$HOME/package.json" "$HOME/package-lock.json" 
   fi
 done
 
+section "project directory privacy"
+
+for path in "$HOME/projects/uinaf" "$HOME/projects/$devbox_user"; do
+  if [ -d "$path" ]; then
+    mode="$(mode_of "$path")"
+    if [ $((8#$mode & 0077)) -eq 0 ]; then
+      ok "$path mode $mode"
+    else
+      warn "$path mode $mode is readable by group or other users"
+    fi
+  fi
+done
+
 section "Git and GitHub identity"
 
 git_name="$(git config --get user.name 2>/dev/null || true)"
@@ -319,6 +332,7 @@ fi
 if command -v gh >/dev/null 2>&1; then
   if gh auth status -h github.com >/dev/null 2>&1; then
     ok "gh auth works for github.com"
+    warn_on_broad_gh_scopes
   else
     fail_check "gh auth is not working for github.com"
   fi
@@ -354,6 +368,15 @@ else
 fi
 
 section "admin group"
+
+user_groups="$(id -Gn 2>/dev/null || true)"
+for group in com.apple.access_screensharing com.apple.access_remote_ae; do
+  case " $user_groups " in
+    *" $group "*)
+      warn "user is in remote-control group: $group"
+      ;;
+  esac
+done
 
 if admin_members="$(dscl . -read /Groups/admin GroupMembership 2>/dev/null | cut -d: -f2- | xargs 2>/dev/null)"; then
   if [ -n "$expected_admin_users" ]; then

@@ -102,15 +102,18 @@ mise install
 ```
 
 Configure local Git identity from explicit values. Do not invent these for the
-user:
+user. On headless devboxes, prefer a local SSH key file exported from
+1Password over the 1Password GUI SSH agent:
 
 ```zsh
 GIT_USER_NAME='Devbox Name' \
 GIT_USER_EMAIL='devbox@example.com' \
 GIT_SIGNING_KEY="$HOME/.ssh/devbox-key" \
-OP_SSH_VAULT='Devbox Vault' \
   ./scripts/bootstrap/configure-git.sh --profile devbox --non-interactive
 ```
+
+Only set `OP_SSH_VAULT` when the 1Password SSH agent is installed and reachable
+from that shell/session.
 
 Devbox Git config writes identity and `/opt/homebrew` Git safe-directory state
 to `~/.gitconfig.local`, not to the tracked shared config. When

@@ -52,15 +52,19 @@ For a human-operated Mac, follow [Personal Mac](docs/bootstrap.md#personal-mac).
 
 For a shared agent host, follow [Devbox Mac](docs/bootstrap.md#devbox-mac) and
 then [Devbox setup](docs/devbox.md). Devbox commit signing is expected and must
-be configured from explicit values:
+be configured from explicit values. Headless devboxes should usually use a
+local SSH key file exported from 1Password, because the 1Password GUI SSH agent
+socket may not exist in SSH sessions:
 
 ```zsh
 GIT_USER_NAME='Devbox Name' \
 GIT_USER_EMAIL='devbox@example.com' \
 GIT_SIGNING_KEY="$HOME/.ssh/devbox-key" \
-OP_SSH_VAULT='Devbox Vault' \
   ./scripts/bootstrap/configure-git.sh --profile devbox --non-interactive
 ```
+
+Only set `OP_SSH_VAULT` on machines where the 1Password SSH agent is installed
+and reachable from the relevant shell/session.
 
 Do not put identity-specific values in tracked files. `configure-git.sh` writes
 them to `~/.gitconfig.local`. On devboxes, use the 1Password-backed local SSH
