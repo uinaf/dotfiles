@@ -212,6 +212,48 @@ find_matching_files() {
   fi
 }
 
+emit_path_if_exists() {
+  local path="$1"
+
+  if [ -e "$path" ]; then
+    printf '%s\n' "$path"
+  fi
+}
+
+emit_home_dotfiles() {
+  find_matching_files "$HOME" -maxdepth 1 -type f -name '.*' \
+    ! -name '.CFUserTextEncoding' \
+    ! -name '.DS_Store' \
+    ! -name '.localized'
+}
+
+emit_openclaw_boundary_files() {
+  find_matching_files "$HOME/.openclaw" \
+    \( -path "$HOME/.openclaw/agents" \
+      -o -path "$HOME/.openclaw/browser" \
+      -o -path "$HOME/.openclaw/credentials" \
+      -o -path "$HOME/.openclaw/devices" \
+      -o -path "$HOME/.openclaw/identity" \
+      -o -path "$HOME/.openclaw/plugin-runtime-deps" \
+      -o -path "$HOME/.openclaw/plugin-runtime-deps.*" \
+      -o -path '*/node_modules' \
+      -o -path '*/.tmp' \) -prune \
+    -o -type f \( -name '*.env' -o -name '*.bak' -o -name '*.last-good' \)
+}
+
+emit_devbox_secret_scan_paths() {
+  emit_home_dotfiles
+  emit_openclaw_boundary_files
+  emit_path_if_exists "$HOME/.aws"
+  emit_path_if_exists "$HOME/.config/process-compose"
+  emit_path_if_exists "$HOME/.docker"
+  emit_path_if_exists "$HOME/.bash_sessions"
+  emit_path_if_exists "$HOME/.zsh_sessions"
+  emit_path_if_exists "$HOME/Library/LaunchAgents"
+  emit_path_if_exists /Library/LaunchDaemons
+  find_matching_files "$HOME/.ssh" -maxdepth 1 -type f -name 'config*'
+}
+
 list_codex_project_paths() {
   local config="$1"
 
@@ -369,26 +411,7 @@ fi
 section "local config secret scan"
 
 scan_files_with_gitleaks < <(
-  {
-    find_matching_files "$HOME/.config/process-compose" -type f \( -name '*.yaml' -o -name '*.yml' -o -name '*.bak' \)
-    find_matching_files "$HOME/.aws" -maxdepth 1 -type f -name 'credentials'
-    find_matching_files "$HOME/.docker" -maxdepth 1 -type f -name 'config.json'
-    find_matching_files "$HOME/.openclaw" \
-      \( -path "$HOME/.openclaw/agents" \
-        -o -path "$HOME/.openclaw/browser" \
-        -o -path "$HOME/.openclaw/credentials" \
-        -o -path "$HOME/.openclaw/devices" \
-        -o -path "$HOME/.openclaw/identity" \
-        -o -path "$HOME/.openclaw/plugin-runtime-deps" \
-        -o -path "$HOME/.openclaw/plugin-runtime-deps.*" \
-        -o -path '*/node_modules' \
-        -o -path '*/.tmp' \) -prune \
-      -o -type f \( -name '*.env' -o -name '*.bak' -o -name '*.last-good' \) -print
-    find_matching_files "$HOME" -maxdepth 1 -type f \( -name '.zsh_history' -o -name '.bash_history' -o -name '.zshenv*' -o -name '.zprofile*' -o -name '.zshrc*' -o -name '.gitconfig*' -o -name '.netrc' -o -name '.git-credentials' \)
-    find_matching_files "$HOME/.ssh" -maxdepth 1 -type f \( -name 'config' -o -name 'config.*' \)
-    find_matching_files /Library/LaunchDaemons -maxdepth 1 -type f -name '*.plist'
-    find_matching_files "$HOME/Library/LaunchAgents" -maxdepth 1 -type f -name '*.plist'
-  } | sort -u
+  emit_devbox_secret_scan_paths | sort -u
 )
 
 if [ -e "$HOME/.docker/config.json" ]; then

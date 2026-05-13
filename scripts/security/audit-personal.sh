@@ -187,6 +187,37 @@ find_matching_files() {
   fi
 }
 
+emit_path_if_exists() {
+  local path="$1"
+
+  if [ -e "$path" ]; then
+    printf '%s\n' "$path"
+  fi
+}
+
+emit_home_dotfiles() {
+  find_matching_files "$HOME" -maxdepth 1 -type f -name '.*' \
+    ! -name '.CFUserTextEncoding' \
+    ! -name '.DS_Store' \
+    ! -name '.localized'
+}
+
+emit_personal_secret_scan_paths() {
+  emit_home_dotfiles
+  emit_path_if_exists "$HOME/.aws"
+  emit_path_if_exists "$HOME/.docker"
+  emit_path_if_exists "$HOME/.bash_sessions"
+  emit_path_if_exists "$HOME/.zsh_sessions"
+  emit_path_if_exists "$HOME/Library/LaunchAgents"
+  find_matching_files "$HOME/.ssh" -maxdepth 1 -type f -name 'config*'
+}
+
+emit_personal_reference_scan_files() {
+  emit_home_dotfiles
+  find_matching_files "$HOME/.ssh" -maxdepth 1 -type f -name 'config*'
+  find_matching_files "$HOME/Library/LaunchAgents" -type f
+}
+
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --expected-admin-users)
@@ -259,24 +290,14 @@ section "local secret scan"
 op_reference_pattern='op://'
 
 scan_files_with_gitleaks < <(
-  {
-    find_matching_files "$HOME/.aws" -maxdepth 1 -type f -name 'credentials'
-    find_matching_files "$HOME/.docker" -maxdepth 1 -type f -name 'config.json'
-    find_matching_files "$HOME" -maxdepth 1 -type f \( -name '.zsh_history' -o -name '.bash_history' -o -name '.zshenv*' -o -name '.zprofile*' -o -name '.zshrc*' -o -name '.gitconfig*' -o -name '.netrc' -o -name '.git-credentials' \)
-    find_matching_files "$HOME/.ssh" -maxdepth 1 -type f \( -name 'config' -o -name 'config.*' \)
-    find_matching_files "$HOME/Library/LaunchAgents" -maxdepth 1 -type f -name '*.plist'
-  } | sort -u
+  emit_personal_secret_scan_paths | sort -u
 )
 
 while IFS= read -r path; do
   [ -n "$path" ] || continue
   check_pattern_absent "$path" "$op_reference_pattern" "1Password item references" warn
 done < <(
-  {
-    find_matching_files "$HOME" -maxdepth 1 -type f \( -name '.zsh_history' -o -name '.bash_history' -o -name '.zshenv*' -o -name '.zprofile*' -o -name '.zshrc*' -o -name '.gitconfig*' -o -name '.netrc' -o -name '.git-credentials' \)
-    find_matching_files "$HOME/.ssh" -maxdepth 1 -type f \( -name 'config' -o -name 'config.*' \)
-    find_matching_files "$HOME/Library/LaunchAgents" -maxdepth 1 -type f -name '*.plist'
-  } | sort -u
+  emit_personal_reference_scan_files | sort -u
 )
 
 if [ -e "$HOME/.docker/config.json" ]; then
