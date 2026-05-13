@@ -138,6 +138,9 @@ It checks:
 - Gitleaks does not report leaks in shell startup backups, Git config backups,
   SSH config backups, process-compose backups, OpenClaw rollback files, common
   credential files, Docker config, LaunchAgents, or uinaf LaunchDaemons
+- OpenClaw runtime credential stores are not part of the default Gitleaks pass;
+  this audit checks their surrounding boundaries without dumping or scanning
+  expected auth state.
 - Codex trusted project paths do not cross into another Unix user's home, point
   at missing paths, or trust broad home-root directories
 - the home root does not contain stray project artifacts such as `node_modules`
