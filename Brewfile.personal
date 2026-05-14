@@ -40,7 +40,6 @@ cask "android-studio"
 cask "raspberry-pi-imager"
 
 # Media utilities
-cask "handbrake-app"
 cask "imageoptim"
 cask "the-unarchiver"
 cask "vlc"

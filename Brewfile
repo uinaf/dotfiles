@@ -53,7 +53,6 @@ brew "lynis"
 brew "trufflehog"
 
 # uinaf tools
-brew "uinaf/tap/tccutil-rs"
 
 # Process supervision
 brew "f1bonacc1/tap/process-compose"
