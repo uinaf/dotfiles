@@ -36,6 +36,16 @@ set_top_level() {
   rm -f "$tmp"
 }
 
+enable_known_feature() {
+  local feature="$1"
+
+  if CODEX_HOME="$codex_home" codex features list | awk -v feature="$feature" '$1 == feature { found = 1 } END { exit !found }'; then
+    CODEX_HOME="$codex_home" codex features enable "$feature" >/dev/null
+  else
+    printf 'skipped unknown Codex feature: %s\n' "$feature" >&2
+  fi
+}
+
 set_top_level "model" '"gpt-5.5"'
 set_top_level "model_reasoning_effort" '"high"'
 
@@ -44,8 +54,7 @@ if ! command -v codex >/dev/null 2>&1; then
   exit 1
 fi
 
-CODEX_HOME="$codex_home" codex features enable goals >/dev/null
-CODEX_HOME="$codex_home" codex features enable memories >/dev/null
-CODEX_HOME="$codex_home" codex features enable remote_connections >/dev/null
+enable_known_feature "goals"
+enable_known_feature "memories"
 
 printf 'configured Codex defaults in %s\n' "$config_path"

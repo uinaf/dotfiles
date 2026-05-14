@@ -55,9 +55,9 @@ cd ~/projects/uinaf/dotfiles
 
 Archive checkouts are disposable. They are acceptable for reading docs and
 running the first public bootstrap scripts, and `scripts/bootstrap/install.sh`
-can link files from an archive checkout. After Homebrew, `git`, and `gh` are
-installed, replace the archive with a real clone so updates, diffs, hooks, and
-contribution checks work normally:
+can install files from an archive checkout. After Homebrew, `git`, and `gh`
+are installed, replace the archive with a real clone so updates, diffs, hooks,
+and contribution checks work normally:
 
 ```zsh
 cd ~/projects/uinaf
@@ -95,9 +95,10 @@ Install optional external tools:
 sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
 ```
 
-Editor and terminal defaults prefer `Berkeley Mono Variable`, which is a
-licensed font and must be installed manually when available. The shared Brewfile
-installs `FiraCode Nerd Font` as the free fallback for Ghostty and Zed.
+Editor and terminal defaults prefer `Berkeley Mono Variable`. This repo does
+not install it because it is a licensed font; ask the human to provide and
+install it when available. The shared Brewfile installs `FiraCode Nerd Font` as
+the free fallback for Ghostty and Zed.
 
 Codex app appearance is manual app state, not repo-managed config. After
 installing the Codex app, open its settings and set:
@@ -106,6 +107,14 @@ installing the Codex app, open its settings and set:
 - UI font size: `14 px`
 - code font size: `14 px`
 - Font Smoothing: on
+
+Remote Codex connections are also manual user config. If the machine should use
+them, ask the human to add this to `~/.codex/config.toml`:
+
+```toml
+[features]
+remote_connections = true
+```
 
 Link dotfiles and configure local state:
 

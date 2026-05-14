@@ -4,7 +4,7 @@
 # Taps
 tap "steipete/tap"
 
-# Headless-friendly apps and remote desktop helpers
+# Cloud CLI
 cask "gcloud-cli"
 
 # Agent and devbox CLIs

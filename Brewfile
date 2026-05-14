@@ -29,11 +29,13 @@ brew "git-crypt"
 brew "git-filter-repo"
 brew "actionlint"
 brew "shellcheck"
-brew "aria2"
 brew "awscli"
+brew "xcodes"
+
+# Download and media helpers
+brew "aria2"
 brew "ffmpeg"
 brew "mole"
-brew "xcodes"
 
 # Containers
 brew "colima"

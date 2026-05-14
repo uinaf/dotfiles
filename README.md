@@ -44,19 +44,22 @@ If `git` or `gh` is not available yet, or for the full first-machine flow,
 devbox setup, Chrome vertical tabs, Blacksmith, and Tizen notes, read
 [Bootstrap guide](docs/bootstrap.md).
 
-## What Gets Linked
+## What Gets Installed
 
-`./scripts/bootstrap/install.sh` links tracked files from `home/` into `$HOME`.
-Existing files are moved aside with a timestamped `.backup.*` suffix.
+`./scripts/bootstrap/install.sh` installs tracked files from `home/` into
+`$HOME`. Stable shell, Git, mise, and audit-policy files are symlinked so repo
+updates apply directly. Mutable app and SSH defaults are copied as local files
+so runtime changes do not become repo diffs. Existing files that need to be
+replaced are moved aside with a timestamped `.backup.*` suffix.
 
 | Surface | Tracked source | Local-only extension |
 | --- | --- | --- |
 | zsh | `home/.zshenv`, `home/.zprofile`, `home/.zshrc` | machine shell history and ad hoc local files |
 | mise | `home/.config/mise/config.toml` | repo-local runtime files |
 | Git | `home/.gitconfig` | `~/.gitconfig.local` |
-| SSH | `home/.ssh/config` | `~/.ssh/config.local`, private keys |
+| SSH | copied from `home/.ssh/config` | `~/.ssh/config.local`, private keys |
 | Codex | installer-managed defaults | auth, sessions, approvals, memory, worktrees |
-| Editors | Zed and Ghostty defaults | app state, fonts, caches |
+| Editors | copied Zed and Ghostty defaults | app state, fonts, caches |
 
 ## Local State Boundaries
 

@@ -131,14 +131,13 @@ check_codex_config() {
 
   section "codex config"
   awk '
-    BEGIN { ok_model = ok_reasoning = ok_goals = ok_memories = ok_remote_connections = 0; in_top = 1; in_features = 0 }
+    BEGIN { ok_model = ok_reasoning = ok_goals = ok_memories = 0; in_top = 1; in_features = 0 }
     /^[[:space:]]*\[/ { in_top = 0; in_features = ($0 == "[features]") }
     in_top && $0 == "model = \"gpt-5.5\"" { ok_model = 1 }
     in_top && $0 == "model_reasoning_effort = \"high\"" { ok_reasoning = 1 }
     in_features && $0 == "goals = true" { ok_goals = 1 }
     in_features && $0 == "memories = true" { ok_memories = 1 }
-    in_features && $0 == "remote_connections = true" { ok_remote_connections = 1 }
-    END { exit !(ok_model && ok_reasoning && ok_goals && ok_memories && ok_remote_connections) }
+    END { exit !(ok_model && ok_reasoning && ok_goals && ok_memories) }
   ' "$config" || fail "Codex defaults are not configured in $config"
   printf 'ok Codex model/features defaults\n'
 }

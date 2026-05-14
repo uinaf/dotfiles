@@ -43,7 +43,11 @@ that usually means a root-owned token file read only by a narrow wrapper.
 4. Keep top-level docs short; put operational detail under `docs/`.
 5. Use repo scripts as the source of truth. Do not replace them with one-off
    shell snippets unless you are diagnosing a failure.
-6. Verify with the narrowest useful command, then run the final repo gate before
+6. If automation starts requiring brittle app-state edits, opaque config
+   surgery, or machine-specific juggling, stop automating it. Document the
+   manual step under the relevant guide and ask the human or active agent to
+   apply it locally.
+7. Verify with the narrowest useful command, then run the final repo gate before
    committing.
 
 ## Setup Flow

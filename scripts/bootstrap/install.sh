@@ -40,6 +40,47 @@ link_file() {
   printf 'linked %s -> %s\n' "$target" "$source"
 }
 
+copy_file() {
+  local source="$1"
+  local target="$2"
+  local current
+  mkdir -p "$(dirname "$target")"
+
+  if [ -L "$target" ]; then
+    current="$(readlink "$target")"
+    if [[ "$current" = */dotfiles/home/* ]]; then
+      unlink "$target"
+      printf 'replaced dotfiles link with local file %s -> %s\n' "$target" "$current"
+      install -m 0600 "$source" "$target"
+      printf 'copied %s -> %s\n' "$source" "$target"
+      return
+    fi
+  fi
+
+  if [ -e "$target" ]; then
+    if cmp -s "$source" "$target"; then
+      printf 'already copied %s\n' "$target"
+    else
+      printf 'kept existing local file %s\n' "$target"
+    fi
+    return
+  fi
+
+  install -m 0600 "$source" "$target"
+  printf 'copied %s -> %s\n' "$source" "$target"
+}
+
+should_copy_file() {
+  case "$1" in
+    .ssh/config|.config/zed/*|Library/Application\ Support/com.mitchellh.ghostty/*)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
 remove_obsolete_link() {
   local target="$1"
   local old_source="$2"
@@ -86,7 +127,11 @@ fi
     source="$file"
     rel="${source#"$home_root"/}"
   fi
-  link_file "$source" "$HOME/$rel"
+  if should_copy_file "$rel"; then
+    copy_file "$source" "$HOME/$rel"
+  else
+    link_file "$source" "$HOME/$rel"
+  fi
 done
 
 if command -v codex >/dev/null 2>&1; then

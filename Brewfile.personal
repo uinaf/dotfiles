@@ -47,8 +47,10 @@ cask "vlc"
 
 # Remote desktop and containers
 cask "parsec"
-brew "mas"
 brew "lazydocker"
+
+# App Store automation
+brew "mas"
 
 # Project tools
 brew "openclaw/tap/gitcrawl"

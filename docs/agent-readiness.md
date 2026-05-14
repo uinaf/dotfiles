@@ -13,7 +13,7 @@ flow to drive. Agent readiness means an agent can:
 
 | Dimension | Status | Evidence | Gap |
 | --- | --- | --- | --- |
-| Bootable | pass | `scripts/bootstrap/brew-bundle.sh` installs shared plus profile bundles; `scripts/bootstrap/install.sh` links tracked files. | First-time macOS still needs Command Line Tools, Homebrew, and GitHub auth. |
+| Bootable | pass | `scripts/bootstrap/brew-bundle.sh` installs shared plus profile bundles; `scripts/bootstrap/install.sh` links stable config and copies mutable app/SSH defaults. | First-time macOS still needs Command Line Tools, Homebrew, and GitHub auth. |
 | Testable | pass | `scripts/verify/repo.sh` runs shell syntax, ShellCheck, Actionlint, diff hygiene, agent-entrypoint checks, and repo secret scans. | Live bootstrap checks require a matching personal or devbox Mac. |
 | Observable | pass | Verification and audit scripts print stable sectioned output; security audits also support compact `--json` summaries; CI exposes Verify and Secret scanning logs. | SARIF output is not generated yet. |
 | Verifiable | pass | `.github/workflows/verify.yml`, `.github/workflows/secrets.yml`, `scripts/verify/bootstrap.sh`, `scripts/verify/devbox-services.sh`, and audit scripts. | Host-local service and token checks cannot run meaningfully on GitHub-hosted CI. |
@@ -31,8 +31,8 @@ SARIF for tools that can emit it cleanly.
 | Before committing repo changes | `./scripts/verify/repo.sh` | Scripts parse, ShellCheck passes, workflows lint, diffs are clean, agent entrypoints are valid, and secret scanners pass. |
 | Fast local loop | `./scripts/verify/repo.sh --skip-security` | Same repo checks without Gitleaks/TruffleHog. Run the full command before commit. |
 | Install local push guard | `./scripts/bootstrap/install-git-hooks.sh` | Adds a pre-push hook that runs `scripts/verify/repo.sh --skip-security` before pushing. |
-| Personal Mac bootstrap | `./scripts/verify/bootstrap.sh --profile personal` | Required CLIs, Homebrew bundle, mise, Codex defaults, and linked config exist on the live host. |
-| Devbox bootstrap | `./scripts/verify/bootstrap.sh --profile devbox` | Shared/devbox CLIs, Homebrew bundle, mise, Codex defaults, and linked config exist on the live host. |
+| Personal Mac bootstrap | `./scripts/verify/bootstrap.sh --profile personal` | Required CLIs, Homebrew bundle, mise, Codex defaults, and installed config exist on the live host. |
+| Devbox bootstrap | `./scripts/verify/bootstrap.sh --profile devbox` | Shared/devbox CLIs, Homebrew bundle, mise, Codex defaults, and installed config exist on the live host. |
 | Devbox service boundary | `./scripts/verify/devbox-services.sh` | process-compose and generated env/token boundaries match the local devbox contract. |
 | Devbox security drift | `./scripts/audit/devbox.sh` | Secret boundaries, Git/GitHub identity, SSH key modes, admin drift, and Tailscale health are sane for that Unix user. |
 | Personal security drift | `./scripts/audit/personal.sh` | Personal shell, Git, SSH, Codex, and local secret boundaries do not show obvious drift. |
