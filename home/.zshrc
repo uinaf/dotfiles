@@ -3,12 +3,37 @@ export ZSH="$HOME/.oh-my-zsh"
 ZSH_THEME="robbyrussell"
 plugins=(git)
 
+if [ -n "$SSH_CONNECTION$SSH_TTY" ] && [ -r "$HOME/.config/uinaf/devbox.env" ]; then
+  DISABLE_AUTO_TITLE="true"
+fi
+
 if [ -f "$ZSH/oh-my-zsh.sh" ]; then
   source "$ZSH/oh-my-zsh.sh"
 fi
 
 if [ -n "$SSH_CONNECTION$SSH_TTY" ] && [ -r "$HOME/.config/uinaf/devbox.env" ]; then
-  PROMPT='%F{yellow}%n@%m%f %F{cyan}%~%f %# '
+  devbox_git_prompt_info() {
+    local branch dirty
+
+    branch="$(git_current_branch 2>/dev/null)" || return
+    [ -n "$branch" ] || return
+
+    if ! git diff --quiet --ignore-submodules -- 2>/dev/null ||
+       ! git diff --cached --quiet --ignore-submodules -- 2>/dev/null; then
+      dirty=' %F{yellow}✗%f'
+    fi
+
+    print -n "%F{blue}git:(%F{red}${branch}%F{blue})%f${dirty} "
+  }
+
+  PROMPT='%(?:%F{yellow}➜ :%F{red}➜ )%f%F{yellow}%n@%m%f %F{cyan}%~%f $(devbox_git_prompt_info)'
+
+  devbox_ssh_prompt_title() {
+    print -Pn "\e]0;%n@%m:%~\a"
+  }
+  if (( ${precmd_functions[(Ie)devbox_ssh_prompt_title]} == 0 )); then
+    precmd_functions+=(devbox_ssh_prompt_title)
+  fi
 fi
 
 export EDITOR="vim"
