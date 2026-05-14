@@ -147,6 +147,12 @@ check_mise() {
   check_mise_doctor "interactive" -ic
 }
 
+check_truecolor_shell() {
+  section "shell truecolor"
+  TERM=xterm-ghostty zsh -ic '[ "$COLORTERM" = truecolor ]' || fail "interactive zsh does not set COLORTERM=truecolor for Ghostty SSH sessions"
+  printf 'ok COLORTERM=truecolor\n'
+}
+
 check_cli_tools() {
   local check
 
@@ -188,6 +194,7 @@ check_config_paths() {
 }
 
 check_mise
+check_truecolor_shell
 check_brew_bundle
 check_cli_tools
 check_no_legacy_tool_versions

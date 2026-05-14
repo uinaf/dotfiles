@@ -9,6 +9,16 @@ fi
 
 export EDITOR="vim"
 
+# SSH does not forward COLORTERM unless the server explicitly accepts it.
+# Keep truecolor TUIs consistent when using Ghostty or another truecolor term.
+if [ -n "$TERM" ] && [ -z "$COLORTERM" ]; then
+  case "$TERM" in
+    *-ghostty|*-direct|*-truecolor|*-24bit|xterm-256color|tmux-256color)
+      export COLORTERM="truecolor"
+      ;;
+  esac
+fi
+
 if [ -x /opt/homebrew/bin/brew ]; then
   eval "$(/opt/homebrew/bin/brew shellenv zsh)"
 fi
