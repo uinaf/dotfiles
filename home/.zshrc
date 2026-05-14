@@ -7,6 +7,10 @@ if [ -f "$ZSH/oh-my-zsh.sh" ]; then
   source "$ZSH/oh-my-zsh.sh"
 fi
 
+if [ -n "$SSH_CONNECTION$SSH_TTY" ] && [ -r "$HOME/.config/uinaf/devbox.env" ]; then
+  PROMPT='%F{green}%n@%m%f %F{cyan}%~%f %# '
+fi
+
 export EDITOR="vim"
 
 # SSH does not forward COLORTERM unless the server explicitly accepts it.

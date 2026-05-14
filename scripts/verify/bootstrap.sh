@@ -153,6 +153,17 @@ check_truecolor_shell() {
   printf 'ok COLORTERM=truecolor\n'
 }
 
+check_devbox_ssh_prompt() {
+  if [ "$profile" != "devbox" ]; then
+    return
+  fi
+
+  section "devbox ssh prompt"
+  SSH_CONNECTION="${SSH_CONNECTION:-127.0.0.1 1 127.0.0.1 22}" \
+    zsh -ic '[[ "$PROMPT" == *"%n@%m"* ]]' || fail "devbox SSH shells do not show user@host in PROMPT"
+  printf 'ok devbox SSH prompt includes user@host\n'
+}
+
 check_cli_tools() {
   local check
 
@@ -195,6 +206,7 @@ check_config_paths() {
 
 check_mise
 check_truecolor_shell
+check_devbox_ssh_prompt
 check_brew_bundle
 check_cli_tools
 check_no_legacy_tool_versions
