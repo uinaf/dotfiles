@@ -8,7 +8,7 @@ if [ -f "$ZSH/oh-my-zsh.sh" ]; then
 fi
 
 if [ -n "$SSH_CONNECTION$SSH_TTY" ] && [ -r "$HOME/.config/uinaf/devbox.env" ]; then
-  PROMPT='%F{green}%n@%m%f %F{cyan}%~%f %# '
+  PROMPT='%F{yellow}%n@%m%f %F{cyan}%~%f %# '
 fi
 
 export EDITOR="vim"
