@@ -28,16 +28,19 @@ Install the local pre-push guard:
 ./scripts/bootstrap/install-git-hooks.sh
 ```
 
-Personal bootstrap:
+Bootstrap entry points:
 
 ```zsh
 ./scripts/bootstrap/brew-bundle.sh personal
+./scripts/bootstrap/brew-bundle.sh devbox
+./scripts/bootstrap/brew-bundle.sh --shared-only
 ./scripts/bootstrap/install.sh
-./scripts/bootstrap/configure-chrome.sh
 ./scripts/bootstrap/configure-git.sh --profile personal
-./scripts/app-store/personal.sh
-./scripts/verify/bootstrap.sh --profile personal
+./scripts/bootstrap/configure-git.sh --profile devbox
 ```
+
+Use [Bootstrap guide](../docs/bootstrap.md) for the ordered personal and devbox
+flows.
 
 Security audits:
 

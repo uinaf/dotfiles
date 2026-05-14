@@ -4,12 +4,15 @@
 # Taps
 tap "openclaw/tap"
 
-# Browser and auth
+# Browsers and sync
 cask "firefox"
 cask "brave-browser"
-cask "1password"
 cask "google-drive"
+
+# Auth and hardware security
+cask "1password"
 cask "yubico-authenticator"
+brew "ykman"
 
 # Networking
 cask "tailscale-app"
@@ -33,23 +36,19 @@ cask "cleanshot"
 cask "screen-studio"
 
 # Platform development
-cask "xcodes-app"
 cask "android-studio"
 cask "raspberry-pi-imager"
 
-# Media and utilities
+# Media utilities
 cask "handbrake-app"
 cask "imageoptim"
-cask "parsec"
 cask "the-unarchiver"
 cask "vlc"
 
-brew "lazydocker"
+# Remote desktop and containers
+cask "parsec"
 brew "mas"
-
-# Platform CLIs
-brew "gradle"
-brew "ykman"
+brew "lazydocker"
 
 # Project tools
 brew "openclaw/tap/gitcrawl"

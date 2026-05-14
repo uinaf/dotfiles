@@ -38,6 +38,38 @@ gh repo clone uinaf/dotfiles ~/projects/uinaf/dotfiles
 cd ~/projects/uinaf/dotfiles
 ```
 
+## Gitless First Fetch
+
+Use this only when a fresh Mac cannot run `git` or `gh` yet. macOS ships enough
+tools to fetch a public GitHub archive, which lets a human or agent inspect the
+bootstrap files before running anything:
+
+```zsh
+mkdir -p ~/projects/uinaf
+curl -fL https://github.com/uinaf/dotfiles/archive/refs/heads/main.zip \
+  -o /tmp/uinaf-dotfiles-main.zip
+ditto -x -k /tmp/uinaf-dotfiles-main.zip ~/projects/uinaf
+mv ~/projects/uinaf/dotfiles-main ~/projects/uinaf/dotfiles
+cd ~/projects/uinaf/dotfiles
+```
+
+Archive checkouts are disposable. They are acceptable for reading docs and
+running the first public bootstrap scripts, and `scripts/bootstrap/install.sh`
+can link files from an archive checkout. After Homebrew, `git`, and `gh` are
+installed, replace the archive with a real clone so updates, diffs, hooks, and
+contribution checks work normally:
+
+```zsh
+cd ~/projects/uinaf
+mv dotfiles dotfiles.archive.$(date +%Y%m%d%H%M%S)
+gh repo clone uinaf/dotfiles dotfiles
+cd dotfiles
+```
+
+Do not run identity, signing-key, or secret setup from guessed values just
+because the repo was fetched this way. Keep using the `personal` or `devbox`
+profile steps below.
+
 ## Personal Mac
 
 Install Homebrew dependencies:
@@ -66,6 +98,14 @@ sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/too
 Editor and terminal defaults prefer `Berkeley Mono Variable`, which is a
 licensed font and must be installed manually when available. The shared Brewfile
 installs `FiraCode Nerd Font` as the free fallback for Ghostty and Zed.
+
+Codex app appearance is manual app state, not repo-managed config. After
+installing the Codex app, open its settings and set:
+
+- code font: `Berkeley Mono Variable`
+- UI font size: `14 px`
+- code font size: `14 px`
+- Font Smoothing: on
 
 Link dotfiles and configure local state:
 

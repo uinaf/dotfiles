@@ -5,7 +5,6 @@
 tap "steipete/tap"
 
 # Headless-friendly apps and remote desktop helpers
-cask "betterdisplay"
 cask "gcloud-cli"
 
 # Agent and devbox CLIs
@@ -14,13 +13,11 @@ brew "tailscale"
 brew "yt-dlp"
 
 # Document, media, and OCR helpers
-brew "oath-toolkit"
 brew "poppler"
 brew "qpdf"
 brew "qrencode"
 brew "weasyprint"
 brew "whisper-cpp"
-brew "woff2"
 brew "summarize"
 
 # Devbox tools observed on the shared Mac mini

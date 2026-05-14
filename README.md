@@ -22,7 +22,8 @@ Most users want `personal`. Always-on agent hosts use `devbox`.
 
 ## Fast Path
 
-Install Apple Command Line Tools, Homebrew, `git`, and `gh`, then:
+Install Apple Command Line Tools, Homebrew, `git`, and `gh`, then clone the
+repo:
 
 ```zsh
 gh auth login
@@ -39,8 +40,9 @@ mise install
 ./scripts/verify/bootstrap.sh --profile personal
 ```
 
-For the full first-machine flow, devbox setup, Chrome vertical tabs, Blacksmith,
-and Tizen notes, read [Bootstrap guide](docs/bootstrap.md).
+If `git` or `gh` is not available yet, or for the full first-machine flow,
+devbox setup, Chrome vertical tabs, Blacksmith, and Tizen notes, read
+[Bootstrap guide](docs/bootstrap.md).
 
 ## What Gets Linked
 
@@ -69,6 +71,13 @@ Keep these out of Git:
 For always-on agent hosts, use the secret model in [Devbox setup](docs/devbox.md):
 service-account tokens live in machine-local storage, generated runtime env
 files are owner-only, and normal shells do not export long-lived tokens.
+
+## Personalization
+
+`Brewfile.personal` is the shared human-operated Mac profile, not a private app
+wishlist. Keep one-machine tweaks in local config files, keep durable personal
+preferences in a fork, and send focused pull requests for changes that should
+become part of the shared uinaf bootstrap.
 
 ## Verification
 

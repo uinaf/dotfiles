@@ -43,7 +43,6 @@ brew "docker-compose"
 
 # Networking and diagnostics
 brew "fping"
-brew "mtr"
 brew "teamookla/speedtest/speedtest"
 
 # Security
