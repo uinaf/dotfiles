@@ -29,7 +29,6 @@ cask "codex-app"
 cask "codexbar"
 
 # Design and work apps
-cask "raycast"
 cask "figma"
 cask "linear"
 cask "cleanshot"

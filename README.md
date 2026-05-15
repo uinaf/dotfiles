@@ -34,6 +34,7 @@ cd ~/projects/uinaf/dotfiles
 ./scripts/bootstrap/brew-bundle.sh personal
 ./scripts/bootstrap/install.sh
 ./scripts/bootstrap/configure-git.sh --profile personal
+./scripts/bootstrap/configure-power.sh --profile personal
 ./scripts/app-store/personal.sh
 mise install
 ./scripts/bootstrap/pull-repos.sh
@@ -43,6 +44,9 @@ mise install
 If `git` or `gh` is not available yet, or for the full first-machine flow,
 devbox setup, Chrome vertical tabs, Blacksmith, and Tizen notes, read
 [Bootstrap guide](docs/bootstrap.md).
+
+`configure-power.sh` is a deliberate sudo step. `install.sh` stays user-level
+and should not change system power policy implicitly.
 
 ## What Gets Installed
 

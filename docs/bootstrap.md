@@ -121,9 +121,15 @@ Link dotfiles and configure local state:
 ```zsh
 ./scripts/bootstrap/install.sh
 ./scripts/bootstrap/configure-git.sh --profile personal
+./scripts/bootstrap/configure-power.sh --profile personal
 mise install
 ./scripts/bootstrap/pull-repos.sh
 ```
+
+The power step disables system, display, and disk sleep only while the Mac is
+plugged in. Battery settings stay under macOS defaults so laptops still sleep
+normally when unplugged. It prompts for sudo; `install.sh` remains a user-level
+dotfile linking step.
 
 Chrome vertical tabs are a local browser preference. Quit Chrome first, then:
 
@@ -151,8 +157,13 @@ Link dotfiles:
 
 ```zsh
 ./scripts/bootstrap/install.sh
+./scripts/bootstrap/configure-power.sh --profile devbox
 mise install
 ```
+
+The power step keeps plugged-in devboxes awake for agents, 1Password flows,
+remote access, and always-on dashboards. It leaves battery settings untouched
+and prompts for sudo instead of hiding system changes inside `install.sh`.
 
 Configure local Git identity from explicit values. Do not invent these for the
 user. On headless devboxes, prefer a local SSH key file exported from
@@ -203,6 +214,7 @@ cd ~/projects/uinaf/dotfiles
 git pull --ff-only
 ./scripts/bootstrap/brew-bundle.sh personal
 ./scripts/bootstrap/install.sh
+./scripts/bootstrap/configure-power.sh --profile personal
 mise install
 ./scripts/verify/bootstrap.sh --profile personal
 ```
