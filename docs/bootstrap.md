@@ -221,6 +221,12 @@ mise install
 
 Use `devbox` instead of `personal` on shared agent hosts.
 
+## React Native
+
+Xcode tvOS simulators, Android SDK, Android TV system images, CocoaPods, and
+Fastlane are per-machine state set up by hand. See
+[React Native](react-native.md) for the manual steps.
+
 ## Tizen
 
 Tizen certificates, profiles, archives, and device keys are local secrets.

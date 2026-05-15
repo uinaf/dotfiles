@@ -37,6 +37,7 @@ cask "screen-studio"
 # Platform development
 cask "android-studio"
 cask "raspberry-pi-imager"
+brew "watchman"
 
 # Media utilities
 cask "imageoptim"
