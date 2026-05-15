@@ -16,7 +16,7 @@ cask "zed"
 cask "google-chrome"
 cask "1password-cli"
 cask "codex"
-cask "claude-code"
+cask "claude-code@latest"
 
 # Core CLI
 brew "git"
