@@ -61,8 +61,9 @@ downloads, or license acceptance.
      "system-images;android-34;android-tv;arm64-v8a"
    ```
 
-   Create the AVD through Android Studio's Device Manager (Tools → Device
-   Manager → Create Device → TV) so it picks up the correct hardware profile.
+   Create the AVD through Android Studio's Device Manager (Tools -> Device
+   Manager -> Create Device -> TV) so it picks up the correct hardware
+   profile.
 
 5. Confirm `adb` and `emulator` are on PATH:
 
@@ -87,11 +88,13 @@ projects:
 
 ```zsh
 mise install java@temurin-17
-export JAVA_HOME="$HOME/.local/share/mise/installs/java/temurin-17.0.19+10"
+export JAVA_HOME="$(mise where java@temurin-17)"
 ```
 
-Pin the JDK at the project level with a `mise.toml` so the repo selects 17
-automatically. Do not change the shared global mise config.
+The `mise where` form resolves to whichever patch release mise installed,
+so the export stays correct as Temurin 17.x advances. Pin the JDK at the
+project level with a `mise.toml` so the repo selects 17 automatically. Do
+not change the shared global mise config.
 
 ## Ruby, CocoaPods, and Fastlane
 
