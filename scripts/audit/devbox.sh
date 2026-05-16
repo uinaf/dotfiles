@@ -90,6 +90,41 @@ list_codex_project_paths() {
   fi
 }
 
+tailscale_self_dns_name() {
+  if ! command -v plutil >/dev/null 2>&1; then
+    return 1
+  fi
+
+  tailscale status --json \
+    | plutil -extract Self.DNSName raw -o - - 2>/dev/null \
+    | tr -d '\n'
+}
+
+direct_magicdns_resolves() {
+  local name="$1"
+
+  if ! command -v dig >/dev/null 2>&1; then
+    return 2
+  fi
+
+  dig +time=2 +tries=1 +short @100.100.100.100 "$name" A \
+    | grep -Eq '^[0-9]+[.][0-9]+[.][0-9]+[.][0-9]+$'
+}
+
+system_resolves_host() {
+  local name="$1"
+
+  if command -v dscacheutil >/dev/null 2>&1; then
+    dscacheutil -q host -a name "$name" | grep -q '^ip_address:'
+  elif command -v getent >/dev/null 2>&1; then
+    getent hosts "$name" >/dev/null
+  elif command -v host >/dev/null 2>&1; then
+    host "$name" >/dev/null
+  else
+    return 2
+  fi
+}
+
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --config)
@@ -378,6 +413,26 @@ section "Tailscale"
 if command -v tailscale >/dev/null 2>&1; then
   if tailscale status --peers=false >/dev/null 2>&1; then
     ok "tailscale status works"
+
+    tailscale_dns_name="$(tailscale_self_dns_name || true)"
+    tailscale_dns_name="${tailscale_dns_name%.}"
+    tailscale_short_name="${tailscale_dns_name%%.*}"
+
+    if [ -z "$tailscale_dns_name" ] || [ "$tailscale_short_name" = "$tailscale_dns_name" ]; then
+      fail_check "tailscale self DNS name is unavailable"
+    elif direct_magicdns_resolves "$tailscale_dns_name"; then
+      ok "direct MagicDNS lookup works through 100.100.100.100"
+
+      if system_resolves_host "$tailscale_short_name"; then
+        ok "system resolver handles MagicDNS short hostnames"
+      elif system_resolves_host "$tailscale_dns_name"; then
+        fail_check "system resolver handles MagicDNS FQDNs but not short hostnames"
+      else
+        fail_check "system resolver is not using Tailscale MagicDNS; restart the Tailscale daemon"
+      fi
+    else
+      fail_check "direct MagicDNS lookup failed through 100.100.100.100"
+    fi
   else
     fail_check "tailscale status failed"
   fi

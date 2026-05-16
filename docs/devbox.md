@@ -205,9 +205,21 @@ Run the devbox security audit for each devbox user:
 
 That audit is stricter than verification. It checks for stale secret-looking
 backups, generated env symlink drift, Git/GitHub identity state, SSH key file
-permissions, GitHub SSH auth, admin group drift, Tailscale health, and raw
-service-account token references in local service config. It does not print
-secret values.
+permissions, GitHub SSH auth, admin group drift, Tailscale health, Tailscale
+MagicDNS resolver wiring, and raw service-account token references in local
+service config. It does not print secret values.
+
+If the audit reports that direct MagicDNS works but the system resolver is not
+using Tailscale DNS, restart the Homebrew Tailscale daemon from a local admin
+session:
+
+```zsh
+sudo launchctl kickstart -k system/homebrew.mxcl.tailscale
+```
+
+Then rerun `./scripts/audit/devbox.sh`. The repaired resolver should resolve
+Tailscale short hostnames through normal system lookup, not only through direct
+queries to `100.100.100.100`.
 
 For broad OS-level posture, run `./scripts/audit/host.sh`. It uses
 Lynis as a maintained host scanner and keeps full reports out of the repo by
