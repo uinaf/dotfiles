@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+#MISE description="Run the live devbox audit and print a JSON summary"
+set -euo pipefail
+
+./scripts/audit/devbox.sh --json

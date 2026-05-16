@@ -45,7 +45,7 @@ check failed.
 ## Local Audit Policy
 
 Shared audit policy lives in `~/.config/uinaf/audit.env`, installed from the
-tracked `home/.config/uinaf/audit.env`. Keep it public-safe: it may contain
+tracked `chezmoi/private_dot_config/uinaf/audit.env`. Keep it public-safe: it may contain
 accepted scope names and drift thresholds, but never secrets, tokens, 1Password
 references, or identity-specific values.
 

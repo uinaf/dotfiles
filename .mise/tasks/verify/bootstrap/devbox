@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+#MISE description="Verify a live devbox Mac bootstrap"
+set -euo pipefail
+
+./scripts/verify/bootstrap.sh --profile devbox

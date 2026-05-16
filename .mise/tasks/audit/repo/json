@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+#MISE description="Run repository secret scans and print a JSON summary"
+set -euo pipefail
+
+./scripts/audit/repo.sh --skip-mscp --json

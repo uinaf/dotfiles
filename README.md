@@ -2,9 +2,9 @@
 
 Public Mac bootstrap files for uinaf machines.
 
-This repo owns the portable layer: Homebrew bundles, zsh startup, mise
-runtimes, Git and SSH defaults, Codex defaults, editor settings, and setup and
-audit scripts.
+This repo owns the portable layer: Homebrew bundles, chezmoi-managed zsh
+startup, mise runtimes, Git and SSH defaults, Codex defaults, editor settings,
+and setup and audit scripts.
 
 It does not own secrets, identity, Codex auth/state, browser profiles, app
 caches, dependency folders, build output, or project checkouts. Those stay
@@ -50,20 +50,20 @@ and should not change system power policy implicitly.
 
 ## What Gets Installed
 
-`./scripts/bootstrap/install.sh` installs tracked files from `home/` into
-`$HOME`. Stable shell, Git, mise, and audit-policy files are symlinked so repo
-updates apply directly. Mutable app and SSH defaults are copied as local files
-so runtime changes do not become repo diffs. Existing files that need to be
-replaced are moved aside with a timestamped `.backup.*` suffix.
+`./scripts/bootstrap/install.sh` applies tracked files from `chezmoi/` into
+`$HOME` through `scripts/bootstrap/apply-dotfiles.sh`, then configures Codex
+defaults when `codex` is available. Use [Chezmoi source state](docs/chezmoi.md)
+for source naming rules and safe edit workflow. Use [Mise tasks](docs/mise.md)
+for the split between repo tasks and machine runtime pins.
 
 | Surface | Tracked source | Local-only extension |
 | --- | --- | --- |
-| zsh | `home/.zshenv`, `home/.zprofile`, `home/.zshrc` | machine shell history and ad hoc local files |
-| mise | `home/.config/mise/config.toml` | repo-local runtime files |
-| Git | `home/.gitconfig` | `~/.gitconfig.local` |
-| SSH | copied from `home/.ssh/config` | `~/.ssh/config.local`, private keys |
+| zsh | `chezmoi/dot_zshenv`, `chezmoi/dot_zprofile`, `chezmoi/dot_zshrc` | machine shell history and ad hoc local files |
+| mise | `chezmoi/private_dot_config/mise/config.toml` | repo-local runtime files |
+| Git | `chezmoi/dot_gitconfig` | `~/.gitconfig.local` |
+| SSH | `chezmoi/private_dot_ssh/private_config` | `~/.ssh/config.local`, private keys |
 | Codex | installer-managed defaults | auth, sessions, approvals, memory, worktrees |
-| Editors | copied Zed and Ghostty defaults | app state, fonts, caches |
+| Editors | chezmoi-managed Zed and Ghostty defaults | app state, fonts, caches |
 
 ## Local State Boundaries
 
@@ -94,6 +94,13 @@ Use repo checks before committing:
 ./scripts/verify/repo.sh
 ```
 
+Equivalent mise task:
+
+```zsh
+mise run verify
+mise run verify:fast
+```
+
 To install the local pre-push guard for the fast repo gate:
 
 ```zsh
@@ -112,6 +119,7 @@ For security posture:
 
 ```zsh
 ./scripts/audit/repo.sh --skip-mscp
+mise run audit:repo
 ./scripts/audit/host.sh
 ./scripts/audit/personal.sh
 ./scripts/audit/devbox.sh
@@ -126,6 +134,8 @@ audit, and macOS Security Compliance Project flow.
 | --- | --- |
 | Install or update a Mac | [Bootstrap guide](docs/bootstrap.md) |
 | Operate a shared agent Mac mini | [Devbox setup](docs/devbox.md) |
+| Understand dotfile source state | [Chezmoi source state](docs/chezmoi.md) |
+| Understand mise tasks and runtime pins | [Mise tasks](docs/mise.md) |
 | Help as an AI agent | [Agent guide](AGENTS.md) |
 | Understand verification and CI | [Agent readiness](docs/agent-readiness.md) |
 | Understand GitHub Actions | [GitHub pipelines](docs/github-pipelines.md) |

@@ -10,8 +10,8 @@ Usage:
   scripts/verify/repo.sh [--skip-security]
 
 Runs repository-level verification for dotfiles changes:
-  - shell syntax checks for scripts
-  - ShellCheck for scripts
+  - shell syntax checks for scripts and mise task files
+  - ShellCheck for scripts and mise task files
   - Actionlint for GitHub workflows
   - whitespace/conflict-marker checks through git diff --check
   - AGENTS.md / CLAUDE.md entrypoint sanity
@@ -70,11 +70,21 @@ fi
 printf 'ok required tools are installed\n'
 
 section "shell syntax"
-find scripts -name '*.sh' -print0 | xargs -0 bash -n
+{
+  find scripts -name '*.sh' -print0
+  if [ -d .mise/tasks ]; then
+    find .mise/tasks -type f -print0
+  fi
+} | xargs -0 bash -n
 printf 'ok shell syntax\n'
 
 section "shellcheck"
-find scripts -name '*.sh' -print0 | xargs -0 shellcheck
+{
+  find scripts -name '*.sh' -print0
+  if [ -d .mise/tasks ]; then
+    find .mise/tasks -type f -print0
+  fi
+} | xargs -0 shellcheck
 printf 'ok shellcheck\n'
 
 if [ -d .github/workflows ]; then

@@ -66,6 +66,23 @@ run_audit_command() {
   fi
 }
 
+trufflehog_git_source() {
+  local source
+
+  if [ -d "$repo_root/.git" ]; then
+    printf '%s\n' "$repo_root"
+    return
+  fi
+
+  source="$(git -C "$repo_root" worktree list --porcelain 2>/dev/null |
+    awk '/^worktree / { print substr($0, 10); exit }')"
+  if [ -n "$source" ] && [ -d "$source/.git" ]; then
+    printf '%s\n' "$source"
+  else
+    printf '%s\n' "$repo_root"
+  fi
+}
+
 macos_branch() {
   local major
 
@@ -135,10 +152,19 @@ else
 fi
 
 if command -v trufflehog >/dev/null 2>&1; then
-  if run_audit_command trufflehog git "file://$repo_root" --no-update --results=verified,unknown --fail; then
+  source="$(trufflehog_git_source)"
+  if run_audit_command trufflehog git "file://$source" --no-update --results=verified,unknown --fail; then
     ok "trufflehog found no verified or unknown leaks"
   else
     fail_check "trufflehog reported verified/unknown leaks or failed"
+  fi
+
+  if [ "$source" != "$repo_root" ]; then
+    if run_audit_command trufflehog filesystem "$repo_root" --no-update --results=verified,unknown --fail --force-skip-binaries --force-skip-archives; then
+      ok "trufflehog found no verified or unknown leaks in linked worktree files"
+    else
+      fail_check "trufflehog reported verified/unknown leaks or failed in linked worktree files"
+    fi
   fi
 else
   warn "trufflehog is not installed"

@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+#MISE description="Verify a live personal Mac bootstrap"
+set -euo pipefail
+
+./scripts/verify/bootstrap.sh --profile personal

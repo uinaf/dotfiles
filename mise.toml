@@ -1,0 +1,4 @@
+# Repo task entrypoints live in .mise/tasks so wrappers stay executable,
+# shell-lintable, and easy to discover with `mise tasks`.
+#
+# Shared machine runtime pins live in chezmoi/private_dot_config/mise/config.toml.

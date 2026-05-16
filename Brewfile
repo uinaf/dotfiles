@@ -21,6 +21,7 @@ cask "claude-code@latest"
 # Core CLI
 brew "git"
 brew "gh"
+brew "chezmoi"
 brew "mise"
 brew "direnv"
 brew "btop"

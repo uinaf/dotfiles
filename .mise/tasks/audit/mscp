@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+#MISE description="Run repository secret scans plus the optional mSCP check-only audit"
+set -euo pipefail
+
+./scripts/audit/repo.sh

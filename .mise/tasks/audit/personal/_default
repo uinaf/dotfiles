@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+#MISE description="Run the live personal Mac drift and secret-boundary audit"
+set -euo pipefail
+
+./scripts/audit/personal.sh

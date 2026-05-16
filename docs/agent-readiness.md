@@ -13,7 +13,7 @@ flow to drive. Agent readiness means an agent can:
 
 | Dimension | Status | Evidence | Gap |
 | --- | --- | --- | --- |
-| Bootable | pass | `scripts/bootstrap/brew-bundle.sh` installs shared plus profile bundles; `scripts/bootstrap/install.sh` links stable config and copies mutable app/SSH defaults. | First-time macOS still needs Command Line Tools, Homebrew, and GitHub auth. |
+| Bootable | pass | `scripts/bootstrap/brew-bundle.sh` installs shared plus profile bundles; `scripts/bootstrap/install.sh` applies the repo-local chezmoi source state and Codex defaults. | First-time macOS still needs Command Line Tools, Homebrew, and GitHub auth. |
 | Testable | pass | `scripts/verify/repo.sh` runs shell syntax, ShellCheck, Actionlint, diff hygiene, agent-entrypoint checks, and repo secret scans. | Live bootstrap checks require a matching personal or devbox Mac. |
 | Observable | pass | Verification and audit scripts print stable sectioned output; security audits also support compact `--json` summaries; CI exposes Verify and Secret scanning logs. | SARIF output is not generated yet. |
 | Verifiable | pass | `.github/workflows/verify.yml`, `.github/workflows/secrets.yml`, `scripts/verify/bootstrap.sh`, `scripts/verify/devbox-services.sh`, and audit scripts. | Host-local service and token checks cannot run meaningfully on GitHub-hosted CI. |
@@ -28,16 +28,17 @@ SARIF for tools that can emit it cleanly.
 
 | Situation | Command | What it proves |
 | --- | --- | --- |
-| Before committing repo changes | `./scripts/verify/repo.sh` | Scripts parse, ShellCheck passes, workflows lint, diffs are clean, agent entrypoints are valid, and secret scanners pass. |
-| Fast local loop | `./scripts/verify/repo.sh --skip-security` | Same repo checks without Gitleaks/TruffleHog. Run the full command before commit. |
+| Before committing repo changes | `mise run verify` | Scripts and mise task files parse, ShellCheck passes, workflows lint, diffs are clean, agent entrypoints are valid, and secret scanners pass. |
+| Fast local loop | `mise run verify:fast` | Same repo checks without Gitleaks/TruffleHog. Run the full command before commit. |
 | Install local push guard | `./scripts/bootstrap/install-git-hooks.sh` | Adds a pre-push hook that runs `scripts/verify/repo.sh --skip-security` before pushing. |
-| Personal Mac bootstrap | `./scripts/verify/bootstrap.sh --profile personal` | Required CLIs, Homebrew bundle, mise, Codex defaults, and installed config exist on the live host. |
-| Devbox bootstrap | `./scripts/verify/bootstrap.sh --profile devbox` | Shared/devbox CLIs, Homebrew bundle, mise, Codex defaults, and installed config exist on the live host. |
-| Devbox service boundary | `./scripts/verify/devbox-services.sh` | process-compose and generated env/token boundaries match the local devbox contract. |
-| Devbox security drift | `./scripts/audit/devbox.sh` | Secret boundaries, Git/GitHub identity, SSH key modes, admin drift, and Tailscale health are sane for that Unix user. |
-| Personal security drift | `./scripts/audit/personal.sh` | Personal shell, Git, SSH, Codex, and local secret boundaries do not show obvious drift. |
-| Host hardening audit | `./scripts/audit/host.sh` | Lynis runs as a maintained broad host scanner and reports hardening index, warnings, and suggestions. |
-| Repository and macOS audit | `./scripts/audit/repo.sh` | Gitleaks/TruffleHog pass; optional mSCP check-only audit runs when configured. |
+| Personal Mac bootstrap | `mise run verify:bootstrap:personal` | Required CLIs, Homebrew bundle, mise, Codex defaults, and installed config exist on the live host. |
+| Devbox bootstrap | `mise run verify:bootstrap:devbox` | Shared/devbox CLIs, Homebrew bundle, mise, Codex defaults, and installed config exist on the live host. |
+| Devbox service boundary | `mise run verify:devbox-services` | process-compose and generated env/token boundaries match the local devbox contract. |
+| Devbox security drift | `mise run audit:devbox` | Secret boundaries, Git/GitHub identity, SSH key modes, admin drift, and Tailscale health are sane for that Unix user. |
+| Personal security drift | `mise run audit:personal` | Personal shell, Git, SSH, Codex, and local secret boundaries do not show obvious drift. |
+| Host hardening audit | `mise run audit:host` | Lynis runs as a maintained broad host scanner and reports hardening index, warnings, and suggestions. |
+| Repository audit | `mise run audit:repo` | Gitleaks/TruffleHog pass without the optional mSCP host audit. |
+| Repository and macOS audit | `mise run audit:mscp` | Gitleaks/TruffleHog pass; optional mSCP check-only audit runs when configured. |
 
 ## Agent Workflow
 
@@ -47,7 +48,7 @@ For docs or script changes:
    changed.
 2. Run `git status --short --branch`.
 3. Make the smallest scoped change.
-4. Run `./scripts/verify/repo.sh`.
+4. Run `mise run verify`.
 5. Commit only the scoped diff.
 
 For live machine setup:

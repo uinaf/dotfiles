@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+#MISE description="Run the live personal Mac audit and print a JSON summary"
+set -euo pipefail
+
+./scripts/audit/personal.sh --json
