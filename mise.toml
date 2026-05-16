@@ -10,6 +10,58 @@ run = "./scripts/bootstrap/apply-dotfiles.sh"
 description = "Run the full repository verification gate"
 run = "./scripts/verify/repo.sh"
 
+[tasks."verify:repo"]
+description = "Run the full repository verification gate"
+run = "./scripts/verify/repo.sh"
+
 [tasks."verify:fast"]
 description = "Run the repository verification gate without local secret scanners"
 run = "./scripts/verify/repo.sh --skip-security"
+
+[tasks."verify:bootstrap:personal"]
+description = "Verify a live personal Mac bootstrap"
+run = "./scripts/verify/bootstrap.sh --profile personal"
+
+[tasks."verify:bootstrap:devbox"]
+description = "Verify a live devbox Mac bootstrap"
+run = "./scripts/verify/bootstrap.sh --profile devbox"
+
+[tasks."verify:devbox-services"]
+description = "Verify live devbox supervisor and secret-file boundaries"
+run = "./scripts/verify/devbox-services.sh"
+
+[tasks."audit:repo"]
+description = "Run repository secret scans without the optional mSCP host audit"
+run = "./scripts/audit/repo.sh --skip-mscp"
+
+[tasks."audit:repo:json"]
+description = "Run repository secret scans and print a JSON summary"
+run = "./scripts/audit/repo.sh --skip-mscp --json"
+
+[tasks."audit:mscp"]
+description = "Run repository secret scans plus the optional mSCP check-only audit"
+run = "./scripts/audit/repo.sh"
+
+[tasks."audit:host"]
+description = "Run the live host Lynis security audit without sudo prompts"
+run = "./scripts/audit/host.sh"
+
+[tasks."audit:host:json"]
+description = "Run the live host Lynis security audit and print a JSON summary"
+run = "./scripts/audit/host.sh --json"
+
+[tasks."audit:personal"]
+description = "Run the live personal Mac drift and secret-boundary audit"
+run = "./scripts/audit/personal.sh"
+
+[tasks."audit:personal:json"]
+description = "Run the live personal Mac audit and print a JSON summary"
+run = "./scripts/audit/personal.sh --json"
+
+[tasks."audit:devbox"]
+description = "Run the live devbox drift and secret-boundary audit"
+run = "./scripts/audit/devbox.sh"
+
+[tasks."audit:devbox:json"]
+description = "Run the live devbox audit and print a JSON summary"
+run = "./scripts/audit/devbox.sh --json"

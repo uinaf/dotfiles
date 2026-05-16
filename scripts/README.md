@@ -21,6 +21,7 @@ Repository-only verification:
 ```zsh
 ./scripts/verify/repo.sh
 mise run verify
+mise run verify:fast
 ```
 
 Install the local pre-push guard:
@@ -54,18 +55,28 @@ Security audits:
 
 ```zsh
 ./scripts/audit/repo.sh --skip-mscp
+mise run audit:repo
+mise run audit:repo:json
+mise run audit:mscp
 ./scripts/audit/host.sh
 ./scripts/audit/host.sh --json
+mise run audit:host
+mise run audit:host:json
 ./scripts/audit/personal.sh
 ./scripts/audit/personal.sh --json
+mise run audit:personal
+mise run audit:personal:json
 ```
 
 Devbox checks:
 
 ```zsh
 ./scripts/verify/devbox-services.sh
+mise run verify:devbox-services
 ./scripts/audit/devbox.sh
 ./scripts/audit/devbox.sh --json
+mise run audit:devbox
+mise run audit:devbox:json
 ```
 
 Before committing script changes:

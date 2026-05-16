@@ -34,6 +34,36 @@ Run the changed task directly, then run:
 mise run verify
 ```
 
+## Task Namespaces
+
+Repository checks:
+
+```zsh
+mise run verify
+mise run verify:repo
+mise run verify:fast
+mise run audit:repo
+mise run audit:repo:json
+mise run audit:mscp
+```
+
+Live host checks:
+
+```zsh
+mise run verify:bootstrap:personal
+mise run verify:bootstrap:devbox
+mise run verify:devbox-services
+mise run audit:host
+mise run audit:host:json
+mise run audit:personal
+mise run audit:personal:json
+mise run audit:devbox
+mise run audit:devbox:json
+```
+
+Use repo checks for ordinary PR work. Use live host checks only on a machine
+that should actually satisfy that profile or audit boundary.
+
 ## Runtime Pins
 
 When changing `chezmoi/private_dot_config/mise/config.toml`:

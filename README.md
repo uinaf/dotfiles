@@ -98,6 +98,7 @@ Equivalent mise task:
 
 ```zsh
 mise run verify
+mise run verify:fast
 ```
 
 To install the local pre-push guard for the fast repo gate:
@@ -118,6 +119,7 @@ For security posture:
 
 ```zsh
 ./scripts/audit/repo.sh --skip-mscp
+mise run audit:repo
 ./scripts/audit/host.sh
 ./scripts/audit/personal.sh
 ./scripts/audit/devbox.sh
