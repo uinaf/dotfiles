@@ -5,12 +5,14 @@ Guidance for agents helping with this repo.
 ## Role
 
 This is a public Mac bootstrap repo for uinaf machines. Help the user install
-tools, link dotfiles, configure local identity, and verify a machine without
+tools, apply chezmoi-managed dotfiles, configure local identity, and verify a machine without
 turning private machine state into repository state.
 
 Start with [README](README.md). Use [Bootstrap guide](docs/bootstrap.md) for
 install steps, [Devbox setup](docs/devbox.md) for shared agent hosts, and
-[Agent readiness](docs/agent-readiness.md) for verification expectations.
+[Agent readiness](docs/agent-readiness.md) for verification expectations. Use
+[Chezmoi source state](docs/chezmoi.md) for dotfile changes and
+[Mise tasks](docs/mise.md) for task/runtime boundaries.
 
 `CLAUDE.md` is a symlink to this file. Keep `AGENTS.md` as the only authored
 agent guide.
@@ -38,10 +40,12 @@ that usually means a root-owned token file read only by a narrow wrapper.
 3. Read only the relevant deep doc:
    - personal or first-machine setup: [Bootstrap guide](docs/bootstrap.md)
    - shared agent host: [Devbox setup](docs/devbox.md)
+   - dotfile source changes: [Chezmoi source state](docs/chezmoi.md)
+   - mise task or runtime changes: [Mise tasks](docs/mise.md)
    - audits or secret boundaries: [Security audits](docs/security-audits.md)
    - CI and GitHub workflows: [GitHub pipelines](docs/github-pipelines.md)
 4. Keep top-level docs short; put operational detail under `docs/`.
-5. Use repo scripts as the source of truth. Do not replace them with one-off
+5. Use repo scripts and `chezmoi/` source state as the source of truth. Do not replace them with one-off
    shell snippets unless you are diagnosing a failure.
 6. If automation starts requiring brittle app-state edits, opaque config
    surgery, or machine-specific juggling, stop automating it. Document the
@@ -123,6 +127,10 @@ For personal security drift:
 - Put shared Mac mini and devbox tools in `Brewfile.devbox`.
 - Keep Codex setup install-only here; agent rule links belong to
   [uinaf/agents](https://github.com/uinaf/agents).
+- Edit dotfiles in `chezmoi/`, not generated files in `$HOME`. Follow
+  [Chezmoi source state](docs/chezmoi.md).
+- Keep mise task and runtime scope split as documented in
+  [Mise tasks](docs/mise.md).
 - Update docs when scripts, profile behavior, audit behavior, or workflow names
   change.
 - Follow the uinaf repo-doc voice: proper-case headings, sentence-case body,

@@ -6,7 +6,7 @@ Scripts are grouped by functionality:
 | --- | --- |
 | `app-store/` | Mac App Store app installs/removals through `mas`. |
 | `audit/` | Check-only security and drift audits for repo, host, personal, and devbox contexts. |
-| `bootstrap/` | Install and configure Homebrew, dotfiles, Git, Codex, Chrome, and repos. |
+| `bootstrap/` | Install and configure Homebrew, chezmoi dotfiles, Git, Codex, Chrome, and repos. |
 | `lib/` | Shared shell helpers used by scripts. |
 | `secrets/` | 1Password service-account token storage and generated env refresh helpers. |
 | `tizen/` | Samsung Tizen Studio install and certificate/profile archive helpers. |
@@ -20,6 +20,7 @@ Repository-only verification:
 
 ```zsh
 ./scripts/verify/repo.sh
+mise run verify
 ```
 
 Install the local pre-push guard:
@@ -34,6 +35,7 @@ Bootstrap entry points:
 ./scripts/bootstrap/brew-bundle.sh personal
 ./scripts/bootstrap/brew-bundle.sh devbox
 ./scripts/bootstrap/brew-bundle.sh --shared-only
+./scripts/bootstrap/apply-dotfiles.sh --dry-run --verbose
 ./scripts/bootstrap/install.sh
 ./scripts/bootstrap/configure-git.sh --profile personal
 ./scripts/bootstrap/configure-git.sh --profile devbox
@@ -42,7 +44,8 @@ Bootstrap entry points:
 ```
 
 `configure-power.sh` is the explicit sudo step for plugged-in macOS power
-policy. `install.sh` should stay user-level.
+policy. `install.sh` should stay user-level and applies the repo-local chezmoi
+source state before configuring Codex defaults.
 
 Use [Bootstrap guide](../docs/bootstrap.md) for the ordered personal and devbox
 flows.

@@ -1,0 +1,15 @@
+[tasks."dotfiles:diff"]
+description = "Preview the repo-local chezmoi source state"
+run = "./scripts/bootstrap/apply-dotfiles.sh --dry-run --verbose"
+
+[tasks."dotfiles:apply"]
+description = "Apply the repo-local chezmoi source state"
+run = "./scripts/bootstrap/apply-dotfiles.sh"
+
+[tasks.verify]
+description = "Run the full repository verification gate"
+run = "./scripts/verify/repo.sh"
+
+[tasks."verify:fast"]
+description = "Run the repository verification gate without local secret scanners"
+run = "./scripts/verify/repo.sh --skip-security"

@@ -13,7 +13,7 @@ flow to drive. Agent readiness means an agent can:
 
 | Dimension | Status | Evidence | Gap |
 | --- | --- | --- | --- |
-| Bootable | pass | `scripts/bootstrap/brew-bundle.sh` installs shared plus profile bundles; `scripts/bootstrap/install.sh` links stable config and copies mutable app/SSH defaults. | First-time macOS still needs Command Line Tools, Homebrew, and GitHub auth. |
+| Bootable | pass | `scripts/bootstrap/brew-bundle.sh` installs shared plus profile bundles; `scripts/bootstrap/install.sh` applies the repo-local chezmoi source state and Codex defaults. | First-time macOS still needs Command Line Tools, Homebrew, and GitHub auth. |
 | Testable | pass | `scripts/verify/repo.sh` runs shell syntax, ShellCheck, Actionlint, diff hygiene, agent-entrypoint checks, and repo secret scans. | Live bootstrap checks require a matching personal or devbox Mac. |
 | Observable | pass | Verification and audit scripts print stable sectioned output; security audits also support compact `--json` summaries; CI exposes Verify and Secret scanning logs. | SARIF output is not generated yet. |
 | Verifiable | pass | `.github/workflows/verify.yml`, `.github/workflows/secrets.yml`, `scripts/verify/bootstrap.sh`, `scripts/verify/devbox-services.sh`, and audit scripts. | Host-local service and token checks cannot run meaningfully on GitHub-hosted CI. |

@@ -116,7 +116,7 @@ them, ask the human to add this to `~/.codex/config.toml`:
 remote_connections = true
 ```
 
-Link dotfiles and configure local state:
+Apply dotfiles and configure local state:
 
 ```zsh
 ./scripts/bootstrap/install.sh
@@ -126,10 +126,12 @@ mise install
 ./scripts/bootstrap/pull-repos.sh
 ```
 
-The power step disables system, display, and disk sleep only while the Mac is
-plugged in. Battery settings stay under macOS defaults so laptops still sleep
-normally when unplugged. It prompts for sudo; `install.sh` remains a user-level
-dotfile linking step.
+The dotfile step applies the repo-local chezmoi source state from `chezmoi/`.
+Preview it with `./scripts/bootstrap/apply-dotfiles.sh --dry-run --verbose`
+when changing source-state files. The power step disables system, display, and
+disk sleep only while the Mac is plugged in. Battery settings stay under macOS
+defaults so laptops still sleep normally when unplugged. It prompts for sudo;
+`install.sh` remains a user-level dotfile and Codex-defaults step.
 
 Chrome vertical tabs are a local browser preference. Quit Chrome first, then:
 
@@ -153,7 +155,7 @@ Install shared plus devbox Homebrew dependencies:
 ./scripts/bootstrap/brew-bundle.sh devbox
 ```
 
-Link dotfiles:
+Apply dotfiles:
 
 ```zsh
 ./scripts/bootstrap/install.sh
@@ -250,6 +252,8 @@ can hang.
 
 - If `brew bundle check` fails, run the matching `brew-bundle.sh` profile and
   retry verification.
+- If `chezmoi` is missing, rerun `./scripts/bootstrap/brew-bundle.sh` for the
+  correct profile before `./scripts/bootstrap/install.sh`.
 - If Git reports dubious ownership under `/opt/homebrew`, rerun
   `configure-git.sh` for the correct profile.
 - If `git@github.com` fails on a devbox but the key is present, rerun

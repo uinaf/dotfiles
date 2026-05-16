@@ -50,6 +50,7 @@ esac
 
 common_cli_checks=(
   "brew --version"
+  "chezmoi --version"
   "git --version"
   "gh auth status"
   "mise --version"
