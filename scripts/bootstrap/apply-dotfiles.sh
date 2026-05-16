@@ -117,4 +117,8 @@ if [ "$verbose" -eq 1 ]; then
 fi
 
 "${cmd[@]}"
-printf 'dotfiles applied with chezmoi source %s\n' "$source_dir"
+if [ "$dry_run" -eq 1 ]; then
+  printf 'dotfiles previewed with chezmoi source %s\n' "$source_dir"
+else
+  printf 'dotfiles applied with chezmoi source %s\n' "$source_dir"
+fi
