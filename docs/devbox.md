@@ -221,6 +221,21 @@ Then rerun `./scripts/audit/devbox.sh`. The repaired resolver should resolve
 Tailscale short hostnames through normal system lookup, not only through direct
 queries to `100.100.100.100`.
 
+If the daemon restart does not restore resolver wiring, recreate the resolver
+files explicitly:
+
+```zsh
+sudo mkdir -p /etc/resolver
+printf 'nameserver 100.100.100.100\nsearch <tailnet>.ts.net\n' \
+  | sudo tee /etc/resolver/search.tailscale >/dev/null
+printf 'nameserver 100.100.100.100\n' \
+  | sudo tee /etc/resolver/<tailnet>.ts.net >/dev/null
+printf 'nameserver 100.100.100.100\n' \
+  | sudo tee /etc/resolver/ts.net >/dev/null
+sudo dscacheutil -flushcache
+sudo killall -HUP mDNSResponder
+```
+
 For broad OS-level posture, run `./scripts/audit/host.sh`. It uses
 Lynis as a maintained host scanner and keeps full reports out of the repo by
 default.

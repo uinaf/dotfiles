@@ -428,7 +428,7 @@ if command -v tailscale >/dev/null 2>&1; then
       elif system_resolves_host "$tailscale_dns_name"; then
         fail_check "system resolver handles MagicDNS FQDNs but not short hostnames"
       else
-        fail_check "system resolver is not using Tailscale MagicDNS; restart the Tailscale daemon"
+        fail_check "system resolver is not using Tailscale MagicDNS; repair Tailscale resolver wiring"
       fi
     else
       fail_check "direct MagicDNS lookup failed through 100.100.100.100"
