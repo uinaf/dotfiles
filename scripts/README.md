@@ -13,6 +13,8 @@ Scripts are grouped by functionality:
 | `verify/` | Deterministic repo, bootstrap, and devbox service-boundary verification. |
 
 Run scripts from the repository root unless a script says otherwise.
+Mise task wrappers live in `.mise/tasks/` and call these scripts; keep reusable
+logic here so scripts remain lintable and directly runnable during bootstrap.
 
 ## Common Commands
 

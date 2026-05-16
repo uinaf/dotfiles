@@ -2,25 +2,37 @@
 
 This repo uses mise in two different scopes:
 
-- Root `mise.toml` defines repo tasks for humans and agents.
+- `.mise/tasks/` defines repo tasks for humans and agents.
+- Root `mise.toml` is the repo-level mise config and documents that task
+  entrypoints live in `.mise/tasks/`.
 - `chezmoi/private_dot_config/mise/config.toml` defines machine runtime and
   tool versions applied into `~/.config/mise/config.toml`.
 
-Do not mix those scopes. A task belongs in root `mise.toml`; a shared machine
-runtime pin belongs in the chezmoi-managed home config.
+Do not mix those scopes. A repo command belongs in `.mise/tasks/`; a shared
+machine runtime pin belongs in the chezmoi-managed home config.
 
 ## Tasks
 
-Keep tasks deterministic and non-interactive:
+Keep task wrappers deterministic and non-interactive:
 
 - Use explicit repo-relative commands such as `./scripts/verify/repo.sh`.
-- Add a concise `description` for every task.
+- Add a concise `#MISE description="..."` header for every task.
 - Prefer task names users can guess: `verify`, `verify:fast`,
   `dotfiles:diff`, `dotfiles:apply`.
 - Do not embed secrets, hostnames, personal paths, or environment-specific
   credentials.
-- Do not replace repo scripts with long inline shell when a script already owns
-  the behavior.
+- Do not replace repo scripts with long wrapper logic when a script already
+  owns the behavior.
+- Keep task files executable so mise can discover them.
+
+Nested file tasks define the visible task namespace:
+
+```text
+.mise/tasks/verify/_default        -> mise run verify
+.mise/tasks/verify/fast            -> mise run verify:fast
+.mise/tasks/audit/repo/_default    -> mise run audit:repo
+.mise/tasks/audit/repo/json        -> mise run audit:repo:json
+```
 
 Inspect tasks with:
 

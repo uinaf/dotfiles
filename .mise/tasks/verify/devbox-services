@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+#MISE description="Verify live devbox supervisor and secret-file boundaries"
+set -euo pipefail
+
+./scripts/verify/devbox-services.sh

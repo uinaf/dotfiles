@@ -28,7 +28,7 @@ SARIF for tools that can emit it cleanly.
 
 | Situation | Command | What it proves |
 | --- | --- | --- |
-| Before committing repo changes | `mise run verify` | Scripts parse, ShellCheck passes, workflows lint, diffs are clean, agent entrypoints are valid, and secret scanners pass. |
+| Before committing repo changes | `mise run verify` | Scripts and mise task files parse, ShellCheck passes, workflows lint, diffs are clean, agent entrypoints are valid, and secret scanners pass. |
 | Fast local loop | `mise run verify:fast` | Same repo checks without Gitleaks/TruffleHog. Run the full command before commit. |
 | Install local push guard | `./scripts/bootstrap/install-git-hooks.sh` | Adds a pre-push hook that runs `scripts/verify/repo.sh --skip-security` before pushing. |
 | Personal Mac bootstrap | `mise run verify:bootstrap:personal` | Required CLIs, Homebrew bundle, mise, Codex defaults, and installed config exist on the live host. |

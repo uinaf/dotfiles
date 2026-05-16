@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+#MISE description="Run the repository verification gate without local secret scanners"
+set -euo pipefail
+
+./scripts/verify/repo.sh --skip-security

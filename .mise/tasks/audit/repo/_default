@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+#MISE description="Run repository secret scans without the optional mSCP host audit"
+set -euo pipefail
+
+./scripts/audit/repo.sh --skip-mscp
