@@ -23,7 +23,9 @@ Options:
 
 The script checks local secret boundaries, Git/GitHub identity state, SSH key
 permissions, Tailscale state, and whether devbox-only service-account state has
-drifted onto a personal setup. It does not print secret values.
+drifted onto a personal setup. Treat prose scanner output as sensitive because
+maintained scanners can include matched secret material when they detect a leak.
+Use --json for compact remote collection.
 USAGE
 }
 

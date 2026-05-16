@@ -1,7 +1,14 @@
 # Security Audits
 
-Security audits in this repo are check-only by default. They should make drift
-visible without printing secret values or applying remediation.
+Security audits in this repo are check-only by default. They make drift visible
+without applying remediation.
+
+Treat local audit stdout and saved logs as sensitive. The repo scripts avoid
+printing explicit env dumps or token files, but maintained scanners can include
+matched secret material in their findings when they detect a leak. Use `--json`
+for compact status collection, and summarize scanner findings by detector type,
+file path, and line number instead of pasting raw scanner output into issues,
+pull requests, or chat.
 
 ## Audit Layers
 
@@ -73,7 +80,8 @@ If either scanner reports a real secret:
 1. Treat the secret as exposed.
 2. Rotate or revoke it in the owning system.
 3. Remove the secret from the repo and commit history when needed.
-4. Document only the affected surface and rotation outcome, not the secret.
+4. Document only the detector type, affected surface, and rotation outcome, not
+   the secret value.
 
 ## Host Hardening Audit
 
@@ -142,7 +150,8 @@ Run this from a normal personal Mac user:
 ```
 
 Use `./scripts/audit/personal.sh --json` when an agent needs a compact
-status summary.
+status summary. Prefer JSON mode for remote collection because prose scanner
+output may include matched secret material.
 
 It checks:
 
@@ -173,7 +182,8 @@ Run this from each devbox user:
 ```
 
 Use `./scripts/audit/devbox.sh --json` when collecting per-user devbox
-audit summaries over SSH.
+audit summaries over SSH. Prefer JSON mode for remote collection because prose
+scanner output may include matched secret material.
 
 It checks:
 
@@ -188,9 +198,9 @@ It checks:
   config backups, SSH config backups, process-compose backups, OpenClaw
   rollback files, common credential files, Docker config, LaunchAgents, or
   uinaf LaunchDaemons
-- OpenClaw runtime credential stores are not part of the default Gitleaks pass;
-  this audit checks their surrounding boundaries without dumping or scanning
-  expected auth state.
+- OpenClaw credential, device, identity, and plugin-runtime stores are excluded
+  from the default local secret scan; env-like OpenClaw service files, backups,
+  and rollback files are scanned because they are common stale-secret locations.
 - Codex trusted project paths do not cross into another Unix user's home, point
   at missing paths, or trust broad home-root directories
 - the home root does not contain stray project artifacts such as `node_modules`
@@ -211,8 +221,10 @@ inspect the machine; failures mean the setup violates the expected boundary.
 ## Maintenance Rules
 
 - Keep audit scripts non-destructive by default.
-- Do not print secret values, token contents, full env dumps, or raw launchd
-  environment output.
+- Do not add custom output that prints secret values, token contents, full env
+  dumps, or raw launchd environment output. When a maintained scanner includes
+  matched secret material in a finding, treat that output as sensitive and use
+  JSON summaries or manual summaries for reporting.
 - Prefer maintained scanners such as Lynis, Gitleaks, TruffleHog, and mSCP for
   generic detection. Add custom shell checks only for repo-specific boundaries
   that those tools cannot understand.

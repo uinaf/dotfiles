@@ -207,7 +207,11 @@ That audit is stricter than verification. It checks for stale secret-looking
 backups, generated env symlink drift, Git/GitHub identity state, SSH key file
 permissions, GitHub SSH auth, admin group drift, Tailscale health, Tailscale
 MagicDNS resolver wiring, and raw service-account token references in local
-service config. It does not print secret values.
+service config.
+
+Treat prose audit output as sensitive. Maintained scanners can include matched
+secret material when they report a verified leak, so use `--json` for remote
+collection and summarize findings by detector type, file path, and line number.
 
 If the audit reports that direct MagicDNS works but the system resolver is not
 using Tailscale DNS, restart the Homebrew Tailscale daemon from a local admin

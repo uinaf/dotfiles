@@ -32,7 +32,9 @@ Options:
 
 The script checks secret boundaries, process-compose isolation, Git/GitHub
 identity state, SSH key permissions, and common stale secret backup locations.
-It does not print secret values.
+Treat prose scanner output as sensitive because maintained scanners can include
+matched secret material when they detect a leak. Use --json for compact remote
+collection.
 USAGE
 }
 
