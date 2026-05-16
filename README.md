@@ -36,6 +36,7 @@ cd ~/projects/uinaf/dotfiles
 ./scripts/bootstrap/configure-git.sh --profile personal
 ./scripts/bootstrap/configure-power.sh --profile personal
 ./scripts/app-store/personal.sh
+mise trust
 mise install
 ./scripts/bootstrap/pull-repos.sh
 ./scripts/verify/bootstrap.sh --profile personal
@@ -97,6 +98,7 @@ Use repo checks before committing:
 Equivalent mise task:
 
 ```zsh
+mise trust
 mise run verify
 mise run verify:fast
 ```

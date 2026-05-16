@@ -36,7 +36,12 @@ Clone the repo:
 mkdir -p ~/projects/uinaf
 gh repo clone uinaf/dotfiles ~/projects/uinaf/dotfiles
 cd ~/projects/uinaf/dotfiles
+mise trust
 ```
+
+`mise trust` is a local approval for this checkout's `mise.toml`. Run it before
+`mise install`, `mise tasks`, or `mise run ...`; otherwise mise refuses to load
+the repo config.
 
 ## Gitless First Fetch
 
@@ -122,6 +127,7 @@ Apply dotfiles and configure local state:
 ./scripts/bootstrap/install.sh
 ./scripts/bootstrap/configure-git.sh --profile personal
 ./scripts/bootstrap/configure-power.sh --profile personal
+mise trust
 mise install
 ./scripts/bootstrap/pull-repos.sh
 ```
@@ -160,6 +166,7 @@ Apply dotfiles:
 ```zsh
 ./scripts/bootstrap/install.sh
 ./scripts/bootstrap/configure-power.sh --profile devbox
+mise trust
 mise install
 ```
 
@@ -217,6 +224,7 @@ git pull --ff-only
 ./scripts/bootstrap/brew-bundle.sh personal
 ./scripts/bootstrap/install.sh
 ./scripts/bootstrap/configure-power.sh --profile personal
+mise trust
 mise install
 ./scripts/verify/bootstrap.sh --profile personal
 ```

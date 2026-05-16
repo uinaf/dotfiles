@@ -11,6 +11,16 @@ This repo uses mise in two different scopes:
 Do not mix those scopes. A repo command belongs in `.mise/tasks/`; a shared
 machine runtime pin belongs in the chezmoi-managed home config.
 
+Trust the repo config once per checkout before using repo tasks or installing
+runtime pins:
+
+```zsh
+mise trust
+```
+
+Without that local trust record, mise refuses to parse `mise.toml`, so
+`mise install`, `mise tasks`, and `mise run ...` all fail before task discovery.
+
 ## Tasks
 
 Keep task wrappers deterministic and non-interactive:
@@ -37,6 +47,7 @@ Nested file tasks define the visible task namespace:
 Inspect tasks with:
 
 ```zsh
+mise trust
 mise tasks --json
 ```
 

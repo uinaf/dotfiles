@@ -222,7 +222,9 @@ find_matching_files() {
 load_uinaf_audit_policy() {
   local policy_path="${UINAF_AUDIT_POLICY_FILE:-$HOME/.config/uinaf/audit.env}"
 
-  [ -e "$policy_path" ] || return
+  if [ ! -e "$policy_path" ]; then
+    return 0
+  fi
 
   # Public-safe local policy only. Do not put secrets in this file.
   # shellcheck disable=SC1090

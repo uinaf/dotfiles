@@ -34,6 +34,7 @@ Preview the target state before applying:
 
 ```zsh
 ./scripts/bootstrap/apply-dotfiles.sh --dry-run --verbose
+mise trust
 mise run dotfiles:diff
 ```
 
@@ -41,6 +42,7 @@ Apply the source state:
 
 ```zsh
 ./scripts/bootstrap/apply-dotfiles.sh
+mise trust
 mise run dotfiles:apply
 ```
 
