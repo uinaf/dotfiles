@@ -61,6 +61,35 @@ backup_path() {
   fi
 }
 
+remove_obsolete_repo_link() {
+  local target="$1"
+  local current="$2"
+  local backup
+
+  if ! [[ "$current" = "$repo_root"/home/* || "$current" = */dotfiles/home/* ]]; then
+    return 1
+  fi
+
+  if [ -e "$target" ] && ! chezmoi --source "$source_dir" --destination "$HOME" cat "$target" | cmp -s - "$target"; then
+    backup="$target.backup.$(date +%Y%m%d%H%M%S)"
+    if [ "$dry_run" -eq 1 ]; then
+      printf 'would back up obsolete link content %s -> %s\n' "$target" "$backup"
+    else
+      cp -p "$target" "$backup"
+      printf 'backed up obsolete link content %s -> %s\n' "$target" "$backup"
+    fi
+  fi
+
+  if [ "$dry_run" -eq 1 ]; then
+    printf 'would remove obsolete link %s -> %s\n' "$target" "$current"
+  else
+    unlink "$target"
+    printf 'removed obsolete link %s -> %s\n' "$target" "$current"
+  fi
+
+  return 0
+}
+
 backup_preexisting_targets() {
   local target
   local current
@@ -70,7 +99,7 @@ backup_preexisting_targets() {
 
     if [ -L "$target" ]; then
       current="$(readlink "$target")"
-      if [[ "$current" = */dotfiles/home/* ]]; then
+      if remove_obsolete_repo_link "$target" "$current"; then
         continue
       fi
     fi
