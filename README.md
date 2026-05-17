@@ -63,7 +63,7 @@ for the split between repo tasks and machine runtime pins.
 | mise | `chezmoi/private_dot_config/mise/config.toml` | repo-local runtime files |
 | Git | `chezmoi/dot_gitconfig` | `~/.gitconfig.local` |
 | SSH | `chezmoi/private_dot_ssh/private_config` | `~/.ssh/config.local`, private keys |
-| Codex | installer-managed defaults | auth, sessions, approvals, memory, worktrees |
+| Codex | installer-managed defaults, including ChatGPT-login enforcement | auth, sessions, approvals, memory, worktrees |
 | Editors | chezmoi-managed Zed and Ghostty defaults | app state, fonts, caches |
 
 ## Local State Boundaries

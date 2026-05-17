@@ -113,6 +113,11 @@ installing the Codex app, open its settings and set:
 - code font size: `14 px`
 - Font Smoothing: on
 
+`./scripts/bootstrap/install.sh` configures Codex defaults in
+`~/.codex/config.toml`, including `forced_login_method = "chatgpt"` so Codex
+uses ChatGPT subscription access instead of API-key billing. It does not manage
+Codex auth tokens, sessions, approvals, or app state.
+
 Remote Codex connections are also manual user config. If the machine should use
 them, ask the human to add this to `~/.codex/config.toml`:
 

@@ -48,6 +48,7 @@ enable_known_feature() {
 
 set_top_level "model" '"gpt-5.5"'
 set_top_level "model_reasoning_effort" '"high"'
+set_top_level "forced_login_method" '"chatgpt"'
 
 if ! command -v codex >/dev/null 2>&1; then
   printf 'missing required command: codex\n' >&2
