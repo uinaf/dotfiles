@@ -146,7 +146,7 @@ check_service_token_file() {
   section "1Password service account token file"
 
   if [ "$(id -u)" -ne 0 ] && [ ! -e "$token_file" ]; then
-    printf 'warn %s is not visible to this user; run with sudo to verify root-owned token storage\n' "$token_file"
+    printf 'ok %s is not visible to this user; root-owned token storage is not exposed to the devbox shell\n' "$token_file"
     return
   fi
 

@@ -195,7 +195,9 @@ Run the devbox-specific boundary check for each devbox user:
 
 That check verifies the supervisor binary, process-compose state, secret-file
 modes, absence of default shell token export, and the configured root-owned
-service-account token file.
+service-account token file. When run as a normal devbox user, the root-owned
+token file is expected to be invisible; that means the token is not exposed to
+ordinary devbox shells.
 
 Run the devbox security audit for each devbox user:
 
@@ -208,6 +210,12 @@ backups, generated env symlink drift, Git/GitHub identity state, SSH key file
 permissions, GitHub SSH auth, admin group drift, Tailscale health, Tailscale
 MagicDNS resolver wiring, and raw service-account token references in local
 service config.
+
+OpenClaw service env files under `~/.openclaw/service-env` are expected to hold
+per-service runtime credentials for the devbox user. The audit checks that the
+directory and `.env` files are owner-only, owned by the devbox user, and do not
+contain `OP_SERVICE_ACCOUNT_TOKEN`; it does not secret-scan their expected
+runtime credential values.
 
 Treat prose audit output as sensitive. Maintained scanners can include matched
 secret material when they report a verified leak, so use `--json` for remote

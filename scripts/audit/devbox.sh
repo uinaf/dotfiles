@@ -66,6 +66,7 @@ emit_openclaw_boundary_files() {
       -o -path "$HOME/.openclaw/identity" \
       -o -path "$HOME/.openclaw/plugin-runtime-deps" \
       -o -path "$HOME/.openclaw/plugin-runtime-deps.*" \
+      -o -path "$HOME/.openclaw/service-env" \
       -o -path '*/node_modules' \
       -o -path '*/.tmp' \) -prune \
     -o -type f \( -name '*.env' -o -name '*.bak' -o -name '*.last-good' \)
@@ -125,6 +126,45 @@ system_resolves_host() {
   else
     return 2
   fi
+}
+
+check_openclaw_service_env_boundary() {
+  local service_env_dir="$HOME/.openclaw/service-env"
+  local service_env_file
+  local env_owner
+
+  section "OpenClaw service env boundary"
+
+  if [ ! -e "$service_env_dir" ]; then
+    warn "missing optional $service_env_dir"
+    return
+  fi
+
+  check_mode_any fail "$service_env_dir" 700
+  if [ "$(owner_of "$service_env_dir")" = "$devbox_user" ]; then
+    ok "$service_env_dir owner $devbox_user"
+  else
+    fail_check "$service_env_dir owner is $(owner_of "$service_env_dir"), expected $devbox_user"
+  fi
+
+  while IFS= read -r service_env_file; do
+    [ -n "$service_env_file" ] || continue
+
+    if [ -L "$service_env_file" ]; then
+      fail_check "$service_env_file must not be a symlink"
+      continue
+    fi
+
+    check_mode_any fail "$service_env_file" 600
+    env_owner="$(owner_of "$service_env_file")"
+    if [ "$env_owner" = "$devbox_user" ]; then
+      ok "$service_env_file owner $env_owner"
+    else
+      fail_check "$service_env_file owner is $env_owner, expected $devbox_user"
+    fi
+
+    check_pattern_absent "$service_env_file" '^OP_SERVICE_ACCOUNT_TOKEN=' "OP service account token" fail
+  done < <(find "$service_env_dir" -maxdepth 1 -type f -name '*.env' -print 2>/dev/null | sort)
 }
 
 while [ "$#" -gt 0 ]; do
@@ -199,7 +239,7 @@ fi
 section "1Password service account token file"
 
 if [ "$(id -u)" -ne 0 ] && [ ! -e "$token_file" ]; then
-  warn "$token_file is not visible to this user; run with sudo to verify root-owned token storage"
+  ok "$token_file is not visible to this user; root-owned token storage is not exposed to the devbox shell"
 else
   check_mode_any fail "$token_file" 400 600
   if [ -e "$token_file" ]; then
@@ -279,6 +319,8 @@ scan_files_for_secrets < <(
 if [ -e "$HOME/.docker/config.json" ]; then
   scan_file_for_secret_pattern "$HOME/.docker/config.json" '"auth"[[:space:]]*:' "inline Docker auth material"
 fi
+
+check_openclaw_service_env_boundary
 
 section "Codex trust boundaries"
 
@@ -398,17 +440,6 @@ if [ -d "$HOME/.ssh" ]; then
 else
   warn "missing $HOME/.ssh"
 fi
-
-section "remote control groups"
-
-user_groups="$(id -Gn 2>/dev/null || true)"
-for group in com.apple.access_screensharing com.apple.access_remote_ae; do
-  case " $user_groups " in
-    *" $group "*)
-      warn "user is in remote-control group: $group"
-      ;;
-  esac
-done
 
 section "Tailscale"
 

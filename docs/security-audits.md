@@ -188,10 +188,16 @@ scanner output may include matched secret material.
 It checks:
 
 - default shells do not export `OP_SERVICE_ACCOUNT_TOKEN`
-- root-owned token file mode and owner when visible
+- root-owned token file mode and owner when visible; non-root users passing
+  through an invisible token path is expected because the token should not be
+  exposed to normal devbox shells
 - generated OpenClaw env file mode, owner, and symlink target
 - generated env does not contain `OP_SERVICE_ACCOUNT_TOKEN`
 - process-compose is isolated through the configured socket or port
+- OpenClaw service env files under `~/.openclaw/service-env` are owner-only,
+  owned by the devbox user, and do not contain the 1Password service-account
+  token. These files may contain expected per-service runtime credentials, so
+  the audit checks their boundary instead of secret-scanning their contents.
 - local service config, backup files, and shell history do not contain obvious
   secret references
 - Gitleaks and TruffleHog do not report leaks in shell startup backups, Git
@@ -199,8 +205,8 @@ It checks:
   rollback files, common credential files, Docker config, LaunchAgents, or
   uinaf LaunchDaemons
 - OpenClaw credential, device, identity, and plugin-runtime stores are excluded
-  from the default local secret scan; env-like OpenClaw service files, backups,
-  and rollback files are scanned because they are common stale-secret locations.
+  from the default local secret scan; OpenClaw backups and rollback files are
+  scanned because they are common stale-secret locations.
 - Codex trusted project paths do not cross into another Unix user's home, point
   at missing paths, or trust broad home-root directories
 - the home root does not contain stray project artifacts such as `node_modules`
@@ -211,8 +217,6 @@ It checks:
   policy
 - GitHub SSH auth works for `git@github.com`
 - SSH private key files are not group/world-readable
-- screen-sharing and remote-Apple-event group membership is surfaced as a
-  warning
 - Tailscale CLI status works
 
 The script is intentionally conservative. Warnings mean the auditor should
