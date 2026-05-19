@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+#MISE description="Trust mise configs in Codex and Claude generated worktrees"
+set -euo pipefail
+
+./scripts/bootstrap/trust-agent-worktrees.sh

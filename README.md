@@ -52,10 +52,11 @@ and should not change system power policy implicitly.
 ## What Gets Installed
 
 `./scripts/bootstrap/install.sh` applies tracked files from `chezmoi/` into
-`$HOME` through `scripts/bootstrap/apply-dotfiles.sh`, then configures Codex
-defaults when `codex` is available. Use [Chezmoi source state](docs/chezmoi.md)
-for source naming rules and safe edit workflow. Use [Mise tasks](docs/mise.md)
-for the split between repo tasks and machine runtime pins.
+`$HOME` through `scripts/bootstrap/apply-dotfiles.sh`. Use
+[Bootstrap guide](docs/bootstrap.md) for the ordered setup flow,
+[Chezmoi source state](docs/chezmoi.md) for source naming rules, and
+[Mise tasks](docs/mise.md) for the split between repo tasks and machine runtime
+pins.
 
 | Surface | Tracked source | Local-only extension |
 | --- | --- | --- |

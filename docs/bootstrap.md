@@ -118,6 +118,10 @@ installing the Codex app, open its settings and set:
 uses ChatGPT subscription access instead of API-key billing. It does not manage
 Codex auth tokens, sessions, approvals, or app state.
 
+The same install step also runs the agent worktree mise trust helper. Use the
+matching task in [Mise tasks](mise.md#task-namespaces) to refresh that local
+trust after new worktrees are created.
+
 Remote Codex connections are also manual user config. If the machine should use
 them, ask the human to add this to `~/.codex/config.toml`:
 

@@ -87,6 +87,16 @@ mise run audit:devbox:json
 Use repo checks for ordinary PR work. Use live host checks only on a machine
 that should actually satisfy that profile or audit boundary.
 
+Bootstrap helpers:
+
+```zsh
+mise run bootstrap:trust-agent-worktrees
+```
+
+This trusts existing `mise.toml` and `.mise.toml` files near the roots of
+Codex and Claude generated worktrees. It is also called by
+`scripts/bootstrap/install.sh`.
+
 ## Runtime Pins
 
 When changing `chezmoi/private_dot_config/mise/config.toml`:

@@ -147,6 +147,7 @@ check_codex_config() {
 check_mise() {
   check_mise_doctor "login interactive" -lic
   check_mise_doctor "interactive" -ic
+  "$repo_root/scripts/bootstrap/trust-agent-worktrees.sh" --check
 }
 
 check_truecolor_shell() {

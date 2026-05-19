@@ -4,6 +4,7 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 "$repo_root/scripts/bootstrap/apply-dotfiles.sh"
+"$repo_root/scripts/bootstrap/trust-agent-worktrees.sh"
 
 if command -v codex >/dev/null 2>&1; then
   "$repo_root/scripts/bootstrap/configure-codex.sh"
