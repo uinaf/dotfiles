@@ -16,40 +16,30 @@ Local only:
 
 - Git identities, signing keys, and 1Password SSH vaults
 - 1Password service-account tokens and item references
-- OpenClaw env values and generated service state
+- workspace env values and generated service state
 - process-compose ports when they are identity-specific
 - Codex auth, trusted paths, sessions, and agent-rule symlinks
 
 ## Secret Model
 
-Environment variables are not a secret boundary. Any package, shell command, or
-child process running with a populated environment can read it.
+Environment variables are not a secret boundary. Anything running in that
+process tree can read them.
 
 Use this pattern for service secrets:
 
-1. Store the 1Password service-account token in machine-local secret storage.
-   On a headless devbox, use a root-owned token file rather than a user login
-   keychain that may require GUI unlock.
-2. Fetch it inside a narrow wrapper immediately before `op` needs it.
-3. Keep raw tokens out of shell startup, launchd plists, process-compose YAML,
+1. Store the 1Password service-account token in machine-local secret storage,
+   usually a root-owned token file on headless devboxes.
+2. Keep raw tokens out of shell startup, launchd plists, process-compose YAML,
    tracked files, and long-lived interactive shells.
-4. Sync one 1Password item whose env-shaped fields render the generated dotenv.
-5. Write generated dotenv files through a temp file into a root-owned runtime
-   env directory. The generated file should be readable only by the target
-   service user, such as mode `0400`.
-6. Start long-lived services from process-compose with the minimum env they need.
-7. Run untrusted project commands from ordinary shells that do not have service
-   tokens exported.
+3. Sync one 1Password item whose env-shaped fields render the generated dotenv.
+4. Write the generated dotenv under `/var/db/uinaf/devbox-env/<identity>/`,
+   readable only by the target service user.
+5. Start services with the generated env file, not with the service-account
+   token.
 
-Personal laptops can lean on the 1Password desktop app and manual approval.
-Headless devbox users need service accounts, but the token should still be
-scoped, stored locally outside user-writable paths, and loaded only by wrappers.
-
-Store service-account tokens in a human/admin vault, not in the vault the token
-can read. The key to a vault should not live inside the vault it unlocks. For
-example, if a devbox service account can read `<context>-devbox`, store that
-service-account token in a separate human/admin vault and copy it into the
-machine's OS secret manager during bootstrap.
+Personal laptops can use the 1Password desktop app and manual approval.
+Headless devboxes should use narrowly scoped service accounts loaded only by
+wrappers.
 
 ## Vault Topology
 
@@ -69,10 +59,8 @@ Do not share service-account tokens across these vaults. CI, devbox agents, and
 humans are different runtimes and should get different credentials even when
 they work on related projects.
 
-The token storage vault and the token access scope are different things:
-
-- token storage: human/admin vault
-- token access: only the runtime vaults the service account needs
+Store service-account tokens in a human/admin vault, not in the vault the token
+can read.
 
 ## Identity Boundaries
 
@@ -103,11 +91,13 @@ Each devbox user should have a local config file outside Git:
 UINAF_DEVBOX_USER=example
 UINAF_PROCESS_COMPOSE_SOCKET="/Users/example/.local/run/process-compose.sock"
 UINAF_OP_SERVICE_ACCOUNT_TOKEN_FILE="/var/db/uinaf/devbox-secrets/example/op-sa-token"
-UINAF_OPENCLAW_ENV_FILE="/var/db/uinaf/devbox-env/example/openclaw.env"
+UINAF_WORKSPACE_ENV_FILE="/var/db/uinaf/devbox-env/example/workspace.env"
+UINAF_WORKSPACE_ENV_LINK="/Users/example/projects/workspace/.env"
 ```
 
 The file should be mode `0600`. If a user needs 1Password item references,
-keep them in local config or 1Password, not in this repo.
+keep them in local config or 1Password, not in this repo. Omit
+`UINAF_WORKSPACE_ENV_LINK` when no workspace-local `.env` symlink is needed.
 
 If a devbox identity does not run process-compose, set
 `UINAF_PROCESS_COMPOSE_ENABLED=0` in its local config so verification does not
@@ -128,22 +118,23 @@ Prefer a per-user Unix socket over a shared localhost TCP port:
 
 Do not reuse another identity's process-compose port or socket.
 
-Do not put secrets directly into the launchd plist or process-compose YAML.
-Instead, run a root-owned refresh helper that reads the local service-account
-token, fetches one 1Password item, renders env-shaped fields from that item,
-validates the generated dotenv, and writes the generated runtime env file. User
-services should read the generated runtime env file, never the service-account
-token.
+Do not put secrets directly into launchd plists or process-compose YAML. Use
+the root-owned refresh helper to turn `WORKSPACE_ENV` into the generated
+runtime env file.
 
 The generated env path should live outside user-writable directories, for
 example:
 
 ```text
-/var/db/uinaf/devbox-env/<identity>/openclaw.env
+/var/db/uinaf/devbox-env/<identity>/workspace.env
 ```
 
-Use a compatibility symlink from `~/.openclaw/.env` only when a service still
-expects that path.
+If a workspace needs a project-local dotenv file, use an explicit symlink to a
+workspace repo path such as `/Users/<user>/projects/<workspace>/.env`. The
+link must stay under the target user's home, its basename must be `.env`, and
+the workspace directory must already exist and ignore `.env` before the helper
+creates the link.
+
 The refresh helper logs live at `/var/log/uinaf-devbox-env-refresh.<identity>.*`
 and should be root-owned mode `0640`.
 
@@ -155,7 +146,8 @@ sudo ./scripts/secrets/install-env-refresh.sh \
   --target-user example \
   --op-account example.1password.com \
   --op-vault example-devbox \
-  --required-keys 'OPENAI_API_KEY OPENCLAW_GATEWAY_TOKEN'
+  --link-file /Users/example/projects/workspace/.env \
+  --required-keys 'EXAMPLE_SERVICE_TOKEN'
 ```
 
 Then install the service-account token at the path printed by the installer:
@@ -165,15 +157,15 @@ op read 'op://<human-vault>/<service-account-token-item>/password' \
   | sudo ./scripts/secrets/install-op-token.sh --identity example
 ```
 
-The token file must be root-owned and mode `0400` or `0600`. The helper reads
-the item named `OPENCLAW_ENV` by default and writes the validated dotenv content
-from env-shaped item fields into:
+The token file must be root-owned and mode `0400` or `0600`. By default, the
+helper reads `WORKSPACE_ENV` and writes env-shaped item fields into:
 
 ```text
-/var/db/uinaf/devbox-env/<identity>/openclaw.env
+/var/db/uinaf/devbox-env/<identity>/workspace.env
 ```
 
-That generated file is owned by the target service user and mode `0400`.
+The generated file is owned by the target service user and mode `0400`.
+Workspace-specific API keys may live there when the workspace needs them.
 
 ## Verification
 
@@ -193,11 +185,9 @@ Run the devbox-specific boundary check for each devbox user:
 ./scripts/verify/devbox-services.sh
 ```
 
-That check verifies the supervisor binary, process-compose state, secret-file
-modes, absence of default shell token export, and the configured root-owned
-service-account token file. When run as a normal devbox user, the root-owned
-token file is expected to be invisible; that means the token is not exposed to
-ordinary devbox shells.
+That check verifies process-compose, secret-file modes, default shell token
+exports, and the configured root-owned token file. Normal devbox users may not
+be able to see the root-owned token file; that is expected.
 
 Run the devbox security audit for each devbox user:
 
@@ -205,17 +195,11 @@ Run the devbox security audit for each devbox user:
 ./scripts/audit/devbox.sh
 ```
 
-That audit is stricter than verification. It checks for stale secret-looking
-backups, generated env symlink drift, Git/GitHub identity state, SSH key file
-permissions, GitHub SSH auth, admin group drift, Tailscale health, Tailscale
-MagicDNS resolver wiring, and raw service-account token references in local
-service config.
-
-OpenClaw service env files under `~/.openclaw/service-env` are expected to hold
-per-service runtime credentials for the devbox user. The audit checks that the
-directory and `.env` files are owner-only, owned by the devbox user, and do not
-contain `OP_SERVICE_ACCOUNT_TOKEN`; it does not secret-scan their expected
-runtime credential values.
+That audit is stricter than verification. It checks stale secret-looking
+backups, generated env drift, Git/GitHub identity, SSH key permissions, GitHub
+SSH auth, admin group drift, Tailscale health, and local service config.
+Generated workspace env files may contain expected runtime credentials, so the
+audit checks their boundary instead of secret-scanning their contents.
 
 Treat prose audit output as sensitive. Maintained scanners can include matched
 secret material when they report a verified leak, so use `--json` for remote

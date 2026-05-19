@@ -7,7 +7,8 @@ process_compose_enabled="${UINAF_PROCESS_COMPOSE_ENABLED:-1}"
 process_compose_port="${UINAF_PROCESS_COMPOSE_PORT:-9191}"
 process_compose_socket="${UINAF_PROCESS_COMPOSE_SOCKET:-}"
 token_file="${UINAF_OP_SERVICE_ACCOUNT_TOKEN_FILE:-/var/db/uinaf/devbox-secrets/$devbox_user/op-sa-token}"
-openclaw_env_file="${UINAF_OPENCLAW_ENV_FILE:-/var/db/uinaf/devbox-env/$devbox_user/openclaw.env}"
+workspace_env_file="${UINAF_WORKSPACE_ENV_FILE:-/var/db/uinaf/devbox-env/$devbox_user/workspace.env}"
+workspace_env_link="${UINAF_WORKSPACE_ENV_LINK:-}"
 
 usage() {
   cat <<'USAGE'
@@ -84,7 +85,8 @@ check_config() {
     process_compose_port="${UINAF_PROCESS_COMPOSE_PORT:-$process_compose_port}"
     process_compose_socket="${UINAF_PROCESS_COMPOSE_SOCKET:-$process_compose_socket}"
     token_file="${UINAF_OP_SERVICE_ACCOUNT_TOKEN_FILE:-$token_file}"
-    openclaw_env_file="${UINAF_OPENCLAW_ENV_FILE:-$openclaw_env_file}"
+    workspace_env_file="${UINAF_WORKSPACE_ENV_FILE:-$workspace_env_file}"
+    workspace_env_link="${UINAF_WORKSPACE_ENV_LINK:-$workspace_env_link}"
   else
     printf 'warn missing optional %s; using defaults\n' "$config_path"
   fi
@@ -126,19 +128,34 @@ check_process_compose() {
 
 check_secret_files() {
   local env_dir
+  local link_target
 
   section "secret file modes"
 
-  if [ -e "$openclaw_env_file" ]; then
-    env_dir="$(dirname "$openclaw_env_file")"
+  if [ -e "$workspace_env_file" ]; then
+    env_dir="$(dirname "$workspace_env_file")"
     check_mode_any "$env_dir" 700 711
-    check_mode_any "$openclaw_env_file" 400 600
-    if grep -q '^OP_SERVICE_ACCOUNT_TOKEN=' "$openclaw_env_file"; then
-      fail "$openclaw_env_file must not contain OP_SERVICE_ACCOUNT_TOKEN"
+    check_mode_any "$workspace_env_file" 400 600
+    if grep -q '^OP_SERVICE_ACCOUNT_TOKEN=' "$workspace_env_file"; then
+      fail "$workspace_env_file must not contain OP_SERVICE_ACCOUNT_TOKEN"
     fi
     printf 'ok no OP service token in generated env\n'
   else
-    printf 'warn missing %s; skip OpenClaw env mode check\n' "$openclaw_env_file"
+    printf 'warn missing %s; skip workspace env mode check\n' "$workspace_env_file"
+  fi
+
+  if [ -n "$workspace_env_link" ]; then
+    if [ -L "$workspace_env_link" ]; then
+      link_target="$(readlink "$workspace_env_link")"
+      [ "$link_target" = "$workspace_env_file" ] || fail "$workspace_env_link points to $link_target, expected $workspace_env_file"
+      printf 'ok %s points to generated workspace env\n' "$workspace_env_link"
+    elif [ -e "$workspace_env_link" ]; then
+      fail "$workspace_env_link must be a symlink"
+    else
+      fail "missing configured workspace env link: $workspace_env_link"
+    fi
+  else
+    printf 'ok no workspace env link configured\n'
   fi
 }
 

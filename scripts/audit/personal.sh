@@ -108,7 +108,8 @@ fi
 section "devbox-only state"
 
 devbox_token_file="/var/db/uinaf/devbox-secrets/$USER/op-sa-token"
-devbox_env_file="/var/db/uinaf/devbox-env/$USER/openclaw.env"
+devbox_env_file="/var/db/uinaf/devbox-env/$USER/workspace.env"
+legacy_devbox_env_file="/var/db/uinaf/devbox-env/$USER/openclaw.env"
 
 if [ -e "$devbox_token_file" ]; then
   fail_check "personal setup has devbox service token path: $devbox_token_file"
@@ -120,6 +121,12 @@ if [ -e "$devbox_env_file" ]; then
   fail_check "personal setup has generated devbox env path: $devbox_env_file"
 else
   ok "no generated devbox env path for $USER"
+fi
+
+if [ -e "$legacy_devbox_env_file" ]; then
+  fail_check "personal setup has legacy generated devbox env path: $legacy_devbox_env_file"
+else
+  ok "no legacy generated devbox env path for $USER"
 fi
 
 section "local config file modes"

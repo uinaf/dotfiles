@@ -7,9 +7,10 @@ identity=""
 target_user=""
 op_account=""
 op_vault=""
-op_item="OPENCLAW_ENV"
+op_item="WORKSPACE_ENV"
 op_field=""
 required_keys=""
+link_file=""
 start_interval="3600"
 load_now=0
 
@@ -21,9 +22,10 @@ Installs the root-owned devbox env refresh helper and LaunchDaemon.
 This script does not install or read the service-account token.
 
 Options:
-  --op-item ITEM             1Password item title or ID (default: OPENCLAW_ENV)
+  --op-item ITEM             1Password item title or ID (default: WORKSPACE_ENV)
   --op-field FIELD           optional field label or ID containing full dotenv content
   --required-keys KEYS      space-separated required env names
+  --link-file PATH           optional symlink under the target user's home named .env
   --start-interval SECONDS  launchd StartInterval (default: 3600)
   --load                    bootstrap and kickstart the LaunchDaemon
   -h, --help
@@ -49,6 +51,103 @@ prepare_log_file() {
   touch "$path"
   chown root:wheel "$path"
   chmod 0640 "$path"
+}
+
+get_user_home() {
+  local user="$1"
+  local home
+
+  home="$(dscl . -read "/Users/$user" NFSHomeDirectory 2>/dev/null | awk '{ print $2; exit }')"
+  [ -n "$home" ] || fail "could not resolve home for $user"
+  printf '%s\n' "$home"
+}
+
+validate_link_file() {
+  local link_file="$1"
+  local target_home="$2"
+  local link_dir
+  local relative_dir
+  local current_path
+  local component
+  local -a components
+
+  case "$link_file" in
+    "$target_home"/*)
+      ;;
+    *)
+      fail "--link-file must be under $target_home"
+      ;;
+  esac
+
+  if [ "$(basename "$link_file")" != ".env" ]; then
+    fail "--link-file basename must be .env"
+  fi
+
+  link_dir="$(dirname "$link_file")"
+  case "$link_dir" in
+    "$target_home"|"$target_home"/*)
+      ;;
+    *)
+      fail "--link-file directory must be under $target_home"
+      ;;
+  esac
+
+  relative_dir="${link_dir#"$target_home"}"
+  relative_dir="${relative_dir#/}"
+  current_path="$target_home"
+  if [ -n "$relative_dir" ]; then
+    IFS='/' read -r -a components <<< "$relative_dir"
+    for component in "${components[@]}"; do
+      case "$component" in
+        ''|'.'|'..')
+          fail "--link-file must not contain empty, dot, or parent path segments"
+          ;;
+      esac
+      current_path="$current_path/$component"
+      if [ -L "$current_path" ]; then
+        fail "$current_path must not be a symlink"
+      fi
+    done
+  fi
+}
+
+run_as_target_user() {
+  if [ "$(id -u)" -eq 0 ]; then
+    sudo -u "$target_user" "$@"
+  else
+    "$@"
+  fi
+}
+
+ensure_link_file_ignored_when_in_git() {
+  local link_file="$1"
+  local link_dir
+  local worktree
+  local relative_link
+
+  command -v git >/dev/null 2>&1 || return
+
+  link_dir="$(dirname "$link_file")"
+  [ -d "$link_dir" ] || return
+
+  worktree="$(run_as_target_user git -C "$link_dir" rev-parse --show-toplevel 2>/dev/null || true)"
+  [ -n "$worktree" ] || return
+
+  case "$link_file" in
+    "$worktree"/*)
+      relative_link="${link_file#"$worktree"/}"
+      ;;
+    "$worktree")
+      relative_link="$(basename "$link_file")"
+      ;;
+    *)
+      return
+      ;;
+  esac
+
+  if ! run_as_target_user git -C "$worktree" check-ignore -q -- "$relative_link"; then
+    fail "$link_file must be ignored by the workspace repo before linking"
+  fi
 }
 
 while [ "$#" -gt 0 ]; do
@@ -79,6 +178,10 @@ while [ "$#" -gt 0 ]; do
       ;;
     --required-keys)
       required_keys="${2:-}"
+      shift 2
+      ;;
+    --link-file)
+      link_file="${2:-}"
       shift 2
       ;;
     --start-interval)
@@ -122,7 +225,7 @@ esac
 [ "$start_interval" -gt 0 ] || fail "--start-interval must be greater than zero"
 
 helper_dir="/usr/local/libexec/uinaf"
-helper_path="$helper_dir/devbox-refresh-openclaw-env"
+helper_path="$helper_dir/devbox-refresh-workspace-env"
 state_dir="/var/db/uinaf"
 config_dir="$state_dir/devbox-env-refresh"
 secret_base_dir="$state_dir/devbox-secrets"
@@ -133,20 +236,27 @@ op_config_base_dir="$state_dir/op-config"
 op_config_dir="$op_config_base_dir/$identity"
 config_path="$config_dir/$identity.env"
 token_file="$secret_dir/op-sa-token"
-output_file="$env_dir/openclaw.env"
-target_home="$(dscl . -read "/Users/$target_user" NFSHomeDirectory | awk '{ print $2; exit }')"
-[ -n "$target_home" ] || fail "could not resolve home for $target_user"
-link_file="$target_home/.openclaw/.env"
+output_file="$env_dir/workspace.env"
+target_home="$(get_user_home "$target_user")"
 plist_path="/Library/LaunchDaemons/com.uinaf.devbox-env-refresh.$identity.plist"
 label="com.uinaf.devbox-env-refresh.$identity"
 log_path="/var/log/uinaf-devbox-env-refresh.$identity.log"
 err_path="/var/log/uinaf-devbox-env-refresh.$identity.err.log"
 
 install -d -o root -g wheel -m 0755 "$helper_dir"
-install -o root -g wheel -m 0755 "$repo_root/scripts/secrets/refresh-openclaw-env.sh" "$helper_path"
+install -o root -g wheel -m 0755 "$repo_root/scripts/secrets/refresh-workspace-env.sh" "$helper_path"
 
 install -d -o root -g wheel -m 0711 "$state_dir" "$env_base_dir" "$env_dir"
 install -d -o root -g wheel -m 0700 "$config_dir" "$secret_base_dir" "$secret_dir" "$op_config_base_dir" "$op_config_dir"
+
+if [ -n "$link_file" ]; then
+  validate_link_file "$link_file" "$target_home"
+  link_dir="$(dirname "$link_file")"
+  if [ ! -d "$link_dir" ]; then
+    fail "--link-file directory must already exist: $link_dir"
+  fi
+  ensure_link_file_ignored_when_in_git "$link_file"
+fi
 
 tmp_config="$(mktemp "$config_dir/$identity.env.tmp.XXXXXX")"
 {
@@ -164,7 +274,9 @@ tmp_config="$(mktemp "$config_dir/$identity.env.tmp.XXXXXX")"
     printf 'REQUIRED_KEYS=%s\n' "$(shell_quote "$required_keys")"
   fi
   printf 'OUTPUT_FILE=%s\n' "$(shell_quote "$output_file")"
-  printf 'LINK_FILE=%s\n' "$(shell_quote "$link_file")"
+  if [ -n "$link_file" ]; then
+    printf 'LINK_FILE=%s\n' "$(shell_quote "$link_file")"
+  fi
 } > "$tmp_config"
 install -o root -g wheel -m 0600 "$tmp_config" "$config_path"
 rm -f "$tmp_config"

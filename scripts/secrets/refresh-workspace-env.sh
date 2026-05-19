@@ -3,9 +3,9 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-usage: scripts/secrets/refresh-openclaw-env.sh CONFIG
+usage: scripts/secrets/refresh-workspace-env.sh CONFIG
 
-Refresh a devbox user's generated OpenClaw env from a narrowly scoped
+Refresh a devbox user's generated workspace env from a narrowly scoped
 1Password service account token. The config file is local machine state and
 must not be committed.
 
@@ -14,14 +14,14 @@ Required config keys:
   TARGET_USER         macOS user that will read the generated env
   OP_ACCOUNT          1Password account URL
   OP_VAULT            1Password vault name
-  OP_ITEM             1Password item title or ID, usually OPENCLAW_ENV
+  OP_ITEM             1Password item title or ID, usually WORKSPACE_ENV
   TOKEN_FILE          root-owned file containing the 1Password service account token
 
 Optional config keys:
   OP_FIELD            optional field label or ID containing full dotenv content
   REQUIRED_KEYS       space-separated env names that must be present
-  OUTPUT_FILE         generated env path; defaults to /var/db/uinaf/devbox-env/$IDENTITY/openclaw.env
-  LINK_FILE           optional compatibility symlink path, usually $HOME/.openclaw/.env
+  OUTPUT_FILE         generated env path; defaults to /var/db/uinaf/devbox-env/$IDENTITY/workspace.env
+  LINK_FILE           optional workspace symlink path under $HOME with basename .env
   OP_CONFIG_DIR       root-owned op config dir; defaults to /var/db/uinaf/op-config/$IDENTITY
   OP_BIN              op binary path, defaults to /opt/homebrew/bin/op or op in PATH
   JQ_BIN              jq binary path, defaults to /opt/homebrew/bin/jq or jq in PATH
@@ -104,6 +104,93 @@ get_user_home() {
   printf '%s\n' "$home"
 }
 
+run_as_target_user() {
+  if [ "$(id -u)" -eq 0 ]; then
+    sudo -u "$TARGET_USER" "$@"
+  else
+    "$@"
+  fi
+}
+
+validate_link_file() {
+  local link_file="$1"
+  local link_dir
+  local relative_dir
+  local current_path
+  local component
+  local -a components
+
+  case "$link_file" in
+    "$target_home"/*)
+      ;;
+    *)
+      fail "LINK_FILE must be under $target_home"
+      ;;
+  esac
+
+  if [ "$(basename "$link_file")" != ".env" ]; then
+    fail "LINK_FILE basename must be .env"
+  fi
+
+  link_dir="$(dirname "$link_file")"
+  case "$link_dir" in
+    "$target_home"|"$target_home"/*)
+      ;;
+    *)
+      fail "LINK_FILE directory must be under $target_home"
+      ;;
+  esac
+
+  relative_dir="${link_dir#"$target_home"}"
+  relative_dir="${relative_dir#/}"
+  current_path="$target_home"
+  if [ -n "$relative_dir" ]; then
+    IFS='/' read -r -a components <<< "$relative_dir"
+    for component in "${components[@]}"; do
+      case "$component" in
+        ''|'.'|'..')
+          fail "LINK_FILE must not contain empty, dot, or parent path segments"
+          ;;
+      esac
+      current_path="$current_path/$component"
+      if [ -L "$current_path" ]; then
+        fail "$current_path must not be a symlink"
+      fi
+    done
+  fi
+}
+
+ensure_link_file_ignored_when_in_git() {
+  local link_file="$1"
+  local link_dir
+  local worktree
+  local relative_link
+
+  command -v git >/dev/null 2>&1 || return
+
+  link_dir="$(dirname "$link_file")"
+  [ -d "$link_dir" ] || return
+
+  worktree="$(run_as_target_user git -C "$link_dir" rev-parse --show-toplevel 2>/dev/null || true)"
+  [ -n "$worktree" ] || return
+
+  case "$link_file" in
+    "$worktree"/*)
+      relative_link="${link_file#"$worktree"/}"
+      ;;
+    "$worktree")
+      relative_link="$(basename "$link_file")"
+      ;;
+    *)
+      return
+      ;;
+  esac
+
+  if ! run_as_target_user git -C "$worktree" check-ignore -q -- "$relative_link"; then
+    fail "$link_file must be ignored by the workspace repo before linking"
+  fi
+}
+
 validate_env_name_list() {
   local label="$1"
   local words="$2"
@@ -144,7 +231,7 @@ ensure_root_controlled_when_root "$config_path"
 id "$TARGET_USER" >/dev/null 2>&1 || fail "unknown target user: $TARGET_USER"
 
 target_home="$(get_user_home "$TARGET_USER")"
-default_output="/var/db/uinaf/devbox-env/$IDENTITY/openclaw.env"
+default_output="/var/db/uinaf/devbox-env/$IDENTITY/workspace.env"
 output_file="${OUTPUT_FILE:-$default_output}"
 op_field="${OP_FIELD:-}"
 op_config_dir="${OP_CONFIG_DIR:-/var/db/uinaf/op-config/$IDENTITY}"
@@ -167,10 +254,10 @@ if [ -n "$op_field" ]; then
 fi
 
 case "$output_file" in
-  /var/db/uinaf/devbox-env/"$IDENTITY"/openclaw.env)
+  /var/db/uinaf/devbox-env/"$IDENTITY"/workspace.env)
     ;;
   *)
-    [ "$test_mode" -eq 1 ] || fail "OUTPUT_FILE must be /var/db/uinaf/devbox-env/$IDENTITY/openclaw.env"
+    [ "$test_mode" -eq 1 ] || fail "OUTPUT_FILE must be /var/db/uinaf/devbox-env/$IDENTITY/workspace.env"
     ;;
 esac
 
@@ -266,7 +353,7 @@ if [ -e "$output_file" ] && [ -L "$output_file" ]; then
   fail "$output_file must not be a symlink"
 fi
 
-tmp="$(mktemp "$output_dir/.openclaw.env.tmp.XXXXXX")"
+tmp="$(mktemp "$output_dir/.workspace.env.tmp.XXXXXX")"
 trap 'rm -f "$tmp"' EXIT
 printf '%s\n' "$env_content" > "$tmp"
 if [ "$(id -u)" -eq 0 ]; then
@@ -277,23 +364,16 @@ mv -f "$tmp" "$output_file"
 trap - EXIT
 
 if [ -n "${LINK_FILE:-}" ]; then
-  case "$LINK_FILE" in
-    "$target_home"/.openclaw/.env)
-      ;;
-    *)
-      fail "LINK_FILE must be $target_home/.openclaw/.env"
-      ;;
-  esac
+  validate_link_file "$LINK_FILE"
 
-  openclaw_dir="$(dirname "$LINK_FILE")"
-  if [ -e "$openclaw_dir" ] && [ -L "$openclaw_dir" ]; then
-    fail "$openclaw_dir must not be a symlink"
+  link_dir="$(dirname "$LINK_FILE")"
+  if [ -e "$link_dir" ] && [ -L "$link_dir" ]; then
+    fail "$link_dir must not be a symlink"
   fi
-  mkdir -p "$openclaw_dir"
-  if [ "$(id -u)" -eq 0 ]; then
-    chown "$TARGET_USER":staff "$openclaw_dir"
+  if [ ! -d "$link_dir" ]; then
+    fail "LINK_FILE directory must already exist: $link_dir"
   fi
-  chmod 0700 "$openclaw_dir"
+  ensure_link_file_ignored_when_in_git "$LINK_FILE"
   ln -sfn "$output_file" "$LINK_FILE"
   if [ "$(id -u)" -eq 0 ]; then
     chown -h "$TARGET_USER":staff "$LINK_FILE"

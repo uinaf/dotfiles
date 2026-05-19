@@ -205,7 +205,7 @@ managed `Host github.com` block to `~/.ssh/config.local` so normal
 on the 1Password GUI agent socket. Use `GIT_SSH_IDENTITY_FILE` when GitHub SSH
 auth should use a different local key path than commit signing.
 
-If the devbox runs long-lived OpenClaw or agent services, follow
+If the devbox runs long-lived workspace or agent services, follow
 [Devbox setup](devbox.md). The short version:
 
 1. Store the 1Password service-account token in machine-local secret storage.

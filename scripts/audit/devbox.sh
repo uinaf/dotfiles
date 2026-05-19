@@ -7,8 +7,8 @@ process_compose_enabled="${UINAF_PROCESS_COMPOSE_ENABLED:-1}"
 process_compose_port="${UINAF_PROCESS_COMPOSE_PORT:-9191}"
 process_compose_socket="${UINAF_PROCESS_COMPOSE_SOCKET:-}"
 token_file="${UINAF_OP_SERVICE_ACCOUNT_TOKEN_FILE:-/var/db/uinaf/devbox-secrets/$devbox_user/op-sa-token}"
-openclaw_env_file="${UINAF_OPENCLAW_ENV_FILE:-/var/db/uinaf/devbox-env/$devbox_user/openclaw.env}"
-openclaw_env_link="${UINAF_OPENCLAW_ENV_LINK:-$HOME/.openclaw/.env}"
+workspace_env_file="${UINAF_WORKSPACE_ENV_FILE:-/var/db/uinaf/devbox-env/$devbox_user/workspace.env}"
+workspace_env_link="${UINAF_WORKSPACE_ENV_LINK:-}"
 json_output=0
 warn_count=0
 fail_count=0
@@ -57,7 +57,7 @@ print_json_summary() {
   printf ',"secret_scan_count":%s}\n' "$secret_scan_count"
 }
 
-emit_openclaw_boundary_files() {
+emit_app_runtime_boundary_files() {
   find_matching_files "$HOME/.openclaw" \
     \( -path "$HOME/.openclaw/agents" \
       -o -path "$HOME/.openclaw/browser" \
@@ -74,7 +74,7 @@ emit_openclaw_boundary_files() {
 
 emit_devbox_secret_scan_paths() {
   emit_home_dotfiles
-  emit_openclaw_boundary_files
+  emit_app_runtime_boundary_files
   emit_path_if_exists "$HOME/.aws"
   emit_path_if_exists "$HOME/.config/process-compose"
   emit_path_if_exists "$HOME/.docker"
@@ -128,15 +128,15 @@ system_resolves_host() {
   fi
 }
 
-check_openclaw_service_env_boundary() {
+check_app_service_env_boundary() {
   local service_env_dir="$HOME/.openclaw/service-env"
   local service_env_file
   local env_owner
 
-  section "OpenClaw service env boundary"
+  section "application service env boundary"
 
   if [ ! -e "$service_env_dir" ]; then
-    warn "missing optional $service_env_dir"
+    ok "no optional application service env directory"
     return
   fi
 
@@ -200,8 +200,8 @@ if [ -e "$config_path" ]; then
   process_compose_port="${UINAF_PROCESS_COMPOSE_PORT:-$process_compose_port}"
   process_compose_socket="${UINAF_PROCESS_COMPOSE_SOCKET:-$process_compose_socket}"
   token_file="${UINAF_OP_SERVICE_ACCOUNT_TOKEN_FILE:-$token_file}"
-  openclaw_env_file="${UINAF_OPENCLAW_ENV_FILE:-$openclaw_env_file}"
-  openclaw_env_link="${UINAF_OPENCLAW_ENV_LINK:-$openclaw_env_link}"
+  workspace_env_file="${UINAF_WORKSPACE_ENV_FILE:-$workspace_env_file}"
+  workspace_env_link="${UINAF_WORKSPACE_ENV_LINK:-$workspace_env_link}"
 else
   warn "missing optional $config_path; using defaults"
 fi
@@ -253,40 +253,44 @@ fi
 
 section "generated runtime env"
 
-if [ -e "$openclaw_env_file" ]; then
-  env_dir="$(dirname "$openclaw_env_file")"
+if [ -e "$workspace_env_file" ]; then
+  env_dir="$(dirname "$workspace_env_file")"
   check_mode_any fail "$env_dir" 700 711
-  check_mode_any fail "$openclaw_env_file" 400 600
+  check_mode_any fail "$workspace_env_file" 400 600
 
-  if [ -L "$openclaw_env_file" ]; then
-    fail_check "$openclaw_env_file must not be a symlink"
+  if [ -L "$workspace_env_file" ]; then
+    fail_check "$workspace_env_file must not be a symlink"
   fi
 
-  env_owner="$(owner_of "$openclaw_env_file")"
+  env_owner="$(owner_of "$workspace_env_file")"
   if [ "$env_owner" = "$devbox_user" ]; then
-    ok "$openclaw_env_file owner $env_owner"
+    ok "$workspace_env_file owner $env_owner"
   else
-    fail_check "$openclaw_env_file owner is $env_owner, expected $devbox_user"
+    fail_check "$workspace_env_file owner is $env_owner, expected $devbox_user"
   fi
 
-  check_pattern_absent "$openclaw_env_file" '^OP_SERVICE_ACCOUNT_TOKEN=' "OP service account token" fail
+  check_pattern_absent "$workspace_env_file" '^OP_SERVICE_ACCOUNT_TOKEN=' "OP service account token" fail
 else
-  warn "missing $openclaw_env_file"
+  warn "missing $workspace_env_file"
 fi
 
-if [ -e "$openclaw_env_link" ] || [ -L "$openclaw_env_link" ]; then
-  if [ -L "$openclaw_env_link" ]; then
-    link_target="$(readlink "$openclaw_env_link")"
-    if [ "$link_target" = "$openclaw_env_file" ]; then
-      ok "$openclaw_env_link points to generated env"
+if [ -n "$workspace_env_link" ]; then
+  if [ -e "$workspace_env_link" ] || [ -L "$workspace_env_link" ]; then
+    if [ -L "$workspace_env_link" ]; then
+      link_target="$(readlink "$workspace_env_link")"
+      if [ "$link_target" = "$workspace_env_file" ]; then
+        ok "$workspace_env_link points to generated env"
+      else
+        fail_check "$workspace_env_link points to $link_target, expected $workspace_env_file"
+      fi
     else
-      fail_check "$openclaw_env_link points to $link_target, expected $openclaw_env_file"
+      fail_check "$workspace_env_link should be a symlink to the generated env"
     fi
   else
-    fail_check "$openclaw_env_link should be a symlink to the generated env"
+    fail_check "missing configured workspace env link $workspace_env_link"
   fi
 else
-  warn "missing compatibility env link $openclaw_env_link"
+  ok "no workspace env link configured"
 fi
 
 section "process-compose boundary"
@@ -320,7 +324,7 @@ if [ -e "$HOME/.docker/config.json" ]; then
   scan_file_for_secret_pattern "$HOME/.docker/config.json" '"auth"[[:space:]]*:' "inline Docker auth material"
 fi
 
-check_openclaw_service_env_boundary
+check_app_service_env_boundary
 
 section "Codex trust boundaries"
 
