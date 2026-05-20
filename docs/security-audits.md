@@ -203,10 +203,9 @@ It checks:
   stores; backups and rollback files are scanned because they are common
   stale-secret locations.
 - OpenClaw runtime drift is bounded: `/private/tmp` remains a safe sticky temp
-  directory, OpenClaw/npm/mise-owned state is not root-owned, the Gateway
-  LaunchAgent uses the mise wrapper, the running Gateway uses mise Node when
-  active, and any Tailscale Serve route for the Gateway port is owned by
-  OpenClaw config with `resetOnExit=true`.
+  directory, OpenClaw/npm/mise-owned state is not root-owned, Gateway service
+  files do not point at Homebrew Node, and any Tailscale Serve route for the
+  Gateway port requires OpenClaw `resetOnExit=true`.
 - Codex trusted project paths do not cross into another Unix user's home, point
   at missing paths, or trust broad home-root directories
 - the home root does not contain stray project artifacts such as `node_modules`

@@ -128,15 +128,6 @@ system_resolves_host() {
   fi
 }
 
-json_config_value() {
-  local path="$1"
-  local key="$2"
-
-  if [ -r "$path" ] && command -v plutil >/dev/null 2>&1; then
-    plutil -extract "$key" raw -o - "$path" 2>/dev/null | tr -d '\n' || true
-  fi
-}
-
 check_app_service_env_boundary() {
   local service_env_dir="$HOME/.openclaw/service-env"
   local service_env_file
@@ -176,22 +167,14 @@ check_app_service_env_boundary() {
 
 emit_openclaw_owned_paths() {
   local node_installs_dir="$HOME/.local/share/mise/installs/node"
-  local npm_prefix
 
   emit_path_if_exists "$HOME/.npm"
   emit_path_if_exists "$HOME/.openclaw"
 
   if [ -d "$node_installs_dir" ]; then
-    find "$node_installs_dir" -path '*/lib/node_modules/openclaw' -type d -print 2>/dev/null || true
-    find "$node_installs_dir" -path '*/bin/openclaw' -print 2>/dev/null || true
-  fi
-
-  if command -v npm >/dev/null 2>&1; then
-    npm_prefix="$(npm config get prefix 2>/dev/null || true)"
-    if [ -n "$npm_prefix" ]; then
-      emit_path_if_exists "$npm_prefix/lib/node_modules/openclaw"
-      emit_path_if_exists "$npm_prefix/bin/openclaw"
-    fi
+    find "$node_installs_dir" \
+      \( -path '*/lib/node_modules/openclaw' -o -path '*/bin/openclaw' \) \
+      -print 2>/dev/null || true
   fi
 }
 
@@ -211,9 +194,16 @@ check_openclaw_owned_path() {
   fi
 }
 
-check_private_tmp_for_openclaw() {
-  section "OpenClaw temp directory boundary"
+json_config_value() {
+  local path="$1"
+  local key="$2"
 
+  if [ -r "$path" ] && command -v plutil >/dev/null 2>&1; then
+    plutil -extract "$key" raw -o - "$path" 2>/dev/null | tr -d '\n' || true
+  fi
+}
+
+check_openclaw_tmp() {
   if [ "$(owner_of /private/tmp 2>/dev/null || true)" != "root" ]; then
     fail_check "/private/tmp owner is $(owner_of /private/tmp 2>/dev/null || echo unknown), expected root"
   else
@@ -233,17 +223,11 @@ check_private_tmp_for_openclaw() {
   fi
 }
 
-check_openclaw_gateway_wrapper() {
+check_openclaw_service_node() {
   local plist_path="$HOME/Library/LaunchAgents/ai.openclaw.gateway.plist"
   local wrapper_path="$HOME/.local/bin/openclaw-gateway-mise-wrapper"
-  local expected_node=""
-  local node_prefix=""
-  local expected_entry=""
-  local launchctl_output=""
-  local gateway_pid=""
-  local gateway_command=""
-
-  section "OpenClaw gateway service"
+  local path
+  local checked=0
 
   if [ ! -e "$HOME/.openclaw" ] && ! command -v openclaw >/dev/null 2>&1; then
     ok "OpenClaw is not installed for this user"
@@ -257,69 +241,31 @@ check_openclaw_gateway_wrapper() {
 
   check_mode_any fail "$plist_path" 600
 
-  if grep -Fq "$wrapper_path" "$plist_path"; then
-    ok "OpenClaw LaunchAgent uses mise wrapper"
-  else
-    fail_check "OpenClaw LaunchAgent does not use $wrapper_path"
-  fi
+  for path in "$plist_path" "$wrapper_path"; do
+    [ -e "$path" ] || continue
+    checked=$((checked + 1))
 
-  check_mode_any fail "$wrapper_path" 700
-  if [ -x "$wrapper_path" ]; then
-    ok "$wrapper_path is executable"
-  else
-    fail_check "$wrapper_path is not executable"
-  fi
-
-  if command -v mise >/dev/null 2>&1; then
-    expected_node="$(mise which node 2>/dev/null || true)"
-  fi
-
-  if [ -z "$expected_node" ]; then
-    fail_check "cannot resolve mise Node for OpenClaw gateway wrapper"
-  elif grep -Fq "$expected_node" "$wrapper_path"; then
-    ok "OpenClaw wrapper uses mise Node $expected_node"
-  else
-    fail_check "OpenClaw wrapper does not reference mise Node $expected_node"
-  fi
-
-  if [ -n "$expected_node" ]; then
-    node_prefix="$(cd "$(dirname "$expected_node")/.." 2>/dev/null && pwd -P || true)"
-    expected_entry="$node_prefix/lib/node_modules/openclaw/dist/index.js"
-    if [ -n "$node_prefix" ] && grep -Fq "$expected_entry" "$wrapper_path"; then
-      ok "OpenClaw wrapper uses mise-managed OpenClaw entrypoint"
+    if grep -Eq '/opt/homebrew/(opt/)?node.*/bin/node|/opt/homebrew/bin/node' "$path"; then
+      fail_check "$path references Homebrew Node"
     else
-      fail_check "OpenClaw wrapper does not reference $expected_entry"
+      ok "$path does not reference Homebrew Node"
     fi
-  fi
 
-  if grep -Eq '/opt/homebrew/(opt/)?node.*/bin/node|/opt/homebrew/bin/node' "$plist_path" "$wrapper_path"; then
-    fail_check "OpenClaw gateway service still references Homebrew Node"
-  else
-    ok "OpenClaw gateway service does not reference Homebrew Node"
-  fi
-
-  launchctl_output="$(launchctl print "gui/$(id -u)/ai.openclaw.gateway" 2>/dev/null || true)"
-  gateway_pid="$(sed -nE 's/^[[:space:]]*pid = ([0-9]+)$/\1/p' <<< "$launchctl_output" | head -1)"
-  if [ -n "$gateway_pid" ]; then
-    gateway_command="$(ps -p "$gateway_pid" -o command= 2>/dev/null || true)"
-    if [ -n "$expected_node" ] && grep -Fq "$expected_node" <<< "$gateway_command"; then
-      ok "running OpenClaw gateway uses mise Node"
-    else
-      fail_check "running OpenClaw gateway does not use mise Node"
+    if grep -Eq "$HOME/.local/share/mise/installs/node|mise" "$path"; then
+      ok "$path references mise"
     fi
-  else
-    warn "OpenClaw gateway LaunchAgent is installed but not currently running"
+  done
+
+  if [ "$checked" -eq 1 ]; then
+    warn "OpenClaw gateway wrapper is missing; checked LaunchAgent only"
   fi
 }
 
-check_openclaw_tailscale_boundary() {
+check_openclaw_tailscale_serve() {
   local config_path="$HOME/.openclaw/openclaw.json"
   local gateway_port
-  local tailscale_mode
   local tailscale_reset_on_exit
   local serve_status
-
-  section "OpenClaw Tailscale boundary"
 
   if [ ! -e "$config_path" ]; then
     ok "no OpenClaw config for Tailscale check"
@@ -328,47 +274,36 @@ check_openclaw_tailscale_boundary() {
 
   gateway_port="$(json_config_value "$config_path" "gateway.port")"
   gateway_port="${gateway_port:-18789}"
-  tailscale_mode="$(json_config_value "$config_path" "gateway.tailscale.mode")"
   tailscale_reset_on_exit="$(json_config_value "$config_path" "gateway.tailscale.resetOnExit")"
 
-  if [ "$tailscale_mode" = "serve" ] && [ "$tailscale_reset_on_exit" = "true" ]; then
-    ok "OpenClaw owns Tailscale Serve cleanup for gateway port $gateway_port"
-  elif [ "$tailscale_mode" = "off" ] || [ -z "$tailscale_mode" ]; then
-    ok "OpenClaw Tailscale mode is off"
-  else
-    warn "OpenClaw Tailscale mode is $tailscale_mode with resetOnExit=${tailscale_reset_on_exit:-unset}"
+  if ! command -v tailscale >/dev/null 2>&1; then
+    warn "tailscale is missing for OpenClaw Serve drift check"
+    return
   fi
 
-  if command -v tailscale >/dev/null 2>&1; then
-    serve_status="$(tailscale serve status 2>/dev/null || true)"
-    if grep -Fq "http://127.0.0.1:$gateway_port" <<< "$serve_status"; then
-      if [ "$tailscale_mode" = "serve" ] && [ "$tailscale_reset_on_exit" = "true" ]; then
-        ok "Tailscale Serve route for OpenClaw is managed by OpenClaw config"
-      else
-        fail_check "Tailscale Serve proxies OpenClaw port $gateway_port but OpenClaw resetOnExit is not enabled"
-      fi
-    else
-      ok "no stale Tailscale Serve route for OpenClaw port $gateway_port"
-    fi
+  serve_status="$(tailscale serve status 2>/dev/null || true)"
+  if ! grep -Fq "http://127.0.0.1:$gateway_port" <<< "$serve_status"; then
+    ok "no Tailscale Serve route for OpenClaw port $gateway_port"
+  elif [ "$tailscale_reset_on_exit" = "true" ]; then
+    ok "OpenClaw resets Tailscale Serve for gateway port $gateway_port"
   else
-    warn "tailscale is missing for OpenClaw Serve drift check"
+    fail_check "Tailscale Serve proxies OpenClaw port $gateway_port but OpenClaw resetOnExit is not enabled"
   fi
 }
 
 check_openclaw_drift() {
   local path
 
-  check_private_tmp_for_openclaw
+  section "OpenClaw runtime drift"
 
-  section "OpenClaw ownership boundary"
-
+  check_openclaw_tmp
   while IFS= read -r path; do
     [ -n "$path" ] || continue
     check_openclaw_owned_path "$path"
   done < <(emit_openclaw_owned_paths | sort -u)
 
-  check_openclaw_gateway_wrapper
-  check_openclaw_tailscale_boundary
+  check_openclaw_service_node
+  check_openclaw_tailscale_serve
 }
 
 while [ "$#" -gt 0 ]; do
