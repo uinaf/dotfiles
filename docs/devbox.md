@@ -34,8 +34,7 @@ Use this pattern for service secrets:
 3. Sync one 1Password item whose env-shaped fields render the generated dotenv.
 4. Write the generated dotenv under `/var/db/uinaf/devbox-env/<identity>/`,
    readable only by the target service user.
-5. Start services with the generated env file, not with the service-account
-   token.
+5. Start services with the generated env file.
 
 Personal laptops can use the 1Password desktop app and manual approval.
 Headless devboxes should use narrowly scoped service accounts loaded only by
@@ -165,7 +164,10 @@ helper reads `WORKSPACE_ENV` and writes env-shaped item fields into:
 ```
 
 The generated file is owned by the target service user and mode `0400`.
-Workspace-specific API keys may live there when the workspace needs them.
+Workspace-specific API keys may live there when the workspace needs them. The
+helper does not block specific env names in generated output; use the root-owned
+token file for the 1Password service-account token unless the devbox identity is
+intentionally allowed to pass that token through its generated runtime env.
 
 ## Verification
 

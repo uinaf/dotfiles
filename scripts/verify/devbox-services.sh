@@ -136,10 +136,7 @@ check_secret_files() {
     env_dir="$(dirname "$workspace_env_file")"
     check_mode_any "$env_dir" 700 711
     check_mode_any "$workspace_env_file" 400 600
-    if grep -q '^OP_SERVICE_ACCOUNT_TOKEN=' "$workspace_env_file"; then
-      fail "$workspace_env_file must not contain OP_SERVICE_ACCOUNT_TOKEN"
-    fi
-    printf 'ok no OP service token in generated env\n'
+    printf 'ok generated workspace env mode is restricted\n'
   else
     printf 'warn missing %s; skip workspace env mode check\n' "$workspace_env_file"
   fi

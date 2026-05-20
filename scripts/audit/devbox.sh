@@ -162,8 +162,6 @@ check_app_service_env_boundary() {
     else
       fail_check "$service_env_file owner is $env_owner, expected $devbox_user"
     fi
-
-    check_pattern_absent "$service_env_file" '^OP_SERVICE_ACCOUNT_TOKEN=' "OP service account token" fail
   done < <(find "$service_env_dir" -maxdepth 1 -type f -name '*.env' -print 2>/dev/null | sort)
 }
 
@@ -268,8 +266,6 @@ if [ -e "$workspace_env_file" ]; then
   else
     fail_check "$workspace_env_file owner is $env_owner, expected $devbox_user"
   fi
-
-  check_pattern_absent "$workspace_env_file" '^OP_SERVICE_ACCOUNT_TOKEN=' "OP service account token" fail
 else
   warn "missing $workspace_env_file"
 fi

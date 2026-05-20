@@ -326,9 +326,6 @@ while IFS= read -r line; do
       ;;
   esac
   validate_env_name_list "generated output" "$key"
-  if [ "$key" = "OP_SERVICE_ACCOUNT_TOKEN" ]; then
-    fail "generated env must not contain OP_SERVICE_ACCOUNT_TOKEN"
-  fi
   if printf '%s\n' "$seen_keys" | grep -Fxq "$key"; then
     fail "duplicate generated env key: $key"
   fi
