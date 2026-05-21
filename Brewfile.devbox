@@ -3,6 +3,7 @@
 
 # Taps
 tap "steipete/tap"
+tap "openclaw/tap"
 
 # Cloud CLI
 cask "gcloud-cli"
@@ -21,6 +22,6 @@ brew "whisper-cpp"
 brew "summarize"
 
 # Devbox tools observed on the shared Mac mini
-brew "steipete/tap/gogcli"
+brew "openclaw/tap/gogcli"
 brew "steipete/tap/peekaboo"
 brew "uinaf/tap/healthd"
