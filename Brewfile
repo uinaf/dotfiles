@@ -30,7 +30,6 @@ brew "git-crypt"
 brew "git-filter-repo"
 brew "actionlint"
 brew "shellcheck"
-brew "awscli"
 brew "xcodes"
 
 # Download and media helpers
