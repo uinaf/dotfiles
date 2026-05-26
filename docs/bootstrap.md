@@ -136,6 +136,7 @@ Apply dotfiles and configure local state:
 ./scripts/bootstrap/install.sh
 ./scripts/bootstrap/configure-git.sh --profile personal
 ./scripts/bootstrap/configure-power.sh --profile personal
+./scripts/bootstrap/configure-spotlight.sh
 mise trust
 mise install
 ./scripts/bootstrap/pull-repos.sh
@@ -147,6 +148,9 @@ when changing source-state files. The power step disables system, display, and
 disk sleep only while the Mac is plugged in. Battery settings stay under macOS
 defaults so laptops still sleep normally when unplugged. It prompts for sudo;
 `install.sh` remains a user-level dotfile and Codex-defaults step.
+`configure-spotlight.sh` is the same host-wide baseline for personal and
+devbox Macs: it disables indexing on mounted volumes without deleting existing
+index data.
 
 Chrome vertical tabs are a local browser preference. Quit Chrome first, then:
 
@@ -175,6 +179,7 @@ Apply dotfiles:
 ```zsh
 ./scripts/bootstrap/install.sh
 ./scripts/bootstrap/configure-power.sh --profile devbox
+./scripts/bootstrap/configure-spotlight.sh
 mise trust
 mise install
 ```
@@ -182,6 +187,7 @@ mise install
 The power step keeps plugged-in devboxes awake for agents, 1Password flows,
 remote access, and always-on dashboards. It leaves battery settings untouched
 and prompts for sudo instead of hiding system changes inside `install.sh`.
+The Spotlight step is the same host-wide baseline used by personal Macs.
 
 Configure local Git identity from explicit values. Do not invent these for the
 user. On headless devboxes, prefer a local SSH key file exported from
@@ -233,6 +239,7 @@ git pull --ff-only
 ./scripts/bootstrap/brew-bundle.sh personal
 ./scripts/bootstrap/install.sh
 ./scripts/bootstrap/configure-power.sh --profile personal
+./scripts/bootstrap/configure-spotlight.sh
 mise trust
 mise install
 ./scripts/verify/bootstrap.sh --profile personal

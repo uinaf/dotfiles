@@ -35,6 +35,7 @@ cd ~/projects/uinaf/dotfiles
 ./scripts/bootstrap/install.sh
 ./scripts/bootstrap/configure-git.sh --profile personal
 ./scripts/bootstrap/configure-power.sh --profile personal
+./scripts/bootstrap/configure-spotlight.sh
 ./scripts/app-store/personal.sh
 mise trust
 mise install
@@ -46,8 +47,8 @@ If `git` or `gh` is not available yet, or for the full first-machine flow,
 devbox setup, Chrome vertical tabs, Blacksmith, and Tizen notes, read
 [Bootstrap guide](docs/bootstrap.md).
 
-`configure-power.sh` is a deliberate sudo step. `install.sh` stays user-level
-and should not change system power policy implicitly.
+`configure-power.sh` and `configure-spotlight.sh` are deliberate sudo steps.
+`install.sh` stays user-level and should not change system policy implicitly.
 
 ## What Gets Installed
 

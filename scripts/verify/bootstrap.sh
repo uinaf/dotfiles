@@ -144,6 +144,11 @@ check_codex_config() {
   printf 'ok Codex model/login/features defaults\n'
 }
 
+check_spotlight_indexing() {
+  section "spotlight indexing"
+  "$repo_root/scripts/bootstrap/configure-spotlight.sh" --check
+}
+
 check_mise() {
   check_mise_doctor "login interactive" -lic
   check_mise_doctor "interactive" -ic
@@ -215,5 +220,6 @@ check_cli_tools
 check_no_legacy_tool_versions
 check_config_paths
 check_codex_config
+check_spotlight_indexing
 
 printf '\nbootstrap verification ok (%s)\n' "$profile"

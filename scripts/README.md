@@ -44,11 +44,12 @@ Bootstrap entry points:
 ./scripts/bootstrap/configure-git.sh --profile devbox
 ./scripts/bootstrap/configure-power.sh --profile personal
 ./scripts/bootstrap/configure-power.sh --profile devbox
+./scripts/bootstrap/configure-spotlight.sh
 ./scripts/bootstrap/trust-agent-worktrees.sh
 ```
 
-`configure-power.sh` is the explicit sudo step for plugged-in macOS power
-policy. `install.sh` should stay user-level.
+`configure-power.sh` and `configure-spotlight.sh` are explicit sudo steps for
+macOS system policy. `install.sh` should stay user-level.
 
 Use [Bootstrap guide](../docs/bootstrap.md) for the ordered personal and devbox
 flows.
