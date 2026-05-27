@@ -53,3 +53,4 @@ brew "mas"
 
 # Project tools
 brew "openclaw/tap/gitcrawl"
+brew "openclaw/tap/crabbox"
