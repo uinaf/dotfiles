@@ -79,22 +79,58 @@ It writes non-secret selectors to `~/.config/uinaf/devbox.env` and machine
 credentials to `~/.config/uinaf/infisical-machine.env`. Both files must be mode
 `0600`. The helper refuses to continue when the Infisical CLI has an
 authenticated human `user` session and verifies the machine identity can mint a
-token before writing config. It does not persist a default secret path; paths
-belong at the command boundary.
+token before writing config. It does not persist secret paths; paths belong at
+the command boundary.
 
-Routine command-boundary use:
+Routine command-boundary use gives one child command a short-lived machine
+token and the configured Infisical project selectors:
 
 ```sh
-INFISICAL_SECRET_PATH=/example-devbox/runtime-env \
-  ./scripts/secrets/infisical-devbox-run.sh -- <runtime-command>
+./scripts/secrets/infisical-devbox-run.sh -- <repo-owned-secret-command>
 ```
 
-Replace `<runtime-command>` with the service or setup command that knows how to
-read Infisical. Dotfiles does not generate runtime env files.
+The child command receives `INFISICAL_TOKEN`, `INFISICAL_DOMAIN`,
+`INFISICAL_PROJECT_ID`, and `INFISICAL_ENV`. If the caller sets
+`INFISICAL_SECRET_PATH`, the runner forwards it too. Dotfiles does not render
+app env, generate runtime dotenv files, or know another repo's secret path.
 
-Do not create additional hidden helper scripts, token caches, shell exports, or
-runtime dotenv refresh stacks outside this contract. If another unattended
-refresh mechanism becomes necessary, document and verify that mechanism first.
+Repo-local setup example:
+
+```sh
+INFISICAL_SECRET_PATH=/example-repo/runtime \
+  ~/projects/uinaf/dotfiles/scripts/secrets/infisical-devbox-run.sh -- \
+  make secrets-setup
+```
+
+The target repo owns `make secrets-setup`: it may run `infisical export`, use
+`infisical run`, write an ignored `0600` local file, or avoid disk entirely.
+
+OpenClaw-shaped example:
+
+```sh
+INFISICAL_SECRET_PATH=/example-devbox/openclaw-env \
+  ~/projects/uinaf/dotfiles/scripts/secrets/infisical-devbox-run.sh -- \
+  openclaw <env-render-or-run-command>
+```
+
+The real OpenClaw path and command belong in the workspace or OpenClaw docs,
+not in this public repo.
+
+Small `AGENTS.md` snippet for a repo that frequently needs runtime secrets:
+
+```md
+## Secrets
+
+On agent devboxes, use Infisical through the dotfiles runner:
+
+`INFISICAL_SECRET_PATH=/this-repo/runtime ~/projects/uinaf/dotfiles/scripts/secrets/infisical-devbox-run.sh -- make secrets-setup`
+
+Do not use 1Password, workspace `.env` symlinks, or committed/generated secret
+files for agent runtime env.
+```
+
+Do not add dotfiles scripts that render another repo's secrets. If a consumer
+repo needs a better secret setup flow, add the wrapper to that repo.
 
 If setup fails with `Invalid credentials`, check that the ID came from the
 Universal Auth method. The machine identity ID in the details panel is not a
