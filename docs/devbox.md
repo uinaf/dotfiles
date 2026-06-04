@@ -69,10 +69,11 @@ One-time setup:
 ```
 
 The helper prompts locally for the Infisical domain, project ID, environment,
-machine identity client ID, and machine identity client secret. Humans should
-source the initial client ID/secret from their secret manager, usually
-1Password or Infisical, and enter them locally. Do not paste them into agent
-chat.
+Universal Auth client ID, and Universal Auth client secret. Use the client ID
+shown under the machine identity's Universal Auth method, not the machine
+identity ID shown in the identity details panel. Humans should source the
+initial client ID/secret from their secret manager, usually 1Password or
+Infisical, and enter them locally. Do not paste them into agent chat.
 
 It writes non-secret selectors to `~/.config/uinaf/devbox.env` and machine
 credentials to `~/.config/uinaf/infisical-machine.env`. Both files must be mode

@@ -13,8 +13,8 @@ usage() {
 Usage:
   scripts/secrets/configure-infisical-devbox.sh
 
-Prompts for Infisical machine identity settings, verifies the machine identity
-can mint a token, then writes owner-only local config files.
+Prompts for Infisical Universal Auth settings, verifies the machine identity can
+mint a token, then writes owner-only local config files.
 USAGE
 }
 
@@ -141,18 +141,19 @@ unset INFISICAL_CLIENT_ID INFISICAL_CLIENT_SECRET
 load_if_present "$machine_config_path"
 
 printf 'Configuring Infisical devbox machine auth. Press Enter to accept defaults.\n' >&2
+printf 'Use the Universal Auth client ID/secret, not the machine identity ID.\n' >&2
 
 infisical_domain="$(prompt_value "Infisical domain" "${INFISICAL_DOMAIN:-https://eu.infisical.com/api}")"
 infisical_project_id="$(prompt_value "Infisical project ID" "${INFISICAL_PROJECT_ID:-}")"
 infisical_env="$(prompt_value "Infisical env" "${INFISICAL_ENV:-dev}")"
-infisical_client_id="$(prompt_value "Machine identity client ID" "${INFISICAL_CLIENT_ID:-}")"
-infisical_client_secret="$(prompt_secret "Machine identity client secret")"
+infisical_client_id="$(prompt_value "Universal Auth client ID" "${INFISICAL_CLIENT_ID:-}")"
+infisical_client_secret="$(prompt_secret "Universal Auth client secret")"
 
 [ -n "$infisical_domain" ] || fail "Infisical domain is required"
 [ -n "$infisical_project_id" ] || fail "Infisical project ID is required"
 [ -n "$infisical_env" ] || fail "Infisical env is required"
-[ -n "$infisical_client_id" ] || fail "Machine identity client ID is required"
-[ -n "$infisical_client_secret" ] || fail "Machine identity client secret is required"
+[ -n "$infisical_client_id" ] || fail "Universal Auth client ID is required"
+[ -n "$infisical_client_secret" ] || fail "Universal Auth client secret is required"
 
 check_no_human_infisical_session "$infisical_domain"
 
