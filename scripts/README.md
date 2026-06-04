@@ -8,6 +8,7 @@ Scripts are grouped by functionality:
 | `audit/` | Check-only security and drift audits for repo, host, personal, and devbox contexts. |
 | `bootstrap/` | Install and configure Homebrew, chezmoi dotfiles, Git, Codex, Chrome, and repos. |
 | `lib/` | Shared shell helpers used by scripts. |
+| `secrets/` | Owner-local secret-manager bootstrap and command-boundary wrappers. |
 | `tizen/` | Samsung Tizen Studio install and certificate/profile archive helpers. |
 | `verify/` | Deterministic repo, bootstrap, and devbox service-boundary verification. |
 
@@ -73,6 +74,8 @@ mise run audit:personal:json
 Devbox checks:
 
 ```zsh
+./scripts/secrets/configure-infisical-devbox.sh
+./scripts/secrets/infisical-devbox-run.sh -- <command>
 ./scripts/verify/devbox-services.sh
 mise run verify:devbox-services
 ./scripts/audit/devbox.sh

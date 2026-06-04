@@ -2,6 +2,7 @@
 set -euo pipefail
 
 config_path="${UINAF_DEVBOX_CONFIG:-$HOME/.config/uinaf/devbox.env}"
+machine_config_path="${INFISICAL_MACHINE_CONFIG:-$HOME/.config/uinaf/infisical-machine.env}"
 devbox_user="${UINAF_DEVBOX_USER:-$USER}"
 process_compose_enabled="${PROCESS_COMPOSE_ENABLED:-1}"
 process_compose_port="${PROCESS_COMPOSE_PORT:-9191}"
@@ -380,24 +381,26 @@ load_uinaf_audit_policy
 
 section "default shell secret boundary"
 
-if [ -z "${INFISICAL_TOKEN+x}" ]; then
-  ok "current shell does not export INFISICAL_TOKEN"
+if [ -z "${INFISICAL_TOKEN+x}" ] \
+  && [ -z "${INFISICAL_CLIENT_ID+x}" ] \
+  && [ -z "${INFISICAL_CLIENT_SECRET+x}" ]; then
+  ok "current shell does not export Infisical auth material"
 else
-  fail_check "current shell exports INFISICAL_TOKEN"
+  fail_check "current shell exports Infisical auth material"
 fi
 
 if [ "$json_output" -eq 1 ]; then
-  zsh_login_has_no_infisical_token="$(zsh -lic 'test -z "${INFISICAL_TOKEN+x}"' >/dev/null 2>&1; printf '%s' "$?")"
-elif zsh -lic 'test -z "${INFISICAL_TOKEN+x}"'; then
+  zsh_login_has_no_infisical_token="$(zsh -lic 'test -z "${INFISICAL_TOKEN+x}" && test -z "${INFISICAL_CLIENT_ID+x}" && test -z "${INFISICAL_CLIENT_SECRET+x}"' >/dev/null 2>&1; printf '%s' "$?")"
+elif zsh -lic 'test -z "${INFISICAL_TOKEN+x}" && test -z "${INFISICAL_CLIENT_ID+x}" && test -z "${INFISICAL_CLIENT_SECRET+x}"'; then
   zsh_login_has_no_infisical_token=0
 else
   zsh_login_has_no_infisical_token=1
 fi
 
 if [ "$zsh_login_has_no_infisical_token" = "0" ]; then
-  ok "login shell does not export INFISICAL_TOKEN"
+  ok "login shell does not export Infisical auth material"
 else
-  fail_check "login shell exports INFISICAL_TOKEN"
+  fail_check "login shell exports Infisical auth material"
 fi
 
 section "infisical"
@@ -423,6 +426,13 @@ if command -v infisical >/dev/null 2>&1; then
   fi
 else
   fail_check "infisical CLI is missing"
+fi
+
+if [ -e "$machine_config_path" ]; then
+  check_mode_any fail "$machine_config_path" 600
+  ok "Infisical machine config is owner-only"
+else
+  warn "missing optional $machine_config_path"
 fi
 
 section "process-compose boundary"

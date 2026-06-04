@@ -212,11 +212,12 @@ on a GUI agent socket. Use `GIT_SSH_IDENTITY_FILE` when GitHub SSH auth should
 use a different local key path than commit signing.
 
 If the devbox runs long-lived workspace or agent services, follow
-[Devbox setup](devbox.md). The short version: use Infisical Universal Auth
-machine identities at the command boundary, keep human Infisical CLI sessions
-off agent devboxes, keep long-lived service tokens out of default shells and
-process-compose YAML, and run services through process-compose with explicit
-secret-manager commands or local owner-only config. Agent SSH keys may live in
+[Devbox setup](devbox.md). The short version: run
+`./scripts/secrets/configure-infisical-devbox.sh` once with a human-supplied
+machine identity client ID/secret, keep human Infisical CLI sessions off agent
+devboxes, keep long-lived tokens out of default shells and process-compose
+YAML, and run routine secret-aware commands through
+`./scripts/secrets/infisical-devbox-run.sh`. Agent SSH keys may live in
 Infisical under the devbox secret boundary and should be retrieved only into
 owner-only local key files or the command environment that needs them.
 

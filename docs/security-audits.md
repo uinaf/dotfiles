@@ -186,7 +186,7 @@ scanner output may include matched secret material.
 
 It checks:
 
-- default shells do not export `INFISICAL_TOKEN`
+- default shells do not export Infisical tokens or machine credentials
 - Infisical CLI is installed
 - process-compose is isolated through the configured socket or port
 - local service config, backup files, and shell history do not contain obvious

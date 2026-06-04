@@ -2,6 +2,8 @@
 set -euo pipefail
 
 config_path="${UINAF_DEVBOX_CONFIG:-$HOME/.config/uinaf/devbox.env}"
+machine_config_path="${INFISICAL_MACHINE_CONFIG:-$HOME/.config/uinaf/infisical-machine.env}"
+machine_auth_required="${INFISICAL_MACHINE_AUTH_REQUIRED:-0}"
 devbox_user="${UINAF_DEVBOX_USER:-$USER}"
 process_compose_enabled="${PROCESS_COMPOSE_ENABLED:-1}"
 process_compose_port="${PROCESS_COMPOSE_PORT:-9191}"
@@ -16,10 +18,9 @@ usage() {
 Usage:
   scripts/verify/devbox-services.sh
 
-Checks devbox supervisor, Infisical CLI availability, and default-shell token
-boundaries for the current Unix user. Configure process-compose through
-~/.config/uinaf/devbox.env or the
-UINAF_DEVBOX_* environment variables.
+Checks devbox supervisor, Infisical CLI availability, persistent machine auth,
+and default-shell token boundaries for the current Unix user. Configure
+process-compose and Infisical selectors through ~/.config/uinaf/devbox.env.
 USAGE
 }
 
@@ -102,11 +103,27 @@ check_config() {
 check_no_default_secret_exports() {
   section "default shell secret boundary"
 
-  if zsh -lic 'test -z "${INFISICAL_TOKEN+x}"'; then
-    printf 'ok INFISICAL_TOKEN is not exported by default login shell\n'
+  if zsh -lic 'test -z "${INFISICAL_TOKEN+x}" && test -z "${INFISICAL_CLIENT_ID+x}" && test -z "${INFISICAL_CLIENT_SECRET+x}"'; then
+    printf 'ok Infisical auth material is not exported by default login shell\n'
   else
-    fail "INFISICAL_TOKEN is exported by the default login shell"
+    fail "Infisical auth material is exported by the default login shell"
   fi
+}
+
+load_machine_config() {
+  if [ -e "$machine_config_path" ]; then
+    check_mode "$machine_config_path" 600
+    # shellcheck disable=SC1090
+    . "$machine_config_path"
+    printf 'ok loaded Infisical machine config\n'
+    return
+  fi
+
+  if [ "$machine_auth_required" = "1" ]; then
+    fail "missing $machine_config_path"
+  fi
+
+  printf 'warn missing optional %s; skipped persistent machine identity proof\n' "$machine_config_path"
 }
 
 check_infisical() {
@@ -137,11 +154,21 @@ check_infisical() {
     printf 'ok no authenticated Infisical human user session; status returned nonzero for inactive/expired session\n'
   fi
 
-  if [ -z "${INFISICAL_CLIENT_ID:-}" ] \
-    || [ -z "${INFISICAL_CLIENT_SECRET:-}" ] \
-    || [ -z "$infisical_project_id" ] \
-    || [ -z "$infisical_secret_path" ]; then
-    printf 'warn skipped Infisical machine identity path proof; set INFISICAL_CLIENT_ID, INFISICAL_CLIENT_SECRET, INFISICAL_PROJECT_ID, and INFISICAL_SECRET_PATH in the current shell\n'
+  load_machine_config
+
+  if [ -z "${INFISICAL_CLIENT_ID:-}" ] || [ -z "${INFISICAL_CLIENT_SECRET:-}" ]; then
+    if [ "$machine_auth_required" = "1" ]; then
+      fail "Infisical machine config is missing client credentials"
+    fi
+    printf 'warn skipped Infisical machine identity path proof; missing client credentials\n'
+    return
+  fi
+
+  if [ -z "$infisical_project_id" ] || [ -z "$infisical_secret_path" ]; then
+    if [ "$machine_auth_required" = "1" ]; then
+      fail "missing INFISICAL_PROJECT_ID or INFISICAL_SECRET_PATH"
+    fi
+    printf 'warn skipped Infisical machine identity path proof; set INFISICAL_PROJECT_ID and INFISICAL_SECRET_PATH in %s\n' "$config_path"
     return
   fi
 
@@ -155,13 +182,13 @@ check_infisical() {
       --silent
   )" || fail "could not mint Infisical machine identity token"
 
-  infisical secrets get \
+  infisical export \
     --domain "$infisical_domain" \
     --token "$access_token" \
     --projectId "$infisical_project_id" \
     --env "$infisical_env" \
     --path "$infisical_secret_path" \
-    --output json \
+    --format json \
     --silent >/dev/null \
     || fail "Infisical machine identity cannot read $infisical_secret_path"
   printf 'ok Infisical machine identity can read %s\n' "$infisical_secret_path"

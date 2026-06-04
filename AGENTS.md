@@ -25,16 +25,16 @@ agent guide.
   approvals, auth files, sessions, caches, worktrees, or app state.
 - Do not invent Git identities, signing keys, 1Password vault names, Infisical
   project/workspace IDs, service tokens, or secret item references.
-- Do not store service tokens such as `INFISICAL_TOKEN` in Git, shell startup,
-  launchd plists, process-compose YAML, or dotenv files.
+- Do not store service tokens or Infisical machine credentials in Git, shell
+  startup, launchd plists, process-compose YAML, or dotenv files.
 - Keep examples public-safe. Avoid private machine names, vault item names, and
   identity context.
 
-Machine-local secrets belong in explicit local storage or an approved secret
-manager login. Humans may use both 1Password and Infisical; agents use
-Infisical only for secrets/env access. Agent devboxes should use Infisical
-machine identity token flows and should not keep authenticated human Infisical
-CLI sessions.
+Machine-local secrets belong in explicit owner-only local storage or an
+approved secret manager login. Humans may use both 1Password and Infisical;
+agents use Infisical only for secrets/env access. Agent devboxes should use
+Infisical machine identity config through the devbox runner and should not keep
+authenticated human Infisical CLI sessions.
 
 When a devbox task needs shared env, check the relevant Infisical
 project/path first. Do not revive workspace `.env` symlinks, devbox-env
