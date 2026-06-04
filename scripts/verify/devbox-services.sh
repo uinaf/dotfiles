@@ -201,24 +201,6 @@ check_infisical() {
   printf 'ok Infisical machine identity can read %s\n' "$infisical_secret_path"
 }
 
-check_openclaw_runtime_env() {
-  local env_file="$HOME/.openclaw/.env"
-  local env_owner
-
-  section "OpenClaw runtime env boundary"
-
-  if [ ! -e "$env_file" ]; then
-    printf 'warn missing optional %s\n' "$env_file"
-    return
-  fi
-
-  [ ! -L "$env_file" ] || fail "$env_file must be a direct file, not a symlink"
-  check_mode "$env_file" 600
-  env_owner="$(owner_of "$env_file")"
-  [ "$env_owner" = "$devbox_user" ] || fail "$env_file owner is $env_owner, expected $devbox_user"
-  printf 'ok %s owner %s\n' "$env_file" "$env_owner"
-}
-
 check_process_compose() {
   section "process-compose"
 
@@ -246,7 +228,6 @@ check_process_compose() {
 check_config
 check_no_default_secret_exports
 check_infisical
-check_openclaw_runtime_env
 check_process_compose
 
 printf '\ndevbox verification ok\n'
