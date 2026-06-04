@@ -120,7 +120,7 @@ check_no_default_secret_exports() {
 load_machine_config() {
   if [ -e "$machine_config_path" ]; then
     check_mode "$machine_config_path" 600
-    unset INFISICAL_MACHINE_IDENTITY INFISICAL_CLIENT_ID INFISICAL_CLIENT_SECRET
+    unset INFISICAL_CLIENT_ID INFISICAL_CLIENT_SECRET
     # shellcheck disable=SC1090
     . "$machine_config_path"
     printf 'ok loaded Infisical machine config\n'

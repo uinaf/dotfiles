@@ -102,7 +102,7 @@ write_devbox_config() {
   local existing_path="$2"
 
   if [ -e "$existing_path" ]; then
-    grep -Ev '^(INFISICAL_DOMAIN|INFISICAL_PROJECT_ID|INFISICAL_ENV|INFISICAL_SECRET_PATH|INFISICAL_MACHINE_IDENTITY|INFISICAL_CLIENT_ID|INFISICAL_CLIENT_SECRET|INFISICAL_TOKEN)=' "$existing_path" > "$tmp_path" || true
+    grep -Ev '^(INFISICAL_DOMAIN|INFISICAL_PROJECT_ID|INFISICAL_ENV|INFISICAL_SECRET_PATH|INFISICAL_CLIENT_ID|INFISICAL_CLIENT_SECRET|INFISICAL_TOKEN)=' "$existing_path" > "$tmp_path" || true
   fi
 
   {
@@ -116,7 +116,6 @@ write_machine_config() {
   local tmp_path="$1"
 
   {
-    quote_assignment INFISICAL_MACHINE_IDENTITY "$infisical_machine_identity"
     quote_assignment INFISICAL_CLIENT_ID "$infisical_client_id"
     quote_assignment INFISICAL_CLIENT_SECRET "$infisical_client_secret"
   } > "$tmp_path"
@@ -138,7 +137,7 @@ command -v infisical >/dev/null || fail "missing infisical"
 infisical --version >/dev/null || fail "infisical CLI does not run"
 
 load_if_present "$config_path"
-unset INFISICAL_MACHINE_IDENTITY INFISICAL_CLIENT_ID INFISICAL_CLIENT_SECRET
+unset INFISICAL_CLIENT_ID INFISICAL_CLIENT_SECRET
 load_if_present "$machine_config_path"
 
 printf 'Configuring Infisical devbox machine auth. Press Enter to accept defaults.\n' >&2
@@ -146,7 +145,6 @@ printf 'Configuring Infisical devbox machine auth. Press Enter to accept default
 infisical_domain="$(prompt_value "Infisical domain" "${INFISICAL_DOMAIN:-https://eu.infisical.com/api}")"
 infisical_project_id="$(prompt_value "Infisical project ID" "${INFISICAL_PROJECT_ID:-}")"
 infisical_env="$(prompt_value "Infisical env" "${INFISICAL_ENV:-dev}")"
-infisical_machine_identity="$(prompt_value "Machine identity name" "${INFISICAL_MACHINE_IDENTITY:-}")"
 infisical_client_id="$(prompt_value "Machine identity client ID" "${INFISICAL_CLIENT_ID:-}")"
 infisical_client_secret="$(prompt_secret "Machine identity client secret")"
 

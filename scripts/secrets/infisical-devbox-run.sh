@@ -75,7 +75,7 @@ command -v infisical >/dev/null || fail "missing infisical"
 infisical --version >/dev/null || fail "infisical CLI does not run"
 
 load_required_config "$config_path"
-unset INFISICAL_MACHINE_IDENTITY INFISICAL_CLIENT_ID INFISICAL_CLIENT_SECRET
+unset INFISICAL_CLIENT_ID INFISICAL_CLIENT_SECRET
 load_required_config "$machine_config_path"
 
 if [ -n "$override_infisical_domain" ]; then
