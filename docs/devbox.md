@@ -146,7 +146,7 @@ Before treating a devbox as agent-ready:
 `./scripts/verify/devbox-services.sh` checks the Infisical CLI and local
 runtime-file boundary. It also proves machine identity path access when
 `INFISICAL_CLIENT_ID`, `INFISICAL_CLIENT_SECRET`,
-`UINAF_INFISICAL_PROJECT_ID`, and `UINAF_INFISICAL_SECRET_PATH` are provided in
+`INFISICAL_PROJECT_ID`, and `INFISICAL_SECRET_PATH` are provided in
 the current shell. Keep those values in the operator's secret manager and pass
 them through a deliberate human handoff; do not save them in this repo or
 default shell startup.

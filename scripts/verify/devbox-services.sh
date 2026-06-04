@@ -6,10 +6,10 @@ devbox_user="${UINAF_DEVBOX_USER:-$USER}"
 process_compose_enabled="${UINAF_PROCESS_COMPOSE_ENABLED:-1}"
 process_compose_port="${UINAF_PROCESS_COMPOSE_PORT:-9191}"
 process_compose_socket="${UINAF_PROCESS_COMPOSE_SOCKET:-}"
-infisical_domain="${UINAF_INFISICAL_DOMAIN:-https://eu.infisical.com/api}"
-infisical_project_id="${UINAF_INFISICAL_PROJECT_ID:-}"
-infisical_env="${UINAF_INFISICAL_ENV:-dev}"
-infisical_secret_path="${UINAF_INFISICAL_SECRET_PATH:-}"
+infisical_domain="${INFISICAL_DOMAIN:-https://eu.infisical.com/api}"
+infisical_project_id="${INFISICAL_PROJECT_ID:-}"
+infisical_env="${INFISICAL_ENV:-dev}"
+infisical_secret_path="${INFISICAL_SECRET_PATH:-}"
 
 usage() {
   cat <<'USAGE'
@@ -90,10 +90,10 @@ check_config() {
     process_compose_enabled="${UINAF_PROCESS_COMPOSE_ENABLED:-$process_compose_enabled}"
     process_compose_port="${UINAF_PROCESS_COMPOSE_PORT:-$process_compose_port}"
     process_compose_socket="${UINAF_PROCESS_COMPOSE_SOCKET:-$process_compose_socket}"
-    infisical_domain="${UINAF_INFISICAL_DOMAIN:-$infisical_domain}"
-    infisical_project_id="${UINAF_INFISICAL_PROJECT_ID:-$infisical_project_id}"
-    infisical_env="${UINAF_INFISICAL_ENV:-$infisical_env}"
-    infisical_secret_path="${UINAF_INFISICAL_SECRET_PATH:-$infisical_secret_path}"
+    infisical_domain="${INFISICAL_DOMAIN:-$infisical_domain}"
+    infisical_project_id="${INFISICAL_PROJECT_ID:-$infisical_project_id}"
+    infisical_env="${INFISICAL_ENV:-$infisical_env}"
+    infisical_secret_path="${INFISICAL_SECRET_PATH:-$infisical_secret_path}"
   else
     printf 'warn missing optional %s; using defaults\n' "$config_path"
   fi
@@ -141,7 +141,7 @@ check_infisical() {
     || [ -z "${INFISICAL_CLIENT_SECRET:-}" ] \
     || [ -z "$infisical_project_id" ] \
     || [ -z "$infisical_secret_path" ]; then
-    printf 'warn skipped Infisical machine identity path proof; set INFISICAL_CLIENT_ID, INFISICAL_CLIENT_SECRET, UINAF_INFISICAL_PROJECT_ID, and UINAF_INFISICAL_SECRET_PATH in the current shell\n'
+    printf 'warn skipped Infisical machine identity path proof; set INFISICAL_CLIENT_ID, INFISICAL_CLIENT_SECRET, INFISICAL_PROJECT_ID, and INFISICAL_SECRET_PATH in the current shell\n'
     return
   fi
 

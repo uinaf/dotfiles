@@ -6,7 +6,7 @@ devbox_user="${UINAF_DEVBOX_USER:-$USER}"
 process_compose_enabled="${UINAF_PROCESS_COMPOSE_ENABLED:-1}"
 process_compose_port="${UINAF_PROCESS_COMPOSE_PORT:-9191}"
 process_compose_socket="${UINAF_PROCESS_COMPOSE_SOCKET:-}"
-infisical_domain="${UINAF_INFISICAL_DOMAIN:-https://eu.infisical.com/api}"
+infisical_domain="${INFISICAL_DOMAIN:-https://eu.infisical.com/api}"
 json_output=0
 warn_count=0
 fail_count=0
@@ -365,7 +365,7 @@ if [ -e "$config_path" ]; then
   process_compose_enabled="${UINAF_PROCESS_COMPOSE_ENABLED:-$process_compose_enabled}"
   process_compose_port="${UINAF_PROCESS_COMPOSE_PORT:-$process_compose_port}"
   process_compose_socket="${UINAF_PROCESS_COMPOSE_SOCKET:-$process_compose_socket}"
-  infisical_domain="${UINAF_INFISICAL_DOMAIN:-$infisical_domain}"
+  infisical_domain="${INFISICAL_DOMAIN:-$infisical_domain}"
 else
   warn "missing optional $config_path; using defaults"
 fi
