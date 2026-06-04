@@ -214,12 +214,10 @@ use a different local key path than commit signing.
 If the devbox runs long-lived workspace or agent services, follow
 [Devbox setup](devbox.md). The short version: run
 `./scripts/secrets/configure-infisical-devbox.sh` once with a human-supplied
-machine identity client ID/secret, keep human Infisical CLI sessions off agent
-devboxes, keep long-lived tokens out of default shells and process-compose
-YAML, and run routine secret-aware commands through
-`./scripts/secrets/infisical-devbox-run.sh`. Agent SSH keys may live in
-Infisical under the devbox secret boundary and should be retrieved only into
-owner-only local key files or the command environment that needs them.
+Universal Auth client ID/secret, keep human Infisical CLI sessions off agent
+devboxes, keep long-lived tokens out of default shells and process-compose YAML,
+and run routine secret-aware commands through
+`./scripts/secrets/infisical-devbox-run.sh`.
 
 Verify each devbox user:
 

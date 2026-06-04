@@ -34,7 +34,7 @@ write it.
 
 When an agent task needs shared env, check the relevant Infisical project/path
 first. Do not recreate workspace `.env` symlinks, devbox-env generated files,
-or 1Password service-account refresh stacks.
+token caches, or 1Password service-account refresh stacks.
 
 For services and agents:
 
@@ -71,9 +71,9 @@ One-time setup:
 The helper prompts locally for the Infisical domain, project ID, environment,
 Universal Auth client ID, and Universal Auth client secret. Use the client ID
 shown under the machine identity's Universal Auth method, not the machine
-identity ID shown in the identity details panel. Humans should source the
-initial client ID/secret from their secret manager, usually 1Password or
-Infisical, and enter them locally. Do not paste them into agent chat.
+identity ID shown in the identity details panel. Humans should source those
+values from their secret manager, usually 1Password or Infisical, and enter them
+locally. Do not paste them into agent chat.
 
 It writes non-secret selectors to `~/.config/uinaf/devbox.env` and machine
 credentials to `~/.config/uinaf/infisical-machine.env`. Both files must be mode
@@ -86,26 +86,30 @@ Routine command-boundary use:
 
 ```sh
 ./scripts/secrets/infisical-devbox-run.sh -- sh -c '
+  mkdir -p "$HOME/.config/example"
   infisical export \
     --domain "$INFISICAL_DOMAIN" \
     --token "$INFISICAL_TOKEN" \
     --projectId "$INFISICAL_PROJECT_ID" \
     --env "$INFISICAL_ENV" \
-    --path "/example-devbox/openclaw-env" \
+    --path "/example-devbox/runtime-env" \
     --format dotenv \
-    --output-file "$HOME/.openclaw/.env" \
+    --output-file "$HOME/.config/example/runtime.env" \
     --silent
+  chmod 600 "$HOME/.config/example/runtime.env"
 '
-
-chmod 600 "$HOME/.openclaw/.env"
 ```
 
-For non-OpenClaw services, replace the output file with the runtime-specific
-file or run the service command through `infisical-devbox-run.sh`.
+Replace the output file with the runtime-specific file or run the service
+command through `infisical-devbox-run.sh`.
 
 Do not create additional hidden helper scripts, token caches, shell exports, or
 runtime dotenv refresh stacks outside this contract. If another unattended
 refresh mechanism becomes necessary, document and verify that mechanism first.
+
+If setup fails with `Invalid credentials`, check that the ID came from the
+Universal Auth method. The machine identity ID in the details panel is not a
+Universal Auth client ID and cannot mint a token.
 
 ## Agent SSH Key Storage
 
@@ -229,7 +233,7 @@ INFISICAL_CLIENT_SECRET=...
 ```
 
 Keep both files out of Git. Do not create repo-local workspace `.env` symlinks
-for agent/OpenClaw runtime env.
+for agent runtime env.
 
 If a devbox identity does not run process-compose, set
 `PROCESS_COMPOSE_ENABLED=0` in its local config so verification does not

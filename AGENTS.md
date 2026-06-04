@@ -31,19 +31,11 @@ agent guide.
   identity context.
 
 Machine-local secrets belong in explicit owner-only local storage or an
-approved secret manager login. Humans may use both 1Password and Infisical;
-agents use Infisical only for secrets/env access. Agent devboxes should use
-Infisical machine identity config through the devbox runner and should not keep
-authenticated human Infisical CLI sessions.
-
-When a devbox task needs shared env, check the relevant Infisical
-project/path first. Do not revive workspace `.env` symlinks, devbox-env
-generated files, or 1Password service-account refresh stacks.
-
-For agent SSH, ordinary private keys may live in Infisical under the devbox or
-agent boundary. Keep fingerprints and public metadata in docs, retrieve keys
-only for the command or owner-only local file that needs them, and keep key
-files mode `0600`.
+approved secret manager login. For shared agent hosts, use the current contract
+in [Devbox setup](docs/devbox.md): humans may use 1Password and Infisical;
+agents use Infisical machine identity auth only for secrets/env access. Do not
+revive workspace `.env` symlinks, devbox-env generated files, or 1Password
+service-account refresh stacks.
 
 ## Agent Operating Checklist
 
