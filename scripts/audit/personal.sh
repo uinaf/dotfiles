@@ -80,7 +80,7 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 
-load_uinaf_audit_policy
+load_audit_policy
 
 section "default shell secret boundary"
 

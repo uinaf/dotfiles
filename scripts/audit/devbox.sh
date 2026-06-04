@@ -379,7 +379,7 @@ else
   ok "devbox user matches current user: $devbox_user"
 fi
 
-load_uinaf_audit_policy
+load_audit_policy
 
 section "default shell secret boundary"
 

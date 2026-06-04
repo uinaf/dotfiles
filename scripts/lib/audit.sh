@@ -219,7 +219,7 @@ find_matching_files() {
   fi
 }
 
-load_uinaf_audit_policy() {
+load_audit_policy() {
   local policy_path="${AUDIT_POLICY_FILE:-$HOME/.config/uinaf/audit.env}"
 
   if [ ! -e "$policy_path" ]; then
