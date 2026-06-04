@@ -44,7 +44,9 @@ prompt_value() {
     printf '%s: ' "$label" >&2
   fi
 
-  IFS= read -r value
+  if ! IFS= read -r value; then
+    fail "could not read $label from terminal"
+  fi
   if [ -z "$value" ]; then
     value="$default_value"
   fi
@@ -59,7 +61,11 @@ prompt_secret() {
   printf '%s: ' "$label" >&2
   old_stty="$(stty -g)"
   stty -echo
-  IFS= read -r value
+  if ! IFS= read -r value; then
+    stty "$old_stty"
+    printf '\n' >&2
+    fail "could not read $label from terminal"
+  fi
   stty "$old_stty"
   printf '\n' >&2
   printf '%s' "$value"
@@ -135,6 +141,8 @@ infisical --version >/dev/null || fail "infisical CLI does not run"
 load_if_present "$config_path"
 unset INFISICAL_MACHINE_IDENTITY INFISICAL_CLIENT_ID INFISICAL_CLIENT_SECRET
 load_if_present "$machine_config_path"
+
+printf 'Configuring Infisical devbox machine auth. Press Enter to accept defaults.\n' >&2
 
 infisical_domain="$(prompt_value "Infisical domain" "${INFISICAL_DOMAIN:-https://eu.infisical.com/api}")"
 infisical_project_id="$(prompt_value "Infisical project ID" "${INFISICAL_PROJECT_ID:-}")"
