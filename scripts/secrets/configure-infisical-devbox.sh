@@ -74,7 +74,7 @@ prompt_secret() {
 load_if_present() {
   local path="$1"
 
-  [ -e "$path" ] || return
+  [ -e "$path" ] || return 0
   if [ "$(mode_of "$path")" != "600" ]; then
     fail "$path mode is $(mode_of "$path"), expected 600"
   fi
