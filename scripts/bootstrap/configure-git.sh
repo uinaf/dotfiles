@@ -27,7 +27,6 @@ Environment:
   GIT_ALLOWED_SIGNER_PRINCIPAL optional SSH signing verification principal; defaults to GIT_USER_EMAIL
   GIT_SSH_IDENTITY_FILE optional SSH private key path for git@github.com; devbox defaults to GIT_SIGNING_KEY when it is a path
   OP_SSH_VAULT        optional 1Password SSH agent vault
-  OP_SERVICE_ACCOUNT_TOKEN may be used by 1Password tooling, but is not read or written here
 EOF
 }
 

@@ -59,12 +59,13 @@ common_cli_checks=(
   "python --version"
   "java -version"
   "uv --version"
-  "op --version"
+  "infisical --version"
   "codex --version"
   "tailscale status --peers=false"
 )
 
 personal_cli_checks=(
+  "op --version"
   "gitcrawl --version"
   "blacksmith --version"
 )

@@ -73,14 +73,14 @@ pins.
 Keep these out of Git:
 
 - Git identity, signing keys, and 1Password SSH agent vault selection.
-- 1Password service-account tokens and item references.
+- Infisical workspace/project auth and 1Password human vault references.
 - SSH private keys, certificates, Tizen archives, and device keys.
 - Codex auth, Browser approvals, sessions, caches, worktrees, and app state.
 - Browser profiles, Docker/Colima state, dependency folders, and build output.
 
 For always-on agent hosts, use the secret model in [Devbox setup](docs/devbox.md):
-service-account tokens live in machine-local storage, generated runtime env
-files are owner-only, and normal shells do not export long-lived tokens.
+humans use both 1Password and Infisical, agents use Infisical only, and normal
+shells do not export long-lived service tokens.
 
 ## Personalization
 

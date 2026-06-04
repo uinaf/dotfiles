@@ -155,8 +155,7 @@ output may include matched secret material.
 
 It checks:
 
-- default shells do not export `OP_SERVICE_ACCOUNT_TOKEN`
-- devbox-only token and generated env paths are absent for the current user
+- default shells do not export `INFISICAL_TOKEN`
 - local Git, SSH, and Codex config files are owner-only where expected
 - Gitleaks and TruffleHog do not report leaks in shell startup, shell history,
   SSH config, common credential files, Docker config, or LaunchAgents
@@ -170,8 +169,8 @@ It checks:
 - Tailscale CLI status works when installed
 
 Warnings are normal when a personal Mac intentionally keeps optional services or
-large local logs. Failures mean raw secrets, unsafe file permissions, missing
-GitHub auth, or devbox-only service-account state leaked into the personal setup.
+large local logs. Failures mean raw secrets, unsafe file permissions, or missing
+GitHub auth.
 
 ## Devbox Drift Audit
 
@@ -187,10 +186,8 @@ scanner output may include matched secret material.
 
 It checks:
 
-- default shells do not export `OP_SERVICE_ACCOUNT_TOKEN`
-- root-owned token file mode and owner when visible
-- generated workspace env mode, owner, symlink target, and absence of
-  `OP_SERVICE_ACCOUNT_TOKEN`
+- default shells do not export `INFISICAL_TOKEN`
+- Infisical CLI is installed
 - process-compose is isolated through the configured socket or port
 - local service config, backup files, and shell history do not contain obvious
   secret references

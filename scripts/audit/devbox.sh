@@ -6,9 +6,6 @@ devbox_user="${UINAF_DEVBOX_USER:-$USER}"
 process_compose_enabled="${UINAF_PROCESS_COMPOSE_ENABLED:-1}"
 process_compose_port="${UINAF_PROCESS_COMPOSE_PORT:-9191}"
 process_compose_socket="${UINAF_PROCESS_COMPOSE_SOCKET:-}"
-token_file="${UINAF_OP_SERVICE_ACCOUNT_TOKEN_FILE:-/var/db/uinaf/devbox-secrets/$devbox_user/op-sa-token}"
-workspace_env_file="${UINAF_WORKSPACE_ENV_FILE:-/var/db/uinaf/devbox-env/$devbox_user/workspace.env}"
-workspace_env_link="${UINAF_WORKSPACE_ENV_LINK:-}"
 json_output=0
 warn_count=0
 fail_count=0
@@ -338,9 +335,6 @@ if [ -e "$config_path" ]; then
   process_compose_enabled="${UINAF_PROCESS_COMPOSE_ENABLED:-$process_compose_enabled}"
   process_compose_port="${UINAF_PROCESS_COMPOSE_PORT:-$process_compose_port}"
   process_compose_socket="${UINAF_PROCESS_COMPOSE_SOCKET:-$process_compose_socket}"
-  token_file="${UINAF_OP_SERVICE_ACCOUNT_TOKEN_FILE:-$token_file}"
-  workspace_env_file="${UINAF_WORKSPACE_ENV_FILE:-$workspace_env_file}"
-  workspace_env_link="${UINAF_WORKSPACE_ENV_LINK:-$workspace_env_link}"
 else
   warn "missing optional $config_path; using defaults"
 fi
@@ -355,79 +349,32 @@ load_uinaf_audit_policy
 
 section "default shell secret boundary"
 
-if [ -z "${OP_SERVICE_ACCOUNT_TOKEN+x}" ]; then
-  ok "current shell does not export OP_SERVICE_ACCOUNT_TOKEN"
+if [ -z "${INFISICAL_TOKEN+x}" ]; then
+  ok "current shell does not export INFISICAL_TOKEN"
 else
-  fail_check "current shell exports OP_SERVICE_ACCOUNT_TOKEN"
+  fail_check "current shell exports INFISICAL_TOKEN"
 fi
 
 if [ "$json_output" -eq 1 ]; then
-  zsh_login_has_no_token="$(zsh -lic 'test -z "${OP_SERVICE_ACCOUNT_TOKEN+x}"' >/dev/null 2>&1; printf '%s' "$?")"
-elif zsh -lic 'test -z "${OP_SERVICE_ACCOUNT_TOKEN+x}"'; then
-  zsh_login_has_no_token=0
+  zsh_login_has_no_infisical_token="$(zsh -lic 'test -z "${INFISICAL_TOKEN+x}"' >/dev/null 2>&1; printf '%s' "$?")"
+elif zsh -lic 'test -z "${INFISICAL_TOKEN+x}"'; then
+  zsh_login_has_no_infisical_token=0
 else
-  zsh_login_has_no_token=1
+  zsh_login_has_no_infisical_token=1
 fi
 
-if [ "$zsh_login_has_no_token" = "0" ]; then
-  ok "login shell does not export OP_SERVICE_ACCOUNT_TOKEN"
+if [ "$zsh_login_has_no_infisical_token" = "0" ]; then
+  ok "login shell does not export INFISICAL_TOKEN"
 else
-  fail_check "login shell exports OP_SERVICE_ACCOUNT_TOKEN"
+  fail_check "login shell exports INFISICAL_TOKEN"
 fi
 
-section "1Password service account token file"
+section "infisical"
 
-if [ "$(id -u)" -ne 0 ] && [ ! -e "$token_file" ]; then
-  ok "$token_file is not visible to this user; root-owned token storage is not exposed to the devbox shell"
+if command -v infisical >/dev/null 2>&1; then
+  ok "infisical CLI is installed"
 else
-  check_mode_any fail "$token_file" 400 600
-  if [ -e "$token_file" ]; then
-    if [ "$(owner_of "$token_file")" = "root" ]; then
-      ok "$token_file is root-owned"
-    else
-      fail_check "$token_file must be root-owned"
-    fi
-  fi
-fi
-
-section "generated runtime env"
-
-if [ -e "$workspace_env_file" ]; then
-  env_dir="$(dirname "$workspace_env_file")"
-  check_mode_any fail "$env_dir" 700 711
-  check_mode_any fail "$workspace_env_file" 400 600
-
-  if [ -L "$workspace_env_file" ]; then
-    fail_check "$workspace_env_file must not be a symlink"
-  fi
-
-  env_owner="$(owner_of "$workspace_env_file")"
-  if [ "$env_owner" = "$devbox_user" ]; then
-    ok "$workspace_env_file owner $env_owner"
-  else
-    fail_check "$workspace_env_file owner is $env_owner, expected $devbox_user"
-  fi
-else
-  warn "missing $workspace_env_file"
-fi
-
-if [ -n "$workspace_env_link" ]; then
-  if [ -e "$workspace_env_link" ] || [ -L "$workspace_env_link" ]; then
-    if [ -L "$workspace_env_link" ]; then
-      link_target="$(readlink "$workspace_env_link")"
-      if [ "$link_target" = "$workspace_env_file" ]; then
-        ok "$workspace_env_link points to generated env"
-      else
-        fail_check "$workspace_env_link points to $link_target, expected $workspace_env_file"
-      fi
-    else
-      fail_check "$workspace_env_link should be a symlink to the generated env"
-    fi
-  else
-    fail_check "missing configured workspace env link $workspace_env_link"
-  fi
-else
-  ok "no workspace env link configured"
+  fail_check "infisical CLI is missing"
 fi
 
 section "process-compose boundary"

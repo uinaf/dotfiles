@@ -82,8 +82,8 @@ stat -f '%OLp %N' "$path"
   already tracked repo files. Prefer repo-local edits or `git mv` so history
   and review stay clear.
 - Keep macOS GUI state, App Store auth, 1Password sessions, Tailscale node
-  identity, Tizen secrets, and root-owned devbox env refresh state in the
-  existing explicit scripts or manual setup docs.
+  identity, Tizen secrets, and local secret-manager auth state in the existing
+  explicit scripts or manual setup docs.
 
 ## Package And Runtime Layers
 

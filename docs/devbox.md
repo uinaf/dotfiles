@@ -15,8 +15,8 @@ Tracked here:
 Local only:
 
 - Git identities, signing keys, and 1Password SSH vaults
-- 1Password service-account tokens and item references
-- workspace env values and generated service state
+- Infisical workspace/project auth and service tokens
+- workspace env values and local service state
 - process-compose ports when they are identity-specific
 - Codex auth, trusted paths, sessions, and agent-rule symlinks
 
@@ -25,62 +25,62 @@ Local only:
 Environment variables are not a secret boundary. Anything running in that
 process tree can read them.
 
-Use this pattern for service secrets:
+Humans use both 1Password and Infisical. Agents use Infisical only for
+secrets/env access. 1Password remains the human/manual vault for account
+credentials, recovery material, SSH key material, and other secrets that should
+not be ambiently available to agents.
 
-1. Store the 1Password service-account token in machine-local secret storage,
-   usually a root-owned token file on headless devboxes.
-2. Keep raw tokens out of shell startup, launchd plists, process-compose YAML,
-   tracked files, and long-lived interactive shells.
-3. Sync one 1Password item whose env-shaped fields render the generated dotenv.
-4. Write the generated dotenv under `/var/db/uinaf/devbox-env/<identity>/`,
-   readable only by the target service user.
-5. Start services with the generated env file.
+For services:
 
-Personal laptops can use the 1Password desktop app and manual approval.
-Headless devboxes should use narrowly scoped service accounts loaded only by
-wrappers.
+1. Authenticate Infisical CLI for the target human or agent identity.
+2. Keep raw service tokens out of shell startup, launchd plists,
+   process-compose YAML, tracked files, and long-lived interactive shells.
+3. Prefer `infisical run -- <command>` or an equivalent narrow wrapper at the
+   process boundary instead of repo-managed generated dotenv files.
+4. Keep any identity-specific Infisical project, environment, or path values in
+   local owner-only config, not in this repo.
+5. Start services with process-compose using explicit secret-manager commands
+   or owner-only local config.
 
-## Vault Topology
+## Secret Topology
 
-Use vaults to model capability boundaries. A vault should answer "which runtime
-needs this secret?" rather than "which human knows about this project?"
+Use secret-manager projects and vaults to model capability boundaries. A
+boundary should answer "which runtime needs this secret?" rather than "which
+human knows about this project?"
 
 Use this generic split:
 
 | Context | Vault | Access |
 | --- | --- | --- |
-| Human operations | `<context>` | Humans only. |
-| Devbox agents | `<context>-devbox` | One service account for that devbox identity. |
+| Human operations | 1Password and Infisical | Humans only. |
+| Shared env | Infisical `<context>` project | Humans and approved agent identities. |
+| Devbox agents | Infisical identity scoped to the devbox user | Only that devbox identity. |
 | CI | `<context>-ci` | GitHub Actions or the relevant CI runtime only. |
 | Shared CI lane | `<lane>-ci` | Only the CI jobs for that lane. |
 
-Do not share service-account tokens across these vaults. CI, devbox agents, and
+Do not share service tokens across these boundaries. CI, devbox agents, and
 humans are different runtimes and should get different credentials even when
-they work on related projects.
-
-Store service-account tokens in a human/admin vault, not in the vault the token
-can read.
+they work on related projects. Store bootstrap/recovery credentials where
+humans can rotate them, not inside the same runtime scope the credential reads.
 
 ## Identity Boundaries
 
 Shared devboxes may host multiple agent identities. Keep their Unix users, Git
 identity, GitHub auth, SSH keys, Codex/Claude config, trusted project paths,
-workspaces, and 1Password vault access separate.
+workspaces, and Infisical access separate.
 
 The goal is to avoid ambient cross-context access. A compromised package,
 agent session, or service in one identity should not automatically get another
-identity's Slack, GitHub, CI, or 1Password capabilities.
+identity's Slack, GitHub, CI, or Infisical capabilities.
 
 If an identity needs access outside its normal context for a specific task,
 grant it explicitly and temporarily, then remove that access after the task.
 
-For GitHub, devbox repos should use SSH remotes. The per-user GitHub key should
-come from that identity's 1Password-backed SSH key material, exported to an
-owner-only local key file during bootstrap. Because the 1Password desktop SSH
-agent socket may not exist in SSH sessions, `configure-git.sh --profile devbox`
-writes a `Host github.com` override in `~/.ssh/config.local` when the signing
-key is a local path. That override uses the local key file directly and sets
-`IdentityAgent none` for GitHub only.
+For GitHub, devbox repos should use SSH remotes. A human should provision the
+per-user GitHub key into an owner-only local key file during bootstrap.
+`configure-git.sh --profile devbox` writes a `Host github.com` override in
+`~/.ssh/config.local` when the signing key is a local path. That override uses
+the local key file directly and sets `IdentityAgent none` for GitHub only.
 
 ## Local Contract
 
@@ -89,14 +89,12 @@ Each devbox user should have a local config file outside Git:
 ```sh
 UINAF_DEVBOX_USER=example
 UINAF_PROCESS_COMPOSE_SOCKET="/Users/example/.local/run/process-compose.sock"
-UINAF_OP_SERVICE_ACCOUNT_TOKEN_FILE="/var/db/uinaf/devbox-secrets/example/op-sa-token"
-UINAF_WORKSPACE_ENV_FILE="/var/db/uinaf/devbox-env/example/workspace.env"
-UINAF_WORKSPACE_ENV_LINK="/Users/example/projects/workspace/.env"
 ```
 
-The file should be mode `0600`. If a user needs 1Password item references,
-keep them in local config or 1Password, not in this repo. Omit
-`UINAF_WORKSPACE_ENV_LINK` when no workspace-local `.env` symlink is needed.
+The file should be mode `0600`. If a user needs Infisical
+project/environment selectors, keep them in local config or Infisical, not in
+this repo. Do not create repo-local workspace `.env` symlinks for
+agent/OpenClaw runtime env.
 
 If a devbox identity does not run process-compose, set
 `UINAF_PROCESS_COMPOSE_ENABLED=0` in its local config so verification does not
@@ -118,56 +116,7 @@ Prefer a per-user Unix socket over a shared localhost TCP port:
 Do not reuse another identity's process-compose port or socket.
 
 Do not put secrets directly into launchd plists or process-compose YAML. Use
-the root-owned refresh helper to turn `WORKSPACE_ENV` into the generated
-runtime env file.
-
-The generated env path should live outside user-writable directories, for
-example:
-
-```text
-/var/db/uinaf/devbox-env/<identity>/workspace.env
-```
-
-If a workspace needs a project-local dotenv file, use an explicit symlink to a
-workspace repo path such as `/Users/<user>/projects/<workspace>/.env`. The
-link must stay under the target user's home, its basename must be `.env`, and
-the workspace directory must already exist and ignore `.env` before the helper
-creates the link.
-
-The refresh helper logs live at `/var/log/uinaf-devbox-env-refresh.<identity>.*`
-and should be root-owned mode `0640`.
-
-Install the root-owned refresh helper with explicit local values:
-
-```zsh
-sudo ./scripts/secrets/install-env-refresh.sh \
-  --identity example \
-  --target-user example \
-  --op-account example.1password.com \
-  --op-vault example-devbox \
-  --link-file /Users/example/projects/workspace/.env \
-  --required-keys 'EXAMPLE_SERVICE_TOKEN'
-```
-
-Then install the service-account token at the path printed by the installer:
-
-```zsh
-op read 'op://<human-vault>/<service-account-token-item>/password' \
-  | sudo ./scripts/secrets/install-op-token.sh --identity example
-```
-
-The token file must be root-owned and mode `0400` or `0600`. By default, the
-helper reads `WORKSPACE_ENV` and writes env-shaped item fields into:
-
-```text
-/var/db/uinaf/devbox-env/<identity>/workspace.env
-```
-
-The generated file is owned by the target service user and mode `0400`.
-Workspace-specific API keys may live there when the workspace needs them. The
-helper does not block specific env names in generated output; use the root-owned
-token file for the 1Password service-account token unless the devbox identity is
-intentionally allowed to pass that token through its generated runtime env.
+Infisical at the command boundary for workspace/app env.
 
 ## Verification
 
@@ -187,9 +136,8 @@ Run the devbox-specific boundary check for each devbox user:
 ./scripts/verify/devbox-services.sh
 ```
 
-That check verifies process-compose, secret-file modes, default shell token
-exports, and the configured root-owned token file. Normal devbox users may not
-be able to see the root-owned token file; that is expected.
+That check verifies process-compose, default shell token exports, and Infisical
+CLI availability.
 
 Run the devbox security audit for each devbox user:
 
@@ -198,10 +146,8 @@ Run the devbox security audit for each devbox user:
 ```
 
 That audit is stricter than verification. It checks stale secret-looking
-backups, generated env drift, Git/GitHub identity, SSH key permissions, GitHub
-SSH auth, admin group drift, Tailscale health, and local service config.
-Generated workspace env files may contain expected runtime credentials, so the
-audit checks their boundary instead of secret-scanning their contents.
+backups, Git/GitHub identity, SSH key permissions, GitHub SSH auth, admin group
+drift, Tailscale health, and local service config.
 
 Treat prose audit output as sensitive. Maintained scanners can include matched
 secret material when they report a verified leak, so use `--json` for remote

@@ -2,6 +2,7 @@
 # Run through ./scripts/bootstrap/brew-bundle.sh so the shared Brewfile installs first.
 
 # Taps
+tap "1password/tap"
 tap "openclaw/tap"
 
 # Browsers and sync
@@ -11,6 +12,7 @@ cask "google-drive"
 
 # Auth and hardware security
 cask "1password"
+cask "1password-cli"
 cask "yubico-authenticator"
 brew "ykman"
 

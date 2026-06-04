@@ -4,7 +4,6 @@
 #   ./scripts/bootstrap/brew-bundle.sh devbox
 
 # Taps
-tap "1password/tap"
 tap "f1bonacc1/tap"
 tap "teamookla/speedtest"
 tap "uinaf/tap"
@@ -14,7 +13,6 @@ cask "ghostty"
 cask "font-fira-code-nerd-font"
 cask "zed"
 cask "google-chrome"
-cask "1password-cli"
 cask "codex"
 cask "claude-code@latest"
 
@@ -24,6 +22,7 @@ brew "gh"
 brew "chezmoi"
 brew "mise"
 brew "direnv"
+brew "infisical"
 brew "btop"
 brew "ripgrep"
 brew "git-crypt"

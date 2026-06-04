@@ -184,14 +184,14 @@ mise trust
 mise install
 ```
 
-The power step keeps plugged-in devboxes awake for agents, 1Password flows,
-remote access, and always-on dashboards. It leaves battery settings untouched
-and prompts for sudo instead of hiding system changes inside `install.sh`.
+The power step keeps plugged-in devboxes awake for agents, remote access, and
+always-on dashboards. It leaves battery settings untouched and prompts for sudo
+instead of hiding system changes inside `install.sh`.
 The Spotlight step is the same host-wide baseline used by personal Macs.
 
 Configure local Git identity from explicit values. Do not invent these for the
-user. On headless devboxes, prefer a local SSH key file exported from
-1Password over the 1Password GUI SSH agent:
+user. On headless devboxes, prefer a human-provisioned local SSH key file over
+GUI SSH agents:
 
 ```zsh
 GIT_USER_NAME='Devbox Name' \
@@ -200,25 +200,22 @@ GIT_SIGNING_KEY="$HOME/.ssh/devbox-key" \
   ./scripts/bootstrap/configure-git.sh --profile devbox --non-interactive
 ```
 
-Only set `OP_SSH_VAULT` when the 1Password SSH agent is installed and reachable
-from that shell/session.
+Only set `OP_SSH_VAULT` on human-operated machines where the 1Password SSH
+agent is installed and reachable from that shell/session.
 
 Devbox Git config writes identity and `/opt/homebrew` Git safe-directory state
 to `~/.gitconfig.local`, not to the tracked shared config. When
 `GIT_SIGNING_KEY` is a local private key path, devbox setup also writes a
 managed `Host github.com` block to `~/.ssh/config.local` so normal
 `git@github.com:...` remotes work over SSH in headless sessions without relying
-on the 1Password GUI agent socket. Use `GIT_SSH_IDENTITY_FILE` when GitHub SSH
-auth should use a different local key path than commit signing.
+on a GUI agent socket. Use `GIT_SSH_IDENTITY_FILE` when GitHub SSH auth should
+use a different local key path than commit signing.
 
 If the devbox runs long-lived workspace or agent services, follow
-[Devbox setup](devbox.md). The short version:
-
-1. Store the 1Password service-account token in machine-local secret storage.
-2. Use `scripts/secrets/install-env-refresh.sh` to install the root-owned env
-   refresh helper.
-3. Pipe the service-account token into `scripts/secrets/install-op-token.sh`.
-4. Run services from process-compose with generated owner-only env files.
+[Devbox setup](devbox.md). The short version: authenticate Infisical CLI for
+the target identity, keep long-lived service tokens out of default shells and
+process-compose YAML, and run services through process-compose with explicit
+secret-manager commands or local owner-only config.
 
 Verify each devbox user:
 
@@ -284,7 +281,8 @@ can hang.
   `configure-git.sh --profile devbox --non-interactive` with
   `GIT_SIGNING_KEY` or `GIT_SSH_IDENTITY_FILE` pointing at the exported
   1Password-backed private key.
-- If `op` works in the GUI but not SSH, check the devbox service-account flow
-  in [Devbox setup](devbox.md) instead of exporting the token in shell startup.
+- If shared env access is missing over SSH, check the Infisical/devbox contract
+  in [Devbox setup](devbox.md) instead of exporting service tokens in shell
+  startup.
 - If `codex` is not installed yet, `install.sh` skips Codex defaults; rerun it
   after installing the shared Brewfile.

@@ -6,17 +6,15 @@ devbox_user="${UINAF_DEVBOX_USER:-$USER}"
 process_compose_enabled="${UINAF_PROCESS_COMPOSE_ENABLED:-1}"
 process_compose_port="${UINAF_PROCESS_COMPOSE_PORT:-9191}"
 process_compose_socket="${UINAF_PROCESS_COMPOSE_SOCKET:-}"
-token_file="${UINAF_OP_SERVICE_ACCOUNT_TOKEN_FILE:-/var/db/uinaf/devbox-secrets/$devbox_user/op-sa-token}"
-workspace_env_file="${UINAF_WORKSPACE_ENV_FILE:-/var/db/uinaf/devbox-env/$devbox_user/workspace.env}"
-workspace_env_link="${UINAF_WORKSPACE_ENV_LINK:-}"
 
 usage() {
   cat <<'USAGE'
 Usage:
   scripts/verify/devbox-services.sh
 
-Checks devbox supervisor, secret-file, and 1Password-token boundaries for the
-current Unix user. Configure paths through ~/.config/uinaf/devbox.env or the
+Checks devbox supervisor, Infisical CLI availability, and default-shell token
+boundaries for the current Unix user. Configure process-compose through
+~/.config/uinaf/devbox.env or the
 UINAF_DEVBOX_* environment variables.
 USAGE
 }
@@ -84,22 +82,27 @@ check_config() {
     process_compose_enabled="${UINAF_PROCESS_COMPOSE_ENABLED:-$process_compose_enabled}"
     process_compose_port="${UINAF_PROCESS_COMPOSE_PORT:-$process_compose_port}"
     process_compose_socket="${UINAF_PROCESS_COMPOSE_SOCKET:-$process_compose_socket}"
-    token_file="${UINAF_OP_SERVICE_ACCOUNT_TOKEN_FILE:-$token_file}"
-    workspace_env_file="${UINAF_WORKSPACE_ENV_FILE:-$workspace_env_file}"
-    workspace_env_link="${UINAF_WORKSPACE_ENV_LINK:-$workspace_env_link}"
   else
     printf 'warn missing optional %s; using defaults\n' "$config_path"
   fi
 }
 
-check_no_default_token_export() {
+check_no_default_secret_exports() {
   section "default shell secret boundary"
 
-  if zsh -lic 'test -z "${OP_SERVICE_ACCOUNT_TOKEN+x}"'; then
-    printf 'ok OP_SERVICE_ACCOUNT_TOKEN is not exported by default login shell\n'
+  if zsh -lic 'test -z "${INFISICAL_TOKEN+x}"'; then
+    printf 'ok INFISICAL_TOKEN is not exported by default login shell\n'
   else
-    fail "OP_SERVICE_ACCOUNT_TOKEN is exported by the default login shell"
+    fail "INFISICAL_TOKEN is exported by the default login shell"
   fi
+}
+
+check_infisical() {
+  section "infisical"
+
+  command -v infisical >/dev/null || fail "missing infisical"
+  infisical --version >/dev/null || fail "infisical CLI does not run"
+  printf 'ok infisical installed\n'
 }
 
 check_process_compose() {
@@ -126,60 +129,9 @@ check_process_compose() {
   fi
 }
 
-check_secret_files() {
-  local env_dir
-  local link_target
-
-  section "secret file modes"
-
-  if [ -e "$workspace_env_file" ]; then
-    env_dir="$(dirname "$workspace_env_file")"
-    check_mode_any "$env_dir" 700 711
-    check_mode_any "$workspace_env_file" 400 600
-    printf 'ok generated workspace env mode is restricted\n'
-  else
-    printf 'warn missing %s; skip workspace env mode check\n' "$workspace_env_file"
-  fi
-
-  if [ -n "$workspace_env_link" ]; then
-    if [ -L "$workspace_env_link" ]; then
-      link_target="$(readlink "$workspace_env_link")"
-      [ "$link_target" = "$workspace_env_file" ] || fail "$workspace_env_link points to $link_target, expected $workspace_env_file"
-      printf 'ok %s points to generated workspace env\n' "$workspace_env_link"
-    elif [ -e "$workspace_env_link" ]; then
-      fail "$workspace_env_link must be a symlink"
-    else
-      fail "missing configured workspace env link: $workspace_env_link"
-    fi
-  else
-    printf 'ok no workspace env link configured\n'
-  fi
-}
-
-check_service_token_file() {
-  section "1Password service account token file"
-
-  if [ "$(id -u)" -ne 0 ] && [ ! -e "$token_file" ]; then
-    printf 'ok %s is not visible to this user; root-owned token storage is not exposed to the devbox shell\n' "$token_file"
-    return
-  fi
-
-  if [ -e "$token_file" ]; then
-    check_mode_any "$token_file" 400 600
-    if [ "$(stat -f '%Su' "$token_file")" = "root" ]; then
-      printf 'ok token file is root-owned\n'
-    else
-      fail "$token_file must be root-owned"
-    fi
-  else
-    fail "missing $token_file"
-  fi
-}
-
 check_config
-check_no_default_token_export
+check_no_default_secret_exports
+check_infisical
 check_process_compose
-check_secret_files
-check_service_token_file
 
 printf '\ndevbox verification ok\n'

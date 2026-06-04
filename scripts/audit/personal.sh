@@ -22,10 +22,9 @@ Options:
   -h, --help
 
 The script checks local secret boundaries, Git/GitHub identity state, SSH key
-permissions, Tailscale state, and whether devbox-only service-account state has
-drifted onto a personal setup. Treat prose scanner output as sensitive because
-maintained scanners can include matched secret material when they detect a leak.
-Use --json for compact remote collection.
+permissions, and Tailscale state. Treat prose scanner output as sensitive
+because maintained scanners can include matched secret material when they detect
+a leak. Use --json for compact remote collection.
 USAGE
 }
 
@@ -85,48 +84,24 @@ load_uinaf_audit_policy
 
 section "default shell secret boundary"
 
-if [ -z "${OP_SERVICE_ACCOUNT_TOKEN+x}" ]; then
-  ok "current shell does not export OP_SERVICE_ACCOUNT_TOKEN"
+if [ -z "${INFISICAL_TOKEN+x}" ]; then
+  ok "current shell does not export INFISICAL_TOKEN"
 else
-  fail_check "current shell exports OP_SERVICE_ACCOUNT_TOKEN"
+  fail_check "current shell exports INFISICAL_TOKEN"
 fi
 
 if [ "$json_output" -eq 1 ]; then
-  zsh_login_has_no_token="$(zsh -lic 'test -z "${OP_SERVICE_ACCOUNT_TOKEN+x}"' >/dev/null 2>&1; printf '%s' "$?")"
-elif zsh -lic 'test -z "${OP_SERVICE_ACCOUNT_TOKEN+x}"'; then
-  zsh_login_has_no_token=0
+  zsh_login_has_no_infisical_token="$(zsh -lic 'test -z "${INFISICAL_TOKEN+x}"' >/dev/null 2>&1; printf '%s' "$?")"
+elif zsh -lic 'test -z "${INFISICAL_TOKEN+x}"'; then
+  zsh_login_has_no_infisical_token=0
 else
-  zsh_login_has_no_token=1
+  zsh_login_has_no_infisical_token=1
 fi
 
-if [ "$zsh_login_has_no_token" = "0" ]; then
-  ok "login shell does not export OP_SERVICE_ACCOUNT_TOKEN"
+if [ "$zsh_login_has_no_infisical_token" = "0" ]; then
+  ok "login shell does not export INFISICAL_TOKEN"
 else
-  fail_check "login shell exports OP_SERVICE_ACCOUNT_TOKEN"
-fi
-
-section "devbox-only state"
-
-devbox_token_file="/var/db/uinaf/devbox-secrets/$USER/op-sa-token"
-devbox_env_file="/var/db/uinaf/devbox-env/$USER/workspace.env"
-legacy_devbox_env_file="/var/db/uinaf/devbox-env/$USER/openclaw.env"
-
-if [ -e "$devbox_token_file" ]; then
-  fail_check "personal setup has devbox service token path: $devbox_token_file"
-else
-  ok "no devbox service token path for $USER"
-fi
-
-if [ -e "$devbox_env_file" ]; then
-  fail_check "personal setup has generated devbox env path: $devbox_env_file"
-else
-  ok "no generated devbox env path for $USER"
-fi
-
-if [ -e "$legacy_devbox_env_file" ]; then
-  fail_check "personal setup has legacy generated devbox env path: $legacy_devbox_env_file"
-else
-  ok "no legacy generated devbox env path for $USER"
+  fail_check "login shell exports INFISICAL_TOKEN"
 fi
 
 section "local config file modes"

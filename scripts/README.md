@@ -8,7 +8,6 @@ Scripts are grouped by functionality:
 | `audit/` | Check-only security and drift audits for repo, host, personal, and devbox contexts. |
 | `bootstrap/` | Install and configure Homebrew, chezmoi dotfiles, Git, Codex, Chrome, and repos. |
 | `lib/` | Shared shell helpers used by scripts. |
-| `secrets/` | 1Password service-account token storage and generated env refresh helpers. |
 | `tizen/` | Samsung Tizen Studio install and certificate/profile archive helpers. |
 | `verify/` | Deterministic repo, bootstrap, and devbox service-boundary verification. |
 

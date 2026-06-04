@@ -16,7 +16,7 @@ flow to drive. Agent readiness means an agent can:
 | Bootable | pass | `scripts/bootstrap/brew-bundle.sh` installs shared plus profile bundles; `scripts/bootstrap/install.sh` applies the repo-local chezmoi source state and Codex defaults. | First-time macOS still needs Command Line Tools, Homebrew, and GitHub auth. |
 | Testable | pass | `scripts/verify/repo.sh` runs shell syntax, ShellCheck, Actionlint, diff hygiene, agent-entrypoint checks, and repo secret scans. | Live bootstrap checks require a matching personal or devbox Mac. |
 | Observable | pass | Verification and audit scripts print stable sectioned output; security audits also support compact `--json` summaries; CI exposes Verify and Secret scanning logs. | SARIF output is not generated yet. |
-| Verifiable | pass | `.github/workflows/verify.yml`, `.github/workflows/secrets.yml`, `scripts/verify/bootstrap.sh`, `scripts/verify/devbox-services.sh`, and audit scripts. | Host-local service and token checks cannot run meaningfully on GitHub-hosted CI. |
+| Verifiable | pass | `.github/workflows/verify.yml`, `.github/workflows/secrets.yml`, `scripts/verify/bootstrap.sh`, `scripts/verify/devbox-services.sh`, and audit scripts. | Host-local Infisical auth and service checks cannot run meaningfully on GitHub-hosted CI. |
 
 Overall grade: **B for a bootstrap repo**.
 
@@ -33,7 +33,7 @@ SARIF for tools that can emit it cleanly.
 | Install local push guard | `./scripts/bootstrap/install-git-hooks.sh` | Adds a pre-push hook that runs `scripts/verify/repo.sh --skip-security` before pushing. |
 | Personal Mac bootstrap | `mise run verify:bootstrap:personal` | Required CLIs, Homebrew bundle, mise, Codex defaults, and installed config exist on the live host. |
 | Devbox bootstrap | `mise run verify:bootstrap:devbox` | Shared/devbox CLIs, Homebrew bundle, mise, Codex defaults, and installed config exist on the live host. |
-| Devbox service boundary | `mise run verify:devbox-services` | process-compose and generated env/token boundaries match the local devbox contract. |
+| Devbox service boundary | `mise run verify:devbox-services` | process-compose and Infisical CLI availability match the local devbox contract. |
 | Devbox security drift | `mise run audit:devbox` | Secret boundaries, Git/GitHub identity, SSH key modes, admin drift, and Tailscale health are sane for that Unix user. |
 | Personal security drift | `mise run audit:personal` | Personal shell, Git, SSH, Codex, and local secret boundaries do not show obvious drift. |
 | Host hardening audit | `mise run audit:host` | Lynis runs as a maintained broad host scanner and reports hardening index, warnings, and suggestions. |
@@ -73,7 +73,7 @@ See [GitHub pipelines](github-pipelines.md) for triggers and non-goals.
 
 - No app boot command, seed data, browser e2e, or service health endpoint.
 - No automatic Lynis or mSCP remediation.
-- No tracked Codex state, browser profiles, service-account tokens, or generated
+- No tracked Codex state, browser profiles, service tokens, or repo-managed
   devbox env files.
 - No deploy or release pipeline unless the repo starts publishing an artifact.
 
