@@ -82,9 +82,9 @@ For always-on agent hosts, use the secret model in [Devbox setup](docs/devbox.md
 humans use both 1Password and Infisical, agents use Infisical only, and normal
 shells do not export long-lived service tokens. Devbox agents should use
 Infisical machine identities at the command boundary, not saved human
-Infisical CLI sessions. For SSH into managed hosts, prefer Infisical-issued
-short-lived SSH credentials; keep static agent keys in Infisical only for
-compatibility paths that still require ordinary SSH keys.
+Infisical CLI sessions. Agent SSH keys may live in Infisical under the devbox
+secret boundary and should be retrieved only into owner-only local key files or
+the command environment that needs them.
 
 ## Personalization
 

@@ -87,19 +87,23 @@ of this repo's devbox contract unless a separate setup decision explicitly adds
 them. If unattended refresh becomes necessary, document and verify that
 mechanism first.
 
-## Agent SSH Access
+## Agent SSH Key Storage
 
-For SSH into hosts that this workspace controls, prefer Infisical SSH
-certificate or PAM flows over shared long-lived private keys. The target state
-is:
+Devbox agent SSH keys may be stored as Infisical secrets. This keeps the key in
+the same human-plus-agent sharing system as runtime env while avoiding
+1Password service-account plumbing in agents.
 
-1. Register the host with Infisical SSH and configure `sshd` to trust the
-   Infisical-managed SSH certificate authority.
-2. Grant the devbox agent identity only the host/login-user access it needs.
-3. Connect with Infisical-issued short-lived SSH credentials, using the
-   machine identity token at command time.
+Use this shape:
 
-The command shape is:
+1. Store the private key under the devbox or agent secret boundary that needs
+   it.
+2. Store the public key, fingerprint, and key type beside it.
+3. Store a base64 copy when a shell or CLI path needs a single-line value.
+4. Grant the machine identity only the project/path it needs.
+5. Retrieve the key only into the command environment or an owner-only local
+   key file, then set mode `0600`.
+
+The retrieval command shape is:
 
 ```sh
 INFISICAL_TOKEN="$(
@@ -112,26 +116,24 @@ INFISICAL_TOKEN="$(
     --silent
 )"
 
-infisical ssh connect \
+infisical secrets get "$SSH_PRIVATE_KEY_B64_SECRET" \
   --domain https://eu.infisical.com/api \
   --token "$INFISICAL_TOKEN" \
-  --hostname "$SSH_HOSTNAME" \
-  --login-user "$SSH_LOGIN_USER"
+  --projectId "$INFISICAL_PROJECT_ID" \
+  --env "$INFISICAL_ENV" \
+  --path "$INFISICAL_SSH_SECRET_PATH" \
+  --plain \
+  --silent | base64 --decode > "$SSH_IDENTITY_FILE"
+
+chmod 600 "$SSH_IDENTITY_FILE"
+ssh-keygen -y -f "$SSH_IDENTITY_FILE" | ssh-keygen -lf -
 
 unset INFISICAL_TOKEN
 ```
 
-Static private keys are compatibility material, not the preferred host-login
-model. Store a static devbox agent key in Infisical only when a target still
-requires ordinary `authorized_keys`, GitHub SSH auth, or another legacy SSH
-flow. Keep human/recovery copies in a human vault, keep fingerprints and public
-metadata in docs, and do not commit private keys, generated SSH certificates,
-or host-specific Infisical selectors.
-
-References:
-
-- [Infisical SSH CLI](https://infisical.com/docs/cli/commands/ssh)
-- [Infisical PAM SSH resources](https://infisical.com/docs/documentation/platform/pam/getting-started/resources/ssh)
+Verify by fingerprint only. Do not print private keys, paste key values into
+chat, commit key material, or keep Infisical client secrets in shell startup,
+launchd, process-compose, tracked files, or long-lived shells.
 
 Before treating a devbox as agent-ready:
 
@@ -153,7 +155,7 @@ Use this generic split:
 | --- | --- | --- |
 | Human operations | 1Password and Infisical | Humans only. |
 | Shared env | Infisical `<context>` project | Humans and approved agent identities. |
-| Devbox agents | Infisical identity scoped to the devbox user | Env, short-lived SSH credentials, and compatibility key material for that devbox identity only. |
+| Devbox agents | Infisical identity scoped to the devbox user | Env and SSH key material for that devbox identity only. |
 | CI | `<context>-ci` | GitHub Actions or the relevant CI runtime only. |
 | Shared CI lane | `<lane>-ci` | Only the CI jobs for that lane. |
 
