@@ -197,7 +197,7 @@ Each devbox user should have a local config file outside Git:
 
 ```sh
 UINAF_DEVBOX_USER=example
-UINAF_PROCESS_COMPOSE_SOCKET="/Users/example/.local/run/process-compose.sock"
+PROCESS_COMPOSE_SOCKET="/Users/example/.local/run/process-compose.sock"
 ```
 
 The file should be mode `0600`. Keep Infisical selectors and credentials out
@@ -205,7 +205,7 @@ of this repo. Do not create repo-local workspace `.env` symlinks for
 agent/OpenClaw runtime env.
 
 If a devbox identity does not run process-compose, set
-`UINAF_PROCESS_COMPOSE_ENABLED=0` in its local config so verification does not
+`PROCESS_COMPOSE_ENABLED=0` in its local config so verification does not
 accidentally query another user's supervisor.
 
 ## Supervisor

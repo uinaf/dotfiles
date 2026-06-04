@@ -3,9 +3,9 @@ set -euo pipefail
 
 config_path="${UINAF_DEVBOX_CONFIG:-$HOME/.config/uinaf/devbox.env}"
 devbox_user="${UINAF_DEVBOX_USER:-$USER}"
-process_compose_enabled="${UINAF_PROCESS_COMPOSE_ENABLED:-1}"
-process_compose_port="${UINAF_PROCESS_COMPOSE_PORT:-9191}"
-process_compose_socket="${UINAF_PROCESS_COMPOSE_SOCKET:-}"
+process_compose_enabled="${PROCESS_COMPOSE_ENABLED:-1}"
+process_compose_port="${PROCESS_COMPOSE_PORT:-9191}"
+process_compose_socket="${PROCESS_COMPOSE_SOCKET:-}"
 infisical_domain="${INFISICAL_DOMAIN:-https://eu.infisical.com/api}"
 json_output=0
 warn_count=0
@@ -362,9 +362,9 @@ if [ -e "$config_path" ]; then
   # shellcheck disable=SC1090
   . "$config_path"
   devbox_user="${UINAF_DEVBOX_USER:-$devbox_user}"
-  process_compose_enabled="${UINAF_PROCESS_COMPOSE_ENABLED:-$process_compose_enabled}"
-  process_compose_port="${UINAF_PROCESS_COMPOSE_PORT:-$process_compose_port}"
-  process_compose_socket="${UINAF_PROCESS_COMPOSE_SOCKET:-$process_compose_socket}"
+  process_compose_enabled="${PROCESS_COMPOSE_ENABLED:-$process_compose_enabled}"
+  process_compose_port="${PROCESS_COMPOSE_PORT:-$process_compose_port}"
+  process_compose_socket="${PROCESS_COMPOSE_SOCKET:-$process_compose_socket}"
   infisical_domain="${INFISICAL_DOMAIN:-$infisical_domain}"
 else
   warn "missing optional $config_path; using defaults"
@@ -438,7 +438,7 @@ elif [ -n "$process_compose_socket" ]; then
     fail_check "process-compose is not responding on socket $process_compose_socket"
   fi
 else
-  warn "using process-compose TCP port; prefer UINAF_PROCESS_COMPOSE_SOCKET"
+  warn "using process-compose TCP port; prefer PROCESS_COMPOSE_SOCKET"
   if process-compose --port "$process_compose_port" process list >/dev/null 2>&1; then
     ok "process-compose responds on port $process_compose_port"
   else
