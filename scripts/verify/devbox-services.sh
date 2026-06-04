@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 config_path="${UINAF_DEVBOX_CONFIG:-$HOME/.config/uinaf/devbox.env}"
 machine_config_path="${INFISICAL_MACHINE_CONFIG:-$HOME/.config/uinaf/infisical-machine.env}"
-machine_auth_required="${INFISICAL_MACHINE_AUTH_REQUIRED:-0}"
+machine_auth_required="${INFISICAL_MACHINE_AUTH_REQUIRED:-1}"
 devbox_user="${UINAF_DEVBOX_USER:-$USER}"
 process_compose_enabled="${PROCESS_COMPOSE_ENABLED:-1}"
 process_compose_port="${PROCESS_COMPOSE_PORT:-9191}"
@@ -12,6 +13,9 @@ infisical_domain="${INFISICAL_DOMAIN:-https://eu.infisical.com/api}"
 infisical_project_id="${INFISICAL_PROJECT_ID:-}"
 infisical_env="${INFISICAL_ENV:-dev}"
 infisical_secret_path="${INFISICAL_SECRET_PATH:-}"
+
+# shellcheck source=scripts/lib/infisical.sh
+. "$repo_root/scripts/lib/infisical.sh"
 
 usage() {
   cat <<'USAGE'
@@ -96,6 +100,9 @@ check_config() {
     infisical_env="${INFISICAL_ENV:-$infisical_env}"
     infisical_secret_path="${INFISICAL_SECRET_PATH:-$infisical_secret_path}"
   else
+    if [ "$machine_auth_required" = "1" ]; then
+      fail "missing $config_path"
+    fi
     printf 'warn missing optional %s; using defaults\n' "$config_path"
   fi
 }
@@ -113,6 +120,7 @@ check_no_default_secret_exports() {
 load_machine_config() {
   if [ -e "$machine_config_path" ]; then
     check_mode "$machine_config_path" 600
+    unset INFISICAL_MACHINE_IDENTITY INFISICAL_CLIENT_ID INFISICAL_CLIENT_SECRET
     # shellcheck disable=SC1090
     . "$machine_config_path"
     printf 'ok loaded Infisical machine config\n'
@@ -136,22 +144,21 @@ check_infisical() {
   infisical --version >/dev/null || fail "infisical CLI does not run"
   printf 'ok infisical installed\n'
 
-  set +e
-  status_json="$(infisical login status --domain "$infisical_domain" --json 2>/dev/null)"
-  status_exit=$?
-  set -e
-  if [ -z "$status_json" ] || ! printf '%s\n' "$status_json" | grep -q '"sessions"'; then
+  infisical_capture_login_status "$infisical_domain"
+  status_json="$INFISICAL_LOGIN_STATUS_JSON"
+  status_exit="$INFISICAL_LOGIN_STATUS_EXIT"
+  if [ -z "$status_json" ] || ! infisical_status_has_sessions; then
     fail "could not inspect Infisical login status"
   fi
-  if printf '%s\n' "$status_json" \
-    | tr -d '\n' \
-    | grep -Eq '"principalType"[[:space:]]*:[[:space:]]*"user"[^}]*"status"[[:space:]]*:[[:space:]]*"authenticated"|"status"[[:space:]]*:[[:space:]]*"authenticated"[^}]*"principalType"[[:space:]]*:[[:space:]]*"user"'; then
+  if infisical_status_has_authenticated_human_user; then
     fail "Infisical CLI has an authenticated human user session"
   fi
   if [ "$status_exit" -eq 0 ]; then
     printf 'ok no authenticated Infisical human user session\n'
+  elif infisical_status_has_only_inactive_sessions; then
+    printf 'ok no authenticated Infisical human user session; CLI returned nonzero for inactive session state\n'
   else
-    printf 'ok no authenticated Infisical human user session; status returned nonzero for inactive/expired session\n'
+    fail "could not verify Infisical login status session state"
   fi
 
   load_machine_config
@@ -172,15 +179,8 @@ check_infisical() {
     return
   fi
 
-  access_token="$(
-    infisical login \
-      --domain "$infisical_domain" \
-      --method=universal-auth \
-      --client-id "$INFISICAL_CLIENT_ID" \
-      --client-secret "$INFISICAL_CLIENT_SECRET" \
-      --plain \
-      --silent
-  )" || fail "could not mint Infisical machine identity token"
+  access_token="$(infisical_mint_machine_token "$infisical_domain" "$INFISICAL_CLIENT_ID" "$INFISICAL_CLIENT_SECRET")" \
+    || fail "could not mint Infisical machine identity token"
 
   infisical export \
     --domain "$infisical_domain" \

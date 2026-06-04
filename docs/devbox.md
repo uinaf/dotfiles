@@ -155,13 +155,14 @@ Before treating a devbox as agent-ready:
 1. Verify the machine identity can list or export the intended project/path.
 2. Verify `infisical login status --domain https://eu.infisical.com/api` has no
    authenticated `user` session.
-3. Verify no default shell exports `INFISICAL_TOKEN`.
+3. Verify no default shell exports Infisical tokens or machine credentials.
 4. Verify runtime dotenv files are owner-only and are not workspace symlinks.
 
 `./scripts/verify/devbox-services.sh` checks the Infisical CLI, local
-runtime-file boundary, owner-only config modes, and machine identity access.
-Set `INFISICAL_MACHINE_AUTH_REQUIRED=1` when a missing persistent machine
-identity config should fail instead of warn.
+runtime-file boundary, owner-only config modes, and machine identity access. A
+missing persistent machine identity config fails by default. Set
+`INFISICAL_MACHINE_AUTH_REQUIRED=0` only for repo-local smoke checks on a
+machine that is not acting as an agent devbox.
 
 ## Secret Topology
 

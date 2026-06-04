@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-config_path="${INFISICAL_DEVBOX_CONFIG:-$HOME/.config/uinaf/devbox.env}"
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+config_path="${UINAF_DEVBOX_CONFIG:-$HOME/.config/uinaf/devbox.env}"
 machine_config_path="${INFISICAL_MACHINE_CONFIG:-$HOME/.config/uinaf/infisical-machine.env}"
+
+# shellcheck source=scripts/lib/infisical.sh
+. "$repo_root/scripts/lib/infisical.sh"
 
 usage() {
   cat <<'USAGE'
@@ -35,20 +39,16 @@ load_required_config() {
 
 check_no_human_infisical_session() {
   local domain="$1"
-  local status_json
 
-  set +e
-  status_json="$(infisical login status --domain "$domain" --json 2>/dev/null)"
-  set -e
-
-  [ -n "$status_json" ] || fail "could not inspect Infisical login status"
-  printf '%s\n' "$status_json" | grep -q '"sessions"' \
+  infisical_capture_login_status "$domain"
+  [ -n "$INFISICAL_LOGIN_STATUS_JSON" ] || fail "could not inspect Infisical login status"
+  infisical_status_has_sessions \
     || fail "could not inspect Infisical login status"
-
-  if printf '%s\n' "$status_json" \
-    | tr -d '\n' \
-    | grep -Eq '"principalType"[[:space:]]*:[[:space:]]*"user"[^}]*"status"[[:space:]]*:[[:space:]]*"authenticated"|"status"[[:space:]]*:[[:space:]]*"authenticated"[^}]*"principalType"[[:space:]]*:[[:space:]]*"user"'; then
+  if infisical_status_has_authenticated_human_user; then
     fail "Infisical CLI has an authenticated human user session"
+  fi
+  if [ "$INFISICAL_LOGIN_STATUS_EXIT" -ne 0 ] && ! infisical_status_has_only_inactive_sessions; then
+    fail "could not verify Infisical login status session state"
   fi
 }
 
@@ -75,6 +75,7 @@ command -v infisical >/dev/null || fail "missing infisical"
 infisical --version >/dev/null || fail "infisical CLI does not run"
 
 load_required_config "$config_path"
+unset INFISICAL_MACHINE_IDENTITY INFISICAL_CLIENT_ID INFISICAL_CLIENT_SECRET
 load_required_config "$machine_config_path"
 
 if [ -n "$override_infisical_domain" ]; then
@@ -100,15 +101,8 @@ fi
 
 check_no_human_infisical_session "$INFISICAL_DOMAIN"
 
-infisical_token="$(
-  infisical login \
-    --domain "$INFISICAL_DOMAIN" \
-    --method=universal-auth \
-    --client-id "$INFISICAL_CLIENT_ID" \
-    --client-secret "$INFISICAL_CLIENT_SECRET" \
-    --plain \
-    --silent
-)" || fail "could not mint Infisical machine identity token"
+infisical_token="$(infisical_mint_machine_token "$INFISICAL_DOMAIN" "$INFISICAL_CLIENT_ID" "$INFISICAL_CLIENT_SECRET")" \
+  || fail "could not mint Infisical machine identity token"
 
 trap 'unset infisical_token INFISICAL_TOKEN INFISICAL_CLIENT_ID INFISICAL_CLIENT_SECRET' EXIT
 set +e

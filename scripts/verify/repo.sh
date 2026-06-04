@@ -87,6 +87,9 @@ section "shellcheck"
 } | xargs -0 shellcheck
 printf 'ok shellcheck\n'
 
+section "infisical devbox auth behavior"
+./scripts/verify/infisical-devbox-auth.sh
+
 if [ -d .github/workflows ]; then
   section "github workflows"
   actionlint

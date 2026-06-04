@@ -16,6 +16,8 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 # shellcheck source=scripts/lib/audit.sh
 . "$repo_root/scripts/lib/audit.sh"
+# shellcheck source=scripts/lib/infisical.sh
+. "$repo_root/scripts/lib/infisical.sh"
 
 usage() {
   cat <<'USAGE'
@@ -409,20 +411,19 @@ if command -v infisical >/dev/null 2>&1; then
   infisical_status_exit=0
   ok "infisical CLI is installed"
 
-  set +e
-  infisical_status_json="$(infisical login status --domain "$infisical_domain" --json 2>/dev/null)"
-  infisical_status_exit=$?
-  set -e
-  if [ -z "$infisical_status_json" ] || ! printf '%s\n' "$infisical_status_json" | grep -q '"sessions"'; then
+  infisical_capture_login_status "$infisical_domain"
+  infisical_status_json="$INFISICAL_LOGIN_STATUS_JSON"
+  infisical_status_exit="$INFISICAL_LOGIN_STATUS_EXIT"
+  if [ -z "$infisical_status_json" ] || ! infisical_status_has_sessions; then
     fail_check "could not inspect Infisical login status"
-  elif printf '%s\n' "$infisical_status_json" \
-    | tr -d '\n' \
-    | grep -Eq '"principalType"[[:space:]]*:[[:space:]]*"user"[^}]*"status"[[:space:]]*:[[:space:]]*"authenticated"|"status"[[:space:]]*:[[:space:]]*"authenticated"[^}]*"principalType"[[:space:]]*:[[:space:]]*"user"'; then
+  elif infisical_status_has_authenticated_human_user; then
     fail_check "Infisical CLI has an authenticated human user session"
   elif [ "$infisical_status_exit" -eq 0 ]; then
     ok "no authenticated Infisical human user session"
+  elif infisical_status_has_only_inactive_sessions; then
+    ok "no authenticated Infisical human user session; CLI returned nonzero for inactive session state"
   else
-    ok "no authenticated Infisical human user session; status returned nonzero for inactive/expired session"
+    fail_check "could not verify Infisical login status session state"
   fi
 else
   fail_check "infisical CLI is missing"
