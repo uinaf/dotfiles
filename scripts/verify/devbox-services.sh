@@ -6,6 +6,10 @@ devbox_user="${UINAF_DEVBOX_USER:-$USER}"
 process_compose_enabled="${UINAF_PROCESS_COMPOSE_ENABLED:-1}"
 process_compose_port="${UINAF_PROCESS_COMPOSE_PORT:-9191}"
 process_compose_socket="${UINAF_PROCESS_COMPOSE_SOCKET:-}"
+infisical_domain="${UINAF_INFISICAL_DOMAIN:-https://eu.infisical.com/api}"
+infisical_project_id="${UINAF_INFISICAL_PROJECT_ID:-}"
+infisical_env="${UINAF_INFISICAL_ENV:-dev}"
+infisical_secret_path="${UINAF_INFISICAL_SECRET_PATH:-}"
 
 usage() {
   cat <<'USAGE'
@@ -41,6 +45,10 @@ fail() {
 
 mode_of() {
   stat -f '%Lp' "$1"
+}
+
+owner_of() {
+  stat -f '%Su' "$1"
 }
 
 check_mode() {
@@ -82,6 +90,10 @@ check_config() {
     process_compose_enabled="${UINAF_PROCESS_COMPOSE_ENABLED:-$process_compose_enabled}"
     process_compose_port="${UINAF_PROCESS_COMPOSE_PORT:-$process_compose_port}"
     process_compose_socket="${UINAF_PROCESS_COMPOSE_SOCKET:-$process_compose_socket}"
+    infisical_domain="${UINAF_INFISICAL_DOMAIN:-$infisical_domain}"
+    infisical_project_id="${UINAF_INFISICAL_PROJECT_ID:-$infisical_project_id}"
+    infisical_env="${UINAF_INFISICAL_ENV:-$infisical_env}"
+    infisical_secret_path="${UINAF_INFISICAL_SECRET_PATH:-$infisical_secret_path}"
   else
     printf 'warn missing optional %s; using defaults\n' "$config_path"
   fi
@@ -99,18 +111,78 @@ check_no_default_secret_exports() {
 
 check_infisical() {
   section "infisical"
+  local status_json
+  local status_exit=0
+  local access_token
 
   command -v infisical >/dev/null || fail "missing infisical"
   infisical --version >/dev/null || fail "infisical CLI does not run"
   printf 'ok infisical installed\n'
 
-  status_json="$(infisical login status --domain https://eu.infisical.com/api --json 2>/dev/null || true)"
+  set +e
+  status_json="$(infisical login status --domain "$infisical_domain" --json 2>/dev/null)"
+  status_exit=$?
+  set -e
+  if [ -z "$status_json" ] || ! printf '%s\n' "$status_json" | grep -q '"sessions"'; then
+    fail "could not inspect Infisical login status"
+  fi
   if printf '%s\n' "$status_json" \
     | tr -d '\n' \
     | grep -Eq '"principalType"[[:space:]]*:[[:space:]]*"user"[^}]*"status"[[:space:]]*:[[:space:]]*"authenticated"|"status"[[:space:]]*:[[:space:]]*"authenticated"[^}]*"principalType"[[:space:]]*:[[:space:]]*"user"'; then
     fail "Infisical CLI has an authenticated human user session"
   fi
-  printf 'ok no authenticated Infisical human user session\n'
+  if [ "$status_exit" -eq 0 ]; then
+    printf 'ok no authenticated Infisical human user session\n'
+  else
+    printf 'ok no authenticated Infisical human user session; status returned nonzero for inactive/expired session\n'
+  fi
+
+  if [ -z "${INFISICAL_CLIENT_ID:-}" ] \
+    || [ -z "${INFISICAL_CLIENT_SECRET:-}" ] \
+    || [ -z "$infisical_project_id" ] \
+    || [ -z "$infisical_secret_path" ]; then
+    printf 'warn skipped Infisical machine identity path proof; set INFISICAL_CLIENT_ID, INFISICAL_CLIENT_SECRET, UINAF_INFISICAL_PROJECT_ID, and UINAF_INFISICAL_SECRET_PATH in the current shell\n'
+    return
+  fi
+
+  access_token="$(
+    infisical login \
+      --domain "$infisical_domain" \
+      --method=universal-auth \
+      --client-id "$INFISICAL_CLIENT_ID" \
+      --client-secret "$INFISICAL_CLIENT_SECRET" \
+      --plain \
+      --silent
+  )" || fail "could not mint Infisical machine identity token"
+
+  infisical secrets get \
+    --domain "$infisical_domain" \
+    --token "$access_token" \
+    --projectId "$infisical_project_id" \
+    --env "$infisical_env" \
+    --path "$infisical_secret_path" \
+    --output json \
+    --silent >/dev/null \
+    || fail "Infisical machine identity cannot read $infisical_secret_path"
+  printf 'ok Infisical machine identity can read %s\n' "$infisical_secret_path"
+}
+
+check_openclaw_runtime_env() {
+  local env_file="$HOME/.openclaw/.env"
+  local env_owner
+
+  section "OpenClaw runtime env boundary"
+
+  if [ ! -e "$env_file" ]; then
+    printf 'warn missing optional %s\n' "$env_file"
+    return
+  fi
+
+  [ ! -L "$env_file" ] || fail "$env_file must be a direct file, not a symlink"
+  check_mode "$env_file" 600
+  env_owner="$(owner_of "$env_file")"
+  [ "$env_owner" = "$devbox_user" ] || fail "$env_file owner is $env_owner, expected $devbox_user"
+  printf 'ok %s owner %s\n' "$env_file" "$env_owner"
 }
 
 check_process_compose() {
@@ -140,6 +212,7 @@ check_process_compose() {
 check_config
 check_no_default_secret_exports
 check_infisical
+check_openclaw_runtime_env
 check_process_compose
 
 printf '\ndevbox verification ok\n'

@@ -76,7 +76,7 @@ infisical export \
   --output-file "$HOME/.openclaw/.env" \
   --silent
 
-unset INFISICAL_TOKEN
+unset INFISICAL_TOKEN INFISICAL_CLIENT_ID INFISICAL_CLIENT_SECRET
 ```
 
 For non-OpenClaw services, replace the output file with the runtime-specific
@@ -128,7 +128,7 @@ infisical secrets get "$SSH_PRIVATE_KEY_B64_SECRET" \
 chmod 600 "$SSH_IDENTITY_FILE"
 ssh-keygen -y -f "$SSH_IDENTITY_FILE" | ssh-keygen -lf -
 
-unset INFISICAL_TOKEN
+unset INFISICAL_TOKEN INFISICAL_CLIENT_ID INFISICAL_CLIENT_SECRET
 ```
 
 Verify by fingerprint only. Do not print private keys, paste key values into
@@ -142,6 +142,14 @@ Before treating a devbox as agent-ready:
    authenticated `user` session.
 3. Verify no default shell exports `INFISICAL_TOKEN`.
 4. Verify runtime dotenv files are owner-only and are not workspace symlinks.
+
+`./scripts/verify/devbox-services.sh` checks the Infisical CLI and local
+runtime-file boundary. It also proves machine identity path access when
+`INFISICAL_CLIENT_ID`, `INFISICAL_CLIENT_SECRET`,
+`UINAF_INFISICAL_PROJECT_ID`, and `UINAF_INFISICAL_SECRET_PATH` are provided in
+the current shell. Keep those values in the operator's secret manager and pass
+them through a deliberate human handoff; do not save them in this repo or
+default shell startup.
 
 ## Secret Topology
 

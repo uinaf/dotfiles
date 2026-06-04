@@ -282,8 +282,8 @@ can hang.
   `configure-git.sh` for the correct profile.
 - If `git@github.com` fails on a devbox but the key is present, rerun
   `configure-git.sh --profile devbox --non-interactive` with
-  `GIT_SIGNING_KEY` or `GIT_SSH_IDENTITY_FILE` pointing at the exported
-  1Password-backed private key.
+  `GIT_SIGNING_KEY` or `GIT_SSH_IDENTITY_FILE` pointing at the owner-only local
+  private key file.
 - If shared env access is missing over SSH, check the Infisical/devbox contract
   in [Devbox setup](devbox.md) instead of exporting service tokens in shell
   startup.

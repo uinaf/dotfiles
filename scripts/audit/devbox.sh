@@ -6,6 +6,7 @@ devbox_user="${UINAF_DEVBOX_USER:-$USER}"
 process_compose_enabled="${UINAF_PROCESS_COMPOSE_ENABLED:-1}"
 process_compose_port="${UINAF_PROCESS_COMPOSE_PORT:-9191}"
 process_compose_socket="${UINAF_PROCESS_COMPOSE_SOCKET:-}"
+infisical_domain="${UINAF_INFISICAL_DOMAIN:-https://eu.infisical.com/api}"
 json_output=0
 warn_count=0
 fail_count=0
@@ -66,7 +67,7 @@ emit_app_runtime_boundary_files() {
       -o -path "$HOME/.openclaw/service-env" \
       -o -path '*/node_modules' \
       -o -path '*/.tmp' \) -prune \
-    -o -type f \( -name '*.env' -o -name '*.bak' -o -name '*.last-good' \)
+    -o -type f \( -name '*.bak' -o -name '*.last-good' -o -name '*.env.*' \)
 }
 
 emit_devbox_secret_scan_paths() {
@@ -160,6 +161,35 @@ check_app_service_env_boundary() {
       fail_check "$service_env_file owner is $env_owner, expected $devbox_user"
     fi
   done < <(find "$service_env_dir" -maxdepth 1 -type f -name '*.env' -print 2>/dev/null | sort)
+}
+
+check_openclaw_runtime_env_boundary() {
+  local env_file="$HOME/.openclaw/.env"
+  local env_owner
+
+  section "OpenClaw runtime env boundary"
+
+  if [ ! -e "$env_file" ]; then
+    if [ -e "$HOME/.openclaw" ]; then
+      warn "OpenClaw state exists but $env_file is missing"
+    else
+      ok "no optional OpenClaw runtime env file"
+    fi
+    return
+  fi
+
+  if [ -L "$env_file" ]; then
+    fail_check "$env_file must be a direct file, not a symlink"
+    return
+  fi
+
+  check_mode_any fail "$env_file" 600
+  env_owner="$(owner_of "$env_file")"
+  if [ "$env_owner" = "$devbox_user" ]; then
+    ok "$env_file owner $env_owner"
+  else
+    fail_check "$env_file owner is $env_owner, expected $devbox_user"
+  fi
 }
 
 emit_openclaw_owned_paths() {
@@ -335,6 +365,7 @@ if [ -e "$config_path" ]; then
   process_compose_enabled="${UINAF_PROCESS_COMPOSE_ENABLED:-$process_compose_enabled}"
   process_compose_port="${UINAF_PROCESS_COMPOSE_PORT:-$process_compose_port}"
   process_compose_socket="${UINAF_PROCESS_COMPOSE_SOCKET:-$process_compose_socket}"
+  infisical_domain="${UINAF_INFISICAL_DOMAIN:-$infisical_domain}"
 else
   warn "missing optional $config_path; using defaults"
 fi
@@ -372,15 +403,23 @@ fi
 section "infisical"
 
 if command -v infisical >/dev/null 2>&1; then
+  infisical_status_exit=0
   ok "infisical CLI is installed"
 
-  infisical_status_json="$(infisical login status --domain https://eu.infisical.com/api --json 2>/dev/null || true)"
-  if printf '%s\n' "$infisical_status_json" \
+  set +e
+  infisical_status_json="$(infisical login status --domain "$infisical_domain" --json 2>/dev/null)"
+  infisical_status_exit=$?
+  set -e
+  if [ -z "$infisical_status_json" ] || ! printf '%s\n' "$infisical_status_json" | grep -q '"sessions"'; then
+    fail_check "could not inspect Infisical login status"
+  elif printf '%s\n' "$infisical_status_json" \
     | tr -d '\n' \
     | grep -Eq '"principalType"[[:space:]]*:[[:space:]]*"user"[^}]*"status"[[:space:]]*:[[:space:]]*"authenticated"|"status"[[:space:]]*:[[:space:]]*"authenticated"[^}]*"principalType"[[:space:]]*:[[:space:]]*"user"'; then
     fail_check "Infisical CLI has an authenticated human user session"
-  else
+  elif [ "$infisical_status_exit" -eq 0 ]; then
     ok "no authenticated Infisical human user session"
+  else
+    ok "no authenticated Infisical human user session; status returned nonzero for inactive/expired session"
   fi
 else
   fail_check "infisical CLI is missing"
@@ -418,6 +457,7 @@ if [ -e "$HOME/.docker/config.json" ]; then
 fi
 
 check_app_service_env_boundary
+check_openclaw_runtime_env_boundary
 check_openclaw_drift
 
 section "Codex trust boundaries"
