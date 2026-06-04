@@ -171,16 +171,23 @@ check_infisical() {
     return
   fi
 
-  if [ -z "$infisical_project_id" ] || [ -z "$infisical_secret_path" ]; then
+  if [ -z "$infisical_project_id" ]; then
     if [ "$machine_auth_required" = "1" ]; then
-      fail "missing INFISICAL_PROJECT_ID or INFISICAL_SECRET_PATH"
+      fail "missing INFISICAL_PROJECT_ID"
     fi
-    printf 'warn skipped Infisical machine identity path proof; set INFISICAL_PROJECT_ID and INFISICAL_SECRET_PATH in %s\n' "$config_path"
+    printf 'warn skipped Infisical machine identity token proof; set INFISICAL_PROJECT_ID in %s\n' "$config_path"
     return
   fi
 
   access_token="$(infisical_mint_machine_token "$infisical_domain" "$INFISICAL_CLIENT_ID" "$INFISICAL_CLIENT_SECRET")" \
     || fail "could not mint Infisical machine identity token"
+
+  printf 'ok Infisical machine identity can mint token for project %s\n' "$infisical_project_id"
+
+  if [ -z "$infisical_secret_path" ]; then
+    printf 'warn skipped Infisical path proof; set INFISICAL_SECRET_PATH for a command-boundary path check\n'
+    return
+  fi
 
   infisical export \
     --domain "$infisical_domain" \

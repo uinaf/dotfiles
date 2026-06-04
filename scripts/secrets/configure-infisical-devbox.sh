@@ -14,7 +14,7 @@ Usage:
   scripts/secrets/configure-infisical-devbox.sh
 
 Prompts for Infisical machine identity settings, verifies the machine identity
-can read the selected secret path, then writes owner-only local config files.
+can mint a token, then writes owner-only local config files.
 USAGE
 }
 
@@ -109,7 +109,6 @@ write_devbox_config() {
     quote_assignment INFISICAL_DOMAIN "$infisical_domain"
     quote_assignment INFISICAL_PROJECT_ID "$infisical_project_id"
     quote_assignment INFISICAL_ENV "$infisical_env"
-    quote_assignment INFISICAL_SECRET_PATH "$infisical_secret_path"
   } >> "$tmp_path"
 }
 
@@ -147,7 +146,6 @@ printf 'Configuring Infisical devbox machine auth. Press Enter to accept default
 infisical_domain="$(prompt_value "Infisical domain" "${INFISICAL_DOMAIN:-https://eu.infisical.com/api}")"
 infisical_project_id="$(prompt_value "Infisical project ID" "${INFISICAL_PROJECT_ID:-}")"
 infisical_env="$(prompt_value "Infisical env" "${INFISICAL_ENV:-dev}")"
-infisical_secret_path="$(prompt_value "Default secret path" "${INFISICAL_SECRET_PATH:-}")"
 infisical_machine_identity="$(prompt_value "Machine identity name" "${INFISICAL_MACHINE_IDENTITY:-}")"
 infisical_client_id="$(prompt_value "Machine identity client ID" "${INFISICAL_CLIENT_ID:-}")"
 infisical_client_secret="$(prompt_secret "Machine identity client secret")"
@@ -155,24 +153,13 @@ infisical_client_secret="$(prompt_secret "Machine identity client secret")"
 [ -n "$infisical_domain" ] || fail "Infisical domain is required"
 [ -n "$infisical_project_id" ] || fail "Infisical project ID is required"
 [ -n "$infisical_env" ] || fail "Infisical env is required"
-[ -n "$infisical_secret_path" ] || fail "Default secret path is required"
 [ -n "$infisical_client_id" ] || fail "Machine identity client ID is required"
 [ -n "$infisical_client_secret" ] || fail "Machine identity client secret is required"
 
 check_no_human_infisical_session "$infisical_domain"
 
-infisical_token="$(infisical_mint_machine_token "$infisical_domain" "$infisical_client_id" "$infisical_client_secret")" \
+infisical_mint_machine_token "$infisical_domain" "$infisical_client_id" "$infisical_client_secret" >/dev/null \
   || fail "could not mint Infisical machine identity token"
-
-infisical export \
-  --domain "$infisical_domain" \
-  --token "$infisical_token" \
-  --projectId "$infisical_project_id" \
-  --env "$infisical_env" \
-  --path "$infisical_secret_path" \
-  --format json \
-  --silent >/dev/null \
-  || fail "machine identity cannot read $infisical_secret_path"
 
 config_dir="$(dirname "$config_path")"
 machine_config_dir="$(dirname "$machine_config_path")"
@@ -183,7 +170,7 @@ chmod 700 "$machine_config_dir"
 
 tmp_config="$(mktemp "${TMPDIR:-/tmp}/uinaf-devbox-env.XXXXXX")"
 tmp_machine="$(mktemp "${TMPDIR:-/tmp}/uinaf-infisical-machine.XXXXXX")"
-trap 'rm -f "$tmp_config" "$tmp_machine"; unset infisical_token infisical_client_secret' EXIT
+trap 'rm -f "$tmp_config" "$tmp_machine"; unset infisical_client_secret' EXIT
 
 write_devbox_config "$tmp_config" "$config_path"
 chmod 600 "$tmp_config"
@@ -195,8 +182,8 @@ chmod 600 "$tmp_machine"
 mv "$tmp_machine" "$machine_config_path"
 chmod 600 "$machine_config_path"
 
-unset infisical_token infisical_client_secret
+unset infisical_client_secret
 
 printf 'wrote %s\n' "$config_path"
 printf 'wrote %s\n' "$machine_config_path"
-printf 'verified machine identity access to %s\n' "$infisical_secret_path"
+printf 'verified machine identity token mint\n'

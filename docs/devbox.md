@@ -38,8 +38,8 @@ or 1Password service-account refresh stacks.
 
 For services and agents:
 
-1. Create or choose the correct Infisical project, environment, and folder path
-   for the runtime.
+1. Create or choose the correct Infisical project and environment for the
+   runtime.
 2. Create a machine identity in the same Infisical organization and grant it
    access to that project/path.
 3. Configure the devbox user once with
@@ -69,7 +69,7 @@ One-time setup:
 ```
 
 The helper prompts locally for the Infisical domain, project ID, environment,
-default secret path, machine identity client ID, and machine identity client
+machine identity name, machine identity client ID, and machine identity client
 secret. Humans should source the initial client ID/secret from their secret
 manager, usually 1Password or Infisical, and enter them locally. Do not paste
 them into agent chat.
@@ -77,8 +77,9 @@ them into agent chat.
 It writes non-secret selectors to `~/.config/uinaf/devbox.env` and machine
 credentials to `~/.config/uinaf/infisical-machine.env`. Both files must be mode
 `0600`. The helper refuses to continue when the Infisical CLI has an
-authenticated human `user` session, mints a machine token, and verifies the
-machine identity can read the configured secret path before writing config.
+authenticated human `user` session and verifies the machine identity can mint a
+token before writing config. It does not persist a default secret path; paths
+belong at the command boundary.
 
 Routine command-boundary use:
 
@@ -89,7 +90,7 @@ Routine command-boundary use:
     --token "$INFISICAL_TOKEN" \
     --projectId "$INFISICAL_PROJECT_ID" \
     --env "$INFISICAL_ENV" \
-    --path "$INFISICAL_SECRET_PATH" \
+    --path "/example-devbox/openclaw-env" \
     --format dotenv \
     --output-file "$HOME/.openclaw/.env" \
     --silent
@@ -159,10 +160,12 @@ Before treating a devbox as agent-ready:
 4. Verify runtime dotenv files are owner-only and are not workspace symlinks.
 
 `./scripts/verify/devbox-services.sh` checks the Infisical CLI, local
-runtime-file boundary, owner-only config modes, and machine identity access. A
-missing persistent machine identity config fails by default. Set
-`INFISICAL_MACHINE_AUTH_REQUIRED=0` only for repo-local smoke checks on a
-machine that is not acting as an agent devbox.
+runtime-file boundary, owner-only config modes, and machine identity token
+minting. Set `INFISICAL_SECRET_PATH=/some/path` only when you want that check
+to also prove access to a specific command-boundary path. A missing persistent
+machine identity config fails by default. Set `INFISICAL_MACHINE_AUTH_REQUIRED=0`
+only for repo-local smoke checks on a machine that is not acting as an agent
+devbox.
 
 ## Secret Topology
 
@@ -214,7 +217,6 @@ PROCESS_COMPOSE_SOCKET="/Users/example/.local/run/process-compose.sock"
 INFISICAL_DOMAIN=https://eu.infisical.com/api
 INFISICAL_PROJECT_ID=example-project-id
 INFISICAL_ENV=dev
-INFISICAL_SECRET_PATH=/example-devbox/ssh
 ```
 
 The file should be mode `0600`. Persistent machine credentials live separately

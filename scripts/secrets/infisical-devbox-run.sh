@@ -95,7 +95,6 @@ fi
 : "${INFISICAL_ENV:=dev}"
 
 [ -n "${INFISICAL_PROJECT_ID:-}" ] || fail "INFISICAL_PROJECT_ID is required in $config_path"
-[ -n "${INFISICAL_SECRET_PATH:-}" ] || fail "INFISICAL_SECRET_PATH is required in $config_path"
 [ -n "${INFISICAL_CLIENT_ID:-}" ] || fail "INFISICAL_CLIENT_ID is required in $machine_config_path"
 [ -n "${INFISICAL_CLIENT_SECRET:-}" ] || fail "INFISICAL_CLIENT_SECRET is required in $machine_config_path"
 
@@ -113,7 +112,6 @@ env \
   INFISICAL_DOMAIN="$INFISICAL_DOMAIN" \
   INFISICAL_PROJECT_ID="$INFISICAL_PROJECT_ID" \
   INFISICAL_ENV="$INFISICAL_ENV" \
-  INFISICAL_SECRET_PATH="$INFISICAL_SECRET_PATH" \
   "$@"
 status=$?
 set -e

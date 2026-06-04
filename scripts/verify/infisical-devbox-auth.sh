@@ -155,7 +155,6 @@ write_file_600 "$custom_config" \
   "INFISICAL_DOMAIN=https://eu.infisical.com/api" \
   "INFISICAL_PROJECT_ID=custom-project" \
   "INFISICAL_ENV=dev" \
-  "INFISICAL_SECRET_PATH=/custom/path" \
   "PROCESS_COMPOSE_ENABLED=0"
 write_file_600 "$machine_config" \
   "INFISICAL_CLIENT_ID=file-client" \
@@ -169,7 +168,7 @@ runner_output="$(
   INFISICAL_MACHINE_CONFIG="$machine_config" \
     "$repo_root/scripts/secrets/infisical-devbox-run.sh" -- sh -c 'printf "%s|%s|%s\n" "$INFISICAL_PROJECT_ID" "$INFISICAL_SECRET_PATH" "${INFISICAL_CLIENT_ID-unset}"'
 )"
-[ "$runner_output" = "custom-project|/custom/path|unset" ] \
+[ "$runner_output" = "custom-project||unset" ] \
   || fail "runner did not honor DEVBOX_CONFIG and strip client credentials: $runner_output"
 printf 'ok runner honors DEVBOX_CONFIG and strips client credentials\n'
 
@@ -252,11 +251,25 @@ required_happy_output="$(
   INFISICAL_FAKE_LOG="$fake_log" \
     "$repo_root/scripts/verify/devbox-services.sh"
 )"
-assert_contains "$required_happy_output" "Infisical machine identity can read /custom/path"
+assert_contains "$required_happy_output" "Infisical machine identity can mint token for project custom-project"
 fake_log_output="$(cat "$fake_log")"
 assert_contains "$fake_log_output" "login client-id=file-client client-secret=file-secret"
+printf 'ok devbox verifier proves machine token mint in required mode\n'
+
+: > "$fake_log"
+path_check_output="$(
+  HOME="$tmp_dir/home" \
+  PATH="$fake_bin:$PATH" \
+  DEVBOX_CONFIG="$custom_config" \
+  INFISICAL_MACHINE_CONFIG="$machine_config" \
+  INFISICAL_SECRET_PATH=/custom/path \
+  INFISICAL_FAKE_LOG="$fake_log" \
+    "$repo_root/scripts/verify/devbox-services.sh"
+)"
+assert_contains "$path_check_output" "Infisical machine identity can read /custom/path"
+fake_log_output="$(cat "$fake_log")"
 assert_contains "$fake_log_output" "export token=fake-token projectId=custom-project env=dev path=/custom/path"
-printf 'ok devbox verifier proves machine token export wiring in required mode\n'
+printf 'ok devbox verifier proves command-boundary path wiring when requested\n'
 
 set +e
 verify_ambient_output="$(
