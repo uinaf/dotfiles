@@ -288,7 +288,7 @@ Run the normal bootstrap check for each user:
 ./scripts/verify/bootstrap.sh --profile devbox
 ```
 
-Devbox Git config includes `/opt/homebrew` as a safe directory so both admin
+Devbox Git config includes `/opt/homebrew` as a safe directory so local admin
 users can operate on the shared Homebrew prefix without Git dubious-ownership
 failures.
 

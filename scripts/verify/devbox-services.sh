@@ -98,7 +98,6 @@ check_config() {
     infisical_domain="${INFISICAL_DOMAIN:-$infisical_domain}"
     infisical_project_id="${INFISICAL_PROJECT_ID:-$infisical_project_id}"
     infisical_env="${INFISICAL_ENV:-$infisical_env}"
-    infisical_secret_path="${INFISICAL_SECRET_PATH:-$infisical_secret_path}"
   else
     if [ "$machine_auth_required" = "1" ]; then
       fail "missing $config_path"

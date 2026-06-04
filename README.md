@@ -16,7 +16,7 @@ machine-local.
 | --- | --- | --- |
 | Shared | Base tools every uinaf Mac should have. | `Brewfile` |
 | Personal | A human-operated laptop or desktop. | `Brewfile` + `Brewfile.personal` |
-| Devbox | A shared Mac mini or SSH-first agent host. | `Brewfile` + `Brewfile.devbox` |
+| Devbox | A shared SSH-first agent host. | `Brewfile` + `Brewfile.devbox` |
 
 Most users want `personal`. Always-on agent hosts use `devbox`.
 
@@ -139,7 +139,7 @@ audit, and macOS Security Compliance Project flow.
 | Need | Read |
 | --- | --- |
 | Install or update a Mac | [Bootstrap guide](docs/bootstrap.md) |
-| Operate a shared agent Mac mini | [Devbox setup](docs/devbox.md) |
+| Operate a shared agent host | [Devbox setup](docs/devbox.md) |
 | Understand dotfile source state | [Chezmoi source state](docs/chezmoi.md) |
 | Understand mise tasks and runtime pins | [Mise tasks](docs/mise.md) |
 | Help as an AI agent | [Agent guide](AGENTS.md) |

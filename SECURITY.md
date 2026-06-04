@@ -12,12 +12,15 @@ problems, or anything that could help compromise a machine.
 Environment variables are process state, not secure storage. Any program run in
 that environment can read them and pass them to child processes.
 
-Do not place long-lived service tokens in shell startup files, launchd plists,
-process-compose YAML, or tracked dotenv files. Store them in machine-local
-secret storage, such as a root-owned token file on a headless devbox, and fetch
-them inside the smallest wrapper that needs them. Generated secret files must be
-owner-only, usually a `0711` root-owned directory and `0400` service-user-owned
-file when another Unix user has to read them.
+Do not place long-lived service tokens, Infisical access tokens, or machine
+identity credentials in shell startup files, launchd plists, process-compose
+YAML, tracked dotenv files, or generated runtime env files.
+
+Human-operated machines may use human secret-manager sessions. Agent devboxes
+use Infisical machine identity auth through the devbox contract in
+[Devbox setup](docs/devbox.md): persistent Universal Auth client credentials
+live only in owner-only local config, and short-lived access tokens are minted
+for the smallest command boundary that needs them.
 
 ## Local Audits
 

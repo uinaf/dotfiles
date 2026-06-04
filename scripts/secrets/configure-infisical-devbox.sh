@@ -167,7 +167,7 @@ chmod 700 "$config_dir"
 mkdir -p "$machine_config_dir"
 chmod 700 "$machine_config_dir"
 
-tmp_config="$(mktemp "${TMPDIR:-/tmp}/uinaf-devbox-env.XXXXXX")"
+tmp_config="$(mktemp "${TMPDIR:-/tmp}/uinaf-devbox-config.XXXXXX")"
 tmp_machine="$(mktemp "${TMPDIR:-/tmp}/uinaf-infisical-machine.XXXXXX")"
 trap 'rm -f "$tmp_config" "$tmp_machine"; unset infisical_client_secret' EXIT
 

@@ -128,7 +128,7 @@ For personal security drift:
 - Use Conventional Commits.
 - Keep `Brewfile` shared and profile-neutral.
 - Put laptop-only apps in `Brewfile.personal`.
-- Put shared Mac mini and devbox tools in `Brewfile.devbox`.
+- Put shared agent-host and devbox tools in `Brewfile.devbox`.
 - Keep Codex setup install-only here; agent rule links belong to
   [uinaf/agents](https://github.com/uinaf/agents).
 - Edit dotfiles in `chezmoi/`, not generated files in `$HOME`. Follow
