@@ -40,6 +40,11 @@ When a devbox task needs shared env, check the relevant Infisical
 project/path first. Do not revive workspace `.env` symlinks, devbox-env
 generated files, or 1Password service-account refresh stacks.
 
+For agent SSH into hosts, prefer Infisical SSH certificate/PAM flows when the
+host can trust Infisical-managed SSH CAs. Store static devbox agent private
+keys in Infisical only as compatibility or recovery material for targets that
+cannot use certificate-based SSH yet.
+
 ## Agent Operating Checklist
 
 1. Run `git status --short --branch` before editing.

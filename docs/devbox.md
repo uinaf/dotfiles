@@ -87,6 +87,52 @@ of this repo's devbox contract unless a separate setup decision explicitly adds
 them. If unattended refresh becomes necessary, document and verify that
 mechanism first.
 
+## Agent SSH Access
+
+For SSH into hosts that this workspace controls, prefer Infisical SSH
+certificate or PAM flows over shared long-lived private keys. The target state
+is:
+
+1. Register the host with Infisical SSH and configure `sshd` to trust the
+   Infisical-managed SSH certificate authority.
+2. Grant the devbox agent identity only the host/login-user access it needs.
+3. Connect with Infisical-issued short-lived SSH credentials, using the
+   machine identity token at command time.
+
+The command shape is:
+
+```sh
+INFISICAL_TOKEN="$(
+  infisical login \
+    --domain https://eu.infisical.com/api \
+    --method=universal-auth \
+    --client-id "$INFISICAL_CLIENT_ID" \
+    --client-secret "$INFISICAL_CLIENT_SECRET" \
+    --plain \
+    --silent
+)"
+
+infisical ssh connect \
+  --domain https://eu.infisical.com/api \
+  --token "$INFISICAL_TOKEN" \
+  --hostname "$SSH_HOSTNAME" \
+  --login-user "$SSH_LOGIN_USER"
+
+unset INFISICAL_TOKEN
+```
+
+Static private keys are compatibility material, not the preferred host-login
+model. Store a static devbox agent key in Infisical only when a target still
+requires ordinary `authorized_keys`, GitHub SSH auth, or another legacy SSH
+flow. Keep human/recovery copies in a human vault, keep fingerprints and public
+metadata in docs, and do not commit private keys, generated SSH certificates,
+or host-specific Infisical selectors.
+
+References:
+
+- [Infisical SSH CLI](https://infisical.com/docs/cli/commands/ssh)
+- [Infisical PAM SSH resources](https://infisical.com/docs/documentation/platform/pam/getting-started/resources/ssh)
+
 Before treating a devbox as agent-ready:
 
 1. Verify the machine identity can list or export the intended project/path.
@@ -107,7 +153,7 @@ Use this generic split:
 | --- | --- | --- |
 | Human operations | 1Password and Infisical | Humans only. |
 | Shared env | Infisical `<context>` project | Humans and approved agent identities. |
-| Devbox agents | Infisical identity scoped to the devbox user | Env and agent key material for that devbox identity only. |
+| Devbox agents | Infisical identity scoped to the devbox user | Env, short-lived SSH credentials, and compatibility key material for that devbox identity only. |
 | CI | `<context>-ci` | GitHub Actions or the relevant CI runtime only. |
 | Shared CI lane | `<lane>-ci` | Only the CI jobs for that lane. |
 

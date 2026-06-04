@@ -216,7 +216,10 @@ If the devbox runs long-lived workspace or agent services, follow
 machine identities at the command boundary, keep human Infisical CLI sessions
 off agent devboxes, keep long-lived service tokens out of default shells and
 process-compose YAML, and run services through process-compose with explicit
-secret-manager commands or local owner-only config.
+secret-manager commands or local owner-only config. For SSH into hosts the
+workspace controls, prefer Infisical-issued short-lived SSH credentials over
+static private keys; keep static agent keys in Infisical only for compatibility
+targets that still require ordinary SSH keys.
 
 Verify each devbox user:
 
