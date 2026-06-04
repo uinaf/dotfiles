@@ -220,7 +220,7 @@ find_matching_files() {
 }
 
 load_uinaf_audit_policy() {
-  local policy_path="${UINAF_AUDIT_POLICY_FILE:-$HOME/.config/uinaf/audit.env}"
+  local policy_path="${AUDIT_POLICY_FILE:-$HOME/.config/uinaf/audit.env}"
 
   if [ ! -e "$policy_path" ]; then
     return 0
@@ -247,8 +247,8 @@ word_in_list() {
 }
 
 warn_on_broad_gh_scopes() {
-  local sensitive_scopes="${UINAF_GH_SENSITIVE_SCOPES:-delete_repo workflow admin:org admin:public_key admin:repo_hook write:packages}"
-  local accepted_scopes="${UINAF_GH_ACCEPTED_SCOPES:-}"
+  local sensitive_scopes="${GH_SENSITIVE_SCOPES:-delete_repo workflow admin:org admin:public_key admin:repo_hook write:packages}"
+  local accepted_scopes="${GH_ACCEPTED_SCOPES:-}"
   local status_output
   local scopes_line
   local normalized_scopes

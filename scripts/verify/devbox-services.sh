@@ -2,10 +2,10 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-config_path="${UINAF_DEVBOX_CONFIG:-$HOME/.config/uinaf/devbox.env}"
+config_path="${DEVBOX_CONFIG:-$HOME/.config/uinaf/devbox.env}"
 machine_config_path="${INFISICAL_MACHINE_CONFIG:-$HOME/.config/uinaf/infisical-machine.env}"
 machine_auth_required="${INFISICAL_MACHINE_AUTH_REQUIRED:-1}"
-devbox_user="${UINAF_DEVBOX_USER:-$USER}"
+devbox_user="${DEVBOX_USER:-$USER}"
 process_compose_enabled="${PROCESS_COMPOSE_ENABLED:-1}"
 process_compose_port="${PROCESS_COMPOSE_PORT:-9191}"
 process_compose_socket="${PROCESS_COMPOSE_SOCKET:-}"
@@ -91,7 +91,7 @@ check_config() {
     check_mode "$config_path" 600
     # shellcheck disable=SC1090
     . "$config_path"
-    devbox_user="${UINAF_DEVBOX_USER:-$devbox_user}"
+    devbox_user="${DEVBOX_USER:-$devbox_user}"
     process_compose_enabled="${PROCESS_COMPOSE_ENABLED:-$process_compose_enabled}"
     process_compose_port="${PROCESS_COMPOSE_PORT:-$process_compose_port}"
     process_compose_socket="${PROCESS_COMPOSE_SOCKET:-$process_compose_socket}"

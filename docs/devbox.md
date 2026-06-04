@@ -209,7 +209,7 @@ the local key file directly and sets `IdentityAgent none` for GitHub only.
 Each devbox user should have a local config file outside Git:
 
 ```sh
-UINAF_DEVBOX_USER=example
+DEVBOX_USER=example
 PROCESS_COMPOSE_SOCKET="/Users/example/.local/run/process-compose.sock"
 INFISICAL_DOMAIN=https://eu.infisical.com/api
 INFISICAL_PROJECT_ID=example-project-id

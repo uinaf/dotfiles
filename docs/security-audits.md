@@ -59,13 +59,13 @@ references, or identity-specific values.
 GitHub CLI scope checks use this file:
 
 ```sh
-UINAF_GH_SENSITIVE_SCOPES="delete_repo workflow admin:org admin:public_key admin:repo_hook write:packages"
-UINAF_GH_ACCEPTED_SCOPES="delete_repo workflow admin:org admin:public_key admin:repo_hook write:packages"
+GH_SENSITIVE_SCOPES="delete_repo workflow admin:org admin:public_key admin:repo_hook write:packages"
+GH_ACCEPTED_SCOPES="delete_repo workflow admin:org admin:public_key admin:repo_hook write:packages"
 ```
 
-Scopes in `UINAF_GH_SENSITIVE_SCOPES` are audited centrally. A scope also
-listed in `UINAF_GH_ACCEPTED_SCOPES` is reported as accepted by policy instead
-of warning. Override with `UINAF_AUDIT_POLICY_FILE=/path/to/file` for local
+Scopes in `GH_SENSITIVE_SCOPES` are audited centrally. A scope also
+listed in `GH_ACCEPTED_SCOPES` is reported as accepted by policy instead
+of warning. Override with `AUDIT_POLICY_FILE=/path/to/file` for local
 experiments.
 
 GitHub Actions also runs Gitleaks and TruffleHog on pushes to `main`, pull

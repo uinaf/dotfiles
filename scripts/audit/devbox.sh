@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-config_path="${UINAF_DEVBOX_CONFIG:-$HOME/.config/uinaf/devbox.env}"
+config_path="${DEVBOX_CONFIG:-$HOME/.config/uinaf/devbox.env}"
 machine_config_path="${INFISICAL_MACHINE_CONFIG:-$HOME/.config/uinaf/infisical-machine.env}"
-devbox_user="${UINAF_DEVBOX_USER:-$USER}"
+devbox_user="${DEVBOX_USER:-$USER}"
 process_compose_enabled="${PROCESS_COMPOSE_ENABLED:-1}"
 process_compose_port="${PROCESS_COMPOSE_PORT:-9191}"
 process_compose_socket="${PROCESS_COMPOSE_SOCKET:-}"
@@ -364,7 +364,7 @@ if [ -e "$config_path" ]; then
   check_mode_any fail "$config_path" 600
   # shellcheck disable=SC1090
   . "$config_path"
-  devbox_user="${UINAF_DEVBOX_USER:-$devbox_user}"
+  devbox_user="${DEVBOX_USER:-$devbox_user}"
   process_compose_enabled="${PROCESS_COMPOSE_ENABLED:-$process_compose_enabled}"
   process_compose_port="${PROCESS_COMPOSE_PORT:-$process_compose_port}"
   process_compose_socket="${PROCESS_COMPOSE_SOCKET:-$process_compose_socket}"
@@ -374,7 +374,7 @@ else
 fi
 
 if [ "$devbox_user" != "$USER" ]; then
-  warn "UINAF_DEVBOX_USER is $devbox_user but current user is $USER"
+  warn "DEVBOX_USER is $devbox_user but current user is $USER"
 else
   ok "devbox user matches current user: $devbox_user"
 fi

@@ -165,13 +165,13 @@ write_file_600 "$machine_config" \
 runner_output="$(
   HOME="$tmp_dir/home" \
   PATH="$fake_bin:$PATH" \
-  UINAF_DEVBOX_CONFIG="$custom_config" \
+  DEVBOX_CONFIG="$custom_config" \
   INFISICAL_MACHINE_CONFIG="$machine_config" \
     "$repo_root/scripts/secrets/infisical-devbox-run.sh" -- sh -c 'printf "%s|%s|%s\n" "$INFISICAL_PROJECT_ID" "$INFISICAL_SECRET_PATH" "${INFISICAL_CLIENT_ID-unset}"'
 )"
 [ "$runner_output" = "custom-project|/custom/path|unset" ] \
-  || fail "runner did not honor UINAF_DEVBOX_CONFIG and strip client credentials: $runner_output"
-printf 'ok runner honors UINAF_DEVBOX_CONFIG and strips client credentials\n'
+  || fail "runner did not honor DEVBOX_CONFIG and strip client credentials: $runner_output"
+printf 'ok runner honors DEVBOX_CONFIG and strips client credentials\n'
 
 missing_secret_config="$tmp_dir/missing-secret-machine.env"
 write_file_600 "$missing_secret_config" "INFISICAL_CLIENT_ID=file-client"
@@ -179,7 +179,7 @@ set +e
 ambient_output="$(
   HOME="$tmp_dir/home" \
   PATH="$fake_bin:$PATH" \
-  UINAF_DEVBOX_CONFIG="$custom_config" \
+  DEVBOX_CONFIG="$custom_config" \
   INFISICAL_MACHINE_CONFIG="$missing_secret_config" \
   INFISICAL_CLIENT_SECRET=ambient-secret \
     "$repo_root/scripts/secrets/infisical-devbox-run.sh" -- /bin/true 2>&1
@@ -194,7 +194,7 @@ set +e
 human_session_output="$(
   HOME="$tmp_dir/home" \
   PATH="$fake_bin:$PATH" \
-  UINAF_DEVBOX_CONFIG="$custom_config" \
+  DEVBOX_CONFIG="$custom_config" \
   INFISICAL_MACHINE_CONFIG="$machine_config" \
   INFISICAL_FAKE_STATUS=user-authenticated \
     "$repo_root/scripts/secrets/infisical-devbox-run.sh" -- /bin/true 2>&1
@@ -209,7 +209,7 @@ set +e
 unknown_status_output="$(
   HOME="$tmp_dir/home" \
   PATH="$fake_bin:$PATH" \
-  UINAF_DEVBOX_CONFIG="$custom_config" \
+  DEVBOX_CONFIG="$custom_config" \
   INFISICAL_MACHINE_CONFIG="$machine_config" \
   INFISICAL_FAKE_STATUS=unknown-nonzero \
     "$repo_root/scripts/secrets/infisical-devbox-run.sh" -- /bin/true 2>&1
@@ -247,7 +247,7 @@ printf 'ok devbox verifier can run optional repo smoke mode\n'
 required_happy_output="$(
   HOME="$tmp_dir/home" \
   PATH="$fake_bin:$PATH" \
-  UINAF_DEVBOX_CONFIG="$custom_config" \
+  DEVBOX_CONFIG="$custom_config" \
   INFISICAL_MACHINE_CONFIG="$machine_config" \
   INFISICAL_FAKE_LOG="$fake_log" \
     "$repo_root/scripts/verify/devbox-services.sh"
@@ -262,7 +262,7 @@ set +e
 verify_ambient_output="$(
   HOME="$tmp_dir/home" \
   PATH="$fake_bin:$PATH" \
-  UINAF_DEVBOX_CONFIG="$custom_config" \
+  DEVBOX_CONFIG="$custom_config" \
   INFISICAL_MACHINE_CONFIG="$missing_secret_config" \
   INFISICAL_CLIENT_SECRET=ambient-secret \
     "$repo_root/scripts/verify/devbox-services.sh" 2>&1
