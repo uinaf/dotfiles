@@ -32,7 +32,9 @@ agent guide.
 
 Machine-local secrets belong in explicit local storage or an approved secret
 manager login. Humans may use both 1Password and Infisical; agents use
-Infisical only for secrets/env access.
+Infisical only for secrets/env access. Agent devboxes should use Infisical
+machine identity token flows and should not keep authenticated human Infisical
+CLI sessions.
 
 ## Agent Operating Checklist
 

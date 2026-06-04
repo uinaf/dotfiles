@@ -103,6 +103,14 @@ check_infisical() {
   command -v infisical >/dev/null || fail "missing infisical"
   infisical --version >/dev/null || fail "infisical CLI does not run"
   printf 'ok infisical installed\n'
+
+  status_json="$(infisical login status --domain https://eu.infisical.com/api --json 2>/dev/null || true)"
+  if printf '%s\n' "$status_json" \
+    | tr -d '\n' \
+    | grep -Eq '"principalType"[[:space:]]*:[[:space:]]*"user"[^}]*"status"[[:space:]]*:[[:space:]]*"authenticated"|"status"[[:space:]]*:[[:space:]]*"authenticated"[^}]*"principalType"[[:space:]]*:[[:space:]]*"user"'; then
+    fail "Infisical CLI has an authenticated human user session"
+  fi
+  printf 'ok no authenticated Infisical human user session\n'
 }
 
 check_process_compose() {

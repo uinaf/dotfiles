@@ -30,17 +30,64 @@ secrets/env access. 1Password remains the human/manual vault for account
 credentials, recovery material, SSH key material, and other secrets that should
 not be ambiently available to agents.
 
-For services:
+For services and agents:
 
-1. Authenticate Infisical CLI for the target human or agent identity.
-2. Keep raw service tokens out of shell startup, launchd plists,
-   process-compose YAML, tracked files, and long-lived interactive shells.
-3. Prefer `infisical run -- <command>` or an equivalent narrow wrapper at the
-   process boundary instead of repo-managed generated dotenv files.
-4. Keep any identity-specific Infisical project, environment, or path values in
-   local owner-only config, not in this repo.
-5. Start services with process-compose using explicit secret-manager commands
-   or owner-only local config.
+1. Create or choose the correct Infisical project, environment, and folder path
+   for the runtime.
+2. Create a machine identity in the same Infisical organization and grant it
+   access to that project/path.
+3. Use Universal Auth to mint a short-lived machine token at command time.
+   Do not keep a human Infisical CLI session on agent devboxes.
+4. Keep raw client secrets and access tokens out of shell startup, launchd
+   plists, process-compose YAML, tracked files, and long-lived interactive
+   shells.
+5. Prefer `infisical run -- <command>` or `infisical export --token ...` at
+   the process boundary instead of repo-managed generated dotenv files.
+6. Keep any identity-specific Infisical project, environment, path, client ID,
+   or client secret values in the operator's secret manager or a deliberate
+   owner-only local handoff, not in this repo.
+
+The command shape is:
+
+```sh
+INFISICAL_TOKEN="$(
+  infisical login \
+    --domain https://eu.infisical.com/api \
+    --method=universal-auth \
+    --client-id "$INFISICAL_CLIENT_ID" \
+    --client-secret "$INFISICAL_CLIENT_SECRET" \
+    --plain \
+    --silent
+)"
+
+infisical export \
+  --domain https://eu.infisical.com/api \
+  --token "$INFISICAL_TOKEN" \
+  --projectId "$INFISICAL_PROJECT_ID" \
+  --env "$INFISICAL_ENV" \
+  --path "$INFISICAL_SECRET_PATH" \
+  --format dotenv \
+  --output-file "$HOME/.openclaw/.env" \
+  --silent
+
+unset INFISICAL_TOKEN
+```
+
+For non-OpenClaw services, replace the output file with the runtime-specific
+file or use `infisical run --token "$INFISICAL_TOKEN" -- <command>`.
+
+Do not create hidden helper scripts or saved machine-credential files as part
+of this repo's devbox contract unless a separate setup decision explicitly adds
+them. If unattended refresh becomes necessary, document and verify that
+mechanism first.
+
+Before treating a devbox as agent-ready:
+
+1. Verify the machine identity can list or export the intended project/path.
+2. Verify `infisical login status --domain https://eu.infisical.com/api` has no
+   authenticated `user` session.
+3. Verify no default shell exports `INFISICAL_TOKEN`.
+4. Verify runtime dotenv files are owner-only and are not workspace symlinks.
 
 ## Secret Topology
 
@@ -91,9 +138,8 @@ UINAF_DEVBOX_USER=example
 UINAF_PROCESS_COMPOSE_SOCKET="/Users/example/.local/run/process-compose.sock"
 ```
 
-The file should be mode `0600`. If a user needs Infisical
-project/environment selectors, keep them in local config or Infisical, not in
-this repo. Do not create repo-local workspace `.env` symlinks for
+The file should be mode `0600`. Keep Infisical selectors and credentials out
+of this repo. Do not create repo-local workspace `.env` symlinks for
 agent/OpenClaw runtime env.
 
 If a devbox identity does not run process-compose, set
@@ -137,7 +183,8 @@ Run the devbox-specific boundary check for each devbox user:
 ```
 
 That check verifies process-compose, default shell token exports, and Infisical
-CLI availability.
+CLI availability. It also fails if the Infisical CLI has an authenticated human
+`user` session on the devbox.
 
 Run the devbox security audit for each devbox user:
 

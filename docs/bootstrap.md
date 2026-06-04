@@ -212,8 +212,9 @@ on a GUI agent socket. Use `GIT_SSH_IDENTITY_FILE` when GitHub SSH auth should
 use a different local key path than commit signing.
 
 If the devbox runs long-lived workspace or agent services, follow
-[Devbox setup](devbox.md). The short version: authenticate Infisical CLI for
-the target identity, keep long-lived service tokens out of default shells and
+[Devbox setup](devbox.md). The short version: use Infisical Universal Auth
+machine identities at the command boundary, keep human Infisical CLI sessions
+off agent devboxes, keep long-lived service tokens out of default shells and
 process-compose YAML, and run services through process-compose with explicit
 secret-manager commands or local owner-only config.
 

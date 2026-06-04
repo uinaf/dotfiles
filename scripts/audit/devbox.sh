@@ -373,6 +373,15 @@ section "infisical"
 
 if command -v infisical >/dev/null 2>&1; then
   ok "infisical CLI is installed"
+
+  infisical_status_json="$(infisical login status --domain https://eu.infisical.com/api --json 2>/dev/null || true)"
+  if printf '%s\n' "$infisical_status_json" \
+    | tr -d '\n' \
+    | grep -Eq '"principalType"[[:space:]]*:[[:space:]]*"user"[^}]*"status"[[:space:]]*:[[:space:]]*"authenticated"|"status"[[:space:]]*:[[:space:]]*"authenticated"[^}]*"principalType"[[:space:]]*:[[:space:]]*"user"'; then
+    fail_check "Infisical CLI has an authenticated human user session"
+  else
+    ok "no authenticated Infisical human user session"
+  fi
 else
   fail_check "infisical CLI is missing"
 fi
