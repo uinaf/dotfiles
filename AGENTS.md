@@ -36,6 +36,10 @@ Infisical only for secrets/env access. Agent devboxes should use Infisical
 machine identity token flows and should not keep authenticated human Infisical
 CLI sessions.
 
+When a devbox task needs shared env, check the relevant Infisical
+project/path first. Do not revive workspace `.env` symlinks, devbox-env
+generated files, or 1Password service-account refresh stacks.
+
 ## Agent Operating Checklist
 
 1. Run `git status --short --branch` before editing.

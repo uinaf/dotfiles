@@ -30,6 +30,10 @@ secrets/env access. 1Password remains the human/manual vault for account
 credentials, recovery material, SSH key material, and other secrets that should
 not be ambiently available to agents.
 
+When an agent task needs shared env, check the relevant Infisical project/path
+first. Do not recreate workspace `.env` symlinks, devbox-env generated files,
+or 1Password service-account refresh stacks.
+
 For services and agents:
 
 1. Create or choose the correct Infisical project, environment, and folder path
