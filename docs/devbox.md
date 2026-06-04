@@ -27,8 +27,10 @@ process tree can read them.
 
 Humans use both 1Password and Infisical. Agents use Infisical only for
 secrets/env access. 1Password remains the human/manual vault for account
-credentials, recovery material, SSH key material, and other secrets that should
-not be ambiently available to agents.
+credentials, recovery material, human SSH key material, and other secrets that
+should not be ambiently available to agents. Devbox agent SSH key material may
+live in Infisical under the devbox boundary when the agent needs to retrieve or
+write it.
 
 When an agent task needs shared env, check the relevant Infisical project/path
 first. Do not recreate workspace `.env` symlinks, devbox-env generated files,
@@ -105,7 +107,7 @@ Use this generic split:
 | --- | --- | --- |
 | Human operations | 1Password and Infisical | Humans only. |
 | Shared env | Infisical `<context>` project | Humans and approved agent identities. |
-| Devbox agents | Infisical identity scoped to the devbox user | Only that devbox identity. |
+| Devbox agents | Infisical identity scoped to the devbox user | Env and agent key material for that devbox identity only. |
 | CI | `<context>-ci` | GitHub Actions or the relevant CI runtime only. |
 | Shared CI lane | `<lane>-ci` | Only the CI jobs for that lane. |
 
