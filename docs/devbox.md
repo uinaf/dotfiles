@@ -49,9 +49,9 @@ For services and agents:
 5. Keep raw client secrets and access tokens out of shell startup, launchd
    plists, process-compose YAML, tracked files, and long-lived interactive
    shells.
-6. Use `./scripts/secrets/infisical-devbox-run.sh -- <command>` or an explicit
-   `infisical export --token ...` at the process boundary instead of
-   repo-managed generated dotenv files.
+6. Run the env-consuming runtime through
+   `./scripts/secrets/infisical-devbox-run.sh -- <command>`. The runtime owns how
+   it reads Infisical and sets itself up.
 7. Keep any identity-specific Infisical project, environment, path, client ID,
    or client secret values out of this repo.
 
@@ -60,7 +60,7 @@ future agent shells and reboots needs the Universal Auth client credentials in
 owner-only local machine state. This is an intentional tradeoff: the
 credentials are persistent on that Unix account, but they are not shell
 exports, process-compose config, launchd config, tracked files, or generated
-runtime dotenv files.
+runtime dotenv refresh stacks.
 
 One-time setup:
 
@@ -85,23 +85,12 @@ belong at the command boundary.
 Routine command-boundary use:
 
 ```sh
-./scripts/secrets/infisical-devbox-run.sh -- sh -c '
-  mkdir -p "$HOME/.config/example"
-  infisical export \
-    --domain "$INFISICAL_DOMAIN" \
-    --token "$INFISICAL_TOKEN" \
-    --projectId "$INFISICAL_PROJECT_ID" \
-    --env "$INFISICAL_ENV" \
-    --path "/example-devbox/runtime-env" \
-    --format dotenv \
-    --output-file "$HOME/.config/example/runtime.env" \
-    --silent
-  chmod 600 "$HOME/.config/example/runtime.env"
-'
+INFISICAL_SECRET_PATH=/example-devbox/runtime-env \
+  ./scripts/secrets/infisical-devbox-run.sh -- <runtime-command>
 ```
 
-Replace the output file with the runtime-specific file or run the service
-command through `infisical-devbox-run.sh`.
+Replace `<runtime-command>` with the service or setup command that knows how to
+read Infisical. Dotfiles does not generate runtime env files.
 
 Do not create additional hidden helper scripts, token caches, shell exports, or
 runtime dotenv refresh stacks outside this contract. If another unattended
@@ -162,15 +151,13 @@ Before treating a devbox as agent-ready:
 2. Verify `infisical login status --domain https://eu.infisical.com/api` has no
    authenticated `user` session.
 3. Verify no default shell exports Infisical tokens or machine credentials.
-4. Verify runtime dotenv files are owner-only and are not workspace symlinks.
 
-`./scripts/verify/devbox-services.sh` checks the Infisical CLI, local
-runtime-file boundary, owner-only config modes, and machine identity token
-minting. Set `INFISICAL_SECRET_PATH=/some/path` only when you want that check
-to also prove access to a specific command-boundary path. A missing persistent
-machine identity config fails by default. Set `INFISICAL_MACHINE_AUTH_REQUIRED=0`
-only for repo-local smoke checks on a machine that is not acting as an agent
-devbox.
+`./scripts/verify/devbox-services.sh` checks the Infisical CLI, owner-only
+config modes, and machine identity token minting. Set
+`INFISICAL_SECRET_PATH=/some/path` only when you want that check to also prove
+access to a specific command-boundary path. A missing persistent machine
+identity config fails by default. Set `INFISICAL_MACHINE_AUTH_REQUIRED=0` only
+for repo-local smoke checks on a machine that is not acting as an agent devbox.
 
 ## Secret Topology
 
