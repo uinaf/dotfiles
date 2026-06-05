@@ -35,11 +35,30 @@ json_string() {
 }
 
 mode_of() {
+  if stat -c '%a' "$1" >/dev/null 2>&1; then
+    stat -c '%a' "$1"
+    return
+  fi
+
   stat -f '%Lp' "$1"
 }
 
 owner_of() {
+  if stat -c '%U' "$1" >/dev/null 2>&1; then
+    stat -c '%U' "$1"
+    return
+  fi
+
   stat -f '%Su' "$1"
+}
+
+size_of() {
+  if stat -c '%s' "$1" >/dev/null 2>&1; then
+    stat -c '%s' "$1"
+    return
+  fi
+
+  stat -f '%z' "$1"
 }
 
 check_mode_any() {

@@ -49,7 +49,7 @@ fail() {
 }
 
 mode_of() {
-  stat -f '%Lp' "$1"
+  infisical_file_mode "$1"
 }
 
 owner_of() {

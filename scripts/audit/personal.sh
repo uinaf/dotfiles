@@ -186,7 +186,7 @@ section "Codex log size"
 if [ -d "$HOME/.codex" ]; then
   while IFS= read -r log_path; do
     [ -n "$log_path" ] || continue
-    log_size="$(stat -f '%z' "$log_path" 2>/dev/null || printf 0)"
+    log_size="$(size_of "$log_path" 2>/dev/null || printf 0)"
     if [ "$log_size" -ge 524288000 ]; then
       fail_check "$log_path is larger than 500 MB"
     elif [ "$log_size" -ge 209715200 ]; then

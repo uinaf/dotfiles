@@ -48,3 +48,12 @@ infisical_mint_machine_token() {
     --plain \
     --silent
 }
+
+infisical_file_mode() {
+  if stat -c '%a' "$1" >/dev/null 2>&1; then
+    stat -c '%a' "$1"
+    return
+  fi
+
+  stat -f '%Lp' "$1"
+}
