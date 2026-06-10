@@ -8,3 +8,4 @@ go = "1.26.2"
 
 [settings]
 idiomatic_version_file_enable_tools = ["java"]
+trusted_config_paths = ["~/.codex/worktrees", "~/.claude/worktrees"]

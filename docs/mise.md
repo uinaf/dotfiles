@@ -5,8 +5,9 @@ This repo uses mise in two different scopes:
 - `.mise/tasks/` defines repo tasks for humans and agents.
 - Root `mise.toml` is the repo-level mise config and documents that task
   entrypoints live in `.mise/tasks/`.
-- `chezmoi/private_dot_config/mise/config.toml` defines machine runtime and
-  tool versions applied into `~/.config/mise/config.toml`.
+- `chezmoi/private_dot_config/mise/config.toml` defines machine runtime pins,
+  tool versions, and trusted generated worktree roots applied into
+  `~/.config/mise/config.toml`.
 
 Do not mix those scopes. A repo command belongs in `.mise/tasks/`; a shared
 machine runtime pin belongs in the chezmoi-managed home config.
@@ -93,9 +94,10 @@ Bootstrap helpers:
 mise run bootstrap:trust-agent-worktrees
 ```
 
-This trusts existing `mise.toml` and `.mise.toml` files near the roots of
-Codex and Claude generated worktrees. It is also called by
-`scripts/bootstrap/install.sh`.
+The shared machine config trusts Codex and Claude generated worktree roots:
+`~/.codex/worktrees` and `~/.claude/worktrees`. The helper also refreshes trust
+for existing `mise.toml` and `.mise.toml` files near those roots, and is called
+by `scripts/bootstrap/install.sh`.
 
 ## Runtime Pins
 
