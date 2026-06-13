@@ -54,7 +54,11 @@ trust_status() {
 
   config_dir="$(dirname "$config_path")"
   config_dir="$(cd "$config_dir" && pwd -P)"
-  display_dir="${config_dir/#$HOME/~}"
+  if [[ "$config_dir" == "$HOME"* ]]; then
+    display_dir="~${config_dir#"$HOME"}"
+  else
+    display_dir="$config_dir"
+  fi
   output="$(mise trust --show -C "$config_dir" 2>&1)"
   awk -F': ' -v config_dir="$config_dir" -v display_dir="$display_dir" '
     ($1 == config_dir || $1 == display_dir) && $2 == "trusted" { found = 1 }
