@@ -22,7 +22,6 @@ cask "proxyman"
 
 # Communication
 cask "slack"
-cask "discord"
 cask "telegram"
 cask "zoom"
 
