@@ -34,6 +34,7 @@ cask "figma"
 cask "linear"
 cask "cleanshot"
 cask "screen-studio"
+cask "tuna"
 
 # Platform development
 cask "android-studio"
