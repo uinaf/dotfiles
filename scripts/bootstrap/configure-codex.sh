@@ -46,7 +46,7 @@ enable_known_feature() {
   fi
 }
 
-set_top_level "model" '"gpt-5.5"'
+set_top_level "model" '"gpt-5.6-sol"'
 set_top_level "model_reasoning_effort" '"high"'
 set_top_level "forced_login_method" '"chatgpt"'
 
