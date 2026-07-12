@@ -104,15 +104,19 @@ infisical_token="$(infisical_mint_machine_token "$INFISICAL_DOMAIN" "$INFISICAL_
   || fail "could not mint Infisical machine identity token"
 
 trap 'unset infisical_token INFISICAL_TOKEN INFISICAL_CLIENT_ID INFISICAL_CLIENT_SECRET' EXIT
+env_args=(
+  -u INFISICAL_CLIENT_ID
+  -u INFISICAL_CLIENT_SECRET
+  "INFISICAL_TOKEN=$infisical_token"
+  "INFISICAL_DOMAIN=$INFISICAL_DOMAIN"
+  "INFISICAL_PROJECT_ID=$INFISICAL_PROJECT_ID"
+  "INFISICAL_ENV=$INFISICAL_ENV"
+)
+if [ -n "${INFISICAL_SECRET_PATH:-}" ]; then
+  env_args+=("INFISICAL_SECRET_PATH=$INFISICAL_SECRET_PATH")
+fi
 set +e
-env \
-  -u INFISICAL_CLIENT_ID \
-  -u INFISICAL_CLIENT_SECRET \
-  INFISICAL_TOKEN="$infisical_token" \
-  INFISICAL_DOMAIN="$INFISICAL_DOMAIN" \
-  INFISICAL_PROJECT_ID="$INFISICAL_PROJECT_ID" \
-  INFISICAL_ENV="$INFISICAL_ENV" \
-  "$@"
+env "${env_args[@]}" "$@"
 status=$?
 set -e
 

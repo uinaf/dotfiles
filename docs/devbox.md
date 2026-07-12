@@ -27,10 +27,11 @@ process tree can read them.
 
 Humans use both 1Password and Infisical. Agents use Infisical only for
 secrets/env access. 1Password remains the human/manual vault for account
-credentials, recovery material, human SSH key material, and other secrets that
-should not be ambiently available to agents. Devbox agent SSH key material may
-live in Infisical under the devbox boundary when the agent needs to retrieve or
-write it.
+credentials, recovery material, and human SSH key material. A devbox identity
+may also receive narrowly scoped operational credentials in Infisical when the
+agent must use them unattended. Keep those credentials outside runtime env
+bundles and retrieve them only at the command boundary. Devbox agent SSH key
+material may live in Infisical under the same boundary.
 
 When an agent task needs shared env, check the relevant Infisical project/path
 first. Do not recreate workspace `.env` symlinks, devbox-env generated files,
@@ -116,6 +117,56 @@ INFISICAL_SECRET_PATH=/example-devbox/openclaw-env \
 The real OpenClaw path and command belong in the workspace or OpenClaw docs,
 not in this public repo.
 
+For unattended elevated maintenance, store only an ASCII-armored age ciphertext
+as `SUDO_PASSWORD_AGE` in the identity's Infisical folder. Never store the
+plaintext password in Infisical. Each host keeps a dedicated age identity at
+`~/.config/uinaf/sudo-age-identity.txt` with mode `0600`; its private value is
+recovery material and may be backed up to the matching human 1Password item.
+Create or verify the local identity and print its public recipient with:
+
+```sh
+./scripts/secrets/configure-infisical-devbox-sudo.sh
+```
+
+Encrypt the password to that recipient without writing plaintext to a regular
+file, import the ciphertext as `SUDO_PASSWORD_AGE`, and put the identity-specific
+folder selector in owner-only local config as `INFISICAL_SUDO_SECRET_PATH`.
+The repo-owned sealing command is:
+
+```sh
+<concealed-password-command> | ./scripts/secrets/infisical-devbox-sudo-seal.sh
+```
+
+The left side must emit only the password and must not place it in argv or shell
+history. The sealing helper performs a local decrypt/compare and refuses a
+remaining plaintext `SUDO_PASSWORD` secret.
+Then run:
+
+```sh
+./scripts/secrets/infisical-devbox-sudo.sh -- <non-interactive-command>
+```
+
+The wrapper mints a short-lived machine token and writes only ciphertext to an
+owner-only temporary file. The fixed askpass helper decrypts that ciphertext on
+demand each time `sudo -k -A` requests authentication, so retries do not hang
+and the wrapper or long-running command never retains plaintext. The command
+keeps the caller's original stdin, including when authentication is cached or
+the command is covered by `NOPASSWD`. The wrapper does not export the password,
+write plaintext to a regular local file, or mix it into application env.
+
+Project-level identities may be able to read sibling ciphertext on Infisical
+plans without path-scoped RBAC. That is not a plaintext disclosure: each
+ciphertext is encrypted to a different host-local age identity. Prove sibling
+decryption fails. Treat write access to sibling ciphertext as a denial-of-service
+risk and keep the 1Password recovery copy current.
+
+This is intentional arbitrary-root delegation, not an approval gate or command
+allowlist. Any process running as the devbox user can read its machine identity
+config and invoke the wrapper. Use it only for dedicated, trusted agent
+accounts where compromise of that Unix identity is accepted as host-root
+compromise. Use root-owned allowlisted helpers or narrow `sudoers` rules when a
+runtime must not receive arbitrary root.
+
 Small `AGENTS.md` snippet for a repo that frequently needs runtime secrets:
 
 ```md
@@ -191,7 +242,10 @@ Before treating a devbox as agent-ready:
 `./scripts/verify/devbox-services.sh` checks the Infisical CLI, owner-only
 config modes, and machine identity token minting. Set
 `INFISICAL_SECRET_PATH=/some/path` only when you want that check to also prove
-access to a specific command-boundary path. A missing persistent machine
+access to a specific command-boundary path. When the local config contains
+`INFISICAL_SUDO_SECRET_PATH`, the check also proves that non-empty
+`SUDO_PASSWORD_AGE`, the local mode-`0600` age identity, and the trusted age
+binary are available without printing secret material. A missing persistent machine
 identity config fails by default. Set `INFISICAL_MACHINE_AUTH_REQUIRED=0` only
 for repo-local smoke checks on a machine that is not acting as an agent devbox.
 

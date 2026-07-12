@@ -78,6 +78,9 @@ section "shell syntax"
 } | xargs -0 bash -n
 printf 'ok shell syntax\n'
 
+section "Infisical sudo runner"
+./scripts/verify/infisical-devbox-sudo.sh
+
 section "shellcheck"
 {
   find scripts -name '*.sh' -print0

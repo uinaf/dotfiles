@@ -40,11 +40,11 @@ infisical_mint_machine_token() {
   local client_id="$2"
   local client_secret="$3"
 
-  infisical login \
+  INFISICAL_UNIVERSAL_AUTH_CLIENT_ID="$client_id" \
+    INFISICAL_UNIVERSAL_AUTH_CLIENT_SECRET="$client_secret" \
+    infisical login \
     --domain "$domain" \
     --method=universal-auth \
-    --client-id "$client_id" \
-    --client-secret "$client_secret" \
     --plain \
     --silent
 }

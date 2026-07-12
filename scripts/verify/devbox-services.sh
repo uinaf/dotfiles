@@ -13,9 +13,13 @@ infisical_domain="${INFISICAL_DOMAIN:-https://eu.infisical.com/api}"
 infisical_project_id="${INFISICAL_PROJECT_ID:-}"
 infisical_env="${INFISICAL_ENV:-dev}"
 infisical_secret_path="${INFISICAL_SECRET_PATH:-}"
+infisical_sudo_secret_path="${INFISICAL_SUDO_SECRET_PATH:-}"
+infisical_sudo_age_identity_file="${INFISICAL_SUDO_AGE_IDENTITY_FILE:-$HOME/.config/uinaf/sudo-age-identity.txt}"
 
 # shellcheck source=scripts/lib/infisical.sh
 . "$repo_root/scripts/lib/infisical.sh"
+# shellcheck source=scripts/lib/infisical-sudo.sh
+. "$repo_root/scripts/lib/infisical-sudo.sh"
 
 usage() {
   cat <<'USAGE'
@@ -98,6 +102,7 @@ check_config() {
     infisical_domain="${INFISICAL_DOMAIN:-$infisical_domain}"
     infisical_project_id="${INFISICAL_PROJECT_ID:-$infisical_project_id}"
     infisical_env="${INFISICAL_ENV:-$infisical_env}"
+    infisical_sudo_secret_path="${INFISICAL_SUDO_SECRET_PATH:-$infisical_sudo_secret_path}"
   else
     if [ "$machine_auth_required" = "1" ]; then
       fail "missing $config_path"
@@ -185,19 +190,43 @@ check_infisical() {
 
   if [ -z "$infisical_secret_path" ]; then
     printf 'warn skipped Infisical path proof; set INFISICAL_SECRET_PATH for a command-boundary path check\n'
-    return
+  else
+    INFISICAL_TOKEN="$access_token" infisical export \
+      --domain "$infisical_domain" \
+      --projectId "$infisical_project_id" \
+      --env "$infisical_env" \
+      --path "$infisical_secret_path" \
+      --format json \
+      --silent >/dev/null \
+      || fail "Infisical machine identity cannot read $infisical_secret_path"
+    printf 'ok Infisical machine identity can read %s\n' "$infisical_secret_path"
   fi
 
-  infisical export \
-    --domain "$infisical_domain" \
-    --token "$access_token" \
-    --projectId "$infisical_project_id" \
-    --env "$infisical_env" \
-    --path "$infisical_secret_path" \
-    --format json \
-    --silent >/dev/null \
-    || fail "Infisical machine identity cannot read $infisical_secret_path"
-  printf 'ok Infisical machine identity can read %s\n' "$infisical_secret_path"
+  if [ -n "$infisical_sudo_secret_path" ]; then
+    local sudo_ciphertext
+    sudo_ciphertext="$(
+      INFISICAL_TOKEN="$access_token" infisical secrets get SUDO_PASSWORD_AGE \
+        --domain "$infisical_domain" \
+        --projectId "$infisical_project_id" \
+        --env "$infisical_env" \
+        --path "$infisical_sudo_secret_path" \
+        --plain \
+        --silent
+    )" || fail "Infisical machine identity cannot read its sudo credential"
+    [ -n "$sudo_ciphertext" ] || fail "encrypted sudo credential is missing or empty"
+    printf 'ok Infisical machine identity can read its encrypted sudo credential\n'
+    check_mode "$infisical_sudo_age_identity_file" 600
+    local sudo_age_bin
+    sudo_age_bin="$(infisical_sudo_find_age 2>/dev/null || true)"
+    [ -n "$sudo_age_bin" ] || fail "missing age"
+    infisical_sudo_decrypt_age \
+      "$sudo_age_bin" \
+      "$infisical_sudo_age_identity_file" \
+      "$sudo_ciphertext" >/dev/null \
+      || fail "local age identity cannot decrypt the sudo credential"
+    unset sudo_ciphertext
+    printf 'ok local age identity decrypts the configured sudo credential\n'
+  fi
 }
 
 check_process_compose() {
