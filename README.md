@@ -64,7 +64,7 @@ pins.
 | zsh | `chezmoi/dot_zshenv`, `chezmoi/dot_zprofile`, `chezmoi/dot_zshrc` | machine shell history and ad hoc local files |
 | mise | `chezmoi/private_dot_config/mise/config.toml` | repo-local runtime files |
 | Git | `chezmoi/dot_gitconfig` | `~/.gitconfig.local` |
-| SSH | `chezmoi/private_dot_ssh/private_config` | `~/.ssh/config.local`, private keys |
+| SSH | `chezmoi/private_dot_ssh/private_config` | `~/.ssh/github.config`, `~/.ssh/config.local`, private keys |
 | Codex | installer-managed defaults, including ChatGPT-login enforcement | auth, sessions, approvals, memory, worktrees |
 | Editors | chezmoi-managed Zed and Ghostty defaults | app state, fonts, caches |
 

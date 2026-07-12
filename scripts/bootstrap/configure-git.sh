@@ -17,6 +17,7 @@ usage: $0 [--profile personal|devbox] [--non-interactive]
 
 Writes:
   ~/.gitconfig.local
+  ~/.ssh/github.config when GIT_SSH_IDENTITY_FILE is set or inferred
   ~/.config/1Password/ssh/agent.toml when OP_SSH_VAULT or prompt value is set
 
 Environment:
@@ -118,41 +119,164 @@ resolve_ssh_public_key() {
   exit 1
 }
 
-write_github_ssh_config() {
-  local identity_file="$1"
-  local ssh_config_dir="$HOME/.ssh"
-  local ssh_config_local="$ssh_config_dir/config.local"
-  local tmp_config
+validate_ssh_public_key() {
+  local public_key="$1"
 
-  case "$identity_file" in
-    ssh-*|"")
-      return
-      ;;
-  esac
+  if ! printf '%s\n' "$public_key" | ssh-keygen -lf - >/dev/null 2>&1; then
+    printf 'cannot configure Git signing; GIT_SIGNING_KEY does not resolve to a valid SSH public key\n' >&2
+    exit 1
+  fi
+}
+
+mode_of() {
+  local path="$1"
+
+  if stat -f '%Lp' "$path" >/dev/null 2>&1; then
+    stat -f '%Lp' "$path"
+  else
+    stat -c '%a' "$path"
+  fi
+}
+
+validate_github_ssh_identity_file() {
+  local identity_file="$1"
+  local identity_mode
 
   if [ ! -f "$identity_file" ]; then
     printf 'cannot configure git@github.com SSH auth; identity file does not exist: %s\n' "$identity_file" >&2
     exit 1
   fi
 
+  if [ ! -r "$identity_file" ]; then
+    printf 'cannot configure git@github.com SSH auth; identity file is not readable: %s\n' "$identity_file" >&2
+    exit 1
+  fi
+
+  if ! sed -n '1p' "$identity_file" | grep -Eq '^-----BEGIN ([A-Z0-9]+ )?PRIVATE KEY-----$'; then
+    printf 'cannot configure git@github.com SSH auth; identity file is not an SSH private key: %s\n' "$identity_file" >&2
+    exit 1
+  fi
+
+  if ! ssh-keygen -lf "$identity_file" >/dev/null 2>&1; then
+    printf 'cannot configure git@github.com SSH auth; identity file is not a valid SSH private key: %s\n' "$identity_file" >&2
+    exit 1
+  fi
+
+  if [ ! -O "$identity_file" ]; then
+    printf 'cannot configure git@github.com SSH auth; identity file is not owned by the current user: %s\n' "$identity_file" >&2
+    exit 1
+  fi
+
+  identity_mode="$(mode_of "$identity_file")"
+  if [ $((8#$identity_mode & 0077)) -ne 0 ]; then
+    printf 'cannot configure git@github.com SSH auth; identity file permissions must be owner-only: %s (mode %s)\n' "$identity_file" "$identity_mode" >&2
+    printf 'run: chmod 0600 %s\n' "$identity_file" >&2
+    exit 1
+  fi
+}
+
+validate_github_ssh_config() {
+  local ssh_config_dir="$HOME/.ssh"
+  local ssh_config_local="$ssh_config_dir/config.local"
+  local ssh_github_config="$ssh_config_dir/github.config"
+
+  if [ -L "$ssh_github_config" ]; then
+    printf 'cannot configure git@github.com SSH auth; existing path is a symlink: %s\n' "$ssh_github_config" >&2
+    printf 'move it aside before rerunning configure-git.sh\n' >&2
+    exit 1
+  fi
+
+  if [ -e "$ssh_github_config" ] && [ ! -f "$ssh_github_config" ]; then
+    printf 'cannot configure git@github.com SSH auth; existing path is not a regular file: %s\n' "$ssh_github_config" >&2
+    printf 'move it aside before rerunning configure-git.sh\n' >&2
+    exit 1
+  fi
+
+  if [ -f "$ssh_github_config" ] && ! awk '
+    $0 == "# uinaf-dotfiles: github-ssh begin" {
+      if (managed || blocks) exit 1
+      managed = 1
+      blocks = 1
+      next
+    }
+    $0 == "# uinaf-dotfiles: github-ssh end" {
+      if (!managed) exit 1
+      managed = 0
+      next
+    }
+    !managed && $0 !~ /^[[:space:]]*$/ { unmanaged = 1 }
+    END {
+      if (managed || blocks != 1 || unmanaged) exit 1
+    }
+  ' "$ssh_github_config"; then
+    printf 'cannot configure git@github.com SSH auth; existing file is not managed exclusively by uinaf dotfiles: %s\n' "$ssh_github_config" >&2
+    printf 'move it aside or migrate its directives to ~/.ssh/config.local before rerunning configure-git.sh\n' >&2
+    exit 1
+  fi
+
+  [ -f "$ssh_config_local" ] || return 0
+
+  if ! awk '
+    $0 == "# uinaf-dotfiles: github-ssh begin" {
+      if (managed) exit 1
+      managed = 1
+      next
+    }
+    $0 == "# uinaf-dotfiles: github-ssh end" {
+      if (!managed) exit 1
+      managed = 0
+      next
+    }
+    END {
+      if (managed) exit 1
+    }
+  ' "$ssh_config_local"; then
+    printf 'cannot configure git@github.com SSH auth; malformed managed block in %s\n' "$ssh_config_local" >&2
+    exit 1
+  fi
+
+  if awk '
+    $0 == "# uinaf-dotfiles: github-ssh begin" { managed = 1; next }
+    $0 == "# uinaf-dotfiles: github-ssh end" { managed = 0; next }
+    !managed {
+      line = $0
+      sub(/^[[:space:]]*/, "", line)
+      if (tolower(line) ~ /^host[[:space:]=]/) {
+        sub(/^[Hh][Oo][Ss][Tt][[:space:]=]+/, "", line)
+        sub(/[[:space:]]*#.*/, "", line)
+        count = split(line, patterns, /[[:space:]]+/)
+        for (i = 1; i <= count; i++) {
+          if (tolower(patterns[i]) == "github.com") unmanaged_github = 1
+        }
+      }
+    }
+    END {
+      exit unmanaged_github ? 0 : 1
+    }
+  ' "$ssh_config_local"; then
+    printf 'cannot configure git@github.com SSH auth; unmanaged Host github.com entry exists in %s\n' "$ssh_config_local" >&2
+    printf 'remove or migrate that entry before rerunning configure-git.sh\n' >&2
+    exit 1
+  fi
+}
+
+write_github_ssh_config() (
+  local identity_file="$1"
+  local ssh_config_dir="$HOME/.ssh"
+  local ssh_config_local="$ssh_config_dir/config.local"
+  local ssh_github_config="$ssh_config_dir/github.config"
+  local tmp_github
+  local tmp_local
+  local migrate_local=0
+
   mkdir -p "$ssh_config_dir"
   chmod 0700 "$ssh_config_dir"
 
-  tmp_config="$(mktemp)"
-  if [ -f "$ssh_config_local" ]; then
-    awk '
-      $0 == "# uinaf-dotfiles: github-ssh begin" { skip = 1; next }
-      $0 == "# uinaf-dotfiles: github-ssh end" { skip = 0; next }
-      $1 == "Host" && $2 == "github.com" { skip_github = 1; next }
-      $1 == "Host" { skip_github = 0 }
-      !skip && !skip_github { print }
-    ' "$ssh_config_local" > "$tmp_config"
-    if [ -s "$tmp_config" ] && [ "$(tail -c 1 "$tmp_config")" != "" ]; then
-      printf '\n' >> "$tmp_config"
-    fi
-  fi
+  tmp_github="$(mktemp)"
+  tmp_local="$(mktemp)"
+  trap 'rm -f "$tmp_github" "$tmp_local"' EXIT
 
-  cat >> "$tmp_config" <<EOF
+  cat > "$tmp_github" <<EOF
 # uinaf-dotfiles: github-ssh begin
 Host github.com
   HostName github.com
@@ -163,10 +287,23 @@ Host github.com
 # uinaf-dotfiles: github-ssh end
 EOF
 
-  install -m 0600 "$tmp_config" "$ssh_config_local"
-  rm -f "$tmp_config"
-  printf 'wrote %s\n' "$ssh_config_local"
-}
+  if [ -f "$ssh_config_local" ] && grep -q '^# uinaf-dotfiles: github-ssh begin$' "$ssh_config_local"; then
+    migrate_local=1
+    awk '
+      $0 == "# uinaf-dotfiles: github-ssh begin" { skip = 1; next }
+      $0 == "# uinaf-dotfiles: github-ssh end" { skip = 0; next }
+      !skip { print }
+    ' "$ssh_config_local" > "$tmp_local"
+  fi
+
+  install -m 0600 "$tmp_github" "$ssh_github_config"
+  printf 'wrote %s\n' "$ssh_github_config"
+
+  if [ "$migrate_local" -eq 1 ]; then
+    install -m 0600 "$tmp_local" "$ssh_config_local"
+    printf 'migrated managed GitHub block out of %s\n' "$ssh_config_local"
+  fi
+)
 
 default_git_ssh_identity_file() {
   local value="$1"
@@ -179,7 +316,8 @@ default_git_ssh_identity_file() {
       if [ -f "${value%.pub}" ]; then
         printf '%s\n' "${value%.pub}"
       else
-        printf '%s\n' "$value"
+        printf 'cannot configure git@github.com SSH auth; matching private key does not exist: %s\n' "${value%.pub}" >&2
+        exit 1
       fi
       ;;
     *)
@@ -253,18 +391,28 @@ else
   git_ssh_identity_file="$(default_git_ssh_identity_file "$git_ssh_identity_file")"
 fi
 
+if [ -n "$git_ssh_identity_file" ]; then
+  validate_github_ssh_identity_file "$git_ssh_identity_file"
+  validate_github_ssh_config
+fi
+
+signing_public_key=""
+if [ "$sign_commits" = "true" ]; then
+  signing_public_key="$(resolve_ssh_public_key "$signing_key")"
+  validate_ssh_public_key "$signing_public_key"
+fi
+
 gitconfig_local="$HOME/.gitconfig.local"
 allowed_signers_file="$HOME/.config/git/allowed_signers.local"
-tmp="$(mktemp)"
-trap 'rm -f "$tmp"' EXIT
+tmp_gitconfig="$(mktemp)"
+tmp_signers=""
+trap 'rm -f "$tmp_gitconfig" ${tmp_signers:+"$tmp_signers"}' EXIT
 
 if [ "$sign_commits" = "true" ]; then
   allowed_signer_principal="${allowed_signer_principal:-$git_email}"
-  signing_public_key="$(resolve_ssh_public_key "$signing_key")"
   mkdir -p "$(dirname "$allowed_signers_file")"
-  printf '%s %s\n' "$allowed_signer_principal" "$signing_public_key" > "$allowed_signers_file"
-  chmod 0600 "$allowed_signers_file"
-  printf 'wrote %s\n' "$allowed_signers_file"
+  tmp_signers="$(mktemp)"
+  printf '%s %s\n' "$allowed_signer_principal" "$signing_public_key" > "$tmp_signers"
 fi
 
 {
@@ -291,18 +439,23 @@ fi
       printf '\tprogram = /Applications/1Password.app/Contents/MacOS/op-ssh-sign\n'
     fi
   fi
-} > "$tmp"
+} > "$tmp_gitconfig"
+
+if [ -n "$git_ssh_identity_file" ]; then
+  write_github_ssh_config "$git_ssh_identity_file"
+fi
+
+if [ "$sign_commits" = "true" ]; then
+  install -m 0600 "$tmp_signers" "$allowed_signers_file"
+  printf 'wrote %s\n' "$allowed_signers_file"
+fi
 
 if [ -L "$gitconfig_local" ]; then
   unlink "$gitconfig_local"
 fi
 
-install -m 0600 "$tmp" "$gitconfig_local"
+install -m 0600 "$tmp_gitconfig" "$gitconfig_local"
 printf 'wrote %s\n' "$gitconfig_local"
-
-if [ -n "$git_ssh_identity_file" ]; then
-  write_github_ssh_config "$git_ssh_identity_file"
-fi
 
 if [ -z "$op_ssh_vault" ] && [ "$non_interactive" -eq 0 ]; then
   op_ssh_vault="$(prompt '1Password SSH agent vault (blank to skip)' "$op_ssh_vault")"

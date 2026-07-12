@@ -193,9 +193,20 @@ for SSH pushes and `Verified` commits to work. This dual-use setup is convenient
 but revoking or rotating the local key affects both operations.
 
 The generated Git config signs directly from the local key. The generated
-`~/.ssh/config.local` block uses the same key for `github.com` without routing
-through the 1Password agent. Other SSH hosts keep their existing agent or
-host-specific configuration.
+`~/.ssh/github.config` block uses the same key for `github.com` without routing
+through the 1Password agent. The tracked SSH entrypoint includes that dedicated
+file before the untouched `~/.ssh/config.local`, so local global directives and
+host-specific configuration keep their original scope. Setup migrates only the
+old marker-delimited GitHub block out of `config.local`; if an unmarked
+`Host github.com` entry already exists, it stops before changing Git state and
+asks you to resolve the local configuration explicitly. It also stops if
+`~/.ssh/github.config` already exists without the uinaf managed markers; move
+that file aside or migrate its directives to `~/.ssh/config.local` before
+rerunning. OpenSSH keeps
+file-backed `IdentityFile` values additive, so wildcard local identities may
+still appear after the exported key; the exported key remains first and
+`IdentityAgent none` prevents agent-backed keys, including 1Password keys, from
+being used for GitHub.
 
 Verify:
 
@@ -245,7 +256,7 @@ agent is installed and reachable from that shell/session.
 Devbox Git config writes identity and `/opt/homebrew` Git safe-directory state
 to `~/.gitconfig.local`, not to the tracked shared config. When
 `GIT_SIGNING_KEY` is a local private key path, devbox setup also writes a
-managed `Host github.com` block to `~/.ssh/config.local` so normal
+managed `Host github.com` block to `~/.ssh/github.config` so normal
 `git@github.com:...` remotes work over SSH in headless sessions without relying
 on a GUI agent socket. Use `GIT_SSH_IDENTITY_FILE` when GitHub SSH auth should
 use a different local key path than commit signing.

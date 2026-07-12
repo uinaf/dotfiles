@@ -81,7 +81,7 @@ agent is installed and reachable from the relevant shell/session.
 Do not put identity-specific values in tracked files. `configure-git.sh` writes
 them to `~/.gitconfig.local`. On devboxes, use the human-provisioned local SSH
 key file for GitHub SSH auth; `configure-git.sh` writes the matching
-`~/.ssh/config.local` override when the signing key is a local path.
+`~/.ssh/github.config` override when the signing key is a local path.
 
 ## Verification
 

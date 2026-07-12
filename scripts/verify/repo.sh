@@ -81,6 +81,9 @@ printf 'ok shell syntax\n'
 section "Infisical sudo runner"
 ./scripts/verify/infisical-devbox-sudo.sh
 
+section "Git bootstrap"
+./scripts/verify/configure-git.sh
+
 section "shellcheck"
 {
   find scripts -name '*.sh' -print0

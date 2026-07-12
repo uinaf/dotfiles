@@ -286,7 +286,7 @@ grant it explicitly and temporarily, then remove that access after the task.
 For GitHub, devbox repos should use SSH remotes. A human should provision the
 per-user GitHub key into an owner-only local key file during bootstrap.
 `configure-git.sh --profile devbox` writes a `Host github.com` override in
-`~/.ssh/config.local` when the signing key is a local path. That override uses
+`~/.ssh/github.config` when the signing key is a local path. That override uses
 the local key file directly and sets `IdentityAgent none` for GitHub only.
 
 ## Local Contract
