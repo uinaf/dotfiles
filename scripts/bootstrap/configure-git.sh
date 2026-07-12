@@ -300,7 +300,7 @@ fi
 install -m 0600 "$tmp" "$gitconfig_local"
 printf 'wrote %s\n' "$gitconfig_local"
 
-if [ "$profile" = "devbox" ]; then
+if [ -n "$git_ssh_identity_file" ]; then
   write_github_ssh_config "$git_ssh_identity_file"
 fi
 

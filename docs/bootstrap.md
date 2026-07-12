@@ -159,6 +159,44 @@ Chrome vertical tabs are a local browser preference. Quit Chrome first, then:
 ./scripts/bootstrap/configure-chrome.sh
 ```
 
+### Local Git Signing Key
+
+Personal Macs may use an existing 1Password SSH key for autonomous Git signing
+without depending on the 1Password SSH agent at commit time. This is a one-time
+human bootstrap: open the SSH Key item in 1Password, export its private key in
+OpenSSH format without a passphrase, and save it to an owner-only path such as
+`~/.ssh/personal_ed25519`. Leaving the export unencrypted is required for
+unattended signing and means any process running as the local user can use the
+key. Keep 1Password as the recovery copy and do not copy the exported file into
+this repository.
+
+Derive the public key and lock the file permissions before configuration:
+
+```zsh
+chmod 0600 ~/.ssh/personal_ed25519
+ssh-keygen -y -f ~/.ssh/personal_ed25519 > ~/.ssh/personal_ed25519.pub
+chmod 0644 ~/.ssh/personal_ed25519.pub
+```
+
+Configure the exported key for commit signing and, when the same key is already
+registered for GitHub SSH authentication, for GitHub pushes:
+
+```zsh
+GIT_SIGNING_KEY="$HOME/.ssh/personal_ed25519.pub" \
+GIT_SSH_IDENTITY_FILE="$HOME/.ssh/personal_ed25519" \
+  ./scripts/bootstrap/configure-git.sh --profile personal
+```
+
+GitHub tracks authentication and signing registrations separately even when
+they contain the same public key. The key must already be present in both roles
+for SSH pushes and `Verified` commits to work. This dual-use setup is convenient,
+but revoking or rotating the local key affects both operations.
+
+The generated Git config signs directly from the local key. The generated
+`~/.ssh/config.local` block uses the same key for `github.com` without routing
+through the 1Password agent. Other SSH hosts keep their existing agent or
+host-specific configuration.
+
 Verify:
 
 ```zsh
