@@ -182,7 +182,7 @@ Configure the exported key for commit signing and, when the same key is already
 registered for GitHub SSH authentication, for GitHub pushes:
 
 ```zsh
-GIT_SIGNING_KEY="$HOME/.ssh/personal_ed25519.pub" \
+GIT_SIGNING_KEY="$HOME/.ssh/personal_ed25519" \
 GIT_SSH_IDENTITY_FILE="$HOME/.ssh/personal_ed25519" \
   ./scripts/bootstrap/configure-git.sh --profile personal
 ```
@@ -192,8 +192,13 @@ they contain the same public key. The key must already be present in both roles
 for SSH pushes and `Verified` commits to work. This dual-use setup is convenient,
 but revoking or rotating the local key affects both operations.
 
-The generated Git config signs directly from the local key. The generated
-`~/.ssh/github.config` block uses the same key for `github.com` without routing
+The generated Git config signs directly from the local private key, so an
+ambient SSH agent is not consulted at commit time. When the supplied signing
+public key matches an unencrypted `GIT_SSH_IDENTITY_FILE`, setup writes the
+validated private key path to Git automatically. Encrypted identities retain
+the public signing key for agent-backed signing. Setting `OP_SSH_VAULT` also
+selects the matching `.pub` file because the 1Password signing program requires
+it. The generated `~/.ssh/github.config` block uses the same key for `github.com` without routing
 through the 1Password agent. The tracked SSH entrypoint includes that dedicated
 file before the untouched `~/.ssh/config.local`, so local global directives and
 host-specific configuration keep their original scope. Setup migrates only the

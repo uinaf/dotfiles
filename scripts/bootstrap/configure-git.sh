@@ -6,6 +6,7 @@ profile="${DOTFILES_PROFILE:-}"
 git_name="${GIT_USER_NAME:-}"
 git_email="${GIT_USER_EMAIL:-}"
 signing_key="${GIT_SIGNING_KEY:-}"
+signing_key_config=""
 sign_commits="${GIT_SIGN_COMMITS:-}"
 allowed_signer_principal="${GIT_ALLOWED_SIGNER_PRINCIPAL:-}"
 op_ssh_vault="${OP_SSH_VAULT:-}"
@@ -402,6 +403,34 @@ if [ "$sign_commits" = "true" ]; then
   validate_ssh_public_key "$signing_public_key"
 fi
 
+signing_key_config="$signing_key"
+if [ "$sign_commits" = "true" ] && [ -n "$op_ssh_vault" ]; then
+  case "$signing_key" in
+    ssh-*|*.pub)
+      ;;
+    *)
+      signing_key_config="$signing_key.pub"
+      [ -f "$signing_key_config" ] || {
+        printf 'cannot configure 1Password signing; matching public key does not exist: %s\n' "$signing_key_config" >&2
+        exit 1
+      }
+      vault_fingerprint="$(ssh-keygen -lf "$signing_key_config" | awk '{ print $2 }')"
+      signing_fingerprint="$(printf '%s\n' "$signing_public_key" | ssh-keygen -lf - | awk '{ print $2 }')"
+      [ "$vault_fingerprint" = "$signing_fingerprint" ] || {
+        printf 'cannot configure 1Password signing; public key does not match GIT_SIGNING_KEY: %s\n' "$signing_key_config" >&2
+        exit 1
+      }
+      ;;
+  esac
+elif [ "$sign_commits" = "true" ] && [ -n "$git_ssh_identity_file" ]; then
+  signing_fingerprint="$(printf '%s\n' "$signing_public_key" | ssh-keygen -lf - | awk '{ print $2 }')"
+  identity_fingerprint="$(ssh-keygen -lf "$git_ssh_identity_file" | awk '{ print $2 }')"
+  if [ "$identity_fingerprint" = "$signing_fingerprint" ] \
+    && ssh-keygen -y -P '' -f "$git_ssh_identity_file" >/dev/null 2>&1; then
+    signing_key_config="$git_ssh_identity_file"
+  fi
+fi
+
 gitconfig_local="$HOME/.gitconfig.local"
 allowed_signers_file="$HOME/.config/git/allowed_signers.local"
 tmp_gitconfig="$(mktemp)"
@@ -419,8 +448,8 @@ fi
   printf '[user]\n'
   printf '\tname = %s\n' "$git_name"
   printf '\temail = %s\n' "$git_email"
-  if [ -n "$signing_key" ]; then
-    printf '\tsigningkey = %s\n' "$signing_key"
+  if [ -n "$signing_key_config" ]; then
+    printf '\tsigningkey = %s\n' "$signing_key_config"
   fi
   printf '\n[commit]\n'
   printf '\tgpgsign = %s\n' "$sign_commits"

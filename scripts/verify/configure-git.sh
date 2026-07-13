@@ -28,11 +28,18 @@ make_key() {
   ssh-keygen -q -t ed25519 -N '' -f "$path"
 }
 
+make_encrypted_key() {
+  local path="$1"
+
+  ssh-keygen -q -t ed25519 -N 'fixture-passphrase' -f "$path"
+}
+
 configure() {
   local home="$1"
   local profile="$2"
   local signing_key="$3"
   local identity_file="${4:-}"
+  local op_ssh_vault="${5:-}"
 
   HOME="$home" \
   GIT_USER_NAME='Example User' \
@@ -40,7 +47,7 @@ configure() {
   GIT_SIGNING_KEY="$signing_key" \
   GIT_SSH_IDENTITY_FILE="$identity_file" \
   GIT_SIGN_COMMITS=true \
-  OP_SSH_VAULT='' \
+  OP_SSH_VAULT="$op_ssh_vault" \
     "$configure_git" --profile "$profile" --non-interactive
 }
 
@@ -107,6 +114,9 @@ configure \
   "$personal_home/.ssh/signing.pub" \
   "$personal_home/.ssh/signing" >/dev/null
 
+[ "$(HOME="$personal_home" git config --file "$personal_home/.gitconfig.local" --get user.signingkey)" = "$personal_home/.ssh/signing" ] \
+  || fail "personal Git signing did not select the matching local private key"
+
 github_config="$personal_home/.ssh/github.config"
 [ "$(grep -c '^# uinaf-dotfiles: github-ssh begin$' "$github_config")" -eq 1 ] || fail "dedicated GitHub block is missing or duplicated"
 cmp -s "$tmp_root/personal.config.before" "$personal_home/.ssh/config.local" || fail "personal config.local was rewritten"
@@ -133,8 +143,34 @@ proof_repo="$personal_home/proof"
 HOME="$personal_home" git init -q "$proof_repo"
 printf 'agentless signing proof\n' > "$proof_repo/proof.txt"
 HOME="$personal_home" git -C "$proof_repo" add proof.txt
-HOME="$personal_home" SSH_AUTH_SOCK=/nonexistent git -C "$proof_repo" commit -q -m 'test: prove agentless signing'
+HOME="$personal_home" ssh-agent -a "$tmp_root/empty-agent.sock" \
+  git -C "$proof_repo" commit -q -m 'test: prove local signing bypasses an empty agent'
 HOME="$personal_home" SSH_AUTH_SOCK=/nonexistent git -C "$proof_repo" verify-commit HEAD
+
+encrypted_home="$tmp_root/encrypted"
+make_home "$encrypted_home"
+make_encrypted_key "$encrypted_home/.ssh/signing"
+configure \
+  "$encrypted_home" \
+  personal \
+  "$encrypted_home/.ssh/signing.pub" \
+  "$encrypted_home/.ssh/signing" >/dev/null
+[ "$(HOME="$encrypted_home" git config --file "$encrypted_home/.gitconfig.local" --get user.signingkey)" = "$encrypted_home/.ssh/signing.pub" ] \
+  || fail "encrypted signing key unexpectedly switched to unattended file-backed signing"
+
+vault_home="$tmp_root/vault"
+make_home "$vault_home"
+make_key "$vault_home/.ssh/signing"
+configure \
+  "$vault_home" \
+  personal \
+  "$vault_home/.ssh/signing" \
+  "$vault_home/.ssh/signing" \
+  'Example Vault' >/dev/null
+[ "$(HOME="$vault_home" git config --file "$vault_home/.gitconfig.local" --get user.signingkey)" = "$vault_home/.ssh/signing.pub" ] \
+  || fail "1Password-backed signing unexpectedly selected a private key path"
+[ "$(HOME="$vault_home" git config --file "$vault_home/.gitconfig.local" --get gpg.ssh.program)" = /Applications/1Password.app/Contents/MacOS/op-ssh-sign ] \
+  || fail "1Password-backed signing program is missing"
 
 migration_home="$tmp_root/migration"
 make_home "$migration_home"
@@ -238,4 +274,4 @@ assert_rejected_without_mutation \
   "$public_only_home" 'matching private key does not exist' \
   "$public_only_home" devbox "$public_only_home/.ssh/signing.pub"
 
-printf 'ok Git bootstrap preserves SSH scope and signs without an agent\n'
+printf 'ok Git bootstrap preserves SSH scope and signs from a local key with an empty agent\n'
