@@ -75,8 +75,8 @@ GIT_SIGNING_KEY="$HOME/.ssh/devbox-key" \
   ./scripts/bootstrap/configure-git.sh --profile devbox --non-interactive
 ```
 
-Only set `OP_SSH_VAULT` for human-operated machines where the 1Password SSH
-agent is installed and reachable from the relevant shell/session.
+Commit signing supports one unattended mode: an unencrypted local SSH private
+key plus the agentless signer installed by `scripts/bootstrap/install.sh`.
 
 Do not put identity-specific values in tracked files. `configure-git.sh` writes
 them to `~/.gitconfig.local`. On devboxes, use the human-provisioned local SSH

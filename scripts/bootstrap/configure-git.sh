@@ -6,10 +6,9 @@ profile="${DOTFILES_PROFILE:-}"
 git_name="${GIT_USER_NAME:-}"
 git_email="${GIT_USER_EMAIL:-}"
 signing_key="${GIT_SIGNING_KEY:-}"
-signing_key_config=""
+agentless_signing_program="$HOME/.local/libexec/uinaf/git-ssh-sign-agentless"
 sign_commits="${GIT_SIGN_COMMITS:-}"
 allowed_signer_principal="${GIT_ALLOWED_SIGNER_PRINCIPAL:-}"
-op_ssh_vault="${OP_SSH_VAULT:-}"
 git_ssh_identity_file="${GIT_SSH_IDENTITY_FILE:-}"
 
 usage() {
@@ -19,16 +18,14 @@ usage: $0 [--profile personal|devbox] [--non-interactive]
 Writes:
   ~/.gitconfig.local
   ~/.ssh/github.config when GIT_SSH_IDENTITY_FILE is set or inferred
-  ~/.config/1Password/ssh/agent.toml when OP_SSH_VAULT or prompt value is set
 
 Environment:
   GIT_USER_NAME
   GIT_USER_EMAIL
-  GIT_SIGNING_KEY
+  GIT_SIGNING_KEY    unencrypted local SSH private key path
   GIT_SIGN_COMMITS    true|false
   GIT_ALLOWED_SIGNER_PRINCIPAL optional SSH signing verification principal; defaults to GIT_USER_EMAIL
-  GIT_SSH_IDENTITY_FILE optional SSH private key path for git@github.com; devbox defaults to GIT_SIGNING_KEY when it is a path
-  OP_SSH_VAULT        optional 1Password SSH agent vault
+  GIT_SSH_IDENTITY_FILE optional SSH private key path for git@github.com; devbox defaults to GIT_SIGNING_KEY
 EOF
 }
 
@@ -78,57 +75,6 @@ prompt() {
   printf '%s' "${value:-$default}"
 }
 
-toml_basic_string() {
-  local value="$1"
-
-  case "$value" in
-    *$'\n'*|*$'\r'*)
-      printf 'TOML string values cannot contain newlines\n' >&2
-      exit 2
-      ;;
-  esac
-
-  value="${value//\\/\\\\}"
-  value="${value//\"/\\\"}"
-  printf '"%s"' "$value"
-}
-
-resolve_ssh_public_key() {
-  local value="$1"
-
-  if [[ "$value" = ssh-* ]]; then
-    printf '%s\n' "$value"
-    return
-  fi
-
-  if [ -f "$value" ]; then
-    if [[ "$value" = *.pub ]]; then
-      sed -n '1p' "$value"
-      return
-    fi
-
-    if [ -f "$value.pub" ]; then
-      sed -n '1p' "$value.pub"
-      return
-    fi
-
-    ssh-keygen -y -f "$value"
-    return
-  fi
-
-  printf 'cannot resolve SSH public key from GIT_SIGNING_KEY=%s\n' "$value" >&2
-  exit 1
-}
-
-validate_ssh_public_key() {
-  local public_key="$1"
-
-  if ! printf '%s\n' "$public_key" | ssh-keygen -lf - >/dev/null 2>&1; then
-    printf 'cannot configure Git signing; GIT_SIGNING_KEY does not resolve to a valid SSH public key\n' >&2
-    exit 1
-  fi
-}
-
 mode_of() {
   local path="$1"
 
@@ -139,38 +85,39 @@ mode_of() {
   fi
 }
 
-validate_github_ssh_identity_file() {
-  local identity_file="$1"
+validate_local_ssh_private_key() {
+  local purpose="$1"
+  local identity_file="$2"
   local identity_mode
 
   if [ ! -f "$identity_file" ]; then
-    printf 'cannot configure git@github.com SSH auth; identity file does not exist: %s\n' "$identity_file" >&2
+    printf 'cannot configure %s; key file does not exist: %s\n' "$purpose" "$identity_file" >&2
     exit 1
   fi
 
   if [ ! -r "$identity_file" ]; then
-    printf 'cannot configure git@github.com SSH auth; identity file is not readable: %s\n' "$identity_file" >&2
+    printf 'cannot configure %s; key file is not readable: %s\n' "$purpose" "$identity_file" >&2
     exit 1
   fi
 
   if ! sed -n '1p' "$identity_file" | grep -Eq '^-----BEGIN ([A-Z0-9]+ )?PRIVATE KEY-----$'; then
-    printf 'cannot configure git@github.com SSH auth; identity file is not an SSH private key: %s\n' "$identity_file" >&2
+    printf 'cannot configure %s; key file is not an SSH private key: %s\n' "$purpose" "$identity_file" >&2
     exit 1
   fi
 
   if ! ssh-keygen -lf "$identity_file" >/dev/null 2>&1; then
-    printf 'cannot configure git@github.com SSH auth; identity file is not a valid SSH private key: %s\n' "$identity_file" >&2
+    printf 'cannot configure %s; key file is not a valid SSH private key: %s\n' "$purpose" "$identity_file" >&2
     exit 1
   fi
 
   if [ ! -O "$identity_file" ]; then
-    printf 'cannot configure git@github.com SSH auth; identity file is not owned by the current user: %s\n' "$identity_file" >&2
+    printf 'cannot configure %s; key file is not owned by the current user: %s\n' "$purpose" "$identity_file" >&2
     exit 1
   fi
 
   identity_mode="$(mode_of "$identity_file")"
   if [ $((8#$identity_mode & 0077)) -ne 0 ]; then
-    printf 'cannot configure git@github.com SSH auth; identity file permissions must be owner-only: %s (mode %s)\n' "$identity_file" "$identity_mode" >&2
+    printf 'cannot configure %s; key file permissions must be owner-only: %s (mode %s)\n' "$purpose" "$identity_file" "$identity_mode" >&2
     printf 'run: chmod 0600 %s\n' "$identity_file" >&2
     exit 1
   fi
@@ -306,27 +253,6 @@ EOF
   fi
 )
 
-default_git_ssh_identity_file() {
-  local value="$1"
-
-  case "$value" in
-    ssh-*|"")
-      return
-      ;;
-    *.pub)
-      if [ -f "${value%.pub}" ]; then
-        printf '%s\n' "${value%.pub}"
-      else
-        printf 'cannot configure git@github.com SSH auth; matching private key does not exist: %s\n' "${value%.pub}" >&2
-        exit 1
-      fi
-      ;;
-    *)
-      printf '%s\n' "$value"
-      ;;
-  esac
-}
-
 default_name="$(git config --global --get user.name 2>/dev/null || true)"
 default_email="$(git config --global --get user.email 2>/dev/null || true)"
 
@@ -358,7 +284,7 @@ if [ -z "$git_name" ] || [ -z "$git_email" ]; then
 fi
 
 if [ -z "$signing_key" ] && [ "${sign_commits:-}" != "false" ]; then
-  signing_key="$(prompt 'Git SSH signing public key (blank to disable signing)' '')"
+  signing_key="$(prompt 'Git SSH private key path (blank to disable signing)' '')"
 fi
 
 if [ -z "${sign_commits:-}" ]; then
@@ -376,59 +302,31 @@ fi
 
 if [ "$sign_commits" = "true" ] && [ -z "$signing_key" ]; then
   printf 'commit signing is enabled but GIT_SIGNING_KEY is empty\n' >&2
-  printf 'set GIT_SIGNING_KEY to the SSH public signing key, or set GIT_SIGN_COMMITS=false\n' >&2
+  printf 'set GIT_SIGNING_KEY to an unencrypted local SSH private key, or set GIT_SIGN_COMMITS=false\n' >&2
   exit 1
-fi
-
-if [ -z "$git_ssh_identity_file" ] && [ "$profile" = "devbox" ]; then
-  case "$signing_key" in
-    ssh-*)
-      ;;
-    *)
-      git_ssh_identity_file="$(default_git_ssh_identity_file "$signing_key")"
-      ;;
-  esac
-else
-  git_ssh_identity_file="$(default_git_ssh_identity_file "$git_ssh_identity_file")"
-fi
-
-if [ -n "$git_ssh_identity_file" ]; then
-  validate_github_ssh_identity_file "$git_ssh_identity_file"
-  validate_github_ssh_config
 fi
 
 signing_public_key=""
 if [ "$sign_commits" = "true" ]; then
-  signing_public_key="$(resolve_ssh_public_key "$signing_key")"
-  validate_ssh_public_key "$signing_public_key"
+  validate_local_ssh_private_key "Git signing" "$signing_key"
+  if ! signing_public_key="$(ssh-keygen -y -P '' -f "$signing_key" 2>/dev/null)"; then
+    printf 'cannot configure Git signing; GIT_SIGNING_KEY must be an unencrypted SSH private key: %s\n' "$signing_key" >&2
+    exit 1
+  fi
+  if [ ! -x "$agentless_signing_program" ]; then
+    printf 'cannot configure Git signing; agentless signer is missing or not executable: %s\n' "$agentless_signing_program" >&2
+    printf 'run scripts/bootstrap/install.sh before configure-git.sh\n' >&2
+    exit 1
+  fi
 fi
 
-signing_key_config="$signing_key"
-if [ "$sign_commits" = "true" ] && [ -n "$op_ssh_vault" ]; then
-  case "$signing_key" in
-    ssh-*|*.pub)
-      ;;
-    *)
-      signing_key_config="$signing_key.pub"
-      [ -f "$signing_key_config" ] || {
-        printf 'cannot configure 1Password signing; matching public key does not exist: %s\n' "$signing_key_config" >&2
-        exit 1
-      }
-      vault_fingerprint="$(ssh-keygen -lf "$signing_key_config" | awk '{ print $2 }')"
-      signing_fingerprint="$(printf '%s\n' "$signing_public_key" | ssh-keygen -lf - | awk '{ print $2 }')"
-      [ "$vault_fingerprint" = "$signing_fingerprint" ] || {
-        printf 'cannot configure 1Password signing; public key does not match GIT_SIGNING_KEY: %s\n' "$signing_key_config" >&2
-        exit 1
-      }
-      ;;
-  esac
-elif [ "$sign_commits" = "true" ] && [ -n "$git_ssh_identity_file" ]; then
-  signing_fingerprint="$(printf '%s\n' "$signing_public_key" | ssh-keygen -lf - | awk '{ print $2 }')"
-  identity_fingerprint="$(ssh-keygen -lf "$git_ssh_identity_file" | awk '{ print $2 }')"
-  if [ "$identity_fingerprint" = "$signing_fingerprint" ] \
-    && ssh-keygen -y -P '' -f "$git_ssh_identity_file" >/dev/null 2>&1; then
-    signing_key_config="$git_ssh_identity_file"
-  fi
+if [ -z "$git_ssh_identity_file" ] && [ "$profile" = "devbox" ]; then
+  git_ssh_identity_file="$signing_key"
+fi
+
+if [ -n "$git_ssh_identity_file" ]; then
+  validate_local_ssh_private_key "git@github.com SSH auth" "$git_ssh_identity_file"
+  validate_github_ssh_config
 fi
 
 gitconfig_local="$HOME/.gitconfig.local"
@@ -448,8 +346,8 @@ fi
   printf '[user]\n'
   printf '\tname = %s\n' "$git_name"
   printf '\temail = %s\n' "$git_email"
-  if [ -n "$signing_key_config" ]; then
-    printf '\tsigningkey = %s\n' "$signing_key_config"
+  if [ "$sign_commits" = "true" ]; then
+    printf '\tsigningkey = %s\n' "$signing_key"
   fi
   printf '\n[commit]\n'
   printf '\tgpgsign = %s\n' "$sign_commits"
@@ -459,14 +357,10 @@ fi
     printf '\n[safe]\n'
     printf '\tdirectory = /opt/homebrew\n'
   fi
-  if [ "$sign_commits" = "true" ] || [ -n "$op_ssh_vault" ]; then
+  if [ "$sign_commits" = "true" ]; then
     printf '\n[gpg "ssh"]\n'
-    if [ "$sign_commits" = "true" ]; then
-      printf '\tallowedSignersFile = %s\n' "$allowed_signers_file"
-    fi
-    if [ -n "$op_ssh_vault" ]; then
-      printf '\tprogram = /Applications/1Password.app/Contents/MacOS/op-ssh-sign\n'
-    fi
+    printf '\tallowedSignersFile = %s\n' "$allowed_signers_file"
+    printf '\tprogram = %s\n' "$agentless_signing_program"
   fi
 } > "$tmp_gitconfig"
 
@@ -485,26 +379,3 @@ fi
 
 install -m 0600 "$tmp_gitconfig" "$gitconfig_local"
 printf 'wrote %s\n' "$gitconfig_local"
-
-if [ -z "$op_ssh_vault" ] && [ "$non_interactive" -eq 0 ]; then
-  op_ssh_vault="$(prompt '1Password SSH agent vault (blank to skip)' "$op_ssh_vault")"
-fi
-
-if [ -n "$op_ssh_vault" ]; then
-  op_agent_config="$HOME/.config/1Password/ssh/agent.toml"
-  op_ssh_vault_toml="$(toml_basic_string "$op_ssh_vault")"
-
-  mkdir -p "$(dirname "$op_agent_config")"
-  if [ -L "$op_agent_config" ]; then
-    unlink "$op_agent_config"
-  fi
-
-  cat > "$op_agent_config" <<EOF
-[[ssh-keys]]
-vault = $op_ssh_vault_toml
-EOF
-  chmod 0600 "$op_agent_config"
-  printf 'wrote %s\n' "$op_agent_config"
-else
-  printf 'skipped 1Password SSH agent config\n'
-fi

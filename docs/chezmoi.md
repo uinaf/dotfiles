@@ -14,6 +14,7 @@ Use chezmoi source attributes instead of literal target filenames:
 | `chezmoi/dot_gitconfig` | `~/.gitconfig` |
 | `chezmoi/private_dot_config/mise/config.toml` | `~/.config/mise/config.toml` |
 | `chezmoi/private_dot_ssh/private_config` | `~/.ssh/config` |
+| `chezmoi/private_dot_local/private_libexec/private_uinaf/private_executable_git-ssh-sign-agentless` | `~/.local/libexec/uinaf/git-ssh-sign-agentless` |
 | `chezmoi/private_dot_config/zed/private_settings.json` | `~/.config/zed/settings.json` |
 
 The `private_` attribute is used for parent config directories and files that
