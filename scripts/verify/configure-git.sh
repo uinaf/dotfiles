@@ -7,6 +7,23 @@ ssh_entrypoint="$repo_root/chezmoi/private_dot_ssh/private_config"
 tmp_root="$(mktemp -d)"
 trap 'rm -rf "$tmp_root"' EXIT
 
+unset \
+  GIT_ALTERNATE_OBJECT_DIRECTORIES \
+  GIT_CONFIG \
+  GIT_CONFIG_PARAMETERS \
+  GIT_CONFIG_COUNT \
+  GIT_OBJECT_DIRECTORY \
+  GIT_DIR \
+  GIT_WORK_TREE \
+  GIT_IMPLICIT_WORK_TREE \
+  GIT_GRAFT_FILE \
+  GIT_INDEX_FILE \
+  GIT_NO_REPLACE_OBJECTS \
+  GIT_REPLACE_REF_BASE \
+  GIT_PREFIX \
+  GIT_SHALLOW_FILE \
+  GIT_COMMON_DIR
+
 fail() {
   printf 'FAILED: %s\n' "$1" >&2
   exit 1
