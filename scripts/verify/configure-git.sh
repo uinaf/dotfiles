@@ -4,6 +4,7 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 configure_git="$repo_root/scripts/bootstrap/configure-git.sh"
 ssh_entrypoint="$repo_root/chezmoi/private_dot_ssh/private_config"
+agentless_signer_source="$repo_root/chezmoi/private_dot_local/private_libexec/private_uinaf/private_executable_git-ssh-sign-agentless"
 tmp_root="$(mktemp -d)"
 trap 'rm -rf "$tmp_root"' EXIT
 
@@ -31,9 +32,11 @@ fail() {
 
 make_home() {
   local home="$1"
+  local agentless_signer="$home/.local/libexec/uinaf/git-ssh-sign-agentless"
 
-  mkdir -p "$home/.ssh"
+  mkdir -p "$home/.ssh" "$(dirname "$agentless_signer")"
   chmod 0700 "$home/.ssh"
+  install -m 0700 "$agentless_signer_source" "$agentless_signer"
   HOME="$home" git config --global gpg.format ssh
   HOME="$home" git config --global include.path "$home/.gitconfig.local"
   sed "s|~/.ssh|$home/.ssh|g" "$ssh_entrypoint" > "$home/.ssh/config"
@@ -56,7 +59,6 @@ configure() {
   local profile="$2"
   local signing_key="$3"
   local identity_file="${4:-}"
-  local op_ssh_vault="${5:-}"
 
   HOME="$home" \
   GIT_USER_NAME='Example User' \
@@ -64,7 +66,6 @@ configure() {
   GIT_SIGNING_KEY="$signing_key" \
   GIT_SSH_IDENTITY_FILE="$identity_file" \
   GIT_SIGN_COMMITS=true \
-  OP_SSH_VAULT="$op_ssh_vault" \
     "$configure_git" --profile "$profile" --non-interactive
 }
 
@@ -129,7 +130,7 @@ cp "$personal_home/.ssh/config.local" "$tmp_root/personal.config.before"
 configure \
   "$personal_home" \
   personal \
-  "$personal_home/.ssh/signing.pub" \
+  "$personal_home/.ssh/signing" \
   "$personal_home/.ssh/signing" >/dev/null
 
 [ "$(HOME="$personal_home" git config --file "$personal_home/.gitconfig.local" --get user.signingkey)" = "$personal_home/.ssh/signing" ] \
@@ -157,7 +158,7 @@ cp "$github_config" "$tmp_root/personal.github.before"
 configure \
   "$personal_home" \
   personal \
-  "$personal_home/.ssh/signing.pub" \
+  "$personal_home/.ssh/signing" \
   "$personal_home/.ssh/signing" >/dev/null
 cmp -s "$tmp_root/personal.github.before" "$github_config" || fail "dedicated GitHub config is not idempotent"
 cmp -s "$tmp_root/personal.config.before" "$personal_home/.ssh/config.local" || fail "rerun changed personal config.local"
@@ -167,6 +168,7 @@ HOME="$personal_home" git init -q "$proof_repo"
 printf 'agentless signing proof\n' > "$proof_repo/proof.txt"
 HOME="$personal_home" git -C "$proof_repo" add proof.txt
 HOME="$personal_home" ssh-agent -a "$tmp_root/matching-agent.sock" sh -c "
+  set -e
   ssh-add \"\$1\" >/dev/null
   git -C \"\$2\" commit -q -m 'test: prove local signing ignores an active matching agent'
   git -C \"\$2\" verify-commit HEAD
@@ -175,30 +177,17 @@ HOME="$personal_home" ssh-agent -a "$tmp_root/matching-agent.sock" sh -c "
 encrypted_home="$tmp_root/encrypted"
 make_home "$encrypted_home"
 make_encrypted_key "$encrypted_home/.ssh/signing"
-configure \
-  "$encrypted_home" \
-  personal \
-  "$encrypted_home/.ssh/signing.pub" \
-  "$encrypted_home/.ssh/signing" >/dev/null
-[ "$(HOME="$encrypted_home" git config --file "$encrypted_home/.gitconfig.local" --get user.signingkey)" = "$encrypted_home/.ssh/signing.pub" ] \
-  || fail "encrypted signing key unexpectedly switched to unattended file-backed signing"
-if HOME="$encrypted_home" git config --file "$encrypted_home/.gitconfig.local" --get gpg.ssh.program >/dev/null; then
-  fail "encrypted signing key unexpectedly selected an agentless signing program"
-fi
+assert_rejected_without_mutation \
+  "$encrypted_home" 'must be an unencrypted SSH private key' \
+  "$encrypted_home" personal "$encrypted_home/.ssh/signing"
 
-vault_home="$tmp_root/vault"
-make_home "$vault_home"
-make_key "$vault_home/.ssh/signing"
-configure \
-  "$vault_home" \
-  personal \
-  "$vault_home/.ssh/signing" \
-  "$vault_home/.ssh/signing" \
-  'Example Vault' >/dev/null
-[ "$(HOME="$vault_home" git config --file "$vault_home/.gitconfig.local" --get user.signingkey)" = "$vault_home/.ssh/signing.pub" ] \
-  || fail "1Password-backed signing unexpectedly selected a private key path"
-[ "$(HOME="$vault_home" git config --file "$vault_home/.gitconfig.local" --get gpg.ssh.program)" = /Applications/1Password.app/Contents/MacOS/op-ssh-sign ] \
-  || fail "1Password-backed signing program is missing"
+missing_signer_home="$tmp_root/missing-signer"
+make_home "$missing_signer_home"
+make_key "$missing_signer_home/.ssh/signing"
+rm "$missing_signer_home/.local/libexec/uinaf/git-ssh-sign-agentless"
+assert_rejected_without_mutation \
+  "$missing_signer_home" 'agentless signer is missing or not executable' \
+  "$missing_signer_home" personal "$missing_signer_home/.ssh/signing"
 
 migration_home="$tmp_root/migration"
 make_home "$migration_home"
@@ -221,13 +210,13 @@ StrictHostKeyChecking yes
 Host unrelated.example
   User example
 EOF
-configure "$migration_home" personal "$migration_home/.ssh/signing.pub" "$migration_home/.ssh/signing" >/dev/null
+configure "$migration_home" personal "$migration_home/.ssh/signing" "$migration_home/.ssh/signing" >/dev/null
 cmp -s "$tmp_root/migration.expected" "$migration_home/.ssh/config.local" || fail "legacy marker migration changed unrelated SSH config"
 
 devbox_home="$tmp_root/devbox"
 make_home "$devbox_home"
 make_key "$devbox_home/.ssh/signing"
-configure "$devbox_home" devbox "$devbox_home/.ssh/signing.pub" >/dev/null
+configure "$devbox_home" devbox "$devbox_home/.ssh/signing" >/dev/null
 grep -q "^  IdentityFile $devbox_home/.ssh/signing$" "$devbox_home/.ssh/github.config" || fail "devbox did not resolve the signing private key"
 [ "$(HOME="$devbox_home" git config --file "$devbox_home/.gitconfig.local" --get gpg.ssh.program)" = "$devbox_home/.local/libexec/uinaf/git-ssh-sign-agentless" ] \
   || fail "devbox local signing did not select the agentless signing program"
@@ -239,32 +228,31 @@ printf 'original git config\n' > "$missing_home/.gitconfig.local"
 mkdir -p "$missing_home/.config/git"
 printf 'original allowed signers\n' > "$missing_home/.config/git/allowed_signers.local"
 assert_rejected_without_mutation \
-  "$missing_home" 'identity file does not exist' \
-  "$missing_home" personal "$missing_home/.ssh/signing.pub" "$missing_home/.ssh/missing"
+  "$missing_home" 'key file does not exist' \
+  "$missing_home" personal "$missing_home/.ssh/signing" "$missing_home/.ssh/missing"
 
 invalid_auth_home="$tmp_root/invalid-auth"
 make_home "$invalid_auth_home"
 make_key "$invalid_auth_home/.ssh/signing"
 printf 'not a private key\n' > "$invalid_auth_home/.ssh/not-a-key"
 assert_rejected_without_mutation \
-  "$invalid_auth_home" 'identity file is not an SSH private key' \
-  "$invalid_auth_home" personal "$invalid_auth_home/.ssh/signing.pub" "$invalid_auth_home/.ssh/not-a-key"
+  "$invalid_auth_home" 'key file is not an SSH private key' \
+  "$invalid_auth_home" personal "$invalid_auth_home/.ssh/signing" "$invalid_auth_home/.ssh/not-a-key"
 
 invalid_signing_home="$tmp_root/invalid-signing"
 make_home "$invalid_signing_home"
-make_key "$invalid_signing_home/.ssh/auth"
-printf 'not a public key\n' > "$invalid_signing_home/.ssh/signing.pub"
+printf 'not a private key\n' > "$invalid_signing_home/.ssh/signing"
 assert_rejected_without_mutation \
-  "$invalid_signing_home" 'does not resolve to a valid SSH public key' \
-  "$invalid_signing_home" personal "$invalid_signing_home/.ssh/signing.pub" "$invalid_signing_home/.ssh/auth"
+  "$invalid_signing_home" 'key file is not an SSH private key' \
+  "$invalid_signing_home" personal "$invalid_signing_home/.ssh/signing"
 
 permissive_home="$tmp_root/permissive"
 make_home "$permissive_home"
 make_key "$permissive_home/.ssh/signing"
 chmod 0644 "$permissive_home/.ssh/signing"
 assert_rejected_without_mutation \
-  "$permissive_home" 'identity file permissions must be owner-only' \
-  "$permissive_home" personal "$permissive_home/.ssh/signing.pub" "$permissive_home/.ssh/signing"
+  "$permissive_home" 'key file permissions must be owner-only' \
+  "$permissive_home" personal "$permissive_home/.ssh/signing"
 
 unmanaged_github_config_home="$tmp_root/unmanaged-github-config"
 make_home "$unmanaged_github_config_home"
@@ -275,7 +263,7 @@ Host github.com
 EOF
 assert_rejected_without_mutation \
   "$unmanaged_github_config_home" 'existing file is not managed exclusively by uinaf dotfiles' \
-  "$unmanaged_github_config_home" personal "$unmanaged_github_config_home/.ssh/signing.pub" "$unmanaged_github_config_home/.ssh/signing"
+  "$unmanaged_github_config_home" personal "$unmanaged_github_config_home/.ssh/signing" "$unmanaged_github_config_home/.ssh/signing"
 
 conflict_home="$tmp_root/conflict"
 make_home "$conflict_home"
@@ -286,7 +274,7 @@ Host=github.com
 EOF
 assert_rejected_without_mutation \
   "$conflict_home" 'unmanaged Host github.com entry exists' \
-  "$conflict_home" personal "$conflict_home/.ssh/signing.pub" "$conflict_home/.ssh/signing"
+  "$conflict_home" personal "$conflict_home/.ssh/signing" "$conflict_home/.ssh/signing"
 
 malformed_home="$tmp_root/malformed"
 make_home "$malformed_home"
@@ -294,14 +282,14 @@ make_key "$malformed_home/.ssh/signing"
 printf '# uinaf-dotfiles: github-ssh begin\n' > "$malformed_home/.ssh/config.local"
 assert_rejected_without_mutation \
   "$malformed_home" 'malformed managed block' \
-  "$malformed_home" personal "$malformed_home/.ssh/signing.pub" "$malformed_home/.ssh/signing"
+  "$malformed_home" personal "$malformed_home/.ssh/signing" "$malformed_home/.ssh/signing"
 
 public_only_home="$tmp_root/public-only"
 make_home "$public_only_home"
 make_key "$public_only_home/.ssh/signing"
 rm "$public_only_home/.ssh/signing"
 assert_rejected_without_mutation \
-  "$public_only_home" 'matching private key does not exist' \
+  "$public_only_home" 'key file is not an SSH private key' \
   "$public_only_home" devbox "$public_only_home/.ssh/signing.pub"
 
 printf 'ok Git bootstrap preserves SSH scope and signs locally while ignoring an active matching agent\n'

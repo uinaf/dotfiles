@@ -72,7 +72,7 @@ pins.
 
 Keep these out of Git:
 
-- Git identity, signing keys, and 1Password SSH agent vault selection.
+- Git identity and signing keys.
 - Infisical workspace/project auth and 1Password human vault references.
 - SSH private keys, certificates, Tizen archives, and device keys.
 - Codex auth, Browser approvals, sessions, caches, worktrees, and app state.

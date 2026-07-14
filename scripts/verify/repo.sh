@@ -2,6 +2,7 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+agentless_signer="$repo_root/chezmoi/private_dot_local/private_libexec/private_uinaf/private_executable_git-ssh-sign-agentless"
 run_security=1
 
 usage() {
@@ -72,6 +73,7 @@ printf 'ok required tools are installed\n'
 section "shell syntax"
 {
   find scripts -name '*.sh' -print0
+  printf '%s\0' "$agentless_signer"
   if [ -d .mise/tasks ]; then
     find .mise/tasks -type f -print0
   fi
@@ -87,6 +89,7 @@ section "Git bootstrap"
 section "shellcheck"
 {
   find scripts -name '*.sh' -print0
+  printf '%s\0' "$agentless_signer"
   if [ -d .mise/tasks ]; then
     find .mise/tasks -type f -print0
   fi

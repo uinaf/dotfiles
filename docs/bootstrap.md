@@ -192,15 +192,11 @@ they contain the same public key. The key must already be present in both roles
 for SSH pushes and `Verified` commits to work. This dual-use setup is convenient,
 but revoking or rotating the local key affects both operations.
 
-The generated Git config signs directly from the local private key. For an
-unencrypted local key, setup installs an owner-only signing program under
-`~/.local/libexec/uinaf/` and configures Git to clear `SSH_AUTH_SOCK` before it
-invokes `ssh-keygen`, so an ambient SSH agent is not consulted at commit time.
-When the supplied signing public key matches an unencrypted
-`GIT_SSH_IDENTITY_FILE`, setup writes the validated private key path to Git
-automatically. Encrypted identities retain the public signing key for
-agent-backed signing. Setting `OP_SSH_VAULT` selects the matching `.pub` file
-and the 1Password signing program instead. The generated
+The generated Git config signs directly from the unencrypted local private key.
+The dotfile install provides an owner-only signing program under
+`~/.local/libexec/uinaf/`; Git uses it to clear `SSH_AUTH_SOCK` before invoking
+`ssh-keygen`, so ambient agents are never part of commit signing. Encrypted,
+public-key-only, and 1Password-backed signing are unsupported. The generated
 `~/.ssh/github.config` block uses the same key for `github.com` without routing
 through the 1Password agent. The tracked SSH entrypoint includes that dedicated
 file before the untouched `~/.ssh/config.local`, so local global directives and
@@ -258,8 +254,8 @@ GIT_SIGNING_KEY="$HOME/.ssh/devbox-key" \
   ./scripts/bootstrap/configure-git.sh --profile devbox --non-interactive
 ```
 
-Only set `OP_SSH_VAULT` on human-operated machines where the 1Password SSH
-agent is installed and reachable from that shell/session.
+Commit signing requires a human-provisioned, owner-only, unencrypted local SSH
+private key. Agent-backed signing is unsupported.
 
 Devbox Git config writes identity and `/opt/homebrew` Git safe-directory state
 to `~/.gitconfig.local`, not to the tracked shared config. When
