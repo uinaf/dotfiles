@@ -58,6 +58,7 @@ snapshot_owned() {
   for path in \
     "$home/.gitconfig.local" \
     "$home/.config/git/allowed_signers.local" \
+    "$home/.local/libexec/uinaf/git-ssh-sign-agentless" \
     "$home/.ssh/github.config" \
     "$home/.ssh/config.local"; do
     if [ -f "$path" ]; then
@@ -116,6 +117,11 @@ configure \
 
 [ "$(HOME="$personal_home" git config --file "$personal_home/.gitconfig.local" --get user.signingkey)" = "$personal_home/.ssh/signing" ] \
   || fail "personal Git signing did not select the matching local private key"
+agentless_program="$personal_home/.local/libexec/uinaf/git-ssh-sign-agentless"
+[ "$(HOME="$personal_home" git config --file "$personal_home/.gitconfig.local" --get gpg.ssh.program)" = "$agentless_program" ] \
+  || fail "personal Git signing did not select the agentless signing program"
+[ -x "$agentless_program" ] || fail "agentless signing program is not executable"
+grep -qx 'unset SSH_AUTH_SOCK' "$agentless_program" || fail "agentless signing program does not clear SSH_AUTH_SOCK"
 
 github_config="$personal_home/.ssh/github.config"
 [ "$(grep -c '^# uinaf-dotfiles: github-ssh begin$' "$github_config")" -eq 1 ] || fail "dedicated GitHub block is missing or duplicated"
@@ -143,9 +149,11 @@ proof_repo="$personal_home/proof"
 HOME="$personal_home" git init -q "$proof_repo"
 printf 'agentless signing proof\n' > "$proof_repo/proof.txt"
 HOME="$personal_home" git -C "$proof_repo" add proof.txt
-HOME="$personal_home" ssh-agent -a "$tmp_root/empty-agent.sock" \
-  git -C "$proof_repo" commit -q -m 'test: prove local signing bypasses an empty agent'
-HOME="$personal_home" SSH_AUTH_SOCK=/nonexistent git -C "$proof_repo" verify-commit HEAD
+HOME="$personal_home" ssh-agent -a "$tmp_root/matching-agent.sock" sh -c "
+  ssh-add \"\$1\" >/dev/null
+  git -C \"\$2\" commit -q -m 'test: prove local signing ignores an active matching agent'
+  git -C \"\$2\" verify-commit HEAD
+" sh "$personal_home/.ssh/signing" "$proof_repo"
 
 encrypted_home="$tmp_root/encrypted"
 make_home "$encrypted_home"
@@ -157,6 +165,9 @@ configure \
   "$encrypted_home/.ssh/signing" >/dev/null
 [ "$(HOME="$encrypted_home" git config --file "$encrypted_home/.gitconfig.local" --get user.signingkey)" = "$encrypted_home/.ssh/signing.pub" ] \
   || fail "encrypted signing key unexpectedly switched to unattended file-backed signing"
+if HOME="$encrypted_home" git config --file "$encrypted_home/.gitconfig.local" --get gpg.ssh.program >/dev/null; then
+  fail "encrypted signing key unexpectedly selected an agentless signing program"
+fi
 
 vault_home="$tmp_root/vault"
 make_home "$vault_home"
@@ -201,6 +212,8 @@ make_home "$devbox_home"
 make_key "$devbox_home/.ssh/signing"
 configure "$devbox_home" devbox "$devbox_home/.ssh/signing.pub" >/dev/null
 grep -q "^  IdentityFile $devbox_home/.ssh/signing$" "$devbox_home/.ssh/github.config" || fail "devbox did not resolve the signing private key"
+[ "$(HOME="$devbox_home" git config --file "$devbox_home/.gitconfig.local" --get gpg.ssh.program)" = "$devbox_home/.local/libexec/uinaf/git-ssh-sign-agentless" ] \
+  || fail "devbox local signing did not select the agentless signing program"
 
 missing_home="$tmp_root/missing"
 make_home "$missing_home"
@@ -274,4 +287,4 @@ assert_rejected_without_mutation \
   "$public_only_home" 'matching private key does not exist' \
   "$public_only_home" devbox "$public_only_home/.ssh/signing.pub"
 
-printf 'ok Git bootstrap preserves SSH scope and signs from a local key with an empty agent\n'
+printf 'ok Git bootstrap preserves SSH scope and signs locally while ignoring an active matching agent\n'

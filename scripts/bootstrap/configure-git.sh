@@ -7,6 +7,8 @@ git_name="${GIT_USER_NAME:-}"
 git_email="${GIT_USER_EMAIL:-}"
 signing_key="${GIT_SIGNING_KEY:-}"
 signing_key_config=""
+agentless_signing=0
+agentless_signing_program="$HOME/.local/libexec/uinaf/git-ssh-sign-agentless"
 sign_commits="${GIT_SIGN_COMMITS:-}"
 allowed_signer_principal="${GIT_ALLOWED_SIGNER_PRINCIPAL:-}"
 op_ssh_vault="${OP_SSH_VAULT:-}"
@@ -18,6 +20,7 @@ usage: $0 [--profile personal|devbox] [--non-interactive]
 
 Writes:
   ~/.gitconfig.local
+  ~/.local/libexec/uinaf/git-ssh-sign-agentless for unencrypted local signing keys
   ~/.ssh/github.config when GIT_SSH_IDENTITY_FILE is set or inferred
   ~/.config/1Password/ssh/agent.toml when OP_SSH_VAULT or prompt value is set
 
@@ -138,6 +141,29 @@ mode_of() {
     stat -c '%a' "$path"
   fi
 }
+
+write_agentless_signing_program() (
+  local program_path="$1"
+  local tmp_program
+
+  if [ -L "$program_path" ] || { [ -e "$program_path" ] && [ ! -f "$program_path" ]; }; then
+    printf 'cannot configure agentless Git signing; managed program path is not a regular file: %s\n' "$program_path" >&2
+    exit 1
+  fi
+
+  mkdir -p "$(dirname "$program_path")"
+  tmp_program="$(mktemp)"
+  trap 'rm -f "$tmp_program"' EXIT
+
+  cat > "$tmp_program" <<'EOF'
+#!/bin/sh
+unset SSH_AUTH_SOCK
+exec /usr/bin/ssh-keygen "$@"
+EOF
+
+  install -m 0700 "$tmp_program" "$program_path"
+  printf 'wrote %s\n' "$program_path"
+)
 
 validate_github_ssh_identity_file() {
   local identity_file="$1"
@@ -431,6 +457,19 @@ elif [ "$sign_commits" = "true" ] && [ -n "$git_ssh_identity_file" ]; then
   fi
 fi
 
+if [ "$sign_commits" = "true" ] && [ -z "$op_ssh_vault" ]; then
+  case "$signing_key_config" in
+    ""|ssh-*|*.pub)
+      ;;
+    *)
+      if [ -f "$signing_key_config" ] \
+        && ssh-keygen -y -P '' -f "$signing_key_config" >/dev/null 2>&1; then
+        agentless_signing=1
+      fi
+      ;;
+  esac
+fi
+
 gitconfig_local="$HOME/.gitconfig.local"
 allowed_signers_file="$HOME/.config/git/allowed_signers.local"
 tmp_gitconfig="$(mktemp)"
@@ -466,9 +505,15 @@ fi
     fi
     if [ -n "$op_ssh_vault" ]; then
       printf '\tprogram = /Applications/1Password.app/Contents/MacOS/op-ssh-sign\n'
+    elif [ "$agentless_signing" -eq 1 ]; then
+      printf '\tprogram = %s\n' "$agentless_signing_program"
     fi
   fi
 } > "$tmp_gitconfig"
+
+if [ "$agentless_signing" -eq 1 ]; then
+  write_agentless_signing_program "$agentless_signing_program"
+fi
 
 if [ -n "$git_ssh_identity_file" ]; then
   write_github_ssh_config "$git_ssh_identity_file"
