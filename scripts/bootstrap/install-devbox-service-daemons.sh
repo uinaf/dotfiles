@@ -105,17 +105,9 @@ find_executable() {
   return 1
 }
 
-if [ "$install_healthd" -eq 1 ]; then
-  healthd_binary="$(find_executable healthd 2>/dev/null || true)"
-  [ -n "$healthd_binary" ] || fail "missing healthd binary"
-  [ -f "$healthd_config" ] || fail "missing $healthd_config"
-fi
-
-if [ "$install_colima" -eq 1 ]; then
-  colima_binary="$(find_executable colima 2>/dev/null || true)"
-  [ -n "$colima_binary" ] || fail "missing colima binary"
-  [ -x "$colima_start" ] || fail "missing executable $colima_start"
-fi
+can_run_as_target() {
+  [ "$(id -u)" -eq "$target_uid" ] || [ "$(id -u)" -eq 0 ]
+}
 
 run_as_target() {
   if [ "$(id -u)" -eq "$target_uid" ]; then
@@ -123,9 +115,27 @@ run_as_target() {
   elif [ "$(id -u)" -eq 0 ]; then
     /usr/bin/sudo -u "$target_user" -H "$@"
   else
-    fail "run healthd checks as root or $target_user"
+    fail "run this step as root or $target_user"
   fi
 }
+
+# Functional preconditions live in the target user's home. Other callers in
+# check mode still get the launchd-level checks plus a skip notice.
+needs_target_files() {
+  [ "$check_only" -eq 0 ] || can_run_as_target
+}
+
+if [ "$install_healthd" -eq 1 ] && needs_target_files; then
+  healthd_binary="$(find_executable healthd 2>/dev/null || true)"
+  [ -n "$healthd_binary" ] || fail "missing healthd binary"
+  [ -f "$healthd_config" ] || fail "missing $healthd_config"
+fi
+
+if [ "$install_colima" -eq 1 ] && needs_target_files; then
+  colima_binary="$(find_executable colima 2>/dev/null || true)"
+  [ -n "$colima_binary" ] || fail "missing colima binary"
+  [ -x "$colima_start" ] || fail "missing executable $colima_start"
+fi
 
 check_job() {
   local label="$1"
@@ -145,14 +155,24 @@ check_job() {
 check_healthd() {
   local retired_agent="${1-com.uinaf.healthd}"
   check_job "$healthd_label" "$retired_agent"
-  run_as_target "$healthd_binary" check --config "$healthd_config" --json >/dev/null \
-    || fail "$healthd_label check failed"
+  if can_run_as_target; then
+    run_as_target "$healthd_binary" check --config "$healthd_config" --json >/dev/null \
+      || fail "$healthd_label check failed"
+  else
+    printf 'skipped %s functional check (requires root or %s)\n' "$healthd_label" "$target_user"
+  fi
 }
 
 check_colima() {
+  local status_output
   check_job "$colima_label"
-  run_as_target "$colima_binary" status 2>&1 | grep -qi "colima is running" \
-    || fail "$colima_label is loaded but Colima is not running"
+  if can_run_as_target; then
+    status_output="$(run_as_target "$colima_binary" status 2>&1 || true)"
+    printf '%s\n' "$status_output" | grep -qi "colima is running" \
+      || fail "$colima_label is loaded but Colima is not running"
+  else
+    printf 'skipped %s functional check (requires root or %s)\n' "$colima_label" "$target_user"
+  fi
 }
 
 if [ "$check_only" -eq 1 ]; then

@@ -344,21 +344,21 @@ LaunchDaemons that use `UserName` to drop privileges back to the service
 identity:
 
 ```zsh
-sudo ./scripts/bootstrap/install-devbox-service-daemons.sh \
-  --user agent-user \
-  --process-compose \
-  --openclaw \
-  --healthd
+sudo ./scripts/bootstrap/install-devbox-service-daemons.sh --user agent-user --openclaw
+sudo ./scripts/bootstrap/install-devbox-service-daemons.sh --user agent-user --healthd
 ```
 
 The installer retires the equivalent per-user LaunchAgents only after the
 system jobs load successfully. For healthd, it also completes one check cycle
-before retiring a same-user legacy LaunchAgent. Run selected services one at a
-time when migrating production machines so failures stay isolated.
+before retiring a same-user legacy LaunchAgent. Run one service per invocation
+when migrating production machines so failures stay isolated; a partial
+multi-service run aborts with earlier services already migrated.
 
 Healthd may run directly under launchd when it is the fleet monitor; it does
 not need an extra process-compose layer. Verify boot-independent service
-definitions without changing them:
+definitions without changing them (the healthd and colima functional checks
+run only when invoked as root or the target user; other callers get the
+launchd-level check plus a skip notice):
 
 ```zsh
 ./scripts/bootstrap/install-devbox-service-daemons.sh \
