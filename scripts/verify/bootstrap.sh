@@ -54,7 +54,6 @@ common_cli_checks=(
   "git --version"
   "gh auth status"
   "mise --version"
-  "node --version"
   "bun --version"
   "python --version"
   "java -version"
@@ -101,6 +100,54 @@ run_zsh_check() {
 
   section "$command"
   zsh -lic "$command" || fail "$command"
+}
+
+check_exact_version() {
+  local label="$1"
+  local expected="$2"
+  local command="$3"
+  local actual
+
+  section "$label version"
+  actual="$(zsh -lic "$command")" || fail "$label version"
+  printf '%s\n' "$actual"
+  if [ "$actual" != "$expected" ]; then
+    fail "$label version is $actual; expected $expected"
+  fi
+}
+
+check_mise_tool_owner() {
+  local label="$1"
+  local command="$2"
+  local tool="$3"
+  local command_path
+  local tool_root
+
+  section "$label ownership"
+  command_path="$(zsh -lic "mise which $command")" || fail "$label command path"
+  tool_root="$(zsh -lic "mise where $tool")" || fail "$label mise tool root"
+  printf '%s\n' "$command_path"
+  case "$command_path" in
+    "$tool_root"/*)
+      ;;
+    *)
+      fail "$label is not owned by mise tool $tool"
+      ;;
+  esac
+}
+
+check_node_tool_versions() {
+  check_exact_version "Node" "v24.18.0" "node --version"
+  check_exact_version "Corepack" "0.35.0" "corepack --version"
+  check_exact_version "pnpm" "11.15.0" "pnpm --version"
+  check_exact_version "npm" "12.0.1" "npm --version"
+  check_exact_version "Playwright CLI" "0.1.17" "playwright-cli --version"
+  check_exact_version "Vite+" "vp v0.2.5" "vp --version 2>/dev/null | head -n 1"
+  check_mise_tool_owner "Corepack" "corepack" "node"
+  check_mise_tool_owner "pnpm" "pnpm" "node"
+  check_mise_tool_owner "npm" "npm" "npm:npm"
+  check_mise_tool_owner "Playwright CLI" "playwright-cli" "npm:@playwright/cli"
+  check_mise_tool_owner "Vite+" "vp" "npm:vite-plus"
 }
 
 check_mise_doctor() {
@@ -216,6 +263,7 @@ check_config_paths() {
 check_mise
 check_truecolor_shell
 check_devbox_ssh_prompt
+check_node_tool_versions
 check_brew_bundle
 check_cli_tools
 check_no_legacy_tool_versions

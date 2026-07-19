@@ -6,8 +6,8 @@ This repo uses mise in two different scopes:
 - Root `mise.toml` is the repo-level mise config and documents that task
   entrypoints live in `.mise/tasks/`.
 - `chezmoi/private_dot_config/mise/config.toml` defines machine runtime pins,
-  tool versions, and trusted generated worktree roots applied into
-  `~/.config/mise/config.toml`.
+  Corepack/pnpm setup, shared npm CLIs, and trusted generated worktree roots
+  applied into `~/.config/mise/config.toml`.
 
 Do not mix those scopes. A repo command belongs in `.mise/tasks/`; a shared
 machine runtime pin belongs in the chezmoi-managed home config.
@@ -109,3 +109,15 @@ When changing `chezmoi/private_dot_config/mise/config.toml`:
 4. Run `mise run verify`.
 
 Avoid floating runtime versions such as `latest` in shared machine config.
+
+The Node entry enables Corepack and pins the default pnpm release used outside
+projects. Projects still select their own package-manager release through the
+`packageManager` field. Shared npm CLIs such as npm itself, Playwright CLI, and
+Vite+ are exact `npm:` backend entries, so `mise install` owns their versions
+without relying on ambient global npm state.
+
+`scripts/bootstrap/install.sh` reapplies the Corepack pnpm shim and default
+release when refreshing an existing Node installation. A fresh Node install
+gets the same state from mise's Corepack setting and Node postinstall hook.
+`scripts/verify/bootstrap.sh` checks the commands and exact shared versions on
+both profiles.
