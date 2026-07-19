@@ -15,10 +15,15 @@ usage() {
   cat <<'USAGE'
 Usage:
   scripts/secrets/infisical-devbox-sudo.sh -- <command> [args...]
+  scripts/secrets/infisical-devbox-sudo.sh --nested -- <command> [args...]
 
 Fetches the current devbox user's encrypted sudo credential from Infisical.
 The fixed askpass helper decrypts it only when sudo requests authentication;
 the command retains its original stdin and never holds the credential.
+
+Nested mode keeps the command unprivileged and provides the same askpass
+boundary to sudo calls made by that command. Use it for tools such as Homebrew
+that must start as the devbox user but may invoke sudo for a narrow operation.
 USAGE
 }
 
@@ -39,6 +44,16 @@ load_sudo_secret_path() {
 }
 
 consume_secret() {
+  local execution_mode="direct"
+  if [ "${1:-}" = "--nested" ]; then
+    execution_mode="nested"
+    shift
+    if [ "${1:-}" = "--" ]; then
+      shift
+    fi
+  fi
+  [ "$#" -gt 0 ] || fail "missing sudo command"
+
   [ -n "${INFISICAL_TOKEN:-}" ] || fail "missing command-boundary Infisical token"
   [ -n "${INFISICAL_SECRET_PATH:-}" ] || fail "missing sudo secret path"
   command -v infisical >/dev/null || fail "missing infisical"
@@ -67,13 +82,22 @@ consume_secret() {
     || fail "Infisical returned an empty encrypted sudo credential"
 
   local status=0
-  infisical_sudo_exec \
-    /usr/bin/sudo \
-    "$repo_root/scripts/lib/infisical-sudo-askpass.sh" \
-    "$age_bin" \
-    "$sudo_age_identity_file" \
-    "$sudo_password_ciphertext" \
-    "$@" || status=$?
+  if [ "$execution_mode" = "nested" ]; then
+    infisical_sudo_exec_nested \
+      "$repo_root/scripts/lib/infisical-sudo-askpass.sh" \
+      "$age_bin" \
+      "$sudo_age_identity_file" \
+      "$sudo_password_ciphertext" \
+      "$@" || status=$?
+  else
+    infisical_sudo_exec \
+      /usr/bin/sudo \
+      "$repo_root/scripts/lib/infisical-sudo-askpass.sh" \
+      "$age_bin" \
+      "$sudo_age_identity_file" \
+      "$sudo_password_ciphertext" \
+      "$@" || status=$?
+  fi
   unset sudo_password_ciphertext
   return "$status"
 }

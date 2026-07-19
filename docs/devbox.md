@@ -146,6 +146,16 @@ Then run:
 ./scripts/secrets/infisical-devbox-sudo.sh -- <non-interactive-command>
 ```
 
+Commands such as Homebrew must remain unprivileged but may invoke sudo for a
+narrow application-bundle ownership step. Run those through nested mode so the
+child command receives the fixed askpass boundary without running the whole
+tool as root:
+
+```sh
+./scripts/secrets/infisical-devbox-sudo.sh --nested -- \
+  brew upgrade --cask <cask>
+```
+
 The wrapper mints a short-lived machine token and writes only ciphertext to an
 owner-only temporary file. The fixed askpass helper decrypts that ciphertext on
 demand each time `sudo -k -A` requests authentication, so retries do not hang
@@ -153,6 +163,9 @@ and the wrapper or long-running command never retains plaintext. The command
 keeps the caller's original stdin, including when authentication is cached or
 the command is covered by `NOPASSWD`. The wrapper does not export the password,
 write plaintext to a regular local file, or mix it into application env.
+Nested mode gives the unprivileged child access to that same temporary askpass
+boundary for the duration of the command, which carries the same arbitrary-root
+delegation as direct mode.
 
 Project-level identities may be able to read sibling ciphertext on Infisical
 plans without path-scoped RBAC. That is not a plaintext disclosure: each

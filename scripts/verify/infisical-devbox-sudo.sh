@@ -39,6 +39,7 @@ cat >"$tmp_dir/bin/sudo" <<'EOF'
 set -euo pipefail
 [ "${1:-}" = "-k" ] && shift
 [ "${1:-}" = "-A" ] && shift
+[ "${1:-}" = "-E" ] && shift
 [ "${1:-}" = "-p" ] && shift 2
 [ "${1:-}" = "--" ] && shift
 if [ -n "${FAKE_SUDO_CALLED:-}" ]; then
@@ -109,6 +110,25 @@ nopasswd_output="$(
 )"
 [ "$nopasswd_output" = "nopasswd stdin: caller-input" ] || {
   printf 'FAILED: NOPASSWD command received the credential stream\n' >&2
+  exit 1
+}
+
+# Nested mode keeps the caller unprivileged while providing askpass to a sudo
+# process started by the caller.
+# shellcheck disable=SC2016
+nested_output="$(
+  printf 'caller-input\n' | \
+    FAKE_AGE_IDENTITY="$tmp_dir/identity" \
+    infisical_sudo_exec_nested \
+    "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/scripts/lib/infisical-sudo-askpass.sh" \
+    "$tmp_dir/bin/age" \
+    "$tmp_dir/identity" \
+    fixture-ciphertext \
+    sh -c 'IFS= read -r line; "$1" -E -- printf "nested sudo: %s\n" "$line"' \
+    _ "$tmp_dir/bin/sudo"
+)"
+[ "$nested_output" = "nested sudo: caller-input" ] || {
+  printf 'FAILED: unexpected nested sudo runner output\n' >&2
   exit 1
 }
 

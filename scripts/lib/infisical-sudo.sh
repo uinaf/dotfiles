@@ -35,14 +35,8 @@ infisical_sudo_install_cleanup_traps() {
   trap 'exit 143' TERM
 }
 
-infisical_sudo_exec() {
-  local sudo_bin="$1"
-  local askpass_bin="$2"
-  local age_bin="$3"
-  local identity_file="$4"
-  local ciphertext="$5"
-  shift 5
-  local status=0
+infisical_sudo_prepare() {
+  local ciphertext="$1"
   local ciphertext_file
   local tmp_base
 
@@ -71,12 +65,44 @@ infisical_sudo_exec() {
     return 1
   }
   unset ciphertext
+}
+
+infisical_sudo_exec() {
+  local sudo_bin="$1"
+  local askpass_bin="$2"
+  local age_bin="$3"
+  local identity_file="$4"
+  local ciphertext="$5"
+  shift 5
+  local status=0
+
+  infisical_sudo_prepare "$ciphertext" || return 1
 
   SUDO_ASKPASS="$askpass_bin" \
     INFISICAL_SUDO_AGE_BIN="$age_bin" \
     INFISICAL_SUDO_AGE_IDENTITY_FILE="$identity_file" \
-    INFISICAL_SUDO_CIPHERTEXT_FILE="$ciphertext_file" \
+    INFISICAL_SUDO_CIPHERTEXT_FILE="$INFISICAL_SUDO_TMP_DIR/password.age" \
     "$sudo_bin" -k -A -p '' -- "$@" || status=$?
+
+  infisical_sudo_cleanup
+  return "$status"
+}
+
+infisical_sudo_exec_nested() {
+  local askpass_bin="$1"
+  local age_bin="$2"
+  local identity_file="$3"
+  local ciphertext="$4"
+  shift 4
+  local status=0
+
+  infisical_sudo_prepare "$ciphertext" || return 1
+
+  SUDO_ASKPASS="$askpass_bin" \
+    INFISICAL_SUDO_AGE_BIN="$age_bin" \
+    INFISICAL_SUDO_AGE_IDENTITY_FILE="$identity_file" \
+    INFISICAL_SUDO_CIPHERTEXT_FILE="$INFISICAL_SUDO_TMP_DIR/password.age" \
+    "$@" || status=$?
 
   infisical_sudo_cleanup
   return "$status"
