@@ -31,7 +31,7 @@ if [ -n "$SSH_CONNECTION$SSH_TTY" ] && [ -r "$HOME/.config/uinaf/devbox.env" ]; 
   devbox_ssh_prompt_title() {
     print -Pn "\e]0;%m:%~\a"
   }
-  if (( ${precmd_functions[(Ie)devbox_ssh_prompt_title]} == 0 )); then
+  if (( ${precmd_functions[(Ie)devbox_ssh_prompt_title]:-0} == 0 )); then
     precmd_functions+=(devbox_ssh_prompt_title)
   fi
 fi
