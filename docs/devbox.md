@@ -337,6 +337,35 @@ when the identity needs it. Launchd should start process-compose;
 process-compose should own service restart policy, logs, health checks, and
 one-shot tasks.
 
+On a shared headless Mac, a user's `~/Library/LaunchAgents` jobs start only
+when that user owns a GUI login session. If another identity owns automatic
+login, migrate the required background services to root-owned system
+LaunchDaemons that use `UserName` to drop privileges back to the service
+identity:
+
+```zsh
+sudo ./scripts/bootstrap/install-devbox-service-daemons.sh \
+  --user agent-user \
+  --process-compose \
+  --openclaw
+```
+
+The installer retires the equivalent per-user LaunchAgents only after the
+system jobs load successfully. Verify the boot-independent service definitions
+without changing them:
+
+```zsh
+./scripts/bootstrap/install-devbox-service-daemons.sh \
+  --check \
+  --user agent-user \
+  --process-compose \
+  --openclaw
+```
+
+Keep the system jobs root-owned and mode `0644`. They may name owner-only env
+files and wrappers, but must not embed secret values in the plist. The service
+processes still run as the selected Unix identity.
+
 Prefer a per-user Unix socket over a shared localhost TCP port:
 
 ```text
