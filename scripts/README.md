@@ -45,11 +45,15 @@ Bootstrap entry points:
 ./scripts/bootstrap/configure-power.sh --profile personal
 ./scripts/bootstrap/configure-power.sh --profile devbox
 ./scripts/bootstrap/configure-spotlight.sh
+./scripts/bootstrap/configure-desktop.sh
 ./scripts/bootstrap/trust-agent-worktrees.sh
 ```
 
 `configure-power.sh` and `configure-spotlight.sh` are explicit sudo steps for
 macOS system policy. `install.sh` should stay user-level.
+`configure-desktop.sh` is an explicit owner-profile step for the black devbox
+desktop, hidden widgets/icons, and Chrome-only Dock. It supports `--check` and
+is not applied to other devbox users by `install.sh`.
 
 Use [Bootstrap guide](../docs/bootstrap.md) for the ordered personal and devbox
 flows.

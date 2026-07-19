@@ -247,6 +247,36 @@ fi
 section "Codex trust boundaries"
 
 codex_config="$HOME/.codex/config.toml"
+if [ -d "$HOME/.codex" ]; then
+  check_mode_any fail "$HOME/.codex" 700
+
+  for codex_dir in \
+    "$HOME/.codex/sessions" \
+    "$HOME/.codex/archived_sessions" \
+    "$HOME/.codex/shell_snapshots" \
+    "$HOME/.codex/log" \
+    "$HOME/.codex/app-server-control"; do
+    if [ -d "$codex_dir" ]; then
+      check_mode_any fail "$codex_dir" 700
+    fi
+  done
+
+  while IFS= read -r codex_state_file; do
+    [ -n "$codex_state_file" ] || continue
+    codex_state_mode="$(mode_of "$codex_state_file")"
+    if [ $((8#$codex_state_mode & 0077)) -eq 0 ]; then
+      ok "$codex_state_file mode $codex_state_mode"
+    else
+      fail_check "$codex_state_file mode $codex_state_mode is group/world accessible"
+    fi
+  done < <(
+    find "$HOME/.codex" -maxdepth 3 -type f \
+      \( -name '*.sqlite' -o -name '*.sqlite3' -o -name '*.db' \
+      -o -name '*.db-*' -o -name '*.log' -o -path '*/log/*' \) \
+      -print 2>/dev/null
+  )
+fi
+
 if [ -e "$codex_config" ]; then
   check_mode_any fail "$codex_config" 600
   trusted_project_count=0

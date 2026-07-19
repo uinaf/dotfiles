@@ -119,7 +119,14 @@ dotfiles:
 ```zsh
 ./scripts/verify/bootstrap.sh --profile personal
 ./scripts/verify/bootstrap.sh --profile devbox
+./scripts/bootstrap/configure-desktop.sh
+./scripts/verify/bootstrap.sh --profile devbox --desktop
 ```
+
+The desktop commands are opt-in for the human owner profile on a devbox. They
+set the built-in black system wallpaper, hide desktop icons and widgets, and
+keep only Google Chrome in the persistent Dock. Do not apply that baseline to
+the other devbox identities unless their desktop policy changes explicitly.
 
 For security posture:
 

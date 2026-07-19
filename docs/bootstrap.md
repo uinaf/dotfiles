@@ -228,6 +228,18 @@ Verify:
 
 ## Devbox Mac
 
+The human owner profile may opt into the compact desktop baseline. It is not
+part of the shared agent-user bootstrap:
+
+```zsh
+./scripts/bootstrap/configure-desktop.sh
+./scripts/verify/bootstrap.sh --profile devbox --desktop
+```
+
+This keeps the built-in black system wallpaper, hidden desktop icons and
+widgets, an auto-hiding compact Dock, no recent apps, and Google Chrome as the
+only persistent Dock app. Run it only from the logged-in owner account.
+
 Install shared plus devbox Homebrew dependencies:
 
 ```zsh

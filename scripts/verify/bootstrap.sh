@@ -2,15 +2,17 @@
 set -euo pipefail
 
 profile="personal"
+desktop_baseline=0
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 usage() {
   cat <<'USAGE'
 Usage:
-  scripts/verify/bootstrap.sh [--profile personal|devbox]
+  scripts/verify/bootstrap.sh [--profile personal|devbox] [--desktop]
 
 Checks the live machine bootstrap for the selected profile. The default profile
-is personal for backward compatibility.
+is personal for backward compatibility. --desktop adds the owner-only devbox
+desktop baseline and is valid only with --profile devbox.
 USAGE
 }
 
@@ -26,6 +28,9 @@ while [ "$#" -gt 0 ]; do
       ;;
     personal|devbox)
       profile="$1"
+      ;;
+    --desktop)
+      desktop_baseline=1
       ;;
     -h|--help)
       usage
@@ -47,6 +52,11 @@ case "$profile" in
     exit 2
     ;;
 esac
+
+if [ "$desktop_baseline" -eq 1 ] && [ "$profile" != "devbox" ]; then
+  printf 'FAILED: --desktop requires --profile devbox\n' >&2
+  exit 2
+fi
 
 common_cli_checks=(
   "brew --version"
@@ -137,6 +147,11 @@ check_mise_tool_owner() {
 }
 
 check_node_tool_versions() {
+  local node_root
+  local npm_prefix
+  local npm_global_root
+  local npm_exec_node
+
   check_exact_version "Node" "v24.18.0" "node --version"
   check_exact_version "Corepack" "0.35.0" "corepack --version"
   check_exact_version "pnpm" "11.15.0" "pnpm --version"
@@ -145,9 +160,24 @@ check_node_tool_versions() {
   check_exact_version "Vite+" "vp v0.2.5" "vp --version 2>/dev/null | head -n 1"
   check_mise_tool_owner "Corepack" "corepack" "node"
   check_mise_tool_owner "pnpm" "pnpm" "node"
-  check_mise_tool_owner "npm" "npm" "npm:npm"
+  check_mise_tool_owner "npm" "npm" "node"
   check_mise_tool_owner "Playwright CLI" "playwright-cli" "npm:@playwright/cli"
   check_mise_tool_owner "Vite+" "vp" "npm:vite-plus"
+
+  section "npm isolation"
+  node_root="$(zsh -lic 'mise where node')" || fail "mise Node root"
+  npm_prefix="$(zsh -lic 'npm config get prefix')" || fail "npm prefix"
+  npm_global_root="$(zsh -lic 'npm root --global')" || fail "npm global root"
+  npm_exec_node="$(zsh -lic 'npm exec --yes -- node -p process.execPath')" \
+    || fail "npm exec child Node"
+
+  [ "$npm_prefix" = "$node_root" ] \
+    || fail "npm prefix is $npm_prefix; expected mise Node root $node_root"
+  [ "$npm_global_root" = "$node_root/lib/node_modules" ] \
+    || fail "npm global root is $npm_global_root; expected $node_root/lib/node_modules"
+  [ "$npm_exec_node" = "$node_root/bin/node" ] \
+    || fail "npm exec uses $npm_exec_node; expected $node_root/bin/node"
+  printf 'ok npm prefix, global root, and child Node stay inside mise Node\n'
 }
 
 check_mise_doctor() {
@@ -195,6 +225,15 @@ check_codex_config() {
 check_spotlight_indexing() {
   section "spotlight indexing"
   "$repo_root/scripts/bootstrap/configure-spotlight.sh" --check
+}
+
+check_desktop_baseline() {
+  if [ "$desktop_baseline" -eq 0 ]; then
+    return
+  fi
+
+  section "desktop baseline"
+  "$repo_root/scripts/bootstrap/configure-desktop.sh" --check
 }
 
 check_mise() {
@@ -270,5 +309,6 @@ check_no_legacy_tool_versions
 check_config_paths
 check_codex_config
 check_spotlight_indexing
+check_desktop_baseline
 
 printf '\nbootstrap verification ok (%s)\n' "$profile"
