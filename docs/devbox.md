@@ -371,7 +371,9 @@ launchd-level check plus a skip notice):
 
 A user that needs only the existing `~/.local/bin/colima-ensure` boot task can
 use `--colima` instead of running a process-compose supervisor solely for that
-one-shot command.
+one-shot command. `--check --colima` asserts the Colima runtime is up, not
+merely that the boot task is loaded, so it fails after an intentional
+`colima stop`.
 
 Keep the system jobs root-owned and mode `0644`. They may name owner-only env
 files and wrappers, but must not embed secret values in the plist. The service

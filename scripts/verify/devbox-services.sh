@@ -26,9 +26,10 @@ usage() {
 Usage:
   scripts/verify/devbox-services.sh
 
-Checks devbox supervisor, Infisical CLI availability, persistent machine auth,
-and default-shell token boundaries for the current Unix user. Configure
-process-compose and Infisical selectors through ~/.config/uinaf/devbox.env.
+Checks devbox supervisor, uinaf healthd/colima system LaunchDaemons, Infisical
+CLI availability, persistent machine auth, and default-shell token boundaries
+for the current Unix user. Configure process-compose and Infisical selectors
+through ~/.config/uinaf/devbox.env.
 USAGE
 }
 
@@ -229,6 +230,24 @@ check_infisical() {
   fi
 }
 
+check_launchd_daemons() {
+  section "uinaf launchd daemons"
+
+  local plist label found=0
+
+  for plist in /Library/LaunchDaemons/com.uinaf.healthd.*.plist /Library/LaunchDaemons/com.uinaf.colima.*.plist; do
+    [ -e "$plist" ] || continue
+    found=1
+    label="$(basename "$plist" .plist)"
+    [ "$(stat -f '%Su:%Sg:%Lp' "$plist")" = "root:wheel:644" ] \
+      || fail "$label plist must be root:wheel mode 0644"
+    launchctl print "system/$label" >/dev/null 2>&1 || fail "$label is not loaded"
+    printf 'ok %s loaded\n' "$label"
+  done
+
+  [ "$found" -eq 1 ] || printf 'ok no uinaf healthd/colima system daemons on this machine\n'
+}
+
 check_process_compose() {
   section "process-compose"
 
@@ -256,6 +275,7 @@ check_process_compose() {
 check_config
 check_no_default_secret_exports
 check_infisical
+check_launchd_daemons
 check_process_compose
 
 printf '\ndevbox verification ok\n'
