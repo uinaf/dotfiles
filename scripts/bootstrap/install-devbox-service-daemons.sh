@@ -4,6 +4,8 @@ set -euo pipefail
 target_user=""
 install_process_compose=0
 install_openclaw=0
+install_healthd=0
+install_colima=0
 check_only=0
 
 usage() {
@@ -14,6 +16,8 @@ Usage:
 Services:
   --process-compose  Run the user's process-compose supervisor at system boot.
   --openclaw         Run the user's OpenClaw gateway at system boot.
+  --healthd          Run the user's healthd monitor at system boot.
+  --colima           Run the user's colima-ensure script once at system boot.
 
 Options:
   --check            Verify the selected LaunchDaemons without changing them.
@@ -42,6 +46,12 @@ while [ "$#" -gt 0 ]; do
     --openclaw)
       install_openclaw=1
       ;;
+    --healthd)
+      install_healthd=1
+      ;;
+    --colima)
+      install_colima=1
+      ;;
     --check)
       check_only=1
       ;;
@@ -63,6 +73,8 @@ case "$target_user" in
   *[!A-Za-z0-9._-]*) fail "unsupported user name: $target_user" ;;
 esac
 [ "$install_process_compose" -eq 1 ] || [ "$install_openclaw" -eq 1 ] \
+  || [ "$install_healthd" -eq 1 ] \
+  || [ "$install_colima" -eq 1 ] \
   || fail "select at least one service"
 
 target_uid="$(id -u "$target_user" 2>/dev/null)" || fail "unknown user: $target_user"
@@ -72,19 +84,75 @@ target_home="$(dscl . -read "/Users/$target_user" NFSHomeDirectory 2>/dev/null |
 
 process_label="com.uinaf.process-compose.$target_user"
 openclaw_label="com.uinaf.openclaw-gateway.$target_user"
+healthd_label="com.uinaf.healthd.$target_user"
+colima_label="com.uinaf.colima.$target_user"
 launch_daemon_dir="/Library/LaunchDaemons"
+healthd_config="$target_home/.config/healthd/config.toml"
+healthd_binary=""
+colima_binary=""
+colima_start="$target_home/.local/bin/colima-ensure"
+
+find_executable() {
+  local name="$1"
+  local candidate
+  for candidate in \
+    "$target_home/.local/bin/$name" \
+    "/opt/homebrew/bin/$name" \
+    "/usr/local/bin/$name"
+  do
+    [ ! -x "$candidate" ] || { printf '%s\n' "$candidate"; return; }
+  done
+  return 1
+}
+
+if [ "$install_healthd" -eq 1 ]; then
+  healthd_binary="$(find_executable healthd 2>/dev/null || true)"
+  [ -n "$healthd_binary" ] || fail "missing healthd binary"
+  [ -f "$healthd_config" ] || fail "missing $healthd_config"
+fi
+
+if [ "$install_colima" -eq 1 ]; then
+  colima_binary="$(find_executable colima 2>/dev/null || true)"
+  [ -n "$colima_binary" ] || fail "missing colima binary"
+  [ -x "$colima_start" ] || fail "missing executable $colima_start"
+fi
+
+run_as_target() {
+  if [ "$(id -u)" -eq "$target_uid" ]; then
+    "$@"
+  elif [ "$(id -u)" -eq 0 ]; then
+    /usr/bin/sudo -u "$target_user" -H "$@"
+  else
+    fail "run healthd checks as root or $target_user"
+  fi
+}
 
 check_job() {
   local label="$1"
-  local retired_agent="$2"
+  local retired_agent="${2:-}"
 
   [ -f "$launch_daemon_dir/$label.plist" ] || fail "missing $launch_daemon_dir/$label.plist"
   [ "$(stat -f '%Su:%Sg:%Lp' "$launch_daemon_dir/$label.plist")" = "root:wheel:644" ] \
     || fail "$label plist must be root:wheel mode 0644"
   launchctl print "system/$label" >/dev/null 2>&1 || fail "$label is not loaded"
-  [ ! -e "$target_home/Library/LaunchAgents/$retired_agent.plist" ] \
-    || fail "conflicting LaunchAgent remains: $retired_agent"
+  if [ -n "$retired_agent" ]; then
+    [ ! -e "$target_home/Library/LaunchAgents/$retired_agent.plist" ] \
+      || fail "conflicting LaunchAgent remains: $retired_agent"
+  fi
   printf 'ok %s loaded for %s\n' "$label" "$target_user"
+}
+
+check_healthd() {
+  local retired_agent="${1-com.uinaf.healthd}"
+  check_job "$healthd_label" "$retired_agent"
+  run_as_target "$healthd_binary" check --config "$healthd_config" --json >/dev/null \
+    || fail "$healthd_label check failed"
+}
+
+check_colima() {
+  check_job "$colima_label"
+  run_as_target "$colima_binary" status 2>&1 | grep -qi "colima is running" \
+    || fail "$colima_label is loaded but Colima is not running"
 }
 
 if [ "$check_only" -eq 1 ]; then
@@ -93,6 +161,12 @@ if [ "$check_only" -eq 1 ]; then
   fi
   if [ "$install_openclaw" -eq 1 ]; then
     check_job "$openclaw_label" ai.openclaw.gateway
+  fi
+  if [ "$install_healthd" -eq 1 ]; then
+    check_healthd
+  fi
+  if [ "$install_colima" -eq 1 ]; then
+    check_colima
   fi
   exit 0
 fi
@@ -144,10 +218,6 @@ create_plist() {
 install_job() {
   local source_plist="$1"
   local label="$2"
-  local old_agent_label="$3"
-  local old_agent_path="$target_home/Library/LaunchAgents/$old_agent_label.plist"
-  local retired_dir="$target_home/Library/LaunchAgents.disabled"
-  local retired_path="$retired_dir/$old_agent_label.plist"
 
   launchctl bootout "system/$label" >/dev/null 2>&1 || true
   install -o root -g wheel -m 0644 "$source_plist" "$launch_daemon_dir/$label.plist"
@@ -155,6 +225,14 @@ install_job() {
   launchctl enable "system/$label"
   launchctl kickstart -k "system/$label"
   launchctl print "system/$label" >/dev/null
+  printf 'installed %s for %s\n' "$label" "$target_user"
+}
+
+retire_agent() {
+  local old_agent_label="$1"
+  local old_agent_path="$target_home/Library/LaunchAgents/$old_agent_label.plist"
+  local retired_dir="$target_home/Library/LaunchAgents.disabled"
+  local retired_path="$retired_dir/$old_agent_label.plist"
 
   launchctl bootout "gui/$target_uid/$old_agent_label" >/dev/null 2>&1 || true
   launchctl bootout "user/$target_uid/$old_agent_label" >/dev/null 2>&1 || true
@@ -165,8 +243,6 @@ install_job() {
     chown "$target_user:$target_group" "$retired_path"
     chmod 0600 "$retired_path"
   fi
-
-  printf 'installed %s for %s\n' "$label" "$target_user"
 }
 
 if [ "$install_process_compose" -eq 1 ]; then
@@ -182,7 +258,8 @@ if [ "$install_process_compose" -eq 1 ]; then
     "$target_home/.local/log/process-compose/stdout.log" \
     "$target_home/.local/log/process-compose/stderr.log" \
     "$process_start"
-  install_job "$process_plist" "$process_label" com.uinaf.process-compose
+  install_job "$process_plist" "$process_label"
+  retire_agent com.uinaf.process-compose
 fi
 
 if [ "$install_openclaw" -eq 1 ]; then
@@ -207,7 +284,45 @@ if [ "$install_openclaw" -eq 1 ]; then
     gateway \
     --port \
     18789
-  install_job "$openclaw_plist" "$openclaw_label" ai.openclaw.gateway
+  install_job "$openclaw_plist" "$openclaw_label"
+  retire_agent ai.openclaw.gateway
+fi
+
+if [ "$install_healthd" -eq 1 ]; then
+  run_as_target "$healthd_binary" validate --config "$healthd_config" >/dev/null \
+    || fail "invalid healthd config: $healthd_config"
+  install -d -o "$target_user" -g "$target_group" -m 0750 "$target_home/Library/Logs/healthd"
+  healthd_plist="$tmp_dir/$healthd_label.plist"
+  create_plist \
+    "$healthd_plist" \
+    "$healthd_label" \
+    "$target_home" \
+    "$target_home/Library/Logs/healthd/daemon.log" \
+    "$target_home/Library/Logs/healthd/daemon-error.log" \
+    "$healthd_binary" \
+    run \
+    --config \
+    "$healthd_config"
+  install_job "$healthd_plist" "$healthd_label"
+  check_healthd ""
+  retire_agent com.uinaf.healthd
+  check_healthd
+fi
+
+if [ "$install_colima" -eq 1 ]; then
+  run_as_target "$colima_start"
+  install -d -o "$target_user" -g "$target_group" -m 0750 "$target_home/.local/log/colima"
+  colima_plist="$tmp_dir/$colima_label.plist"
+  create_plist \
+    "$colima_plist" \
+    "$colima_label" \
+    "$target_home" \
+    "$target_home/.local/log/colima/launchd.log" \
+    "$target_home/.local/log/colima/launchd-error.log" \
+    "$colima_start"
+  plutil -replace KeepAlive -bool false "$colima_plist"
+  install_job "$colima_plist" "$colima_label"
+  check_colima
 fi
 
 printf 'devbox service daemon installation ok\n'

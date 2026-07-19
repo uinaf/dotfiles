@@ -347,20 +347,31 @@ identity:
 sudo ./scripts/bootstrap/install-devbox-service-daemons.sh \
   --user agent-user \
   --process-compose \
-  --openclaw
+  --openclaw \
+  --healthd
 ```
 
 The installer retires the equivalent per-user LaunchAgents only after the
-system jobs load successfully. Verify the boot-independent service definitions
-without changing them:
+system jobs load successfully. For healthd, it also completes one check cycle
+before retiring a same-user legacy LaunchAgent. Run selected services one at a
+time when migrating production machines so failures stay isolated.
+
+Healthd may run directly under launchd when it is the fleet monitor; it does
+not need an extra process-compose layer. Verify boot-independent service
+definitions without changing them:
 
 ```zsh
 ./scripts/bootstrap/install-devbox-service-daemons.sh \
   --check \
   --user agent-user \
   --process-compose \
-  --openclaw
+  --openclaw \
+  --healthd
 ```
+
+A user that needs only the existing `~/.local/bin/colima-ensure` boot task can
+use `--colima` instead of running a process-compose supervisor solely for that
+one-shot command.
 
 Keep the system jobs root-owned and mode `0644`. They may name owner-only env
 files and wrappers, but must not embed secret values in the plist. The service
