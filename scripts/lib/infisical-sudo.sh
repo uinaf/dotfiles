@@ -96,21 +96,32 @@ infisical_sudo_exec_nested() {
   local ciphertext="$5"
   shift 5
   local status=0
+  local nested_askpass
 
   infisical_sudo_prepare "$ciphertext" || return 1
+  cp "$askpass_bin" "$INFISICAL_SUDO_TMP_DIR/askpass" || {
+    infisical_sudo_cleanup
+    return 1
+  }
+  chmod 700 "$INFISICAL_SUDO_TMP_DIR/askpass" || {
+    infisical_sudo_cleanup
+    return 1
+  }
+  ln -s "$age_bin" "$INFISICAL_SUDO_TMP_DIR/age" || {
+    infisical_sudo_cleanup
+    return 1
+  }
+  ln -s "$identity_file" "$INFISICAL_SUDO_TMP_DIR/identity" || {
+    infisical_sudo_cleanup
+    return 1
+  }
+  nested_askpass="$INFISICAL_SUDO_TMP_DIR/askpass"
 
-  SUDO_ASKPASS="$askpass_bin" \
-    INFISICAL_SUDO_AGE_BIN="$age_bin" \
-    INFISICAL_SUDO_AGE_IDENTITY_FILE="$identity_file" \
-    INFISICAL_SUDO_CIPHERTEXT_FILE="$INFISICAL_SUDO_TMP_DIR/password.age" \
+  SUDO_ASKPASS="$nested_askpass" \
     "$sudo_bin" -k -A -p '' -v || status=$?
 
   if [ "$status" -eq 0 ]; then
-    SUDO_ASKPASS="$askpass_bin" \
-      INFISICAL_SUDO_AGE_BIN="$age_bin" \
-      INFISICAL_SUDO_AGE_IDENTITY_FILE="$identity_file" \
-      INFISICAL_SUDO_CIPHERTEXT_FILE="$INFISICAL_SUDO_TMP_DIR/password.age" \
-      "$@" || status=$?
+    SUDO_ASKPASS="$nested_askpass" "$@" || status=$?
   fi
 
   infisical_sudo_cleanup

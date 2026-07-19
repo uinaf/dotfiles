@@ -26,7 +26,7 @@ cat >"$tmp_dir/bin/age" <<'EOF'
 set -euo pipefail
 [ "${1:-}" = "--decrypt" ] && shift
 [ "${1:-}" = "-i" ] && shift
-[ "${1:-}" = "$FAKE_AGE_IDENTITY" ] || exit 1
+[ "${1:-}" -ef "$FAKE_AGE_IDENTITY" ] || exit 1
 ciphertext_file="${2:-}"
 [ -f "$ciphertext_file" ] || exit 1
 IFS= read -r ciphertext <"$ciphertext_file"
