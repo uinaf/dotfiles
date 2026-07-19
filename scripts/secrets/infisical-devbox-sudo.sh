@@ -84,6 +84,7 @@ consume_secret() {
   local status=0
   if [ "$execution_mode" = "nested" ]; then
     infisical_sudo_exec_nested \
+      /usr/bin/sudo \
       "$repo_root/scripts/lib/infisical-sudo-askpass.sh" \
       "$age_bin" \
       "$sudo_age_identity_file" \

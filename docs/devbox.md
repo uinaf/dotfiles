@@ -149,7 +149,8 @@ Then run:
 Commands such as Homebrew must remain unprivileged but may invoke sudo for a
 narrow application-bundle ownership step. Run those through nested mode so the
 child command receives the fixed askpass boundary without running the whole
-tool as root:
+tool as root. Run it from a terminal; remote automation must allocate a PTY so
+the child's sudo calls can reuse the authenticated ticket:
 
 ```sh
 ./scripts/secrets/infisical-devbox-sudo.sh --nested -- \

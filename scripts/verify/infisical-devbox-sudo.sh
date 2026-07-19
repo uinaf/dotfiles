@@ -41,6 +41,7 @@ set -euo pipefail
 [ "${1:-}" = "-A" ] && shift
 [ "${1:-}" = "-E" ] && shift
 [ "${1:-}" = "-p" ] && shift 2
+[ "${1:-}" = "-v" ] && shift
 [ "${1:-}" = "--" ] && shift
 if [ -n "${FAKE_SUDO_CALLED:-}" ]; then
   : >"$FAKE_SUDO_CALLED"
@@ -57,6 +58,7 @@ if [ "${FAKE_SUDO_NOPASSWD:-0}" != 1 ]; then
     [ "$password" = "fixture-password" ] || exit 1
   fi
 fi
+[ "$#" -gt 0 ] || exit 0
 exec "$@"
 EOF
 chmod 755 "$tmp_dir/bin/age" "$tmp_dir/bin/infisical" "$tmp_dir/bin/sudo"
@@ -120,6 +122,7 @@ nested_output="$(
   printf 'caller-input\n' | \
     FAKE_AGE_IDENTITY="$tmp_dir/identity" \
     infisical_sudo_exec_nested \
+    "$tmp_dir/bin/sudo" \
     "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/scripts/lib/infisical-sudo-askpass.sh" \
     "$tmp_dir/bin/age" \
     "$tmp_dir/identity" \
