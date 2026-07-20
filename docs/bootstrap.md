@@ -102,8 +102,8 @@ sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/too
 
 Editor and terminal defaults prefer `Berkeley Mono Variable`. This repo does
 not install it because it is a licensed font; ask the human to provide and
-install it when available. The shared Brewfile installs `FiraCode Nerd Font` as
-the free fallback for Ghostty and Zed.
+install it when available. Ghostty and Zed fall back to `Menlo`, which ships
+with macOS and does not require another font package.
 
 Codex app appearance is manual app state, not repo-managed config. After
 installing the Codex app, open its settings and set:

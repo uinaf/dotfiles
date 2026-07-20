@@ -12,6 +12,7 @@ cask "gcloud-cli"
 brew "tmux"
 brew "tailscale"
 brew "yt-dlp"
+brew "openclaw/tap/crabbox"
 
 # Document, media, and OCR helpers
 brew "poppler"

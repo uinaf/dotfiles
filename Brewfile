@@ -11,7 +11,6 @@ tap "uinaf/tap"
 # Terminal, browser, and agent apps
 brew "age"
 cask "ghostty"
-cask "font-fira-code-nerd-font"
 cask "zed"
 cask "google-chrome"
 cask "codex"
