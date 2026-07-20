@@ -71,12 +71,12 @@ common_cli_checks=(
   "infisical --version"
   "codex --version"
   "cursor-agent --version"
+  "gitcrawl --version"
   "tailscale status --peers=false"
 )
 
 personal_cli_checks=(
   "op --version"
-  "gitcrawl --version"
   "blacksmith --version"
 )
 

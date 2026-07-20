@@ -13,6 +13,7 @@ brew "tmux"
 brew "tailscale"
 brew "yt-dlp"
 brew "openclaw/tap/crabbox"
+brew "openclaw/tap/gitcrawl"
 
 # Document, media, and OCR helpers
 brew "poppler"
