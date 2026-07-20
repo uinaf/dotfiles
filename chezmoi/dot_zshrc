@@ -12,10 +12,12 @@ if [ -f "$ZSH/oh-my-zsh.sh" ]; then
 fi
 
 if [ -n "$SSH_CONNECTION$SSH_TTY" ] && [ -r "$HOME/.config/uinaf/devbox.env" ]; then
+  setopt prompt_subst
+
   devbox_git_prompt_info() {
     local branch dirty
 
-    branch="$(git_current_branch 2>/dev/null)" || return
+    branch="$(git symbolic-ref --quiet --short HEAD 2>/dev/null)" || return
     [ -n "$branch" ] || return
 
     if ! git diff --quiet --ignore-submodules -- 2>/dev/null ||

@@ -86,6 +86,9 @@ section "Infisical sudo runner"
 section "Git bootstrap"
 ./scripts/verify/configure-git.sh
 
+section "devbox zsh prompt"
+./scripts/verify/zsh-prompt.sh
+
 section "shellcheck"
 {
   find scripts -name '*.sh' -print0
