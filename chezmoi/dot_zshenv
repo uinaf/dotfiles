@@ -3,6 +3,12 @@
 export LANG="en_US.UTF-8"
 export LC_ALL="en_US.UTF-8"
 
+# Headless devbox sessions cannot rely on an unlocked macOS login keychain.
+# Keep Cursor Agent credentials owner-local without changing personal Macs.
+if [ -r "$HOME/.config/uinaf/devbox.env" ]; then
+  export AGENT_CLI_CREDENTIAL_STORE="file"
+fi
+
 op_ssh_agent_sock="$HOME/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"
 if [ -S "$op_ssh_agent_sock" ]; then
   export SSH_AUTH_SOCK="$op_ssh_agent_sock"

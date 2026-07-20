@@ -70,6 +70,7 @@ common_cli_checks=(
   "uv --version"
   "infisical --version"
   "codex --version"
+  "cursor-agent --version"
   "tailscale status --peers=false"
 )
 

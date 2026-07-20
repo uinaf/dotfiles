@@ -7,6 +7,12 @@ The repo has two install profiles:
 - `personal` for a human-operated Mac.
 - `devbox` for a shared SSH-first agent host.
 
+Cursor Agent CLI is required for both profiles and installed per user with
+`./scripts/bootstrap/install-cursor-agent.sh`. The Cursor desktop app remains
+personal-only because it is declared in `Brewfile.personal`. Devbox shells use
+Cursor's owner-local file credential store because SSH sessions cannot depend
+on an unlocked macOS login keychain.
+
 Run commands from the repo root unless a step says otherwise.
 
 ## First-Time Prerequisites
@@ -81,6 +87,7 @@ Install Homebrew dependencies:
 
 ```zsh
 ./scripts/bootstrap/brew-bundle.sh personal
+./scripts/bootstrap/install-cursor-agent.sh
 ```
 
 Install personal Mac App Store apps and remove bundled apps this setup does not
@@ -244,6 +251,7 @@ Install shared plus devbox Homebrew dependencies:
 
 ```zsh
 ./scripts/bootstrap/brew-bundle.sh devbox
+./scripts/bootstrap/install-cursor-agent.sh
 ```
 
 Apply dotfiles:
@@ -365,3 +373,8 @@ can hang.
   startup.
 - If `codex` is not installed yet, `install.sh` skips Codex defaults; rerun it
   after installing the shared Brewfile.
+- If macOS Gatekeeper blocks an embedded Cursor Agent `.node` module, remove a
+  Homebrew `cursor-cli` cask installation and run
+  `./scripts/bootstrap/install-cursor-agent.sh`. The repo intentionally uses
+  Cursor's official per-user installer instead of recursively removing
+  quarantine attributes from a Homebrew cask.
