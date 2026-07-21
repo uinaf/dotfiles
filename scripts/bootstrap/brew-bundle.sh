@@ -3,15 +3,19 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 profile=""
+shared_only=0
 
 usage() {
   cat <<'USAGE'
 Usage:
   scripts/bootstrap/brew-bundle.sh personal
   scripts/bootstrap/brew-bundle.sh devbox
-  scripts/bootstrap/brew-bundle.sh --shared-only
+  scripts/bootstrap/brew-bundle.sh --shared-only personal
+  scripts/bootstrap/brew-bundle.sh --shared-only devbox
 
-Installs the shared Brewfile first, then the selected profile Brewfile.
+Installs the shared Brewfile first, then the selected profile Brewfile unless
+--shared-only is set. The profile is always required so devbox installs use the
+group-safe Homebrew wrapper.
 USAGE
 }
 
@@ -41,11 +45,11 @@ while [ "$#" -gt 0 ]; do
       esac
       ;;
     --shared-only)
-      if [ -n "$profile" ]; then
+      if [ "$shared_only" -eq 1 ]; then
         usage >&2
         exit 2
       fi
-      profile="shared"
+      shared_only=1
       ;;
     -h|--help)
       usage
@@ -72,11 +76,15 @@ fi
 run_bundle() {
   local file="$1"
   printf '\n## brew bundle --file %s\n' "$file"
-  brew bundle --file "$file"
+  if [ "$profile" = "devbox" ]; then
+    "$repo_root/scripts/bootstrap/brew-devbox.sh" bundle --file "$file"
+  else
+    brew bundle --file "$file"
+  fi
 }
 
 run_bundle "$repo_root/Brewfile"
 
-if [ "$profile" != "shared" ]; then
+if [ "$shared_only" -eq 0 ]; then
   run_bundle "$repo_root/Brewfile.$profile"
 fi

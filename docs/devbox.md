@@ -154,7 +154,7 @@ the child's sudo calls can reuse the authenticated ticket:
 
 ```sh
 ./scripts/secrets/infisical-devbox-sudo.sh --nested -- \
-  brew upgrade --cask <cask>
+  ./scripts/bootstrap/brew-devbox.sh upgrade --cask <cask>
 ```
 
 The wrapper mints a short-lived machine token and writes only ciphertext to an
@@ -392,6 +392,13 @@ Infisical at the command boundary for workspace/app env.
 
 ## Verification
 
+Shared Homebrew mutations must run once from the owning admin identity through
+`scripts/bootstrap/brew-devbox.sh`; `brew-bundle.sh devbox` uses that wrapper
+internally. Its group-safe umask applies only to the Homebrew child process so
+package code remains usable by every devbox identity without weakening normal
+shell defaults. It preserves the prefix's existing shared-writer modes; only
+the owning admin identity is authorized to mutate packages.
+
 Run the normal bootstrap check for each user:
 
 ```zsh
@@ -412,6 +419,11 @@ That check verifies process-compose, default shell auth exports, Infisical CLI
 availability, persistent machine credential file permissions, and configured
 machine identity access. It also fails if the Infisical CLI has an
 authenticated human `user` session on the devbox.
+
+The bootstrap check runs Homebrew doctor and bundle checks as the current
+identity. Repair a reported package by reinstalling it through
+`brew-devbox.sh`; use a targeted permission repair only when Homebrew itself
+cannot run, and never recursively change permissions across the full prefix.
 
 Run the devbox security audit for each devbox user:
 

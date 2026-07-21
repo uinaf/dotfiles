@@ -9,13 +9,16 @@ Codex state, browser profiles, app caches, and project checkouts stay local.
 
 ## Local Setup
 
+Install `git` and `gh` through the profile-specific first-time prerequisites in
+the [Bootstrap guide](docs/bootstrap.md), then choose the profile for this Mac:
+
 ```zsh
-brew install git gh
 gh auth login
 
 gh repo clone uinaf/dotfiles ~/projects/uinaf/dotfiles
 cd ~/projects/uinaf/dotfiles
-./scripts/bootstrap/brew-bundle.sh --shared-only
+profile=personal # use devbox on a shared agent host
+./scripts/bootstrap/brew-bundle.sh --shared-only "$profile"
 ```
 
 For full machine bootstrap, or for a fresh Mac that does not have `git` or

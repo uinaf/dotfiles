@@ -2,7 +2,6 @@
 # Run through ./scripts/bootstrap/brew-bundle.sh so the shared Brewfile installs first.
 
 # Taps
-tap "1password/tap"
 tap "openclaw/tap"
 
 # Browsers and sync

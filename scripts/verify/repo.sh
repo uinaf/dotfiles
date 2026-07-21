@@ -83,6 +83,9 @@ printf 'ok shell syntax\n'
 section "Infisical sudo runner"
 ./scripts/verify/infisical-devbox-sudo.sh
 
+section "devbox Homebrew wrapper"
+./scripts/verify/brew-devbox.sh
+
 section "Git bootstrap"
 ./scripts/verify/configure-git.sh
 

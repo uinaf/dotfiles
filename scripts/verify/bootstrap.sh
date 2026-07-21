@@ -287,6 +287,15 @@ check_brew_bundle() {
   done
 }
 
+check_devbox_homebrew() {
+  if [ "$profile" != "devbox" ]; then
+    return
+  fi
+
+  section "Homebrew doctor"
+  HOMEBREW_NO_AUTO_UPDATE=1 brew doctor || fail "Homebrew is not healthy for this devbox identity"
+}
+
 check_config_paths() {
   local path
 
@@ -304,6 +313,7 @@ check_mise
 check_truecolor_shell
 check_devbox_ssh_prompt
 check_node_tool_versions
+check_devbox_homebrew
 check_brew_bundle
 check_cli_tools
 check_no_legacy_tool_versions

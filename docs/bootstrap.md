@@ -29,10 +29,18 @@ Install Homebrew:
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 ```
 
-Install the minimum tools needed to clone the repo:
+Install the minimum tools needed to clone the repo on a personal Mac:
 
 ```zsh
 brew install git gh
+gh auth login
+```
+
+On a shared devbox, scope the group-safe umask directly because the repo
+wrapper is not available until after this first clone:
+
+```zsh
+(umask 0002; brew install git gh)
 gh auth login
 ```
 
@@ -254,6 +262,18 @@ Install shared plus devbox Homebrew dependencies:
 ./scripts/bootstrap/install-cursor-agent.sh
 ```
 
+Run every other Homebrew mutation on a shared devbox through the repo wrapper:
+
+```zsh
+./scripts/bootstrap/brew-devbox.sh upgrade
+./scripts/bootstrap/brew-devbox.sh upgrade --cask
+```
+
+The wrapper scopes a group-safe umask to the Homebrew child process. The
+devbox bundle command uses it internally; it does not change the caller's
+shell umask. Run these commands once from the owning admin identity, then run
+the devbox bootstrap verification as every Unix identity.
+
 Apply dotfiles:
 
 ```zsh
@@ -360,6 +380,10 @@ can hang.
 
 - If `brew bundle check` fails, run the matching `brew-bundle.sh` profile and
   retry verification.
+- If devbox verification reports an unreadable Homebrew payload, reinstall
+  the owning formula or cask through `brew-devbox.sh`; use a targeted
+  permission repair only when Homebrew itself cannot run. Do not recursively
+  change permissions across the Homebrew prefix.
 - If `chezmoi` is missing, rerun `./scripts/bootstrap/brew-bundle.sh` for the
   correct profile before `./scripts/bootstrap/install.sh`.
 - If Git reports dubious ownership under `/opt/homebrew`, rerun
