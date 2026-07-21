@@ -120,8 +120,9 @@ not install it because it is a licensed font; ask the human to provide and
 install it when available. Ghostty and Zed fall back to `Menlo`, which ships
 with macOS and does not require another font package.
 
-Codex app appearance is manual app state, not repo-managed config. After
-installing the Codex app, open its settings and set:
+The ChatGPT desktop app includes Codex. Its Codex appearance is manual app
+state, not repo-managed config. After installing ChatGPT, open its Codex
+settings and set:
 
 - code font: `Berkeley Mono Variable`
 - UI font size: `14 px`

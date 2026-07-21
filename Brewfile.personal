@@ -26,7 +26,7 @@ cask "zoom"
 
 # Agent tools
 cask "claude"
-cask "codex-app"
+cask "chatgpt"
 cask "codexbar"
 
 # Design and work apps
