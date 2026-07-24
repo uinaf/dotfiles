@@ -8,10 +8,9 @@ The repo has two install profiles:
 - `devbox` for a shared SSH-first agent host.
 
 Cursor Agent CLI is required for both profiles and installed per user with
-`./scripts/bootstrap/install-cursor-agent.sh`. The Cursor desktop app remains
-personal-only because it is declared in `Brewfile.personal`. Devbox shells use
-Cursor's owner-local file credential store because SSH sessions cannot depend
-on an unlocked macOS login keychain.
+`./scripts/bootstrap/install-cursor-agent.sh`. The desktop app is not managed by
+this repository. Devbox shells use Cursor's owner-local file credential store
+because SSH sessions cannot depend on an unlocked macOS login keychain.
 
 Run commands from the repo root unless a step says otherwise.
 

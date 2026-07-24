@@ -33,7 +33,6 @@ cask "codexbar"
 # Design and work apps
 cask "figma"
 cask "linear"
-cask "cursor"
 cask "cleanshot"
 cask "screen-studio"
 cask "tuna"
