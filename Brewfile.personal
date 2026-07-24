@@ -20,6 +20,7 @@ cask "tailscale-app"
 cask "proxyman"
 
 # Communication
+cask "signal"
 cask "slack"
 cask "telegram"
 cask "zoom"
