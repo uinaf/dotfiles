@@ -82,6 +82,7 @@ personal_cli_checks=(
 )
 
 devbox_cli_checks=(
+  "blacksmith --version"
   "process-compose version"
   "tmux -V"
   "qpdf --version"

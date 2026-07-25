@@ -41,6 +41,7 @@ Bootstrap entry points:
 ./scripts/bootstrap/brew-bundle.sh --shared-only devbox
 ./scripts/bootstrap/brew-devbox.sh upgrade
 ./scripts/bootstrap/apply-dotfiles.sh --dry-run --verbose
+./scripts/bootstrap/install-blacksmith.sh
 ./scripts/bootstrap/install-cursor-agent.sh
 ./scripts/bootstrap/install.sh
 ./scripts/bootstrap/configure-git.sh --profile personal

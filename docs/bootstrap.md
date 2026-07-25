@@ -266,6 +266,7 @@ Install shared plus devbox Homebrew dependencies:
 ```zsh
 ./scripts/bootstrap/brew-bundle.sh devbox
 ./scripts/bootstrap/install-cursor-agent.sh
+./scripts/bootstrap/install-blacksmith.sh
 ```
 
 Run every other Homebrew mutation on a shared devbox through the repo wrapper:
@@ -279,6 +280,9 @@ The wrapper scopes a group-safe umask to the Homebrew child process. The
 devbox bundle command uses it internally; it does not change the caller's
 shell umask. Run these commands once from the owning admin identity, then run
 the devbox bootstrap verification as every Unix identity.
+
+Blacksmith uses its official per-user installer rather than Homebrew and
+self-updates from `~/.local/bin`.
 
 Apply dotfiles:
 
