@@ -51,7 +51,8 @@ shared repo policy.
 
 ## Pull Requests
 
-Use Conventional Commits.
+Use Conventional Commits. Commit types drive the tag-only GitHub Release policy
+documented in [GitHub pipelines](docs/github-pipelines.md).
 
 Keep pull requests focused. Include the commands you ran and any skipped checks.
 If a change affects setup behavior, update [Bootstrap guide](docs/bootstrap.md),

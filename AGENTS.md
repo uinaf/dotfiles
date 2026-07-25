@@ -131,6 +131,8 @@ For personal security drift:
 - Put shared agent-host and devbox tools in `Brewfile.devbox`.
 - Keep Codex setup install-only here; agent rule links belong to
   [uinaf/agents](https://github.com/uinaf/agents).
+- Treat Git tags and GitHub Releases as the canonical version. Do not add a
+  package manifest, checked-in version file, or release bump commit.
 - Edit dotfiles in `chezmoi/`, not generated files in `$HOME`. Follow
   [Chezmoi source state](docs/chezmoi.md).
 - Keep mise task and runtime scope split as documented in

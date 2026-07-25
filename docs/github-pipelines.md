@@ -1,13 +1,14 @@
 # GitHub Pipelines
 
-This repo uses GitHub Actions for repository verification and secret scanning.
-It does not deploy a running service or publish a versioned package.
+This repo uses GitHub Actions for repository verification, secret scanning, and
+tag-only GitHub Releases. It does not deploy a running service or publish to a
+package registry.
 
 ## Current Workflows
 
 | Workflow | Trigger | Purpose |
 | --- | --- | --- |
-| Verify | push to `main`, pull request, manual dispatch | Run repository checks that do not need secrets: shell syntax, ShellCheck, Actionlint, diff hygiene, and agent-entrypoint checks. |
+| Verify | push to `main`, pull request, manual dispatch | Run repository checks that do not need secrets. After a successful push to `main`, create a semantic GitHub Release when the commits require one. |
 | Secret scanning | push to `main`, pull request, weekly schedule, manual dispatch | Run Gitleaks and TruffleHog with full Git history available. |
 
 The local canonical command remains:
@@ -39,23 +40,36 @@ tokens.
 
 ## Release Pipeline
 
-There is no release pipeline for this repo. It does not publish an npm package,
-CLI binary, Homebrew formula, marketplace action, or app artifact.
+Git tags and GitHub Releases are the canonical version boundary. There is no
+package manifest, package-manager version, checked-in `VERSION` file, changelog
+commit, registry publish, or release asset build. Use this command to inspect a
+checkout:
 
-If this repo ever starts publishing a versioned artifact, add a release
-pipeline with this shape:
+```zsh
+git describe --tags --always --dirty
+```
 
-1. verify on pull requests and pushes
-2. release only on pushes to `main`
-3. use Conventional Commits for release analysis
-4. publish through a protected `release` Environment
-5. commit the version bump back to `main` with `[skip ci]`
+`v1.0.0` is the established bootstrap baseline. Future pushes to `main` run the
+repository verifier first, then semantic-release reads Conventional Commits
+since the latest `v*` tag:
 
-Release credentials belong in the `release` Environment, not in repo-level
-secrets unless they are bootstrap-only.
+- `feat` creates a minor release.
+- `fix`, `chore`, `build`, `refactor`, `perf`, and `revert` create a patch
+  release.
+- a breaking-change marker creates a major release.
+- `docs`, `test`, and `ci` do not release.
+
+The release job creates only the tag, generated release notes, and GitHub
+Release through the workflow-scoped `GITHUB_TOKEN`. It does not push a version
+commit to `main`, so it remains compatible with the repository's restricted
+default-branch writers. No release Environment or additional secret is needed.
+Release concurrency is non-cancellable so a later push cannot interrupt tag and
+GitHub Release creation.
 
 ## Maintenance
 
 Dependabot tracks GitHub Actions updates through `.github/dependabot.yml`.
-When Actions or scanner versions change, verify both workflows on GitHub before
-calling the change done.
+Keep every semantic-release plugin pinned in the workflow and keep
+`.releaserc.json` aligned with the Conventional Commit policy above. When
+Actions, release plugins, or scanner versions change, verify both workflows on
+GitHub before calling the change done.
