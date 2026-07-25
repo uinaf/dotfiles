@@ -4,6 +4,7 @@ set -euo pipefail
 profile="personal"
 desktop_baseline=0
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+ghostty_config="$HOME/Library/Application Support/com.mitchellh.ghostty/config"
 
 usage() {
   cat <<'USAGE'
@@ -92,7 +93,7 @@ common_config_paths=(
   "$HOME/.config/zed/settings.json"
   "$HOME/.config/zed/keymap.json"
   "$HOME/.codex/config.toml"
-  "$HOME/Library/Application Support/com.mitchellh.ghostty/config"
+  "$ghostty_config"
   "$HOME/.gitconfig"
   "$HOME/.gitconfig.local"
 )
@@ -249,6 +250,13 @@ check_truecolor_shell() {
   printf 'ok COLORTERM=truecolor\n'
 }
 
+check_ghostty_ssh_integration() {
+  section "Ghostty SSH integration"
+  grep -Fqx 'shell-integration-features = ssh-env,ssh-terminfo' "$ghostty_config" ||
+    fail "Ghostty SSH environment and terminfo integration are not configured in $ghostty_config"
+  printf 'ok Ghostty SSH environment and terminfo integration\n'
+}
+
 check_devbox_ssh_prompt() {
   if [ "$profile" != "devbox" ]; then
     return
@@ -318,6 +326,7 @@ check_brew_bundle
 check_cli_tools
 check_no_legacy_tool_versions
 check_config_paths
+check_ghostty_ssh_integration
 check_codex_config
 check_spotlight_indexing
 check_desktop_baseline

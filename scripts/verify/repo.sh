@@ -3,6 +3,7 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 agentless_signer="$repo_root/chezmoi/private_dot_local/private_libexec/private_uinaf/private_executable_git-ssh-sign-agentless"
+ghostty_config="$repo_root/chezmoi/private_Library/private_Application Support/com.mitchellh.ghostty/private_config"
 run_security=1
 
 usage() {
@@ -79,6 +80,11 @@ section "shell syntax"
   fi
 } | xargs -0 bash -n
 printf 'ok shell syntax\n'
+
+section "Ghostty SSH integration"
+grep -Fqx 'shell-integration-features = ssh-env,ssh-terminfo' "$ghostty_config" ||
+  fail "managed Ghostty config does not enable SSH environment and terminfo integration"
+printf 'ok managed Ghostty SSH environment and terminfo integration\n'
 
 section "Infisical sudo runner"
 ./scripts/verify/infisical-devbox-sudo.sh

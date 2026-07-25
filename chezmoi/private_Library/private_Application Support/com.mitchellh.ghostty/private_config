@@ -1,6 +1,8 @@
 theme = Github Dark High Contrast
 background = 000000
 
+shell-integration-features = ssh-env,ssh-terminfo
+
 font-family = Berkeley Mono Variable
 font-family = Menlo
 font-size = 16

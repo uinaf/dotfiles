@@ -119,6 +119,12 @@ not install it because it is a licensed font; ask the human to provide and
 install it when available. Ghostty and Zed fall back to `Menlo`, which ships
 with macOS and does not require another font package.
 
+The managed Ghostty config enables its `ssh-env` and `ssh-terminfo` shell
+integration features. Interactive SSH connections install Ghostty's terminfo
+entry on the remote host when possible and fall back to `xterm-256color` when
+installation is unavailable. See [Ghostty SSH
+integration](https://ghostty.org/docs/features/ssh).
+
 The ChatGPT desktop app includes Codex. Its Codex appearance is manual app
 state, not repo-managed config. After installing ChatGPT, open its Codex
 settings and set:
