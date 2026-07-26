@@ -161,7 +161,6 @@ Apply dotfiles and configure local state:
 ./scripts/bootstrap/configure-spotlight.sh
 mise trust
 mise install
-./scripts/bootstrap/pull-repos.sh
 ```
 
 The shared mise config pins Node, enables Corepack's pnpm shim, selects the

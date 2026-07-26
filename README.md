@@ -6,6 +6,10 @@ This repo owns the portable layer: Homebrew bundles, chezmoi-managed zsh
 startup, mise runtimes, Git and SSH defaults, Codex defaults, editor settings,
 and setup and audit scripts.
 
+It is standalone. It does not clone or run `uinaf/agents` or
+`uinaf/workspace-kit`; those are optional companion tools with independent
+installation, releases, and verification.
+
 It does not own secrets, identity, Codex auth/state, browser profiles, app
 caches, dependency folders, build output, or project checkouts. Those stay
 machine-local.
@@ -39,7 +43,6 @@ cd ~/projects/uinaf/dotfiles
 ./scripts/app-store/personal.sh
 mise trust
 mise install
-./scripts/bootstrap/pull-repos.sh
 ./scripts/verify/bootstrap.sh --profile personal
 ```
 

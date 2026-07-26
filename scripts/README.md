@@ -6,7 +6,7 @@ Scripts are grouped by functionality:
 | --- | --- |
 | `app-store/` | Mac App Store app installs/removals through `mas`. |
 | `audit/` | Check-only security and drift audits for repo, host, personal, and devbox contexts. |
-| `bootstrap/` | Install and configure Homebrew, chezmoi dotfiles, Git, Codex, Chrome, and repos. |
+| `bootstrap/` | Install and configure Homebrew, chezmoi dotfiles, Git, Codex, and Chrome. |
 | `lib/` | Shared shell helpers used by scripts. |
 | `secrets/` | Owner-local secret-manager bootstrap and command-boundary wrappers. |
 | `tizen/` | Samsung Tizen Studio install and certificate/profile archive helpers. |

@@ -129,8 +129,11 @@ For personal security drift:
 - Keep `Brewfile` shared and profile-neutral.
 - Put laptop-only apps in `Brewfile.personal`.
 - Put shared agent-host and devbox tools in `Brewfile.devbox`.
-- Keep Codex setup install-only here; agent rule links belong to
-  [uinaf/agents](https://github.com/uinaf/agents).
+- Keep this repository standalone. Do not clone, install, invoke, or validate
+  `uinaf/agents` or `uinaf/workspace-kit`. They are optional companion tools
+  with their own setup and verification.
+- Keep Codex setup install-only here. Agent rules, skills, and workspace policy
+  belong to whichever independent tools the machine owner chooses.
 - Treat Git tags and GitHub Releases as the canonical version. Do not add a
   package manifest, checked-in version file, or release bump commit.
 - Edit dotfiles in `chezmoi/`, not generated files in `$HOME`. Follow
