@@ -92,6 +92,9 @@ section "Infisical sudo runner"
 section "devbox Homebrew wrapper"
 ./scripts/verify/brew-devbox.sh
 
+section "GitHub CLI extensions"
+./scripts/verify/gh-extensions.sh
+
 section "Git bootstrap"
 ./scripts/verify/configure-git.sh
 

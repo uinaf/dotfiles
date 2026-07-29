@@ -64,6 +64,7 @@ common_cli_checks=(
   "chezmoi --version"
   "git --version"
   "gh auth status"
+  "gh stack --help"
   "mise --version"
   "bun --version"
   "python --version"

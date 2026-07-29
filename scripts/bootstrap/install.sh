@@ -5,6 +5,7 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 "$repo_root/scripts/bootstrap/apply-dotfiles.sh"
 "$repo_root/scripts/bootstrap/trust-agent-worktrees.sh"
+"$repo_root/scripts/bootstrap/install-gh-extensions.sh"
 
 if command -v corepack >/dev/null 2>&1; then
   corepack enable pnpm
