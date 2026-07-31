@@ -111,11 +111,12 @@ When changing `chezmoi/private_dot_config/mise/config.toml`:
 Avoid floating runtime versions such as `latest` in shared machine config.
 
 The Node entry installs the exact native pnpm release used outside projects.
-Projects still select their own package-manager release through the
-`packageManager` field. The pnpm wrapper's reviewed install script is explicitly
-allowed so it can install the platform-native binary. Shared npm CLIs such as
-npm itself, Playwright CLI, and Vite+ are exact `npm:` backend entries, so
-`mise install` owns their versions without relying on ambient global npm state.
+Native pnpm 12 reads a project's `packageManager` field and switches to that
+pinned release itself; this does not depend on a Corepack shim. The pnpm
+wrapper's reviewed install script is explicitly allowed so it can install the
+platform-native binary. Shared npm CLIs such as npm itself, Playwright CLI, and
+Vite+ are exact `npm:` backend entries, so `mise install` owns their versions
+without relying on ambient global npm state.
 
 `scripts/bootstrap/install.sh` removes any stale Corepack pnpm shim and
 reinstalls the default native release when refreshing an existing Node
