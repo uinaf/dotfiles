@@ -157,12 +157,10 @@ check_node_tool_versions() {
   local npm_exec_node
 
   check_exact_version "Node" "v24.18.0" "node --version"
-  check_exact_version "Corepack" "0.35.0" "corepack --version"
-  check_exact_version "pnpm" "11.15.0" "pnpm --version"
+  check_exact_version "pnpm" "12.0.0-beta.2" "pnpm --version"
   check_exact_version "npm" "12.0.1" "npm --version"
   check_exact_version "Playwright CLI" "0.1.17" "playwright-cli --version"
   check_exact_version "Vite+" "vp v0.2.5" "vp --version 2>/dev/null | head -n 1"
-  check_mise_tool_owner "Corepack" "corepack" "node"
   check_mise_tool_owner "pnpm" "pnpm" "node"
   check_mise_tool_owner "npm" "npm" "node"
   check_mise_tool_owner "Playwright CLI" "playwright-cli" "npm:@playwright/cli"

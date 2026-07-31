@@ -65,7 +65,7 @@ pins.
 | Surface | Tracked source | Local-only extension |
 | --- | --- | --- |
 | zsh | `chezmoi/dot_zshenv`, `chezmoi/dot_zprofile`, `chezmoi/dot_zshrc` | machine shell history and ad hoc local files |
-| mise | `chezmoi/private_dot_config/mise/config.toml` | repo-local runtime files; shared Node/Corepack/pnpm and npm CLI pins live in the tracked config |
+| mise | `chezmoi/private_dot_config/mise/config.toml` | repo-local runtime files; shared Node/pnpm and npm CLI pins live in the tracked config |
 | Git | `chezmoi/dot_gitconfig` | `~/.gitconfig.local` |
 | GitHub CLI | `Brewfile`; `github/gh-stack` installed by `install.sh` | authentication and unrelated extensions |
 | SSH | `chezmoi/private_dot_ssh/private_config` | `~/.ssh/github.config`, `~/.ssh/config.local`, private keys |
