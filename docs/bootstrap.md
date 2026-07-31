@@ -167,11 +167,10 @@ mise trust
 mise install
 ```
 
-The shared mise config pins Node, enables Corepack's pnpm shim, selects the
-default pnpm release, and installs the exact shared npm, Playwright CLI, and
-Vite+ versions. `install.sh` also repairs the Corepack shim for an existing
-Node installation; `mise install` remains required for a fresh runtime or CLI
-version change.
+The shared mise config pins Node, installs the default native pnpm release, and
+installs the exact shared npm, Playwright CLI, and Vite+ versions. `install.sh`
+also replaces a stale Corepack shim on an existing Node installation; `mise
+install` remains required for a fresh runtime or CLI version change.
 
 The dotfile step applies the repo-local chezmoi source state from `chezmoi/`.
 Preview it with `./scripts/bootstrap/apply-dotfiles.sh --dry-run --verbose`
@@ -297,10 +296,10 @@ mise trust
 mise install
 ```
 
-The shared mise config pins Node, enables Corepack's pnpm shim, selects the
-default pnpm release, and installs the exact shared npm, Playwright CLI, and
-Vite+ versions. `install.sh` repairs the Corepack shim for an existing Node
-installation, while `mise install` installs missing runtimes and CLIs.
+The shared mise config pins Node, installs the default native pnpm release, and
+installs the exact shared npm, Playwright CLI, and Vite+ versions. `install.sh`
+replaces a stale Corepack shim on an existing Node installation, while `mise
+install` installs missing runtimes and CLIs.
 
 The power step keeps plugged-in devboxes awake for agents, remote access, and
 always-on dashboards. It leaves battery settings untouched and prompts for sudo

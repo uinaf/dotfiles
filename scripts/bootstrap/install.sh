@@ -7,11 +7,13 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 "$repo_root/scripts/bootstrap/trust-agent-worktrees.sh"
 "$repo_root/scripts/bootstrap/install-gh-extensions.sh"
 
-if command -v corepack >/dev/null 2>&1; then
-  corepack enable pnpm
-  corepack install --global pnpm@11.15.0
+if command -v npm >/dev/null 2>&1; then
+  if command -v corepack >/dev/null 2>&1; then
+    corepack disable pnpm || true
+  fi
+  npm install --global --allow-scripts=pnpm pnpm@12.0.0-beta.2
 else
-  printf 'skipped Corepack setup; install the pinned Node runtime with mise install\n' >&2
+  printf 'skipped pnpm setup; install the pinned Node runtime with mise install\n' >&2
 fi
 
 if command -v codex >/dev/null 2>&1; then
