@@ -9,7 +9,7 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 if command -v npm >/dev/null 2>&1; then
   if command -v corepack >/dev/null 2>&1; then
-    corepack disable pnpm
+    corepack disable pnpm || true
   fi
   npm install --global --allow-scripts=pnpm pnpm@12.0.0-beta.2
 else
