@@ -86,7 +86,7 @@ run_step() {
             | node -e 'for (const tool of JSON.parse(require("node:fs").readFileSync(0, "utf8"))) console.log(tool.install_path)' \
             | while IFS= read -r node_root; do
                 if [ -f "$node_root/lib/node_modules/vite-plus/package.json" ]; then
-                  "$node_root/bin/npm" uninstall --global vite-plus
+                  npm_config_prefix="$node_root" "$node_root/bin/npm" uninstall --global vite-plus
                 fi
               done
         fi
