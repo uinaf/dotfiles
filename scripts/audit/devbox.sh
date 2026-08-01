@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-config_path="${DEVBOX_CONFIG:-$HOME/.config/dotfiles/devbox.env}"
-machine_config_path="${INFISICAL_MACHINE_CONFIG:-$HOME/.config/dotfiles/infisical-machine.env}"
+config_path="${DEVBOX_CONFIG:-}"
+machine_config_path="${INFISICAL_MACHINE_CONFIG:-}"
+config_path_resolution_failed=0
+machine_config_path_resolution_failed=0
 devbox_user="${DEVBOX_USER:-$USER}"
 process_compose_enabled="${PROCESS_COMPOSE_ENABLED:-1}"
 process_compose_port="${PROCESS_COMPOSE_PORT:-9191}"
@@ -135,9 +137,20 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 
+if ! config_path="$(dotfiles_resolve_config_file "$config_path" devbox.env)"; then
+  config_path="$HOME/.config/dotfiles/devbox.env"
+  config_path_resolution_failed=1
+fi
+if ! machine_config_path="$(dotfiles_resolve_config_file "$machine_config_path" infisical-machine.env)"; then
+  machine_config_path="$HOME/.config/dotfiles/infisical-machine.env"
+  machine_config_path_resolution_failed=1
+fi
+
 section "local devbox config"
 
-if [ -e "$config_path" ]; then
+if [ "$config_path_resolution_failed" -eq 1 ]; then
+  fail_check "unsafe legacy devbox config path"
+elif [ -e "$config_path" ]; then
   check_mode_any fail "$config_path" 600
   # shellcheck disable=SC1090
   . "$config_path"
@@ -206,7 +219,9 @@ else
   fail_check "infisical CLI is missing"
 fi
 
-if [ -e "$machine_config_path" ]; then
+if [ "$machine_config_path_resolution_failed" -eq 1 ]; then
+  fail_check "unsafe legacy Infisical machine config path"
+elif [ -e "$machine_config_path" ]; then
   check_mode_any fail "$machine_config_path" 600
   ok "Infisical machine config is owner-only"
 else

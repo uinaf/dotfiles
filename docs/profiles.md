@@ -47,9 +47,10 @@ developer worktree trust, native pnpm setup, and Codex desktop defaults.
 
 Workstation and devbox users configure an explicit human Git identity with
 `configure-git.sh`. Assistant users configure an explicit workload identity
-with the same script. It writes `user.name`, `user.email`, disables commit and
-tag signing, and marks the local config as workload-owned. The values are local
-operator input and are never tracked.
+with the same script. For assistants only, it writes `user.name` and
+`user.email`, disables commit and tag signing, and marks the local config as
+workload-owned. Workstation and devbox retain their explicit human signing
+configuration. Identity values are local operator input and are never tracked.
 
 Assistant GitHub authentication is separate from commit authorship and is not
 configured by this profile. Provision a workload-owned GitHub App or another

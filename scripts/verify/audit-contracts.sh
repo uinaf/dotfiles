@@ -34,7 +34,7 @@ chmod 0600 "$HOME/.ssh/nested/id_ed25519" "$HOME/.ssh/nested/id_ssh2" "$HOME/.ss
 check_ssh_private_key_modes
 [ "$fail_count" -eq 0 ] || fail "owner-only private keys or authorized_keys were misclassified"
 
-workstation_json="$(HOME="$HOME" SHELL=/bin/sh "$repo_root/scripts/audit/workstation.sh" --json 2>/dev/null || true)"
+workstation_json="$(DOTFILES_AUDIT_NAME=workstation-security HOME="$HOME" SHELL=/bin/sh "$repo_root/scripts/audit/workstation.sh" --json 2>/dev/null || true)"
 printf '%s\n' "$workstation_json" | grep -Fq '"audit":"workstation-security"' \
   || fail "workstation JSON audit name changed"
 if printf '%s\n' "$workstation_json" | grep -Fq '"user":'; then
@@ -48,5 +48,20 @@ printf '%s\n' "$personal_json" | grep -Fq '"audit":"personal-security"' \
 personal_task_json="$(cd "$repo_root" && HOME="$HOME" SHELL=/bin/sh ./.mise/tasks/audit/personal/json 2>/dev/null || true)"
 printf '%s\n' "$personal_task_json" | grep -Fq '"audit":"personal-security"' \
   || fail "personal compatibility task bypassed the personal audit wrapper"
+
+grep -Fqx './scripts/audit/personal.sh' "$repo_root/.mise/tasks/audit/personal/_default" \
+  || fail "personal default task bypassed the personal audit wrapper"
+
+mkdir -p "$HOME/.config/uinaf"
+ln -s "$HOME/missing-audit-policy" "$HOME/.config/uinaf/audit.env"
+fail_count=0
+AUDIT_POLICY_FILE='' load_audit_policy
+[ "$fail_count" -eq 1 ] || fail "unsafe legacy audit policy did not record a failed check"
+rm "$HOME/.config/uinaf/audit.env"
+fail_count=0
+printf 'DEVBOX_USER=legacy-fixture\nPROCESS_COMPOSE_ENABLED=0\n' > "$HOME/.config/uinaf/devbox.env"
+devbox_json="$(HOME="$HOME" USER=fixture SHELL=/bin/sh "$repo_root/scripts/audit/devbox.sh" --json 2>/dev/null || true)"
+printf '%s\n' "$devbox_json" | grep -Fq '"devbox_user":"legacy-fixture"' \
+  || fail "devbox audit ignored the supported legacy config"
 
 printf 'ok audit output privacy and recursive SSH private-key classification\n'

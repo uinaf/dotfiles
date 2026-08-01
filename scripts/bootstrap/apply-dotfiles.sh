@@ -10,6 +10,7 @@ override_data=""
 chezmoi_base=()
 legacy_config_sources=()
 legacy_config_targets=()
+legacy_config_managed=()
 
 # shellcheck source=scripts/lib/profile.sh
 . "$repo_root/scripts/lib/profile.sh"
@@ -157,6 +158,12 @@ stage_legacy_config() {
   local managed_targets
   local name
 
+  if [ -L "$config_dir" ]; then
+    fail "canonical config directory must not be a symlink: $config_dir"
+  fi
+  if [ -e "$config_dir" ] && [ ! -d "$config_dir" ]; then
+    fail "canonical config path must be a directory: $config_dir"
+  fi
   if [ -L "$legacy_dir" ]; then
     fail "legacy config directory symlinks must be resolved manually before migration: $legacy_dir"
   fi
@@ -170,19 +177,32 @@ stage_legacy_config() {
     if [ -L "$legacy" ]; then
       fail "legacy config symlinks must be resolved manually before migration: $legacy"
     fi
+    [ -f "$legacy" ] || fail "legacy config must be a regular file: $legacy"
 
     if [ -e "$target" ] || [ -L "$target" ]; then
-      printf 'kept legacy config because the canonical target already exists: %s\n' "$legacy" >&2
+      if [ -f "$target" ] && [ ! -L "$target" ] && cmp -s "$legacy" "$target"; then
+        legacy_config_sources+=("$legacy")
+        legacy_config_targets+=("$target")
+        legacy_config_managed+=(1)
+        if [ "$dry_run" -eq 1 ]; then
+          printf 'would finish identical legacy migration %s -> %s\n' "$legacy" "$target"
+        else
+          printf 'resuming identical legacy migration %s -> %s\n' "$legacy" "$target"
+        fi
+      else
+        printf 'kept legacy config because the canonical target already exists: %s\n' "$legacy" >&2
+      fi
       continue
     fi
 
-    legacy_config_sources+=("$legacy")
-    legacy_config_targets+=("$target")
     if [ "$dry_run" -eq 1 ]; then
       printf 'would migrate %s -> %s\n' "$legacy" "$target"
     fi
 
     if printf '%s\n' "$managed_targets" | grep -Fqx -- "$target"; then
+      legacy_config_sources+=("$legacy")
+      legacy_config_targets+=("$target")
+      legacy_config_managed+=(1)
       rendered="$(mktemp "${TMPDIR:-/tmp}/dotfiles-legacy-render.XXXXXX")"
       if ! "${chezmoi_base[@]}" cat "$target" > "$rendered"; then
         rm -f "$rendered"
@@ -195,31 +215,36 @@ stage_legacy_config() {
         else
           mkdir -p "$config_dir"
           chmod 0700 "$config_dir"
-          cp -pP "$legacy" "$backup"
+          install -m 0600 "$legacy" "$backup"
           printf 'backed up legacy config %s -> %s\n' "$legacy" "$backup"
         fi
       fi
       rm -f "$rendered"
-    elif [ "$dry_run" -eq 0 ]; then
-      mkdir -p "$config_dir"
-      chmod 0700 "$config_dir"
-      cp -pP "$legacy" "$target"
-      printf 'staged legacy config %s -> %s\n' "$legacy" "$target"
+    else
+      legacy_config_sources+=("$legacy")
+      legacy_config_targets+=("$target")
+      legacy_config_managed+=(0)
     fi
   done
 }
 
 finish_legacy_config_migration() {
   local legacy_dir="$HOME/.config/uinaf"
+  local config_dir="$HOME/.config/dotfiles"
   local index
 
   for ((index = 0; index < ${#legacy_config_sources[@]}; index++)); do
-    if [ "$dry_run" -eq 0 ]; then
-      rm -f "${legacy_config_sources[$index]}"
-      printf 'migrated %s -> %s\n' \
-        "${legacy_config_sources[$index]}" \
-        "${legacy_config_targets[$index]}"
+    if [ "${legacy_config_managed[$index]}" -eq 0 ]; then
+      if [ -e "${legacy_config_targets[$index]}" ] || [ -L "${legacy_config_targets[$index]}" ]; then
+        fail "canonical migration target appeared during apply: ${legacy_config_targets[$index]}"
+      fi
+      install -d -m 0700 "$config_dir"
+      install -m 0600 "${legacy_config_sources[$index]}" "${legacy_config_targets[$index]}"
     fi
+    rm -f "${legacy_config_sources[$index]}"
+    printf 'migrated %s -> %s\n' \
+      "${legacy_config_sources[$index]}" \
+      "${legacy_config_targets[$index]}"
   done
 
   if [ "$dry_run" -eq 0 ] && rmdir "$legacy_dir" 2>/dev/null; then

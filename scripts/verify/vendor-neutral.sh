@@ -4,6 +4,7 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 unexpected=0
 matches=""
+path_matches=""
 grep_status=0
 
 set +e
@@ -14,6 +15,20 @@ if [ "$grep_status" -ne 0 ] && [ "$grep_status" -ne 1 ]; then
   printf 'vendor-neutral scan failed with git grep status %s\n' "$grep_status" >&2
   exit "$grep_status"
 fi
+
+set +e
+path_matches="$(git -C "$repo_root" ls-files --cached --others --exclude-standard | grep -i uinaf)"
+grep_status=$?
+set -e
+if [ "$grep_status" -ne 0 ] && [ "$grep_status" -ne 1 ]; then
+  printf 'vendor-neutral path scan failed with status %s\n' "$grep_status" >&2
+  exit "$grep_status"
+fi
+while IFS= read -r branded_path; do
+  [ -n "$branded_path" ] || continue
+  printf 'unexpected vendor branding in path: %s\n' "$branded_path" >&2
+  unexpected=1
+done <<< "$path_matches"
 
 while IFS=: read -r file line content; do
   [ -n "$file" ] || continue
@@ -44,7 +59,7 @@ while IFS=: read -r file line content; do
         *LaunchDaemons/com.uinaf.*) continue ;;
       esac
       ;;
-    docs/profiles.md|scripts/bootstrap/apply-dotfiles.sh|scripts/lib/config-paths.sh|scripts/lib/profile.sh|scripts/verify/profiles.sh)
+    docs/profiles.md|scripts/bootstrap/apply-dotfiles.sh|scripts/lib/config-paths.sh|scripts/lib/profile.sh|scripts/verify/audit-contracts.sh|scripts/verify/profiles.sh)
       case "$content" in
         *config/uinaf*) continue ;;
       esac

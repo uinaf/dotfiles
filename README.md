@@ -73,7 +73,7 @@ pins.
 | zsh | `chezmoi/dot_zshenv`, `chezmoi/dot_zprofile`, `chezmoi/dot_zshrc` | machine shell history and ad hoc local files |
 | mise | `chezmoi/private_dot_config/mise/config.toml.tmpl` | repo-local runtime files; the selected profile controls machine runtime pins |
 | Git | `chezmoi/dot_gitconfig.tmpl` | `~/.gitconfig.local`; assistants use workload authorship only |
-| GitHub CLI | `Brewfile.developer`; `github/gh-stack` installed for developer profiles | authentication and unrelated extensions |
+| GitHub CLI | `Brewfile.developer` installs `gh`; the developer install step adds `github/gh-stack` | authentication and unrelated extensions |
 | SSH (workstation/devbox) | `chezmoi/private_dot_ssh/private_config` | `~/.ssh/github.config`, `~/.ssh/config.local`, private keys |
 | Codex | installer-managed defaults, including ChatGPT-login enforcement | auth, sessions, approvals, memory, worktrees |
 | Editors | developer Homebrew layer and chezmoi-managed Zed/Ghostty defaults | app state, fonts, caches |

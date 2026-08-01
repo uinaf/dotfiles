@@ -1,5 +1,5 @@
 # Minimal unattended assistant layer.
-# Workload repositories own OpenClaw, Hermes, and provider-specific installs.
+# Workload repositories own framework and provider-specific installs.
 
 tap "f1bonacc1/tap"
 

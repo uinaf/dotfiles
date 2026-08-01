@@ -49,7 +49,7 @@ dotfiles_read_persisted_profile() {
     return 3
   fi
   awk 'END { exit NR == 1 ? 0 : 1 }' "$profile_file" || return 3
-  IFS= read -r value < "$profile_file" || return 3
+  IFS= read -r value < "$profile_file" || [ -n "$value" ] || return 3
   value="$(dotfiles_trim_profile "$value")"
   dotfiles_normalize_profile "$value" >/dev/null || return 3
   dotfiles_normalize_profile "$value"

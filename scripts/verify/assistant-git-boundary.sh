@@ -31,6 +31,7 @@ cleanup() {
 trap cleanup EXIT
 
 for config_override in \
+  GIT_CONFIG \
   GIT_CONFIG_GLOBAL \
   GIT_CONFIG_SYSTEM \
   GIT_CONFIG_NOSYSTEM \

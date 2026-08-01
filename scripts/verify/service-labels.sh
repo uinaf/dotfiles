@@ -20,13 +20,22 @@ expected="$(printf '%s\n' \
 actual="$(DOTFILES_LAUNCHD_NAMESPACE='' "$installer" --user example --print-labels)"
 [ "$actual" = "$expected" ] || fail "default LaunchDaemon labels are not vendor-neutral"
 
+custom_expected="$(printf '%s\n' \
+  org.example.dotfiles.process-compose.example \
+  org.example.dotfiles.openclaw-gateway.example \
+  org.example.dotfiles.healthd.example \
+  org.example.dotfiles.colima.example)"
 custom="$("$installer" --user example --namespace org.example.dotfiles --print-labels)"
-printf '%s\n' "$custom" | grep -Fqx 'org.example.dotfiles.healthd.example' \
-  || fail "custom LaunchDaemon namespace was not applied"
+[ "$custom" = "$custom_expected" ] || fail "custom LaunchDaemon namespace was not applied consistently"
 
+underscore_expected="$(printf '%s\n' \
+  org.example_team.dotfiles.process-compose.example \
+  org.example_team.dotfiles.openclaw-gateway.example \
+  org.example_team.dotfiles.healthd.example \
+  org.example_team.dotfiles.colima.example)"
 custom_with_underscore="$("$installer" --user example --namespace org.example_team.dotfiles --print-labels)"
-printf '%s\n' "$custom_with_underscore" | grep -Fqx 'org.example_team.dotfiles.healthd.example' \
-  || fail "an advertised underscore in the LaunchDaemon namespace was rejected"
+[ "$custom_with_underscore" = "$underscore_expected" ] \
+  || fail "an advertised underscore was not applied consistently"
 
 if "$installer" --user example --namespace 'invalid namespace' --print-labels >/dev/null 2>&1; then
   fail "invalid LaunchDaemon namespace was accepted"

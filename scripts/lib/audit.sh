@@ -275,7 +275,10 @@ find_matching_files() {
 
 load_audit_policy() {
   local policy_path
-  policy_path="$(dotfiles_resolve_config_file "${AUDIT_POLICY_FILE:-}" audit.env)"
+  if ! policy_path="$(dotfiles_resolve_config_file "${AUDIT_POLICY_FILE:-}" audit.env)"; then
+    fail_check "unsafe legacy audit policy path"
+    return
+  fi
 
   if [ ! -e "$policy_path" ]; then
     return 0

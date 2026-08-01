@@ -240,6 +240,9 @@ check_launchd_daemons() {
   section "managed launchd daemons"
 
   local plist label namespace namespace_file namespace_status found=0
+  case "$devbox_user" in
+    ""|*[!A-Za-z0-9._-]*) fail "unsupported DEVBOX_USER: $devbox_user" ;;
+  esac
   namespace_file="$HOME/.config/dotfiles/launchd-namespace"
   if namespace="$(dotfiles_resolve_launchd_namespace_contract "${DOTFILES_LAUNCHD_NAMESPACE:-}" "$namespace_file" "$(id -u)")"; then
     :
@@ -252,10 +255,10 @@ check_launchd_daemons() {
   fi
 
   for plist in \
-    "/Library/LaunchDaemons/$namespace.healthd."*.plist \
-    "/Library/LaunchDaemons/$namespace.colima."*.plist \
-    /Library/LaunchDaemons/com.uinaf.healthd.*.plist \
-    /Library/LaunchDaemons/com.uinaf.colima.*.plist; do
+    "/Library/LaunchDaemons/$namespace.healthd.$devbox_user.plist" \
+    "/Library/LaunchDaemons/$namespace.colima.$devbox_user.plist" \
+    "/Library/LaunchDaemons/com.uinaf.healthd.$devbox_user.plist" \
+    "/Library/LaunchDaemons/com.uinaf.colima.$devbox_user.plist"; do
     [ -e "$plist" ] || continue
     found=1
     label="$(basename "$plist" .plist)"

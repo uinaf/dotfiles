@@ -23,6 +23,15 @@ assert_eq() {
   [ "$actual" = "$expected" ] || fail "$label: expected '$expected', got '$actual'"
 }
 
+mode_of() {
+  if stat -c '%a' "$1" >/dev/null 2>&1; then
+    stat -c '%a' "$1"
+    return
+  fi
+
+  stat -f '%Lp' "$1"
+}
+
 render_target() {
   local profile="$1"
   local target="$2"
@@ -89,6 +98,10 @@ if HOME="$profile_home" dotfiles_resolve_profile >/dev/null 2>&1; then
 fi
 chmod 0644 "$profile_home/.config/dotfiles/profile"
 rm "$profile_home/.config/dotfiles/profile"
+printf 'assistant' > "$profile_home/.config/dotfiles/profile"
+assert_eq assistant "$(HOME="$profile_home" dotfiles_resolve_profile)" \
+  "unterminated single-record persisted profile"
+rm "$profile_home/.config/dotfiles/profile"
 
 config_home="$tmp_root/config-paths"
 mkdir -p "$config_home/.config/uinaf"
@@ -104,6 +117,10 @@ assert_eq "$config_home/.config/dotfiles/devbox.env" \
 ln -s "$config_home/.config/uinaf/devbox.env" "$config_home/.config/uinaf/symlinked.env"
 if HOME="$config_home" dotfiles_resolve_config_file '' symlinked.env >/dev/null 2>&1; then
   fail "legacy config fallback accepted a symlink"
+fi
+mkdir "$config_home/.config/uinaf/directory.env"
+if HOME="$config_home" dotfiles_resolve_config_file '' directory.env >/dev/null 2>&1; then
+  fail "legacy config fallback accepted a non-regular file"
 fi
 
 config_symlink_home="$tmp_root/config-path-directory-symlink"
@@ -164,6 +181,15 @@ if HOME="$failure_home" REAL_CHEZMOI="$real_chezmoi" PATH="$failure_bin:$PATH" \
 fi
 [ -f "$failure_home/.config/uinaf/devbox.env" ] \
   || fail "failed dotfiles apply removed the working legacy config"
+[ ! -e "$failure_home/.config/dotfiles/devbox.env" ] \
+  || fail "failed dotfiles apply stranded a canonical migration copy"
+HOME="$failure_home" "$repo_root/scripts/bootstrap/apply-dotfiles.sh" --profile assistant >/dev/null
+[ ! -e "$failure_home/.config/uinaf/devbox.env" ] \
+  || fail "legacy config remained after a successful retry"
+[ "$(sed -n '1p' "$failure_home/.config/dotfiles/devbox.env")" = 'DEVBOX_USER=legacy' ] \
+  || fail "successful retry did not migrate the legacy config"
+[ "$(mode_of "$failure_home/.config/dotfiles/devbox.env")" = 600 ] \
+  || fail "migrated config was not made owner-only"
 
 symlink_home="$tmp_root/legacy-symlink"
 mkdir -p "$symlink_home/.config/uinaf/private"
@@ -187,6 +213,16 @@ if HOME="$symlink_dir_home" "$repo_root/scripts/bootstrap/apply-dotfiles.sh" --p
 fi
 [ -f "$symlink_dir_target/devbox.env" ] \
   || fail "rejected legacy config directory removed an external file"
+
+canonical_symlink_home="$tmp_root/canonical-symlink-directory"
+canonical_symlink_target="$tmp_root/canonical-symlink-directory-target"
+mkdir -p "$canonical_symlink_home/.config" "$canonical_symlink_target"
+ln -s "$canonical_symlink_target" "$canonical_symlink_home/.config/dotfiles"
+if HOME="$canonical_symlink_home" "$repo_root/scripts/bootstrap/apply-dotfiles.sh" --profile assistant >/dev/null 2>&1; then
+  fail "dotfiles apply accepted a symlinked canonical config directory"
+fi
+[ -z "$(find "$canonical_symlink_target" -mindepth 1 -print -quit)" ] \
+  || fail "rejected canonical config directory received managed files"
 
 task_home="$tmp_root/task-profile"
 mkdir -p "$task_home"
@@ -411,6 +447,7 @@ private_key_type="$(printf '%s %s' PRIVATE KEY)"
 run_assistant_git_boundary() {
   env \
     -u SSH_AUTH_SOCK \
+    -u GIT_CONFIG \
     -u GIT_CONFIG_GLOBAL \
     -u GIT_CONFIG_SYSTEM \
     -u GIT_CONFIG_NOSYSTEM \
@@ -547,6 +584,22 @@ if env \
   GIT_CONFIG_GLOBAL="$identity_home/attacker.gitconfig" \
     "$repo_root/scripts/verify/assistant-git-boundary.sh" >/dev/null 2>&1; then
   fail "assistant Git boundary accepted an ambient Git config override"
+fi
+
+prepare_identity_home
+if env \
+  -u SSH_AUTH_SOCK \
+  -u GIT_CONFIG_GLOBAL \
+  -u GIT_CONFIG_SYSTEM \
+  -u GIT_CONFIG_NOSYSTEM \
+  -u GIT_CONFIG_COUNT \
+  -u GIT_CONFIG_PARAMETERS \
+  HOME="$identity_home" \
+  XDG_CONFIG_HOME="$identity_home/.config" \
+  GH_CONFIG_DIR="$identity_home/.config/gh" \
+  GIT_CONFIG="$identity_home/attacker.gitconfig" \
+    "$repo_root/scripts/verify/assistant-git-boundary.sh" >/dev/null 2>&1; then
+  fail "assistant Git boundary accepted GIT_CONFIG"
 fi
 
 prepare_identity_home
