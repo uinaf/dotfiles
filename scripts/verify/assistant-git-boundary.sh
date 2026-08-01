@@ -18,7 +18,10 @@ mode_of() {
 
 tracked_config="$HOME/.gitconfig"
 workload_config="$HOME/.gitconfig.local"
-expected_include="~"'/.gitconfig.local'
+tilde='~'
+expected_includes="$(printf '%s\n' \
+  "$tilde/.gitconfig.local" \
+  "$tilde/.config/dotfiles/github-app.gitconfig")"
 key=""
 
 [ -f "$tracked_config" ] \
@@ -40,8 +43,8 @@ while IFS= read -r entry; do
 done <<< "$tracked_entries"
 include_paths="$(git config --file "$tracked_config" --no-includes --get-all include.path)" \
   || fail "assistant Git base config does not include ~/.gitconfig.local"
-[ "$include_paths" = "$expected_include" ] \
-  || fail "assistant Git base config must include only ~/.gitconfig.local"
+[ "$include_paths" = "$expected_includes" ] \
+  || fail "assistant Git base config must include only the workload and optional GitHub App configs"
 
 workload_entries="$(git config --file "$workload_config" --no-includes --list)" \
   || fail "assistant workload Git config cannot be parsed"

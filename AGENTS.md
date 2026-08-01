@@ -27,19 +27,19 @@ agent guide.
   machine-local config, or generated env files.
 - Do not back up, copy, link, or summarize full Codex config, Browser
   approvals, auth files, sessions, caches, worktrees, or app state.
-- Do not invent Git identities, signing keys, 1Password vault names, Infisical
-  project/workspace IDs, service tokens, or secret item references.
-- Do not store service tokens or Infisical machine credentials in Git, shell
-  startup, launchd plists, process-compose YAML, or dotenv files.
+- Do not invent Git identities, signing keys, password-manager vault names,
+  secret-manager project IDs, service tokens, or secret item references.
+- Do not store service tokens or secret-manager machine credentials in Git,
+  shell startup, launchd plists, process-compose YAML, or dotenv files.
 - Keep examples public-safe. Avoid private machine names, vault item names, and
   identity context.
 
 Machine-local secrets belong in explicit owner-only local storage or an
-approved secret manager login. For shared agent hosts, use the current contract
-in [Devbox setup](docs/devbox.md): humans may use 1Password and Infisical;
-agents use Infisical machine identity auth only for secrets/env access. Do not
-revive workspace `.env` symlinks, devbox-env generated files, or 1Password
-service-account refresh stacks.
+approved secret manager. Assistants use the SOPS/age and GitHub App contract in
+[Identity provisioning](docs/identities.md). Coding devboxes may use the
+Infisical contract in [Devbox setup](docs/devbox.md). Do not revive workspace
+`.env` symlinks, generated secret files, or password-manager service-account
+refresh stacks.
 
 ## Agent Operating Checklist
 
@@ -89,9 +89,10 @@ Do not put identity-specific values in tracked files. `configure-git.sh` writes
 them to `~/.gitconfig.local`. On devboxes, use the human-provisioned local SSH
 key file for GitHub SSH auth; `configure-git.sh` writes the matching
 `~/.ssh/github.config` override when the signing key is a local path.
-Assistants use explicit workload authorship and unsigned commits. GitHub
-authentication is separate platform-owned setup; never invent the workload
-name, email, App identity, or credentials.
+Assistants use explicit workload authorship and unsigned commits. Configure
+GitHub authentication with `configure-assistant-github-app.sh` only from
+operator-supplied workload name, email, App identity, repository set, and
+owner-only private key.
 
 ## Verification
 

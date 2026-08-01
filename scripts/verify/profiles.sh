@@ -354,6 +354,8 @@ printf '%s\n' "$assistant_gitconfig" | grep -Fqx '[core]' \
   || fail "assistant Git base config missed core settings"
 printf '%s\n' "$assistant_gitconfig" | grep -Fqx '[include]' \
   || fail "assistant Git base config missed workload identity include"
+printf '%s\n' "$assistant_gitconfig" | grep -Fqx $'\tpath = ~/.config/dotfiles/github-app.gitconfig' \
+  || fail "assistant Git base config missed optional GitHub App include"
 if printf '%s\n' "$assistant_gitconfig" | grep -Eq '^\[(credential|gpg)|gh auth git-credential|signing'; then
   fail "assistant Git base config included developer authentication or signing settings"
 fi

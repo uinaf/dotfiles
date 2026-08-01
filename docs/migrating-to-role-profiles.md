@@ -66,13 +66,20 @@ from `~/.ssh/config.local`, preserve any unrelated directives, and rerun:
 ./scripts/bootstrap/configure-git.sh --profile <role>
 ```
 
-For `assistant`, configure only workload authorship. GitHub authentication is
-provisioned separately by the agent platform:
+For `assistant`, configure workload authorship first, then use the generic
+GitHub App configurator with explicit operator-supplied App and repository
+values:
 
 ```sh
 GIT_USER_NAME='Workload Name' \
 GIT_USER_EMAIL='APP_BOT_NOREPLY_EMAIL' \
   ./scripts/bootstrap/configure-git.sh --profile assistant --non-interactive
+
+./scripts/bootstrap/configure-assistant-github-app.sh \
+  --name example-app \
+  --app-id APP_ID \
+  --installation-id INSTALLATION_ID \
+  --repo github.com/example/workspace
 ```
 
 ## Devbox Services

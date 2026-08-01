@@ -3,8 +3,10 @@
 Devbox automation keeps always-on agent users reproducible without making their
 secrets or identities part of the public dotfiles repo.
 
-Assistant profiles reuse the machine-identity and system-service boundaries in
-this guide without inheriting the devbox coding toolchain or human Git identity.
+Assistant profiles reuse the Unix-user and system-service boundaries in this
+guide without inheriting the devbox coding toolchain, human Git identity, or
+Infisical requirement. Their default SOPS/age and GitHub App contract is
+[Identity provisioning](identities.md).
 
 ## Boundaries
 
@@ -28,8 +30,10 @@ Local only:
 Environment variables are not a secret boundary. Anything running in that
 process tree can read them.
 
-Humans use both 1Password and Infisical. Agents use Infisical only for
-secrets/env access. 1Password remains the human/manual vault for account
+This section documents the optional Infisical contract for coding devboxes and
+workloads that explicitly choose it. Assistants default to the SOPS contract in
+[Identity provisioning](identities.md). Humans use both 1Password and
+Infisical. 1Password remains the human/manual vault for account
 credentials, recovery material, and human SSH key material. A devbox identity
 may also receive narrowly scoped operational credentials in Infisical when the
 agent must use them unattended. Keep those credentials outside runtime env

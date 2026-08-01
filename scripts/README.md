@@ -46,6 +46,9 @@ Bootstrap entry points:
 ./scripts/bootstrap/install-blacksmith.sh
 ./scripts/bootstrap/install-cursor-agent.sh
 ./scripts/bootstrap/install-gh-app-auth.sh
+./scripts/bootstrap/configure-assistant-github-app.sh \
+  --name example-app --app-id APP_ID --installation-id INSTALLATION_ID \
+  --repo github.com/example/workspace
 ./scripts/bootstrap/install-gh-extensions.sh
 ./scripts/bootstrap/install.sh --profile workstation
 ./scripts/bootstrap/configure-git.sh --profile workstation

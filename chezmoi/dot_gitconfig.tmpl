@@ -19,3 +19,7 @@
 {{ end -}}
 [include]
 	path = ~/.gitconfig.local
+{{ if eq .dotfilesProfile "assistant" -}}
+[include]
+	path = ~/.config/dotfiles/github-app.gitconfig
+{{ end -}}

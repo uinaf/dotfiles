@@ -117,6 +117,7 @@ section "GitHub CLI extensions"
 
 section "Assistant GitHub App authentication"
 ./scripts/verify/gh-app-auth.sh
+./scripts/verify/configure-assistant-github-app.sh
 
 section "Git bootstrap"
 ./scripts/verify/configure-git.sh

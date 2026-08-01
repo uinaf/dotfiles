@@ -39,8 +39,9 @@ OpenClaw, Hermes, model providers, additional language runtimes, and other
 workload-specific packages. Workstation and devbox retain the full shared
 development runtime set.
 
-Assistant dotfile application installs a minimal Git base without GitHub
-authentication. It skips developer signing, credential helpers, outbound SSH
+Assistant dotfile application installs a minimal Git base with an optional
+assistant GitHub App include but no configured credentials. It skips developer
+signing, human credential helpers, outbound SSH
 configuration, Zed, and Ghostty state. It also skips developer worktree trust,
 stable Corepack-managed pnpm setup, Codex desktop defaults, and developer-only GitHub
 extensions. The assistant install step adds a pinned `gh-app-auth` execution
@@ -59,21 +60,21 @@ workload-owned. Workstation and devbox retain their explicit human signing
 configuration. Identity values are local operator input and are never tracked.
 
 Assistant GitHub authentication is separate from commit authorship. This
-profile installs the command mechanism only. Provision a workload-owned GitHub
-App or another scoped machine identity in the platform layer when repository
-access is needed. The workload owns secret retrieval, repository scope, and
-the wrapper or command policy that mints short-lived credentials on demand.
+profile installs the command mechanism and optional Git include;
+`configure-assistant-github-app.sh` binds an operator-supplied workload App to
+exact repositories. The private key remains owner-only and tokens are minted on
+demand. No human login, repository wrapper, or refresh daemon is required.
 
 The assistant bootstrap checks the managed Git base and workload identity. It
 does not inventory or clean unrelated user-home state; migration agents own
 that work. Run the expected-contract check directly with
 `./scripts/verify/assistant-git-boundary.sh`.
 
-Unattended users use a scoped machine identity for secret access. If a workload
-needs repository access, provision a workload-owned GitHub App instead of a
-human account. These dotfiles provide the generic execution adapter; provider
-secrets, token minting policy, and Git transport configuration remain in the
-owning workload or platform integration.
+Unattended users use a per-deployment age identity for SOPS access. If a
+workload needs repository access, provision a workload-owned GitHub App instead
+of a human account. These dotfiles own the generic App and Git transport
+configuration; the operator owns App creation, repository selection, private
+key recovery, and encrypted provider payloads.
 
 ## Apply a Profile
 
@@ -103,6 +104,12 @@ Configure the appropriate human or workload Git identity separately:
 GIT_USER_NAME='Workload Name' \
 GIT_USER_EMAIL='APP_BOT_NOREPLY_EMAIL' \
   ./scripts/bootstrap/configure-git.sh --profile assistant --non-interactive
+./scripts/bootstrap/configure-assistant-github-app.sh \
+  --name example-app \
+  --app-id APP_ID \
+  --installation-id INSTALLATION_ID \
+  --repo github.com/example/workspace \
+  --repo github.com/example/vault
 ```
 
 ## Migrate an Existing User

@@ -34,7 +34,8 @@ Environment:
   GIT_ALLOWED_SIGNER_PRINCIPAL optional SSH signing verification principal; defaults to GIT_USER_EMAIL
   GIT_SSH_IDENTITY_FILE optional SSH private key path for git@github.com; devbox defaults to GIT_SIGNING_KEY
 
-Assistant GitHub authentication is intentionally outside this profile setup.
+After authorship, configure assistant GitHub authentication with
+configure-assistant-github-app.sh and explicit App/repository values.
 EOF
 }
 

@@ -73,6 +73,58 @@ Print only the safe public recipient for a registry or SOPS policy:
 ./scripts/secrets/configure-sops-age-identity.sh --print-recipient
 ```
 
+## Assistant GitHub App
+
+Assistants use one workload-owned GitHub App instead of a human GitHub account,
+PAT, or SSH identity. Restore its private key to the canonical owner-only path:
+
+```text
+~/.config/gh/extensions/gh-app-auth/keys/APP_NAME.pem
+```
+
+The key directory must be mode `0700` and the PEM must be owner-only. Configure
+the App from explicit operator-supplied IDs and exact repository patterns:
+
+```sh
+./scripts/bootstrap/configure-assistant-github-app.sh \
+  --name example-app \
+  --app-id APP_ID \
+  --installation-id INSTALLATION_ID \
+  --repo github.com/example/workspace \
+  --repo github.com/example/vault
+```
+
+An existing HTTPS checkout path may replace an exact pattern. Pattern input is
+useful before the first private clone; after cloning, check the real Git path:
+
+```sh
+git clone https://github.com/example/workspace.git ~/projects/example/workspace
+./scripts/bootstrap/configure-assistant-github-app.sh --check \
+  --name example-app \
+  --app-id APP_ID \
+  --installation-id INSTALLATION_ID \
+  --repo ~/projects/example/workspace \
+  --repo github.com/example/vault
+```
+
+The command writes `~/.config/dotfiles/github-app.gitconfig` with mode `0600`.
+The assistant profile includes it globally, resets inherited GitHub credential
+helpers, enables path-aware matching, and delegates directly to `gh-app-auth`.
+Exact patterns remain in the App configuration, so a token is minted only on
+demand for a selected repository. There is no retained `gh auth` login, token
+cache contract, repository-specific wrapper, or refresh daemon.
+
+For GitHub CLI or API commands, select the repository explicitly:
+
+```sh
+gh app-auth exec --repo github.com/example/workspace -- gh repo view
+```
+
+Run the configurator once per App scope change and use `--check` for routine
+verification. Do not use `gh app-auth gitconfig`; its generated URL sections
+can collapse multiple exact repositories under the same organization. The
+dotfiles-owned path-aware helper avoids that ambiguity.
+
 ## Recovery
 
 Generation and recovery registration are one provisioning operation. Before
