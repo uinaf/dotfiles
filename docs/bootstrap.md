@@ -376,17 +376,23 @@ assistant. Start with a dedicated Unix user and a clean home. The assistant
 `configure-git.sh` flow writes only workload commit authorship; it rejects
 signing keys and GitHub SSH identity files.
 
-GitHub authentication is intentionally not configured by the assistant
-profile. The assistant can create unsigned local commits with its workload
-identity, but unattended fetch/push remains disabled until the platform layer
-provisions a workload-owned GitHub App or another scoped machine identity.
-Token minting and Git transport are follow-up platform work; do not persist a
-human account or ad hoc token in Git config, `gh auth`, shell startup, or a
-process manager to bridge that gap.
+The assistant install step builds the pinned `gh-app-auth` execution adapter
+from a checksum-verified source archive. It uses a temporary pinned Go
+toolchain and removes the compiler, module cache, and build cache afterward;
+Go is not retained as part of the assistant profile.
 
-Bootstrap verification checks the managed Git base and workload identity. It
-does not inventory or clean unrelated user-home state. Migration agents audit
-and remove old credentials and developer state separately, then run
+GitHub credentials are intentionally not configured by the assistant profile.
+The assistant can create unsigned local commits with its workload identity,
+while the platform layer provisions a workload-owned GitHub App or another
+scoped machine identity. The owning workload supplies secret retrieval,
+repository scope, and an on-demand wrapper for API and Git commands. Do not
+persist a human account or ad hoc token in Git config, `gh auth`, shell startup,
+or a process manager.
+
+Bootstrap verification checks the managed Git base, `gh-app-auth` dispatch,
+and workload identity. It does not inventory or clean unrelated user-home
+state. Migration agents audit and remove old credentials and developer state
+separately, then run
 `./scripts/verify/assistant-git-boundary.sh` to confirm the expected assistant
 identity contract.
 

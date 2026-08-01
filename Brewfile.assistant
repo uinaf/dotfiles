@@ -9,3 +9,6 @@ brew "ffmpeg"
 
 # User-level process supervision
 brew "f1bonacc1/tap/process-compose"
+
+# Scoped GitHub App command execution; authentication remains workload-owned
+brew "gh"

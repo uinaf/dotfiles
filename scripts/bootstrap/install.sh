@@ -52,7 +52,9 @@ fi
 
 install_steps() {
   printf 'apply-dotfiles\n'
-  if dotfiles_profile_is_developer "$profile"; then
+  if [ "$profile" = "assistant" ]; then
+    printf 'install-gh-app-auth\n'
+  elif dotfiles_profile_is_developer "$profile"; then
     printf 'trust-agent-worktrees\n'
     printf 'install-gh-extensions\n'
     printf 'install-native-pnpm\n'
@@ -64,6 +66,9 @@ run_step() {
   case "$1" in
     apply-dotfiles)
       "$repo_root/scripts/bootstrap/apply-dotfiles.sh" --profile "$profile"
+      ;;
+    install-gh-app-auth)
+      "$repo_root/scripts/bootstrap/install-gh-app-auth.sh"
       ;;
     trust-agent-worktrees)
       "$repo_root/scripts/bootstrap/trust-agent-worktrees.sh"

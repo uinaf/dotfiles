@@ -109,6 +109,9 @@ section "vendor-neutral interfaces"
 section "GitHub CLI extensions"
 ./scripts/verify/gh-extensions.sh
 
+section "Assistant GitHub App authentication"
+./scripts/verify/gh-app-auth.sh
+
 section "Git bootstrap"
 ./scripts/verify/configure-git.sh
 
