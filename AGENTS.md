@@ -93,6 +93,9 @@ Assistants use explicit workload authorship and unsigned commits. Configure
 GitHub authentication with `configure-assistant-github-app.sh` only from
 operator-supplied workload name, email, App identity, repository set, and
 owner-only private key.
+Headless assistant services use the system LaunchDaemon installer with an
+owner-controlled runtime wrapper and a unique per-user gateway port. Keep
+workload-specific secret paths and values outside this repository.
 
 ## Verification
 

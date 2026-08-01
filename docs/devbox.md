@@ -378,6 +378,23 @@ sudo ./scripts/bootstrap/install-devbox-service-daemons.sh --user agent-user --o
 sudo ./scripts/bootstrap/install-devbox-service-daemons.sh --user agent-user --healthd
 ```
 
+For a headless assistant whose workspace injects runtime secrets directly at
+the process boundary, pass its owner-controlled wrapper and a unique gateway
+port. This avoids a GUI LaunchAgent and allows multiple isolated assistants on
+one Mac without sharing a plaintext env file:
+
+```zsh
+sudo ./scripts/bootstrap/install-devbox-service-daemons.sh \
+  --user agent-user \
+  --openclaw \
+  --openclaw-wrapper /absolute/path/to/runtime-wrapper.sh \
+  --openclaw-port 18790
+```
+
+The wrapper must be an absolute executable path owned by the target user. It
+receives the resolved OpenClaw executable followed by `gateway --port PORT`.
+Keep the default `18789` only when no other user on the host owns that port.
+
 The installer does not retire per-user LaunchAgents. An agent or authorized
 administrator must unload and archive the old job first, then install and
 verify one replacement service per invocation so failures stay isolated.

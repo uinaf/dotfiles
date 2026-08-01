@@ -6,6 +6,10 @@ install_process_compose=0
 install_openclaw=0
 install_healthd=0
 install_colima=0
+openclaw_wrapper=""
+openclaw_port=18789
+openclaw_wrapper_set=0
+openclaw_port_set=0
 check_only=0
 print_labels=0
 launchd_namespace="${DOTFILES_LAUNCHD_NAMESPACE:-}"
@@ -29,6 +33,10 @@ Options:
   --check            Verify the selected LaunchDaemons without changing them.
   --print-labels     Print the generic labels for the selected user and exit.
   --namespace NAME   Stable label namespace; defaults to local.dotfiles.
+  --openclaw-wrapper PATH
+                      Executable process wrapper for OpenClaw runtime secrets.
+  --openclaw-port PORT
+                      Per-user gateway port; defaults to 18789.
 
 The installer must run as root on macOS. It creates root-owned system
 LaunchDaemons that drop privileges to the selected user. Conflicting
@@ -53,6 +61,18 @@ while [ "$#" -gt 0 ]; do
       ;;
     --openclaw)
       install_openclaw=1
+      ;;
+    --openclaw-wrapper)
+      [ "$#" -ge 2 ] || fail "--openclaw-wrapper requires a value"
+      openclaw_wrapper="$2"
+      openclaw_wrapper_set=1
+      shift
+      ;;
+    --openclaw-port)
+      [ "$#" -ge 2 ] || fail "--openclaw-port requires a value"
+      openclaw_port="$2"
+      openclaw_port_set=1
+      shift
       ;;
     --healthd)
       install_healthd=1
@@ -112,6 +132,23 @@ fi
   || [ "$install_healthd" -eq 1 ] \
   || [ "$install_colima" -eq 1 ] \
   || fail "select at least one service"
+if [ "$install_openclaw" -ne 1 ] \
+  && { [ "$openclaw_wrapper_set" -eq 1 ] || [ "$openclaw_port_set" -eq 1 ]; }; then
+  fail "--openclaw-wrapper and --openclaw-port require --openclaw"
+fi
+case "$openclaw_port" in
+  ''|*[!0-9]*) fail "OpenClaw port must be an integer" ;;
+esac
+[ "${#openclaw_port}" -le 5 ] \
+  || fail "OpenClaw port must be between 1 and 65535"
+[ "$openclaw_port" -ge 1 ] && [ "$openclaw_port" -le 65535 ] \
+  || fail "OpenClaw port must be between 1 and 65535"
+if [ -n "$openclaw_wrapper" ]; then
+  case "$openclaw_wrapper" in
+    /*) ;;
+    *) fail "OpenClaw wrapper must be an absolute path" ;;
+  esac
+fi
 
 target_uid="$(id -u "$target_user" 2>/dev/null)" || fail "unknown user: $target_user"
 target_group="$(id -gn "$target_user")"
@@ -143,12 +180,47 @@ find_executable() {
   local candidate
   for candidate in \
     "$target_home/.local/bin/$name" \
+    "$target_home/.local/share/mise/shims/$name" \
     "/opt/homebrew/bin/$name" \
     "/usr/local/bin/$name"
   do
     [ ! -x "$candidate" ] || { printf '%s\n' "$candidate"; return; }
   done
   return 1
+}
+
+validate_openclaw_wrapper() {
+  local wrapper="$1"
+  local wrapper_parent
+  local trusted_path
+  local current_dir
+  local path_mode
+
+  [ -f "$wrapper" ] || fail "OpenClaw wrapper must be a regular file: $wrapper"
+  [ ! -L "$wrapper" ] || fail "OpenClaw wrapper must not be a symlink: $wrapper"
+  wrapper_parent="$(cd -P -- "$(dirname "$wrapper")" && pwd)"
+  trusted_path="$wrapper_parent/$(basename "$wrapper")"
+  case "$trusted_path" in
+    "$target_home"/*) ;;
+    *) fail "OpenClaw wrapper must resolve inside $target_home" ;;
+  esac
+  [ -x "$trusted_path" ] || fail "missing executable $trusted_path"
+  [ "$(stat -f '%Su' "$trusted_path")" = "$target_user" ] \
+    || fail "OpenClaw wrapper must be owned by $target_user"
+  path_mode="$(stat -f '%Lp' "$trusted_path")"
+  [ $((8#$path_mode & 0022)) -eq 0 ] \
+    || fail "OpenClaw wrapper must not be group/world-writable: $trusted_path"
+
+  current_dir="$wrapper_parent"
+  while :; do
+    path_mode="$(stat -f '%Lp' "$current_dir")"
+    [ $((8#$path_mode & 0022)) -eq 0 ] \
+      || fail "OpenClaw wrapper parent must not be group/world-writable: $current_dir"
+    [ "$current_dir" != "$target_home" ] || break
+    current_dir="$(dirname "$current_dir")"
+  done
+
+  openclaw_wrapper="$trusted_path"
 }
 
 can_run_as_target() {
@@ -332,13 +404,20 @@ process_start="$target_home/.local/bin/process-compose-start.sh"
 env_wrapper="$target_home/.openclaw/service-env/ai.openclaw.gateway-env-wrapper.sh"
 env_file="$target_home/.openclaw/service-env/ai.openclaw.gateway.env"
 gateway_wrapper="$target_home/.local/bin/openclaw-gateway-mise-wrapper"
+openclaw_binary=""
 if [ "$install_process_compose" -eq 1 ]; then
   [ -x "$process_start" ] || fail "missing executable $process_start"
 fi
 if [ "$install_openclaw" -eq 1 ]; then
-  [ -x "$env_wrapper" ] || fail "missing executable $env_wrapper"
-  [ -f "$env_file" ] || fail "missing $env_file"
-  [ -x "$gateway_wrapper" ] || fail "missing executable $gateway_wrapper"
+  if [ -n "$openclaw_wrapper" ]; then
+    validate_openclaw_wrapper "$openclaw_wrapper"
+    openclaw_binary="$(find_executable openclaw 2>/dev/null || true)"
+    [ -n "$openclaw_binary" ] || fail "missing OpenClaw executable"
+  else
+    [ -x "$env_wrapper" ] || fail "missing executable $env_wrapper"
+    [ -f "$env_file" ] || fail "missing $env_file"
+    [ -x "$gateway_wrapper" ] || fail "missing executable $gateway_wrapper"
+  fi
 fi
 if [ "$install_healthd" -eq 1 ]; then
   run_as_target "$healthd_binary" validate --config "$healthd_config" >/dev/null \
@@ -385,19 +464,33 @@ fi
 if [ "$install_openclaw" -eq 1 ]; then
   install -d -o "$target_user" -g "$target_group" -m 0750 "$target_home/Library/Logs/openclaw"
   openclaw_plist="$tmp_dir/$openclaw_label.plist"
-  create_plist \
-    "$openclaw_plist" \
-    "$openclaw_label" \
-    "$target_home/.openclaw" \
-    "$target_home/Library/Logs/openclaw/gateway.log" \
-    "$target_home/Library/Logs/openclaw/gateway-error.log" \
-    /bin/sh \
-    "$env_wrapper" \
-    "$env_file" \
-    "$gateway_wrapper" \
-    gateway \
-    --port \
-    18789
+  if [ -n "$openclaw_wrapper" ]; then
+    create_plist \
+      "$openclaw_plist" \
+      "$openclaw_label" \
+      "$target_home/.openclaw" \
+      "$target_home/Library/Logs/openclaw/gateway.log" \
+      "$target_home/Library/Logs/openclaw/gateway-error.log" \
+      "$openclaw_wrapper" \
+      "$openclaw_binary" \
+      gateway \
+      --port \
+      "$openclaw_port"
+  else
+    create_plist \
+      "$openclaw_plist" \
+      "$openclaw_label" \
+      "$target_home/.openclaw" \
+      "$target_home/Library/Logs/openclaw/gateway.log" \
+      "$target_home/Library/Logs/openclaw/gateway-error.log" \
+      /bin/sh \
+      "$env_wrapper" \
+      "$env_file" \
+      "$gateway_wrapper" \
+      gateway \
+      --port \
+      "$openclaw_port"
+  fi
   install_job "$openclaw_plist" "$openclaw_label"
 fi
 
