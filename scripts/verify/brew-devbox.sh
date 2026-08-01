@@ -62,7 +62,8 @@ mkdir "$tmp_dir/output"
     "$wrapper" upgrade lima usage
 )
 
-expected="$(printf 'umask=0002\nno_auto_update=\narg=upgrade\narg=lima\narg=usage\n')"
+expected="$(printf 'umask=0002\nno_auto_update=%s\narg=upgrade\narg=lima\narg=usage\n' \
+  "${HOMEBREW_NO_AUTO_UPDATE:-}")"
 actual="$(cat "$direct_log")"
 [ "$actual" = "$expected" ] || fail "wrapper changed arguments or did not set umask 0002"
 [ "$(file_mode "$tmp_dir/output/directory")" = 775 ] || fail "wrapper created a non-shared directory"
