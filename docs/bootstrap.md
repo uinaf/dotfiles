@@ -16,6 +16,11 @@ because SSH sessions cannot depend on an unlocked macOS login keychain.
 
 Run commands from the repo root unless a step says otherwise.
 
+Every profile requires a per-user SOPS age identity. Install the Homebrew
+layers first, then follow [Identity provisioning](identities.md). Identity
+generation is explicit. Back up any newly created private identity through an
+approved human recovery system before using it to protect live ciphertext.
+
 ## First-Time Prerequisites
 
 Install Apple Command Line Tools:
@@ -162,6 +167,7 @@ Apply dotfiles and configure local state:
 
 ```zsh
 ./scripts/bootstrap/install.sh --profile workstation
+./scripts/secrets/configure-sops-age-identity.sh
 ./scripts/bootstrap/configure-git.sh --profile workstation
 ./scripts/bootstrap/configure-power.sh --profile workstation
 ./scripts/bootstrap/configure-spotlight.sh
@@ -295,6 +301,7 @@ Apply dotfiles:
 
 ```zsh
 ./scripts/bootstrap/install.sh --profile devbox
+./scripts/secrets/configure-sops-age-identity.sh
 ./scripts/bootstrap/configure-power.sh --profile devbox
 ./scripts/bootstrap/configure-spotlight.sh
 mise trust
@@ -366,6 +373,7 @@ Run the user-local setup as the assistant identity:
 git clone https://github.com/uinaf/dotfiles.git ~/.local/src/dotfiles
 cd ~/.local/src/dotfiles
 ./scripts/bootstrap/install.sh --profile assistant
+./scripts/secrets/configure-sops-age-identity.sh
 mise trust
 mise install
 ./scripts/secrets/configure-infisical-devbox.sh
@@ -415,6 +423,7 @@ cd ~/projects/dotfiles
 git pull --ff-only
 ./scripts/bootstrap/brew-bundle.sh workstation
 ./scripts/bootstrap/install.sh --profile workstation
+./scripts/secrets/configure-sops-age-identity.sh
 ./scripts/bootstrap/configure-power.sh --profile workstation
 ./scripts/bootstrap/configure-spotlight.sh
 mise trust

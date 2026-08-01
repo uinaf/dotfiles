@@ -61,11 +61,13 @@ if [ "$desktop_baseline" -eq 1 ] && [ "$profile" != "devbox" ]; then
 fi
 
 common_cli_checks=(
+  "age --version"
   "brew --version"
   "chezmoi --version"
   "git --version"
   "mise --version"
   "infisical --version"
+  "sops --version"
 )
 
 developer_cli_checks=(
@@ -414,6 +416,12 @@ check_assistant_git_boundary() {
   "$repo_root/scripts/verify/assistant-git-boundary.sh"
 }
 
+check_sops_age_identity() {
+  section "SOPS age identity"
+  "$repo_root/scripts/secrets/configure-sops-age-identity.sh" --check \
+    || fail "SOPS age identity"
+}
+
 check_mise
 check_truecolor_shell
 check_remote_ssh_prompt
@@ -423,6 +431,7 @@ check_brew_bundle
 check_cli_tools
 check_no_legacy_tool_versions
 check_config_paths
+check_sops_age_identity
 check_ghostty_ssh_integration
 if dotfiles_profile_is_developer "$profile"; then
   check_codex_config

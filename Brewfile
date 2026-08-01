@@ -3,6 +3,7 @@
 
 # Identity-safe bootstrap tools
 brew "age"
+brew "sops"
 brew "git"
 brew "chezmoi"
 brew "mise"

@@ -41,6 +41,15 @@ chmod 0600 "$HOME/.config/dotfiles"/*
 The compatibility name `personal` is accepted as input, but new persisted
 state should use `workstation`.
 
+The migrated sudo age identity remains sudo-specific. Do not copy or reuse it
+as the general SOPS identity. After installing the selected profile's Homebrew
+layers, create and back up the separate SOPS identity described in
+[Identity provisioning](identities.md):
+
+```sh
+./scripts/secrets/configure-sops-age-identity.sh
+```
+
 ## Apply and Reconfigure Git
 
 Preview first, then apply:

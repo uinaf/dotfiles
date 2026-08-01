@@ -58,6 +58,8 @@ GIT_USER_NAME='Workload Name' GIT_USER_EMAIL='APP_BOT_NOREPLY_EMAIL' \
 ./scripts/bootstrap/configure-desktop.sh
 ./scripts/bootstrap/install-devbox-service-daemons.sh --user example --namespace org.example.dotfiles --print-labels
 ./scripts/bootstrap/trust-agent-worktrees.sh
+./scripts/secrets/configure-sops-age-identity.sh
+./scripts/secrets/configure-sops-age-identity.sh --check
 ```
 
 `configure-power.sh` and `configure-spotlight.sh` are explicit sudo steps for

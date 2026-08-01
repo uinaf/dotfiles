@@ -48,6 +48,9 @@ adapter without provisioning credentials.
 
 ## Identity Policy
 
+The complete capability, age, SSH, recovery, and deployment lifecycle is in
+[Identity provisioning](identities.md).
+
 Workstation and devbox users configure an explicit human Git identity with
 `configure-git.sh`. Assistant users configure an explicit workload identity
 with the same script. For assistants only, it writes `user.name` and
@@ -86,6 +89,7 @@ Then run the per-user setup as the target Unix user:
 
 ```zsh
 ./scripts/bootstrap/install.sh --profile <profile>
+./scripts/secrets/configure-sops-age-identity.sh
 mise trust
 mise install
 ./scripts/verify/bootstrap.sh --profile <profile>
