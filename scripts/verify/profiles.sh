@@ -132,7 +132,7 @@ workstation_files="$(dotfiles_profile_brewfiles workstation)"
 assert_eq "$(printf 'Brewfile\nBrewfile.developer\nBrewfile.workstation')" "$workstation_files" "workstation Brewfile layers"
 
 assistant_steps="$("$repo_root/scripts/bootstrap/install.sh" --print-steps --profile assistant)"
-assert_eq apply-dotfiles "$assistant_steps" "assistant install steps"
+assert_eq "$(printf 'apply-dotfiles\ninstall-gh-app-auth')" "$assistant_steps" "assistant install steps"
 developer_steps="$("$repo_root/scripts/bootstrap/install.sh" --print-steps --profile workstation)"
 for step in apply-dotfiles trust-agent-worktrees install-gh-extensions install-native-pnpm configure-codex; do
   printf '%s\n' "$developer_steps" | grep -Fqx "$step" || fail "workstation install missed $step"
@@ -145,7 +145,7 @@ install_log="$tmp_root/install-fixture.log"
 mkdir -p "$install_fixture/scripts/bootstrap" "$install_fixture/scripts/lib" "$install_fixture/bin"
 cp "$repo_root/scripts/bootstrap/install.sh" "$install_fixture/scripts/bootstrap/install.sh"
 cp "$repo_root/scripts/lib/profile.sh" "$install_fixture/scripts/lib/profile.sh"
-for helper in apply-dotfiles.sh trust-agent-worktrees.sh install-gh-extensions.sh configure-codex.sh; do
+for helper in apply-dotfiles.sh install-gh-app-auth.sh trust-agent-worktrees.sh install-gh-extensions.sh configure-codex.sh; do
 cat > "$install_fixture/scripts/bootstrap/$helper" <<'EOF'
 #!/usr/bin/env bash
 printf '%s' "$(basename "$0")" >> "${DOTFILES_INSTALL_LOG:?}"
@@ -173,7 +173,7 @@ PATH="$install_fixture/bin:$PATH" \
 DOTFILES_INSTALL_LOG="$install_log" \
 HOME="$tmp_root/install-assistant-home" \
   "$install_fixture/scripts/bootstrap/install.sh" --profile assistant
-assert_eq 'apply-dotfiles.sh --profile assistant' "$(cat "$install_log")" \
+assert_eq "$(printf 'apply-dotfiles.sh --profile assistant\ninstall-gh-app-auth.sh')" "$(cat "$install_log")" \
   "assistant install execution"
 
 : > "$install_log"
@@ -199,7 +199,7 @@ printf 'caller-input\n' | \
   DOTFILES_INSTALL_READ_STDIN=apply-dotfiles.sh \
   HOME="$tmp_root/install-stdin-home" \
     "$install_fixture/scripts/bootstrap/install.sh" --profile assistant
-assert_eq "$(printf 'apply-dotfiles.sh --profile assistant\nstdin caller-input')" \
+assert_eq "$(printf 'apply-dotfiles.sh --profile assistant\nstdin caller-input\ninstall-gh-app-auth.sh')" \
   "$(cat "$install_log")" \
   "install step caller stdin"
 

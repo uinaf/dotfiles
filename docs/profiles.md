@@ -40,8 +40,10 @@ Workstation and devbox retain the full shared development runtime set.
 
 Assistant dotfile application installs a minimal Git base without GitHub
 authentication. It skips developer signing, credential helpers, outbound SSH
-configuration, Zed, and Ghostty state. It also skips GitHub extensions,
-developer worktree trust, native pnpm setup, and Codex desktop defaults.
+configuration, Zed, and Ghostty state. It also skips developer worktree trust,
+native pnpm setup, Codex desktop defaults, and developer-only GitHub
+extensions. The assistant install step adds a pinned `gh-app-auth` execution
+adapter without provisioning credentials.
 
 ## Identity Policy
 
@@ -52,11 +54,11 @@ with the same script. For assistants only, it writes `user.name` and
 workload-owned. Workstation and devbox retain their explicit human signing
 configuration. Identity values are local operator input and are never tracked.
 
-Assistant GitHub authentication is separate from commit authorship and is not
-configured by this profile. Provision a workload-owned GitHub App or another
-scoped machine identity in the platform layer when repository access is
-actually needed. Until then, the assistant can create local commits but cannot
-fetch or push private workspace state unattended.
+Assistant GitHub authentication is separate from commit authorship. This
+profile installs the command mechanism only. Provision a workload-owned GitHub
+App or another scoped machine identity in the platform layer when repository
+access is needed. The workload owns secret retrieval, repository scope, and
+the wrapper or command policy that mints short-lived credentials on demand.
 
 The assistant bootstrap checks the managed Git base and workload identity. It
 does not inventory or clean unrelated user-home state; migration agents own
@@ -65,8 +67,9 @@ that work. Run the expected-contract check directly with
 
 Unattended users use a scoped machine identity for secret access. If a workload
 needs repository access, provision a workload-owned GitHub App instead of a
-human account; token minting and Git transport belong in that later platform
-integration, not these dotfiles.
+human account. These dotfiles provide the generic execution adapter; provider
+secrets, token minting policy, and Git transport configuration remain in the
+owning workload or platform integration.
 
 ## Apply a Profile
 
