@@ -26,8 +26,14 @@ cat >"$tmp_dir/bin/brew" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 
+if [ "${1:-}" = "--prefix" ]; then
+  printf '%s\n' "$FAKE_BREW_PREFIX"
+  exit 0
+fi
+
 {
   printf 'umask=%s\n' "$(umask)"
+  printf 'no_auto_update=%s\n' "${HOMEBREW_NO_AUTO_UPDATE:-}"
   printf 'arg=%s\n' "$@"
 } >>"$FAKE_BREW_LOG"
 
@@ -41,6 +47,8 @@ fi
 exit "${FAKE_BREW_EXIT:-0}"
 EOF
 chmod 755 "$tmp_dir/bin/brew"
+fake_prefix="$tmp_dir/prefix"
+mkdir "$fake_prefix"
 
 direct_log="$tmp_dir/direct.log"
 : >"$direct_log"
@@ -49,11 +57,13 @@ mkdir "$tmp_dir/output"
   umask 0077
   PATH="$tmp_dir/bin:$PATH" \
     FAKE_BREW_LOG="$direct_log" \
+    FAKE_BREW_PREFIX="$fake_prefix" \
     FAKE_BREW_OUTPUT_DIR="$tmp_dir/output" \
     "$wrapper" upgrade lima usage
 )
 
-expected="$(printf 'umask=0002\narg=upgrade\narg=lima\narg=usage\n')"
+expected="$(printf 'umask=0002\nno_auto_update=%s\narg=upgrade\narg=lima\narg=usage\n' \
+  "${HOMEBREW_NO_AUTO_UPDATE:-}")"
 actual="$(cat "$direct_log")"
 [ "$actual" = "$expected" ] || fail "wrapper changed arguments or did not set umask 0002"
 [ "$(file_mode "$tmp_dir/output/directory")" = 775 ] || fail "wrapper created a non-shared directory"
@@ -65,6 +75,7 @@ set +e
   umask 0077
   PATH="$tmp_dir/bin:$PATH" \
     FAKE_BREW_LOG="$direct_log" \
+    FAKE_BREW_PREFIX="$fake_prefix" \
     FAKE_BREW_EXIT=37 \
     "$wrapper" failure-path
 )
@@ -72,12 +83,28 @@ status=$?
 set -e
 [ "$status" -eq 37 ] || fail "wrapper returned $status instead of the brew exit status"
 
+set +e
+owner_output="$(
+  PATH="$tmp_dir/bin:$PATH" \
+  FAKE_BREW_LOG="$direct_log" \
+  FAKE_BREW_PREFIX=/ \
+    "$wrapper" upgrade 2>&1
+)"
+owner_status=$?
+set -e
+if [ "$(id -u)" -ne 0 ]; then
+  [ "$owner_status" -eq 1 ] || fail "non-owner mutation returned $owner_status instead of 1"
+  printf '%s\n' "$owner_output" | grep -Fq 'Homebrew mutations must run as prefix owner' \
+    || fail "non-owner mutation failure was not actionable"
+fi
+
 bundle_log="$tmp_dir/bundle.log"
 : >"$bundle_log"
 (
   umask 0077
   PATH="$tmp_dir/bin:$PATH" \
     FAKE_BREW_LOG="$bundle_log" \
+    FAKE_BREW_PREFIX="$fake_prefix" \
     "$repo_root/scripts/bootstrap/brew-bundle.sh" devbox >/dev/null
 )
 
@@ -93,6 +120,7 @@ assistant_log="$tmp_dir/assistant.log"
   umask 0077
   PATH="$tmp_dir/bin:$PATH" \
     FAKE_BREW_LOG="$assistant_log" \
+    FAKE_BREW_PREFIX="$fake_prefix" \
     "$repo_root/scripts/bootstrap/brew-bundle.sh" assistant >/dev/null
 )
 [ "$(grep -c '^umask=0002$' "$assistant_log")" -eq 2 ] || fail "assistant bundle bypassed the shared umask"
@@ -109,6 +137,7 @@ shared_log="$tmp_dir/shared.log"
   umask 0077
   PATH="$tmp_dir/bin:$PATH" \
     FAKE_BREW_LOG="$shared_log" \
+    FAKE_BREW_PREFIX="$fake_prefix" \
     "$repo_root/scripts/bootstrap/brew-bundle.sh" --shared-only devbox >/dev/null
 )
 [ "$(grep -c '^umask=0002$' "$shared_log")" -eq 1 ] || fail "devbox shared-only bundle bypassed the shared umask"
@@ -121,4 +150,17 @@ status=$?
 set -e
 [ "$status" -eq 2 ] || fail "ambiguous shared-only bundle did not require a profile"
 
-printf 'ok devbox Homebrew wrapper preserves arguments, status, and shared modes\n'
+check_log="$tmp_dir/check.log"
+: >"$check_log"
+(
+  # shellcheck source=scripts/lib/homebrew.sh
+  . "$repo_root/scripts/lib/homebrew.sh"
+  PATH="$tmp_dir/bin:$PATH" \
+  FAKE_BREW_LOG="$check_log" \
+  FAKE_BREW_PREFIX="$fake_prefix" \
+    dotfiles_homebrew_bundle_check "$repo_root/Brewfile"
+)
+grep -Fqx 'no_auto_update=1' "$check_log" \
+  || fail "bundle verification allowed Homebrew auto-update"
+
+printf 'ok shared Homebrew mutations require the prefix owner and verification stays read-only\n'

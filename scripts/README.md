@@ -62,8 +62,9 @@ GIT_USER_NAME='Workload Name' GIT_USER_EMAIL='APP_BOT_NOREPLY_EMAIL' \
 
 `configure-power.sh` and `configure-spotlight.sh` are explicit sudo steps for
 macOS system policy. `install.sh` should stay user-level.
-`brew-devbox.sh` scopes a group-safe umask to shared Homebrew mutations;
-`brew-bundle.sh devbox` uses it automatically.
+`brew-devbox.sh` requires the Homebrew prefix owner and scopes a group-safe
+umask to shared Homebrew mutations; `brew-bundle.sh devbox` uses it
+automatically. Bootstrap bundle verification disables Homebrew auto-update.
 `configure-desktop.sh` is an explicit owner-profile step for the black devbox
 desktop, hidden widgets/icons, and Chrome-only Dock. It supports `--check` and
 is not applied to other devbox users by `install.sh`.

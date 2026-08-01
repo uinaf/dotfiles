@@ -280,10 +280,12 @@ Run every other Homebrew mutation on a shared devbox through the repo wrapper:
 ./scripts/bootstrap/brew-devbox.sh upgrade --cask
 ```
 
-The wrapper scopes a group-safe umask to the Homebrew child process. The
-devbox bundle command uses it internally; it does not change the caller's
-shell umask. Run these commands once from the owning admin identity, then run
-the devbox bootstrap verification as every Unix identity.
+The wrapper requires the current Unix user to own the Homebrew prefix, then
+scopes a group-safe umask to the Homebrew child process. The devbox bundle
+command uses it internally; it does not change the caller's shell umask. Run
+these commands once from the owning admin identity, then run the devbox
+bootstrap verification as every Unix identity. Verification disables Homebrew
+auto-update so a read-only package check cannot mutate the shared checkout.
 
 Blacksmith uses its official per-user installer rather than Homebrew and
 self-updates from `~/.local/bin`.
