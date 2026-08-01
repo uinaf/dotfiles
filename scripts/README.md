@@ -5,7 +5,7 @@ Scripts are grouped by functionality:
 | Directory | Purpose |
 | --- | --- |
 | `app-store/` | Mac App Store app installs/removals through `mas`. |
-| `audit/` | Check-only security and drift audits for repo, host, personal, and devbox contexts. |
+| `audit/` | Check-only security and drift audits for repo, host, workstation, and devbox contexts. |
 | `bootstrap/` | Install and configure Homebrew, chezmoi dotfiles, Git, Codex, and Chrome. |
 | `lib/` | Shared shell helpers used by scripts. |
 | `secrets/` | Owner-local secret-manager bootstrap and command-boundary wrappers. |
@@ -35,19 +35,23 @@ Install the local pre-push guard:
 Bootstrap entry points:
 
 ```zsh
-./scripts/bootstrap/brew-bundle.sh personal
+./scripts/bootstrap/brew-bundle.sh workstation
 ./scripts/bootstrap/brew-bundle.sh devbox
-./scripts/bootstrap/brew-bundle.sh --shared-only personal
+./scripts/bootstrap/brew-bundle.sh assistant
+./scripts/bootstrap/brew-bundle.sh --shared-only workstation
 ./scripts/bootstrap/brew-bundle.sh --shared-only devbox
+./scripts/bootstrap/brew-bundle.sh --shared-only assistant
 ./scripts/bootstrap/brew-devbox.sh upgrade
-./scripts/bootstrap/apply-dotfiles.sh --dry-run --verbose
+./scripts/bootstrap/apply-dotfiles.sh --profile workstation --dry-run --verbose
 ./scripts/bootstrap/install-blacksmith.sh
 ./scripts/bootstrap/install-cursor-agent.sh
 ./scripts/bootstrap/install-gh-extensions.sh
-./scripts/bootstrap/install.sh
-./scripts/bootstrap/configure-git.sh --profile personal
+./scripts/bootstrap/install.sh --profile workstation
+./scripts/bootstrap/configure-git.sh --profile workstation
 ./scripts/bootstrap/configure-git.sh --profile devbox
-./scripts/bootstrap/configure-power.sh --profile personal
+GIT_USER_NAME='Workload Name' GIT_USER_EMAIL='APP_BOT_NOREPLY_EMAIL' \
+  ./scripts/bootstrap/configure-git.sh --profile assistant --non-interactive
+./scripts/bootstrap/configure-power.sh --profile workstation
 ./scripts/bootstrap/configure-power.sh --profile devbox
 ./scripts/bootstrap/configure-spotlight.sh
 ./scripts/bootstrap/configure-desktop.sh
@@ -62,8 +66,8 @@ macOS system policy. `install.sh` should stay user-level.
 desktop, hidden widgets/icons, and Chrome-only Dock. It supports `--check` and
 is not applied to other devbox users by `install.sh`.
 
-Use [Bootstrap guide](../docs/bootstrap.md) for the ordered personal and devbox
-flows.
+Use [User profiles](../docs/profiles.md) and the [Bootstrap guide](../docs/bootstrap.md)
+for the ordered workstation, devbox, and assistant flows.
 
 Security audits:
 
@@ -76,10 +80,10 @@ mise run audit:mscp
 ./scripts/audit/host.sh --json
 mise run audit:host
 mise run audit:host:json
-./scripts/audit/personal.sh
-./scripts/audit/personal.sh --json
-mise run audit:personal
-mise run audit:personal:json
+./scripts/audit/workstation.sh
+./scripts/audit/workstation.sh --json
+mise run audit:workstation
+mise run audit:workstation:json
 ```
 
 Devbox checks:

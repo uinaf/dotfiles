@@ -19,7 +19,7 @@ Use separate checks for separate risk surfaces:
 | Repository content | `gitleaks`, `trufflehog`, `.github/workflows/secrets.yml` | Detect committed or proposed secrets. |
 | Host hardening | `lynis`, `scripts/audit/host.sh` | Run a maintained Unix/macOS host audit without adopting enterprise management. |
 | macOS compliance baseline | macOS Security Compliance Project through `scripts/audit/repo.sh` | Check host security settings against a generated baseline. |
-| Personal drift | `scripts/audit/personal.sh` | Check non-devbox user secret boundaries, identity state, and local stale files. |
+| Workstation drift | `scripts/audit/workstation.sh` | Check human workstation secret boundaries, identity state, and local stale files. |
 | Devbox drift | `scripts/audit/devbox.sh` | Check agent-machine secret boundaries, identity state, and local stale files. |
 | Functional bootstrap | `scripts/verify/bootstrap.sh`, `scripts/verify/devbox-services.sh` | Confirm tools and expected services work. |
 
@@ -94,7 +94,7 @@ logic:
 
 Use `./scripts/audit/host.sh --json` when an agent needs a compact
 summary. The default run does not prompt for sudo, so it is safe for routine
-personal and devbox checks. For a deeper local audit:
+workstation and devbox checks. For a deeper local audit:
 
 ```zsh
 ./scripts/audit/host.sh --allow-sudo-prompt
@@ -106,8 +106,8 @@ report. Use `--keep-artifacts DIR` only for manual review; Lynis reports can
 contain hostnames, local paths, package inventory, and network details.
 
 Treat Lynis as a discovery tool, not a policy engine. Review warnings and
-suggestions, decide what fits a personal or shared devbox setup, then encode
-only durable repo-specific drift checks in `scripts/audit/personal.sh` or
+suggestions, decide what fits a workstation or shared devbox setup, then encode
+only durable repo-specific drift checks in `scripts/audit/workstation.sh` or
 `scripts/audit/devbox.sh`.
 
 ## macOS Security Compliance Project
@@ -141,15 +141,15 @@ Review non-compliant rules and decide exceptions before applying remediation.
 Do not blindly apply a federal or STIG-style baseline to personal Macs or
 shared devboxes.
 
-## Personal Drift Audit
+## Workstation Drift Audit
 
-Run this from a normal personal Mac user:
+Run this from a normal workstation user:
 
 ```zsh
-./scripts/audit/personal.sh
+./scripts/audit/workstation.sh
 ```
 
-Use `./scripts/audit/personal.sh --json` when an agent needs a compact
+Use `./scripts/audit/workstation.sh --json` when an agent needs a compact
 status summary. Prefer JSON mode for remote collection because prose scanner
 output may include matched secret material.
 
@@ -168,7 +168,7 @@ It checks:
   budget thresholds
 - Tailscale CLI status works when installed
 
-Warnings are normal when a personal Mac intentionally keeps optional services or
+Warnings are normal when a workstation intentionally keeps optional services or
 large local logs. Failures mean raw secrets, unsafe file permissions, or missing
 GitHub auth.
 

@@ -1,5 +1,5 @@
-# Personal Mac Homebrew layer.
-# Run through ./scripts/bootstrap/brew-bundle.sh so the shared Brewfile installs first.
+# Human-operated workstation Homebrew layer.
+# Run through brew-bundle.sh so base and developer layers install first.
 
 # Taps
 tap "openclaw/tap"

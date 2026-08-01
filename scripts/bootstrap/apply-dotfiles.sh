@@ -5,18 +5,33 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 source_dir="$repo_root/chezmoi"
 dry_run=0
 verbose=0
+profile=""
+override_data=""
+chezmoi_base=()
+
+# shellcheck source=scripts/lib/profile.sh
+. "$repo_root/scripts/lib/profile.sh"
 
 usage() {
   cat <<'USAGE'
 Usage:
-  scripts/bootstrap/apply-dotfiles.sh [--dry-run] [--verbose]
+  scripts/bootstrap/apply-dotfiles.sh --profile PROFILE [--dry-run] [--verbose]
 
-Applies the repo-local chezmoi source state to $HOME.
+Applies the repo-local chezmoi source state for workstation, devbox, or
+assistant to $HOME. The legacy personal name maps to workstation.
 USAGE
 }
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
+    --profile)
+      shift
+      if [ "$#" -eq 0 ]; then
+        usage >&2
+        exit 2
+      fi
+      profile="$1"
+      ;;
     --dry-run)
       dry_run=1
       ;;
@@ -48,7 +63,7 @@ backup_path() {
     return
   fi
 
-  if chezmoi --source "$source_dir" --destination "$HOME" cat "$target" | cmp -s - "$target"; then
+  if "${chezmoi_base[@]}" cat "$target" | cmp -s - "$target"; then
     return
   fi
 
@@ -70,7 +85,7 @@ remove_obsolete_repo_link() {
     return 1
   fi
 
-  if [ -e "$target" ] && ! chezmoi --source "$source_dir" --destination "$HOME" cat "$target" | cmp -s - "$target"; then
+  if [ -e "$target" ] && ! "${chezmoi_base[@]}" cat "$target" | cmp -s - "$target"; then
     backup="$target.backup.$(date +%Y%m%d%H%M%S)"
     if [ "$dry_run" -eq 1 ]; then
       printf 'would back up obsolete link content %s -> %s\n' "$target" "$backup"
@@ -105,7 +120,7 @@ backup_preexisting_targets() {
     fi
 
     backup_path "$target"
-  done < <(chezmoi --source "$source_dir" --destination "$HOME" managed --include=files,symlinks --path-style absolute)
+  done < <("${chezmoi_base[@]}" managed --include=files,symlinks --path-style absolute)
 }
 
 remove_obsolete_link_suffix() {
@@ -131,13 +146,25 @@ remove_obsolete_link_suffix() {
 [ -d "$source_dir" ] || fail "missing chezmoi source directory: $source_dir"
 command -v chezmoi >/dev/null 2>&1 || fail "chezmoi is required; run scripts/bootstrap/brew-bundle.sh for the selected profile first"
 
+if ! profile="$(uinaf_resolve_profile "$profile")"; then
+  printf 'a supported profile is required: workstation, devbox, or assistant\n' >&2
+  exit 2
+fi
+override_data="$(printf '{"uinafProfile":"%s"}' "$profile")"
+chezmoi_base=(
+  chezmoi
+  --source "$source_dir"
+  --destination "$HOME"
+  --override-data "$override_data"
+)
+
 remove_obsolete_link_suffix "$HOME/.zlogin" "/home/.zlogin"
 remove_obsolete_link_suffix "$HOME/.config/1Password/ssh/agent.toml" "/home/.config/1Password/ssh/agent.toml"
 remove_obsolete_link_suffix "$HOME/.codex/config.toml" "/home/.codex/config.toml"
 remove_obsolete_link_suffix "$HOME/.codex/browser/config.toml" "/home/.codex/browser/config.toml"
 backup_preexisting_targets
 
-cmd=(chezmoi --source "$source_dir" --destination "$HOME" --force apply)
+cmd=("${chezmoi_base[@]}" --force apply)
 if [ "$dry_run" -eq 1 ]; then
   cmd+=(--dry-run)
 fi
@@ -147,7 +174,7 @@ fi
 
 "${cmd[@]}"
 if [ "$dry_run" -eq 1 ]; then
-  printf 'dotfiles previewed with chezmoi source %s\n' "$source_dir"
+  printf 'dotfiles previewed for %s with chezmoi source %s\n' "$profile" "$source_dir"
 else
-  printf 'dotfiles applied with chezmoi source %s\n' "$source_dir"
+  printf 'dotfiles applied for %s with chezmoi source %s\n' "$profile" "$source_dir"
 fi

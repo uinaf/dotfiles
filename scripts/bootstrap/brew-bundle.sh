@@ -4,24 +4,32 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 profile=""
 shared_only=0
+print_files=0
+
+# shellcheck source=scripts/lib/profile.sh
+. "$repo_root/scripts/lib/profile.sh"
 
 usage() {
   cat <<'USAGE'
 Usage:
-  scripts/bootstrap/brew-bundle.sh personal
+  scripts/bootstrap/brew-bundle.sh workstation
   scripts/bootstrap/brew-bundle.sh devbox
-  scripts/bootstrap/brew-bundle.sh --shared-only personal
+  scripts/bootstrap/brew-bundle.sh assistant
+  scripts/bootstrap/brew-bundle.sh personal              # compatibility alias
+  scripts/bootstrap/brew-bundle.sh --shared-only workstation
   scripts/bootstrap/brew-bundle.sh --shared-only devbox
+  scripts/bootstrap/brew-bundle.sh --shared-only assistant
+  scripts/bootstrap/brew-bundle.sh --print-files PROFILE
 
-Installs the shared Brewfile first, then the selected profile Brewfile unless
---shared-only is set. The profile is always required so devbox installs use the
-group-safe Homebrew wrapper.
+Installs the minimal base first, the developer layer for workstation/devbox,
+then the selected profile layer. --shared-only installs only the base.
+Devbox and assistant host changes use the group-safe Homebrew wrapper.
 USAGE
 }
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
-    personal|devbox)
+    personal|workstation|devbox|assistant)
       if [ -n "$profile" ]; then
         usage >&2
         exit 2
@@ -35,7 +43,7 @@ while [ "$#" -gt 0 ]; do
         exit 2
       fi
       case "$1" in
-        personal|devbox)
+        personal|workstation|devbox|assistant)
           profile="$1"
           ;;
         *)
@@ -50,6 +58,9 @@ while [ "$#" -gt 0 ]; do
         exit 2
       fi
       shared_only=1
+      ;;
+    --print-files)
+      print_files=1
       ;;
     -h|--help)
       usage
@@ -68,6 +79,22 @@ if [ -z "$profile" ]; then
   exit 2
 fi
 
+if ! profile="$(uinaf_normalize_profile "$profile")"; then
+  usage >&2
+  exit 2
+fi
+
+if [ "$print_files" -eq 1 ]; then
+  if [ "$shared_only" -eq 1 ]; then
+    printf '%s\n' "$repo_root/Brewfile"
+  else
+    while IFS= read -r file; do
+      printf '%s/%s\n' "$repo_root" "$file"
+    done < <(uinaf_profile_brewfiles "$profile")
+  fi
+  exit 0
+fi
+
 if ! command -v brew >/dev/null 2>&1; then
   printf 'brew is required before running this script\n' >&2
   exit 1
@@ -76,7 +103,7 @@ fi
 run_bundle() {
   local file="$1"
   printf '\n## brew bundle --file %s\n' "$file"
-  if [ "$profile" = "devbox" ]; then
+  if uinaf_profile_uses_shared_brew "$profile"; then
     "$repo_root/scripts/bootstrap/brew-devbox.sh" bundle --file "$file"
   else
     brew bundle --file "$file"
@@ -86,5 +113,8 @@ run_bundle() {
 run_bundle "$repo_root/Brewfile"
 
 if [ "$shared_only" -eq 0 ]; then
+  if uinaf_profile_is_developer "$profile"; then
+    run_bundle "$repo_root/Brewfile.developer"
+  fi
   run_bundle "$repo_root/Brewfile.$profile"
 fi

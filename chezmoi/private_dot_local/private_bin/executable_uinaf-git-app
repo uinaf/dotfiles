@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [ "${UINAF_GITHUB_APP_ASKPASS:-}" = "1" ]; then
+  prompt="${1:-}"
+  username_prompt_re="^Username for 'https://github\\.com(:[0-9]+)?(/[^'[:space:]]*)?': $"
+  password_prompt_re="^Password for 'https://x-access-token@github\\.com(:[0-9]+)?(/[^'[:space:]]*)?': $"
+  if [[ "$prompt" =~ $username_prompt_re ]]; then
+    printf 'x-access-token\n'
+  elif [[ "$prompt" =~ $password_prompt_re ]]; then
+    printf '%s\n' "${GITHUB_APP_INSTALLATION_TOKEN:?missing GitHub App installation token}"
+  else
+    printf 'refusing to provide a GitHub App token for an unsupported credential prompt\n' >&2
+    exit 1
+  fi
+  exit 0
+fi
+
+if [ "$#" -eq 0 ]; then
+  printf 'usage: uinaf-git-app <git arguments>\n' >&2
+  exit 2
+fi
+if [ -z "${GITHUB_APP_INSTALLATION_TOKEN:-}" ]; then
+  printf 'GITHUB_APP_INSTALLATION_TOKEN is required\n' >&2
+  exit 1
+fi
+
+export UINAF_GITHUB_APP_ASKPASS=1
+export GIT_ASKPASS="$0"
+export GIT_TERMINAL_PROMPT=0
+export LC_ALL=C
+exec git -c credential.helper= "$@"

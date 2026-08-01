@@ -81,10 +81,27 @@ bundle_log="$tmp_dir/bundle.log"
     "$repo_root/scripts/bootstrap/brew-bundle.sh" devbox >/dev/null
 )
 
-[ "$(grep -c '^umask=0002$' "$bundle_log")" -eq 2 ] || fail "devbox bundle bypassed the shared umask"
-[ "$(grep -c '^arg=bundle$' "$bundle_log")" -eq 2 ] || fail "devbox bundle did not run both Brewfiles"
+[ "$(grep -c '^umask=0002$' "$bundle_log")" -eq 3 ] || fail "devbox bundle bypassed the shared umask"
+[ "$(grep -c '^arg=bundle$' "$bundle_log")" -eq 3 ] || fail "devbox bundle did not run all profile layers"
 grep -Fqx "arg=$repo_root/Brewfile" "$bundle_log" || fail "shared Brewfile was not bundled"
+grep -Fqx "arg=$repo_root/Brewfile.developer" "$bundle_log" || fail "developer Brewfile was not bundled"
 grep -Fqx "arg=$repo_root/Brewfile.devbox" "$bundle_log" || fail "devbox Brewfile was not bundled"
+
+assistant_log="$tmp_dir/assistant.log"
+: >"$assistant_log"
+(
+  umask 0077
+  PATH="$tmp_dir/bin:$PATH" \
+    FAKE_BREW_LOG="$assistant_log" \
+    "$repo_root/scripts/bootstrap/brew-bundle.sh" assistant >/dev/null
+)
+[ "$(grep -c '^umask=0002$' "$assistant_log")" -eq 2 ] || fail "assistant bundle bypassed the shared umask"
+[ "$(grep -c '^arg=bundle$' "$assistant_log")" -eq 2 ] || fail "assistant bundle did not run base and assistant layers"
+grep -Fqx "arg=$repo_root/Brewfile" "$assistant_log" || fail "assistant bundle missed the base Brewfile"
+grep -Fqx "arg=$repo_root/Brewfile.assistant" "$assistant_log" || fail "assistant bundle missed its profile Brewfile"
+if grep -Fqx "arg=$repo_root/Brewfile.developer" "$assistant_log"; then
+  fail "assistant bundle installed the developer layer"
+fi
 
 shared_log="$tmp_dir/shared.log"
 : >"$shared_log"

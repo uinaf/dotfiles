@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#MISE description="Run the live personal Mac drift and secret-boundary audit"
+#MISE description="Compatibility alias for the workstation audit"
 set -euo pipefail
 
-./scripts/audit/personal.sh
+./scripts/audit/workstation.sh

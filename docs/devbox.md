@@ -3,6 +3,9 @@
 Devbox automation keeps always-on agent users reproducible without making their
 secrets or identities part of the public dotfiles repo.
 
+Assistant profiles reuse the machine-identity and system-service boundaries in
+this guide without inheriting the devbox coding toolchain or human Git identity.
+
 ## Boundaries
 
 Tracked here:

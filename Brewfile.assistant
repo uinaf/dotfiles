@@ -1,0 +1,11 @@
+# Minimal unattended assistant layer.
+# Workload repositories own OpenClaw, Hermes, and provider-specific installs.
+
+tap "f1bonacc1/tap"
+
+# Browser and media capabilities used by assistant runtimes
+cask "google-chrome"
+brew "ffmpeg"
+
+# User-level process supervision
+brew "f1bonacc1/tap/process-compose"

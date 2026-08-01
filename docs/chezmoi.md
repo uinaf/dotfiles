@@ -11,14 +11,20 @@ Use chezmoi source attributes instead of literal target filenames:
 | Source | Target |
 | --- | --- |
 | `chezmoi/dot_zshrc` | `~/.zshrc` |
-| `chezmoi/dot_gitconfig` | `~/.gitconfig` |
-| `chezmoi/private_dot_config/mise/config.toml` | `~/.config/mise/config.toml` |
+| `chezmoi/dot_gitconfig.tmpl` | `~/.gitconfig` |
+| `chezmoi/private_dot_config/mise/config.toml.tmpl` | `~/.config/mise/config.toml` |
+| `chezmoi/private_dot_config/private_uinaf/profile.tmpl` | `~/.config/uinaf/profile` |
 | `chezmoi/private_dot_ssh/private_config` | `~/.ssh/config` |
 | `chezmoi/private_dot_local/private_libexec/private_uinaf/private_executable_git-ssh-sign-agentless` | `~/.local/libexec/uinaf/git-ssh-sign-agentless` |
 | `chezmoi/private_dot_config/zed/private_settings.json` | `~/.config/zed/settings.json` |
 
 The `private_` attribute is used for parent config directories and files that
 should land as owner-only local config.
+
+The assistant profile renders a minimal Git base with a local workload-identity
+include and installs `~/.local/bin/uinaf-git-app` for ephemeral HTTPS
+authentication. It excludes the outbound SSH, signing-helper, allowed-signers,
+Zed, and Ghostty sources used by workstation and devbox profiles.
 
 Use attributes deliberately:
 
@@ -34,7 +40,7 @@ Use attributes deliberately:
 Preview the target state before applying:
 
 ```zsh
-./scripts/bootstrap/apply-dotfiles.sh --dry-run --verbose
+./scripts/bootstrap/apply-dotfiles.sh --profile workstation --dry-run --verbose
 mise trust
 mise run dotfiles:diff
 ```
@@ -42,7 +48,7 @@ mise run dotfiles:diff
 Apply the source state:
 
 ```zsh
-./scripts/bootstrap/apply-dotfiles.sh
+./scripts/bootstrap/apply-dotfiles.sh --profile workstation
 mise trust
 mise run dotfiles:apply
 ```
@@ -58,7 +64,8 @@ For normal edits:
 
 ```zsh
 tmp_dest="$(mktemp -d /tmp/uinaf-chezmoi-apply.XXXXXX)"
-chezmoi --source "$PWD/chezmoi" --destination "$tmp_dest" --force apply
+chezmoi --source "$PWD/chezmoi" --destination "$tmp_dest" \
+  --override-data '{"uinafProfile":"workstation"}' --force apply
 find "$tmp_dest" -maxdepth 4 -type f -o -type l | sort
 rm -rf "$tmp_dest"
 ```

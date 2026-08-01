@@ -16,13 +16,16 @@ machine-local.
 
 ## Choose a Profile
 
-| Profile | Use it for | Installs |
+| Layer or profile | Use it for | Installs |
 | --- | --- | --- |
-| Shared | Base tools every uinaf Mac should have. | `Brewfile` |
-| Personal | A human-operated laptop or desktop. | `Brewfile` + `Brewfile.personal` |
-| Devbox | A shared SSH-first agent host. | `Brewfile` + `Brewfile.devbox` |
+| Base | Minimal tools every managed Unix user needs. | `Brewfile` |
+| Workstation | A human-operated laptop or desktop. | Base + `Brewfile.developer` + `Brewfile.workstation` |
+| Devbox | A remote coding identity on an SSH-first host. | Base + `Brewfile.developer` + `Brewfile.devbox` |
+| Assistant | An unattended assistant or platform-service identity. | Base + `Brewfile.assistant` |
 
-Most users want `personal`. Always-on agent hosts use `devbox`.
+Profiles apply per Unix user, while Homebrew and other macOS policy can be
+host-wide. Read [User profiles](docs/profiles.md) before changing a shared host.
+`personal` remains a temporary command alias for `workstation`.
 
 ## Fast Path
 
@@ -35,15 +38,15 @@ mkdir -p ~/projects/uinaf
 gh repo clone uinaf/dotfiles ~/projects/uinaf/dotfiles
 cd ~/projects/uinaf/dotfiles
 
-./scripts/bootstrap/brew-bundle.sh personal
-./scripts/bootstrap/install.sh
-./scripts/bootstrap/configure-git.sh --profile personal
-./scripts/bootstrap/configure-power.sh --profile personal
+./scripts/bootstrap/brew-bundle.sh workstation
+./scripts/bootstrap/install.sh --profile workstation
+./scripts/bootstrap/configure-git.sh --profile workstation
+./scripts/bootstrap/configure-power.sh --profile workstation
 ./scripts/bootstrap/configure-spotlight.sh
 ./scripts/app-store/personal.sh
 mise trust
 mise install
-./scripts/verify/bootstrap.sh --profile personal
+./scripts/verify/bootstrap.sh --profile workstation
 ```
 
 If `git` or `gh` is not available yet, or for the full first-machine flow,
@@ -65,12 +68,16 @@ pins.
 | Surface | Tracked source | Local-only extension |
 | --- | --- | --- |
 | zsh | `chezmoi/dot_zshenv`, `chezmoi/dot_zprofile`, `chezmoi/dot_zshrc` | machine shell history and ad hoc local files |
-| mise | `chezmoi/private_dot_config/mise/config.toml` | repo-local runtime files; shared Node/pnpm and npm CLI pins live in the tracked config |
-| Git | `chezmoi/dot_gitconfig` | `~/.gitconfig.local` |
-| GitHub CLI | `Brewfile`; `github/gh-stack` installed by `install.sh` | authentication and unrelated extensions |
-| SSH | `chezmoi/private_dot_ssh/private_config` | `~/.ssh/github.config`, `~/.ssh/config.local`, private keys |
+| mise | `chezmoi/private_dot_config/mise/config.toml.tmpl` | repo-local runtime files; the selected profile controls machine runtime pins |
+| Git | `chezmoi/dot_gitconfig.tmpl` | `~/.gitconfig.local`; assistants use workload authorship only |
+| GitHub CLI | `Brewfile.developer`; `github/gh-stack` installed for developer profiles | authentication and unrelated extensions |
+| SSH (workstation/devbox) | `chezmoi/private_dot_ssh/private_config` | `~/.ssh/github.config`, `~/.ssh/config.local`, private keys |
 | Codex | installer-managed defaults, including ChatGPT-login enforcement | auth, sessions, approvals, memory, worktrees |
-| Editors | chezmoi-managed Zed and Ghostty defaults | app state, fonts, caches |
+| Editors | developer Homebrew layer and chezmoi-managed Zed/Ghostty defaults | app state, fonts, caches |
+
+Assistant users receive a minimal Git base and the `uinaf-git-app` HTTPS
+wrapper, but no signing, GitHub credential helper, outbound SSH, or developer
+desktop state. Workload-owned GitHub App tokens are supplied at runtime.
 
 ## Local State Boundaries
 
@@ -88,9 +95,9 @@ Infisical, agents use Infisical machine identity auth only, and tokens or client
 credentials must not live in default shells, process managers, tracked files, or
 generated dotenv refresh stacks.
 
-## Personalization
+## Workstation Personalization
 
-`Brewfile.personal` is the shared human-operated Mac profile, not a private app
+`Brewfile.workstation` is the shared human-operated Mac profile, not a private app
 wishlist. Keep one-machine tweaks in local config files, keep durable personal
 preferences in a fork, and send focused pull requests for changes that should
 become part of the shared uinaf bootstrap.
@@ -121,8 +128,9 @@ Use live-machine checks only on a machine that should actually use these
 dotfiles:
 
 ```zsh
-./scripts/verify/bootstrap.sh --profile personal
+./scripts/verify/bootstrap.sh --profile workstation
 ./scripts/verify/bootstrap.sh --profile devbox
+./scripts/verify/bootstrap.sh --profile assistant
 ./scripts/bootstrap/configure-desktop.sh
 ./scripts/verify/bootstrap.sh --profile devbox --desktop
 ```
@@ -138,7 +146,7 @@ For security posture:
 ./scripts/audit/repo.sh --skip-mscp
 mise run audit:repo
 ./scripts/audit/host.sh
-./scripts/audit/personal.sh
+./scripts/audit/workstation.sh
 ./scripts/audit/devbox.sh
 ```
 
@@ -150,6 +158,7 @@ audit, and macOS Security Compliance Project flow.
 | Need | Read |
 | --- | --- |
 | Install or update a Mac | [Bootstrap guide](docs/bootstrap.md) |
+| Choose a per-user role | [User profiles](docs/profiles.md) |
 | Operate a shared agent host | [Devbox setup](docs/devbox.md) |
 | Understand dotfile source state | [Chezmoi source state](docs/chezmoi.md) |
 | Understand mise tasks and runtime pins | [Mise tasks](docs/mise.md) |

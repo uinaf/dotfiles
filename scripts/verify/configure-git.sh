@@ -129,7 +129,7 @@ cp "$personal_home/.ssh/config.local" "$tmp_root/personal.config.before"
 
 configure \
   "$personal_home" \
-  personal \
+  workstation \
   "$personal_home/.ssh/signing" \
   "$personal_home/.ssh/signing" >/dev/null
 
@@ -292,4 +292,56 @@ assert_rejected_without_mutation \
   "$public_only_home" 'key file is not an SSH private key' \
   "$public_only_home" devbox "$public_only_home/.ssh/signing.pub"
 
-printf 'ok Git bootstrap preserves SSH scope and signs locally while ignoring an active matching agent\n'
+assistant_home="$tmp_root/assistant"
+mkdir -p "$assistant_home"
+HOME="$assistant_home" "$repo_root/scripts/bootstrap/apply-dotfiles.sh" --profile assistant >/dev/null
+HOME="$assistant_home" \
+GIT_USER_NAME='Example Workload' \
+GIT_USER_EMAIL='example-workload@users.noreply.github.com' \
+  "$configure_git" --profile assistant --non-interactive >/dev/null
+
+assistant_config="$assistant_home/.gitconfig.local"
+[ "$(HOME="$assistant_home" git config --file "$assistant_config" --get user.name)" = 'Example Workload' ] \
+  || fail "assistant workload Git name was not configured"
+[ "$(HOME="$assistant_home" git config --file "$assistant_config" --get user.email)" = 'example-workload@users.noreply.github.com' ] \
+  || fail "assistant workload Git email was not configured"
+[ "$(HOME="$assistant_home" git config --file "$assistant_config" --get uinaf.identity)" = workload ] \
+  || fail "assistant workload identity marker was not configured"
+[ "$(HOME="$assistant_home" git config --file "$assistant_config" --get commit.gpgsign)" = false ] \
+  || fail "assistant workload commits did not disable signing"
+if HOME="$assistant_home" git config --file "$assistant_config" --get user.signingkey >/dev/null 2>&1; then
+  fail "assistant workload config persisted a signing key"
+fi
+
+assistant_repo="$assistant_home/proof"
+HOME="$assistant_home" git init -q "$assistant_repo"
+printf 'workload identity proof\n' > "$assistant_repo/proof.txt"
+HOME="$assistant_home" git -C "$assistant_repo" add proof.txt
+HOME="$assistant_home" git -C "$assistant_repo" commit -q -m 'test: prove workload commit identity'
+[ "$(HOME="$assistant_home" git -C "$assistant_repo" log -1 --format='%an <%ae>')" = \
+  'Example Workload <example-workload@users.noreply.github.com>' ] \
+  || fail "assistant commit did not use the workload identity"
+
+assistant_before="$(shasum -a 256 "$assistant_config")"
+if HOME="$assistant_home" \
+  GIT_USER_NAME='Example Workload' \
+  GIT_USER_EMAIL='example-workload@users.noreply.github.com' \
+  GIT_SIGN_COMMITS=true \
+  GIT_SIGNING_KEY="$assistant_home/signing" \
+    "$configure_git" --profile assistant --non-interactive >/dev/null 2>&1; then
+  fail "assistant workload identity accepted persisted commit signing"
+fi
+[ "$assistant_before" = "$(shasum -a 256 "$assistant_config")" ] \
+  || fail "assistant workload config changed after rejecting signing"
+
+if HOME="$assistant_home" \
+  GIT_USER_NAME='Example Workload' \
+  GIT_USER_EMAIL='example-workload@users.noreply.github.com' \
+  GIT_SSH_IDENTITY_FILE="$assistant_home/github-key" \
+    "$configure_git" --profile assistant --non-interactive >/dev/null 2>&1; then
+  fail "assistant workload identity accepted GitHub SSH authentication"
+fi
+[ "$assistant_before" = "$(shasum -a 256 "$assistant_config")" ] \
+  || fail "assistant workload config changed after rejecting GitHub SSH authentication"
+
+printf 'ok Git bootstrap preserves developer signing and configures unsigned workload commits for assistants\n'

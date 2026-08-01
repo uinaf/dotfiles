@@ -10,10 +10,17 @@ agentless_signing_program="$HOME/.local/libexec/uinaf/git-ssh-sign-agentless"
 sign_commits="${GIT_SIGN_COMMITS:-}"
 allowed_signer_principal="${GIT_ALLOWED_SIGNER_PRINCIPAL:-}"
 git_ssh_identity_file="${GIT_SSH_IDENTITY_FILE:-}"
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+
+# shellcheck source=scripts/lib/profile.sh
+. "$repo_root/scripts/lib/profile.sh"
 
 usage() {
   cat <<EOF
-usage: $0 [--profile personal|devbox] [--non-interactive]
+usage: $0 [--profile workstation|devbox|assistant] [--non-interactive]
+
+The legacy personal profile name maps to workstation. Assistant profiles write
+an explicit workload commit identity without signing or SSH authentication.
 
 Writes:
   ~/.gitconfig.local
@@ -26,6 +33,9 @@ Environment:
   GIT_SIGN_COMMITS    true|false
   GIT_ALLOWED_SIGNER_PRINCIPAL optional SSH signing verification principal; defaults to GIT_USER_EMAIL
   GIT_SSH_IDENTITY_FILE optional SSH private key path for git@github.com; devbox defaults to GIT_SIGNING_KEY
+
+Assistant push authentication is separate. Supply a short-lived
+GITHUB_APP_INSTALLATION_TOKEN to ~/.local/bin/uinaf-git-app.
 EOF
 }
 
@@ -253,26 +263,44 @@ EOF
   fi
 )
 
-default_name="$(git config --global --get user.name 2>/dev/null || true)"
-default_email="$(git config --global --get user.email 2>/dev/null || true)"
-
 case "$profile" in
   devbox)
     sign_commits="${sign_commits:-true}"
     ;;
+  assistant)
+    sign_commits="${sign_commits:-false}"
+    ;;
   "")
-    profile="$(prompt 'Profile (personal/devbox)' personal)"
+    profile="$(prompt 'Profile (workstation/devbox/assistant)' workstation)"
     if [ "$profile" = "devbox" ]; then
       sign_commits="${sign_commits:-true}"
+    elif [ "$profile" = "assistant" ]; then
+      sign_commits="${sign_commits:-false}"
     fi
     ;;
-  personal)
+  personal|workstation)
     ;;
 esac
 
-if [ "$profile" != "personal" ] && [ "$profile" != "devbox" ]; then
+if ! profile="$(uinaf_normalize_profile "$profile")"; then
   printf 'unsupported profile: %s\n' "$profile" >&2
   exit 2
+fi
+
+if [ "$profile" = "assistant" ]; then
+  if [ "$sign_commits" != "false" ] || [ -n "$signing_key" ]; then
+    printf 'assistant workload commits do not use a persisted signing key\n' >&2
+    exit 2
+  fi
+  if [ -n "$git_ssh_identity_file" ]; then
+    printf 'assistant GitHub authentication uses an installation token over HTTPS, not an SSH identity file\n' >&2
+    exit 2
+  fi
+  default_name=""
+  default_email=""
+else
+  default_name="$(git config --global --get user.name 2>/dev/null || true)"
+  default_email="$(git config --global --get user.email 2>/dev/null || true)"
 fi
 
 git_name="${git_name:-$(prompt 'Git user.name' "$default_name")}"
@@ -356,6 +384,10 @@ fi
   if [ "$profile" = "devbox" ]; then
     printf '\n[safe]\n'
     printf '\tdirectory = /opt/homebrew\n'
+  fi
+  if [ "$profile" = "assistant" ]; then
+    printf '\n[uinaf]\n'
+    printf '\tidentity = workload\n'
   fi
   if [ "$sign_commits" = "true" ]; then
     printf '\n[gpg "ssh"]\n'

@@ -17,8 +17,8 @@ gh auth login
 
 gh repo clone uinaf/dotfiles ~/projects/uinaf/dotfiles
 cd ~/projects/uinaf/dotfiles
-profile=personal # use devbox on a shared agent host
-./scripts/bootstrap/brew-bundle.sh --shared-only "$profile"
+profile=workstation # use devbox for a remote coding identity
+./scripts/bootstrap/brew-bundle.sh "$profile"
 ```
 
 For full machine bootstrap, or for a fresh Mac that does not have `git` or
@@ -40,10 +40,10 @@ but run the full command before committing or pushing.
 
 ## Brewfiles
 
-- `Brewfile` is the shared app and CLI set for every uinaf Mac.
-- `Brewfile.personal` contains shared personal Mac apps and local development
-  extras, not one-user preferences.
-- `Brewfile.devbox` contains shared Mac mini/devbox tools.
+- `Brewfile` is the minimal identity-safe base.
+- `Brewfile.developer` contains the shared coding stack.
+- `Brewfile.workstation`, `Brewfile.devbox`, and `Brewfile.assistant` contain
+  role-specific software.
 
 Keep one-machine personalization local. Use a fork for durable personal
 preferences, and send a focused pull request when a preference should become
