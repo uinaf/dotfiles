@@ -414,10 +414,11 @@ Infisical at the command boundary for workspace/app env.
 
 Shared Homebrew mutations must run once from the owning admin identity through
 `scripts/bootstrap/brew-devbox.sh`; `brew-bundle.sh devbox` uses that wrapper
-internally. Its group-safe umask applies only to the Homebrew child process so
-package code remains usable by every devbox identity without weakening normal
-shell defaults. It preserves the prefix's existing shared-writer modes; only
-the owning admin identity is authorized to mutate packages.
+internally. The wrapper rejects callers who do not own the Homebrew prefix.
+Its group-safe umask applies only to the Homebrew child process so package code
+remains usable by every devbox identity without weakening normal shell
+defaults. Bootstrap package verification sets `HOMEBREW_NO_AUTO_UPDATE=1` and
+does not mutate the shared checkout.
 
 Run the normal bootstrap check for each user:
 

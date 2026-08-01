@@ -8,6 +8,8 @@ ghostty_config="$HOME/Library/Application Support/com.mitchellh.ghostty/config"
 
 # shellcheck source=scripts/lib/profile.sh
 . "$repo_root/scripts/lib/profile.sh"
+# shellcheck source=scripts/lib/homebrew.sh
+. "$repo_root/scripts/lib/homebrew.sh"
 
 usage() {
   cat <<'USAGE'
@@ -337,7 +339,8 @@ check_brew_bundle() {
 
   section "brew bundle checks"
   while IFS= read -r file; do
-    brew bundle check --file "$repo_root/$file" || fail "missing Homebrew dependencies from $file"
+    dotfiles_homebrew_bundle_check "$repo_root/$file" \
+      || fail "missing Homebrew dependencies from $file"
   done < <(dotfiles_profile_brewfiles "$profile")
 }
 
