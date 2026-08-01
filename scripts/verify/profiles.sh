@@ -238,10 +238,9 @@ assert_install_rejected 'unsupported profile' --profile unsupported
 assert_install_rejected 'unknown option' --unknown
 
 assistant_mise="$(render_target assistant .config/mise/config.toml)"
-for expected in 'node = "24.18.0"' 'python = "3.13"' 'uv = "0.11.4"'; do
-  printf '%s\n' "$assistant_mise" | grep -Fqx "$expected" || fail "assistant mise config missed $expected"
-done
-for rejected in 'bun =' 'java =' 'go =' 'playwright' 'vite-plus' 'trusted_config_paths' 'pnpm@'; do
+printf '%s\n' "$assistant_mise" | grep -Fqx 'node = "24.18.0"' \
+  || fail 'assistant mise config missed the pinned Node runtime'
+for rejected in 'python =' 'uv =' 'bun =' 'java =' 'go =' 'playwright' 'vite-plus' 'trusted_config_paths' 'pnpm@'; do
   if printf '%s\n' "$assistant_mise" | grep -Fq "$rejected"; then
     fail "assistant mise config included developer setting $rejected"
   fi

@@ -400,11 +400,11 @@ separately, then run
 `./scripts/verify/assistant-git-boundary.sh` to confirm the expected assistant
 identity contract.
 
-The profile provides minimal Node, Python, uv, browser, media, and process
-supervision support. The owning workload installs and verifies OpenClaw,
-Hermes, providers, channels, and service definitions. Profile application does
-not remove old developer packages or credentials; audit those separately after
-the retained workload passes its runtime checks.
+The profile provides minimal Node, browser, media, and process supervision
+support. The owning workload installs and verifies additional language
+runtimes, OpenClaw, Hermes, providers, channels, and service definitions.
+Profile application does not remove old developer packages or credentials;
+audit those separately after the retained workload passes its runtime checks.
 
 ## Updating an Existing Machine
 

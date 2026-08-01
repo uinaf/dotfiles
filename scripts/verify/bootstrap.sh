@@ -65,12 +65,12 @@ common_cli_checks=(
   "chezmoi --version"
   "git --version"
   "mise --version"
-  "python --version"
-  "uv --version"
   "infisical --version"
 )
 
 developer_cli_checks=(
+  "python --version"
+  "uv --version"
   "gh auth status"
   "gh stack --help"
   "bun --version"
