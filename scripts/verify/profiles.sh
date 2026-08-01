@@ -189,7 +189,7 @@ apply-dotfiles.sh --profile devbox
 trust-agent-worktrees.sh
 install-gh-extensions.sh
 mise uninstall --all --yes npm:vite-plus
-mise reshim
+mise reshim --force
 corepack enable pnpm
 corepack install --global pnpm@11.18.0
 configure-codex.sh

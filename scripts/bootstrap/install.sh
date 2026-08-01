@@ -80,7 +80,7 @@ run_step() {
     remove-global-vite-plus)
       if command -v mise >/dev/null 2>&1; then
         mise uninstall --all --yes npm:vite-plus
-        mise reshim
+        mise reshim --force
       fi
       if [ -e "$HOME/.vite-plus" ] || [ -L "$HOME/.vite-plus" ]; then
         rm -rf -- "$HOME/.vite-plus"
