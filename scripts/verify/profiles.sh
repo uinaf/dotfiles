@@ -106,6 +106,24 @@ if HOME="$config_home" dotfiles_resolve_config_file '' symlinked.env >/dev/null 
   fail "legacy config fallback accepted a symlink"
 fi
 
+config_symlink_home="$tmp_root/config-path-directory-symlink"
+config_symlink_target="$tmp_root/config-path-directory-target"
+mkdir -p "$config_symlink_home/.config" "$config_symlink_target"
+printf 'legacy\n' > "$config_symlink_target/devbox.env"
+ln -s "$config_symlink_target" "$config_symlink_home/.config/uinaf"
+if HOME="$config_symlink_home" dotfiles_resolve_config_file '' devbox.env >/dev/null 2>&1; then
+  fail "legacy config fallback accepted a symlinked directory"
+fi
+
+profile_symlink_home="$tmp_root/profile-directory-symlink"
+profile_symlink_target="$tmp_root/profile-directory-target"
+mkdir -p "$profile_symlink_home/.config" "$profile_symlink_target"
+printf 'assistant\n' > "$profile_symlink_target/profile"
+ln -s "$profile_symlink_target" "$profile_symlink_home/.config/uinaf"
+if HOME="$profile_symlink_home" DOTFILES_PROFILE=workstation dotfiles_resolve_profile >/dev/null 2>&1; then
+  fail "legacy profile fallback accepted a symlinked directory"
+fi
+
 legacy_home="$tmp_root/legacy-profile"
 mkdir -p "$legacy_home/.config/uinaf"
 printf 'assistant\n' > "$legacy_home/.config/uinaf/profile"

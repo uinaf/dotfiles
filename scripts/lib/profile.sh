@@ -68,6 +68,12 @@ dotfiles_resolve_profile() {
   if [ "$explicit_profile_file" -eq 0 ] \
     && [ ! -e "$profile_file" ] \
     && [ ! -L "$profile_file" ] \
+    && [ -L "$HOME/.config/uinaf" ]; then
+    return 3
+  fi
+  if [ "$explicit_profile_file" -eq 0 ] \
+    && [ ! -e "$profile_file" ] \
+    && [ ! -L "$profile_file" ] \
     && { [ -e "$legacy_profile_file" ] || [ -L "$legacy_profile_file" ]; }; then
     profile_file="$legacy_profile_file"
   fi
