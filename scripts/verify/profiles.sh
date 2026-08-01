@@ -181,6 +181,7 @@ printf 'invoked\\n' >> '$credential_helper_log'
 EOF
 chmod 0700 "$credential_helper"
 git config --file "$credential_config" credential.helper "$credential_helper"
+git config --file "$credential_config" 'credential.https://github.com.helper' "$credential_helper"
 git config --file "$credential_config" alias.print-locale '!env | sed -n "s/^LC_ALL=//p"'
 assert_eq C "$(
   LC_ALL=POSIX \

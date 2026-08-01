@@ -46,7 +46,7 @@ print_json_summary() {
   printf '}\n'
 }
 
-emit_personal_secret_scan_paths() {
+emit_workstation_secret_scan_paths() {
   emit_home_dotfiles
   emit_path_if_exists "$HOME/.aws"
   emit_path_if_exists "$HOME/.docker"
@@ -56,7 +56,7 @@ emit_personal_secret_scan_paths() {
   find_matching_files "$HOME/.ssh" -maxdepth 1 -type f -name 'config*'
 }
 
-emit_personal_reference_scan_files() {
+emit_workstation_reference_scan_files() {
   emit_home_dotfiles
   find_matching_files "$HOME/.ssh" -maxdepth 1 -type f -name 'config*'
   find_matching_files "$HOME/Library/LaunchAgents" -type f
@@ -115,14 +115,14 @@ section "local secret scan"
 op_reference_pattern='op://'
 
 scan_files_for_secrets < <(
-  emit_personal_secret_scan_paths | sort -u
+  emit_workstation_secret_scan_paths | sort -u
 )
 
 while IFS= read -r path; do
   [ -n "$path" ] || continue
   check_pattern_absent "$path" "$op_reference_pattern" "1Password item references" warn
 done < <(
-  emit_personal_reference_scan_files | sort -u
+  emit_workstation_reference_scan_files | sort -u
 )
 
 if [ -e "$HOME/.docker/config.json" ]; then
