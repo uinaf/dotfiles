@@ -418,7 +418,8 @@ check_assistant_git_boundary() {
 
 check_sops_age_identity() {
   section "SOPS age identity"
-  "$repo_root/scripts/secrets/configure-sops-age-identity.sh" --check
+  "$repo_root/scripts/secrets/configure-sops-age-identity.sh" --check \
+    || fail "SOPS age identity"
 }
 
 check_mise

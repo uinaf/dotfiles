@@ -89,7 +89,7 @@ verify_sops_round_trip() {
   local expected='DOTFILES_SOPS_PROBE=ok'
   local actual
 
-  tmp_dir="$(mktemp -d)"
+  tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/dotfiles-sops-age.XXXXXX")"
   plaintext_file="$tmp_dir/probe.env"
   encrypted_file="$tmp_dir/probe.sops.env"
   trap 'rm -rf -- "$tmp_dir"' EXIT HUP INT TERM
@@ -118,6 +118,27 @@ verify_sops_round_trip() {
   [ "$actual" = "$expected" ] || fail "SOPS age identity round trip changed the probe payload"
   rm -rf -- "$tmp_dir"
   trap - EXIT HUP INT TERM
+}
+
+validate_sops_version() {
+  local version
+  local major
+  local remainder
+  local minor
+
+  version="$(sops --version 2>/dev/null | awk 'NR == 1 { print $2 }')" \
+    || fail "could not determine the SOPS version"
+  case "$version" in
+    [0-9]*.[0-9]*.*) ;;
+    *) fail "could not parse the SOPS version: $version" ;;
+  esac
+
+  major="${version%%.*}"
+  remainder="${version#*.}"
+  minor="${remainder%%.*}"
+  if [ "$major" -lt 3 ] || { [ "$major" -eq 3 ] && [ "$minor" -lt 9 ]; }; then
+    fail "SOPS 3.9.0 or newer is required; found $version"
+  fi
 }
 
 while [ "$#" -gt 0 ]; do
@@ -167,10 +188,18 @@ if [ "$mode" = provision ]; then
     [ -f "$identity_file" ] && [ ! -L "$identity_file" ] \
       || fail "refusing to replace non-regular age identity path: $identity_file"
   else
-    chmod 0700 "$identity_dir"
+    staging_dir="$(mktemp -d "$identity_dir/.age-identity.XXXXXX")" \
+      || fail "could not create an identity staging directory"
+    staged_file="$staging_dir/keys.txt"
     umask 077
-    age-keygen -o "$identity_file" >/dev/null 2>&1 \
-      || fail "age-keygen could not create $identity_file"
+    if ! age-keygen -o "$staged_file" >/dev/null 2>&1; then
+      rm -f -- "$staged_file"
+      rmdir "$staging_dir"
+      fail "age-keygen could not create $identity_file"
+    fi
+    chmod 0600 "$staged_file"
+    mv -- "$staged_file" "$identity_file"
+    rmdir "$staging_dir"
   fi
   chmod 0700 "$identity_dir"
   chmod 0600 "$identity_file"
@@ -184,6 +213,7 @@ if [ "$mode" = print-recipient ]; then
 fi
 
 command -v sops >/dev/null 2>&1 || fail "missing sops"
+validate_sops_version
 verify_sops_round_trip "$identity_file" "$recipient"
 
 printf 'SOPS age identity ready: %s\n' "$identity_file"

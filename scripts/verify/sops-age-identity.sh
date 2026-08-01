@@ -2,7 +2,7 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-tmp_root="$(mktemp -d)"
+tmp_root="$(mktemp -d "${TMPDIR:-/tmp}/dotfiles-sops-age-test.XXXXXX")"
 trap 'rm -rf -- "$tmp_root"' EXIT
 fixture_bin="$tmp_root/bin"
 fixture_home="$tmp_root/home"
@@ -30,6 +30,10 @@ set -euo pipefail
 case "${1:-}" in
   -o)
     [ "$#" -eq 2 ] || exit 2
+    if [ "${AGE_KEYGEN_FAIL:-0}" = 1 ]; then
+      : > "$2"
+      exit 1
+    fi
     printf '%s%s\n' 'AGE-SECRET-' 'KEY-1FIXTURE' > "$2"
     ;;
   -y)
@@ -48,9 +52,22 @@ cat > "$fixture_bin/sops" <<'EOF'
 set -euo pipefail
 
 if [ "${1:-}" = "--version" ]; then
-  printf 'sops fixture\n'
+  printf 'sops %s\n' "${SOPS_FIXTURE_VERSION:-3.13.3}"
   exit 0
 fi
+
+case "${1:-}" in
+  encrypt)
+    printf '%s\n' "$*" | grep -Fq -- '--age age1fixtureidentity' || exit 3
+    ;;
+  decrypt)
+    [ -n "${SOPS_AGE_KEY_FILE:-}" ] || exit 3
+    [ -f "$SOPS_AGE_KEY_FILE" ] || exit 3
+    ;;
+  *)
+    exit 3
+    ;;
+esac
 
 input=""
 for arg in "$@"; do
@@ -94,6 +111,18 @@ recipient="$(HOME="$fixture_home" XDG_CONFIG_HOME="$fixture_home/.config" PATH="
 explicit_file="$tmp_root/explicit/identity.txt"
 HOME="$fixture_home" SOPS_AGE_KEY_FILE="$explicit_file" PATH="$fixture_path" "$script" >/dev/null
 [ -f "$explicit_file" ] || fail "explicit SOPS_AGE_KEY_FILE was ignored"
+
+failed_file="$tmp_root/failed/identity.txt"
+if HOME="$fixture_home" SOPS_AGE_KEY_FILE="$failed_file" AGE_KEYGEN_FAIL=1 PATH="$fixture_path" \
+  "$script" >/dev/null 2>&1; then
+  fail "provisioning accepted a failed age-keygen run"
+fi
+[ ! -e "$failed_file" ] || fail "failed age-keygen left a partial identity"
+
+if HOME="$fixture_home" XDG_CONFIG_HOME="$fixture_home/.config" \
+  SOPS_FIXTURE_VERSION=3.8.1 PATH="$fixture_path" "$script" --check >/dev/null 2>&1; then
+  fail "identity check accepted an unsupported SOPS version"
+fi
 
 chmod 0644 "$identity_file"
 if HOME="$fixture_home" XDG_CONFIG_HOME="$fixture_home/.config" PATH="$fixture_path" \
