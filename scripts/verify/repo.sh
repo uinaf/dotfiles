@@ -61,6 +61,7 @@ cd "$repo_root"
 section "required tools"
 need_command git
 need_command bash
+need_command chezmoi
 need_command shellcheck
 if [ -d .github/workflows ]; then
   need_command actionlint
