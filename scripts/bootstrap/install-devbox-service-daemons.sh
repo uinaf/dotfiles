@@ -8,6 +8,8 @@ install_healthd=0
 install_colima=0
 openclaw_wrapper=""
 openclaw_port=18789
+openclaw_wrapper_set=0
+openclaw_port_set=0
 check_only=0
 print_labels=0
 launchd_namespace="${DOTFILES_LAUNCHD_NAMESPACE:-}"
@@ -63,11 +65,13 @@ while [ "$#" -gt 0 ]; do
     --openclaw-wrapper)
       [ "$#" -ge 2 ] || fail "--openclaw-wrapper requires a value"
       openclaw_wrapper="$2"
+      openclaw_wrapper_set=1
       shift
       ;;
     --openclaw-port)
       [ "$#" -ge 2 ] || fail "--openclaw-port requires a value"
       openclaw_port="$2"
+      openclaw_port_set=1
       shift
       ;;
     --healthd)
@@ -128,9 +132,15 @@ fi
   || [ "$install_healthd" -eq 1 ] \
   || [ "$install_colima" -eq 1 ] \
   || fail "select at least one service"
+if [ "$install_openclaw" -ne 1 ] \
+  && { [ "$openclaw_wrapper_set" -eq 1 ] || [ "$openclaw_port_set" -eq 1 ]; }; then
+  fail "--openclaw-wrapper and --openclaw-port require --openclaw"
+fi
 case "$openclaw_port" in
   ''|*[!0-9]*) fail "OpenClaw port must be an integer" ;;
 esac
+[ "${#openclaw_port}" -le 5 ] \
+  || fail "OpenClaw port must be between 1 and 65535"
 [ "$openclaw_port" -ge 1 ] && [ "$openclaw_port" -le 65535 ] \
   || fail "OpenClaw port must be between 1 and 65535"
 if [ -n "$openclaw_wrapper" ]; then
@@ -177,6 +187,40 @@ find_executable() {
     [ ! -x "$candidate" ] || { printf '%s\n' "$candidate"; return; }
   done
   return 1
+}
+
+validate_openclaw_wrapper() {
+  local wrapper="$1"
+  local wrapper_parent
+  local trusted_path
+  local current_dir
+  local path_mode
+
+  [ -f "$wrapper" ] || fail "OpenClaw wrapper must be a regular file: $wrapper"
+  [ ! -L "$wrapper" ] || fail "OpenClaw wrapper must not be a symlink: $wrapper"
+  wrapper_parent="$(cd -P -- "$(dirname "$wrapper")" && pwd)"
+  trusted_path="$wrapper_parent/$(basename "$wrapper")"
+  case "$trusted_path" in
+    "$target_home"/*) ;;
+    *) fail "OpenClaw wrapper must resolve inside $target_home" ;;
+  esac
+  [ -x "$trusted_path" ] || fail "missing executable $trusted_path"
+  [ "$(stat -f '%Su' "$trusted_path")" = "$target_user" ] \
+    || fail "OpenClaw wrapper must be owned by $target_user"
+  path_mode="$(stat -f '%Lp' "$trusted_path")"
+  [ $((8#$path_mode & 0022)) -eq 0 ] \
+    || fail "OpenClaw wrapper must not be group/world-writable: $trusted_path"
+
+  current_dir="$wrapper_parent"
+  while :; do
+    path_mode="$(stat -f '%Lp' "$current_dir")"
+    [ $((8#$path_mode & 0022)) -eq 0 ] \
+      || fail "OpenClaw wrapper parent must not be group/world-writable: $current_dir"
+    [ "$current_dir" != "$target_home" ] || break
+    current_dir="$(dirname "$current_dir")"
+  done
+
+  openclaw_wrapper="$trusted_path"
 }
 
 can_run_as_target() {
@@ -366,9 +410,7 @@ if [ "$install_process_compose" -eq 1 ]; then
 fi
 if [ "$install_openclaw" -eq 1 ]; then
   if [ -n "$openclaw_wrapper" ]; then
-    [ -x "$openclaw_wrapper" ] || fail "missing executable $openclaw_wrapper"
-    [ "$(stat -f '%Su' "$openclaw_wrapper")" = "$target_user" ] \
-      || fail "OpenClaw wrapper must be owned by $target_user"
+    validate_openclaw_wrapper "$openclaw_wrapper"
     openclaw_binary="$(find_executable openclaw 2>/dev/null || true)"
     [ -n "$openclaw_binary" ] || fail "missing OpenClaw executable"
   else

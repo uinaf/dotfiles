@@ -77,4 +77,14 @@ if dotfiles_launchd_label '' example >/dev/null 2>&1; then
   fail "LaunchDaemon label accepted a missing service"
 fi
 
+if "$installer" --user example --process-compose --openclaw-port 18790 >/dev/null 2>&1; then
+  fail "OpenClaw port was accepted without --openclaw"
+fi
+if "$installer" --user example --process-compose --openclaw-wrapper /tmp/wrapper >/dev/null 2>&1; then
+  fail "OpenClaw wrapper was accepted without --openclaw"
+fi
+if "$installer" --user example --openclaw --openclaw-port 99999999999999999999 >/dev/null 2>&1; then
+  fail "oversized OpenClaw port was accepted"
+fi
+
 printf 'ok LaunchDaemon labels are vendor-neutral and configurable\n'
