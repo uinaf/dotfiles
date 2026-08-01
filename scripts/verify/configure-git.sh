@@ -197,29 +197,18 @@ assert_rejected_without_mutation \
   "$missing_signer_home" 'agentless signer is missing or not executable' \
   "$missing_signer_home" personal "$missing_signer_home/.ssh/signing"
 
-migration_home="$tmp_root/migration"
-make_home "$migration_home"
-make_key "$migration_home/.ssh/signing"
-cat > "$migration_home/.ssh/config.local" <<'EOF'
-StrictHostKeyChecking yes
-
+legacy_marker_home="$tmp_root/legacy-marker"
+make_home "$legacy_marker_home"
+make_key "$legacy_marker_home/.ssh/signing"
+cat > "$legacy_marker_home/.ssh/config.local" <<'EOF'
 # uinaf-dotfiles: github-ssh begin
 Host github.com
   IdentityAgent none
 # uinaf-dotfiles: github-ssh end
-
-Host unrelated.example
-  User example
 EOF
-cat > "$tmp_root/migration.expected" <<'EOF'
-StrictHostKeyChecking yes
-
-
-Host unrelated.example
-  User example
-EOF
-configure "$migration_home" personal "$migration_home/.ssh/signing" "$migration_home/.ssh/signing" >/dev/null
-cmp -s "$tmp_root/migration.expected" "$migration_home/.ssh/config.local" || fail "legacy marker migration changed unrelated SSH config"
+assert_rejected_without_mutation \
+  "$legacy_marker_home" 'unmanaged Host github.com entry exists' \
+  "$legacy_marker_home" personal "$legacy_marker_home/.ssh/signing" "$legacy_marker_home/.ssh/signing"
 
 devbox_home="$tmp_root/devbox"
 make_home "$devbox_home"
@@ -287,7 +276,7 @@ assert_rejected_without_mutation \
 malformed_home="$tmp_root/malformed"
 make_home "$malformed_home"
 make_key "$malformed_home/.ssh/signing"
-printf '# uinaf-dotfiles: github-ssh begin\n' > "$malformed_home/.ssh/config.local"
+printf '# dotfiles: github-ssh begin\n' > "$malformed_home/.ssh/config.local"
 assert_rejected_without_mutation \
   "$malformed_home" 'malformed managed block' \
   "$malformed_home" personal "$malformed_home/.ssh/signing" "$malformed_home/.ssh/signing"

@@ -31,8 +31,8 @@ Options:
   --namespace NAME   Stable label namespace; defaults to local.dotfiles.
 
 The installer must run as root on macOS. It creates root-owned system
-LaunchDaemons that drop privileges to the selected user, then retires the
-equivalent GUI-session LaunchAgents after the system jobs load successfully.
+LaunchDaemons that drop privileges to the selected user. Conflicting
+GUI-session LaunchAgents must be retired explicitly before installation.
 USAGE
 }
 
@@ -185,22 +185,22 @@ fi
 
 check_job() {
   local label="$1"
-  local retired_agent="${2:-}"
+  local forbidden_agent="${2:-}"
 
   [ -f "$launch_daemon_dir/$label.plist" ] || fail "missing $launch_daemon_dir/$label.plist"
   [ "$(stat -f '%Su:%Sg:%Lp' "$launch_daemon_dir/$label.plist")" = "root:wheel:644" ] \
     || fail "$label plist must be root:wheel mode 0644"
   launchctl print "system/$label" >/dev/null 2>&1 || fail "$label is not loaded"
-  if [ -n "$retired_agent" ]; then
-    [ ! -e "$target_home/Library/LaunchAgents/$retired_agent.plist" ] \
-      || fail "conflicting LaunchAgent remains: $retired_agent"
+  if [ -n "$forbidden_agent" ]; then
+    [ ! -e "$target_home/Library/LaunchAgents/$forbidden_agent.plist" ] \
+      || fail "conflicting LaunchAgent remains: $forbidden_agent"
   fi
   printf 'ok %s loaded for %s\n' "$label" "$target_user"
 }
 
 check_healthd() {
-  local retired_agent="${1-com.uinaf.healthd}"
-  check_job "$healthd_label" "$retired_agent"
+  local forbidden_agent="${1-com.uinaf.healthd}"
+  check_job "$healthd_label" "$forbidden_agent"
   if can_run_as_target; then
     run_as_target "$healthd_binary" check --config "$healthd_config" --json >/dev/null \
       || fail "$healthd_label check failed"
@@ -317,20 +317,14 @@ reject_legacy_system_job() {
   fi
 }
 
-retire_agent() {
+reject_user_agent() {
   local old_agent_label="$1"
   local old_agent_path="$target_home/Library/LaunchAgents/$old_agent_label.plist"
-  local retired_dir="$target_home/Library/LaunchAgents.disabled"
-  local retired_path="$retired_dir/$old_agent_label.plist"
 
-  bootout_if_loaded "gui/$target_uid" "$old_agent_label"
-  bootout_if_loaded "user/$target_uid" "$old_agent_label"
-  if [ -e "$old_agent_path" ]; then
-    install -d -o "$target_user" -g "$target_group" -m 0700 "$retired_dir"
-    [ ! -e "$retired_path" ] || fail "retired LaunchAgent already exists: $retired_path"
-    mv "$old_agent_path" "$retired_path"
-    chown "$target_user:$target_group" "$retired_path"
-    chmod 0600 "$retired_path"
+  if [ -e "$old_agent_path" ] \
+    || launchctl print "gui/$target_uid/$old_agent_label" >/dev/null 2>&1 \
+    || launchctl print "user/$target_uid/$old_agent_label" >/dev/null 2>&1; then
+    fail "user LaunchAgent $old_agent_label must be retired explicitly before installing its replacement"
   fi
 }
 
@@ -353,12 +347,15 @@ fi
 
 if [ "$install_process_compose" -eq 1 ]; then
   reject_legacy_system_job "com.uinaf.process-compose.$target_user"
+  reject_user_agent com.uinaf.process-compose
 fi
 if [ "$install_openclaw" -eq 1 ]; then
   reject_legacy_system_job "com.uinaf.openclaw-gateway.$target_user"
+  reject_user_agent ai.openclaw.gateway
 fi
 if [ "$install_healthd" -eq 1 ]; then
   reject_legacy_system_job "com.uinaf.healthd.$target_user"
+  reject_user_agent com.uinaf.healthd
 fi
 if [ "$install_colima" -eq 1 ]; then
   reject_legacy_system_job "com.uinaf.colima.$target_user"
@@ -383,7 +380,6 @@ if [ "$install_process_compose" -eq 1 ]; then
     "$target_home/.local/log/process-compose/stderr.log" \
     "$process_start"
   install_job "$process_plist" "$process_label"
-  retire_agent com.uinaf.process-compose
 fi
 
 if [ "$install_openclaw" -eq 1 ]; then
@@ -403,7 +399,6 @@ if [ "$install_openclaw" -eq 1 ]; then
     --port \
     18789
   install_job "$openclaw_plist" "$openclaw_label"
-  retire_agent ai.openclaw.gateway
 fi
 
 if [ "$install_healthd" -eq 1 ]; then
@@ -420,8 +415,6 @@ if [ "$install_healthd" -eq 1 ]; then
     --config \
     "$healthd_config"
   install_job "$healthd_plist" "$healthd_label"
-  check_healthd ""
-  retire_agent com.uinaf.healthd
   check_healthd
 fi
 

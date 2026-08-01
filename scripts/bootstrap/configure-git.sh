@@ -150,13 +150,13 @@ validate_github_ssh_config() {
   fi
 
   if [ -f "$ssh_github_config" ] && ! awk '
-    $0 == "# dotfiles: github-ssh begin" || $0 == "# uinaf-dotfiles: github-ssh begin" {
+    $0 == "# dotfiles: github-ssh begin" {
       if (managed || blocks) exit 1
       managed = 1
       blocks = 1
       next
     }
-    $0 == "# dotfiles: github-ssh end" || $0 == "# uinaf-dotfiles: github-ssh end" {
+    $0 == "# dotfiles: github-ssh end" {
       if (!managed) exit 1
       managed = 0
       next
@@ -174,12 +174,12 @@ validate_github_ssh_config() {
   [ -f "$ssh_config_local" ] || return 0
 
   if ! awk '
-    $0 == "# dotfiles: github-ssh begin" || $0 == "# uinaf-dotfiles: github-ssh begin" {
+    $0 == "# dotfiles: github-ssh begin" {
       if (managed) exit 1
       managed = 1
       next
     }
-    $0 == "# dotfiles: github-ssh end" || $0 == "# uinaf-dotfiles: github-ssh end" {
+    $0 == "# dotfiles: github-ssh end" {
       if (!managed) exit 1
       managed = 0
       next
@@ -193,8 +193,8 @@ validate_github_ssh_config() {
   fi
 
   if awk '
-    $0 == "# dotfiles: github-ssh begin" || $0 == "# uinaf-dotfiles: github-ssh begin" { managed = 1; next }
-    $0 == "# dotfiles: github-ssh end" || $0 == "# uinaf-dotfiles: github-ssh end" { managed = 0; next }
+    $0 == "# dotfiles: github-ssh begin" { managed = 1; next }
+    $0 == "# dotfiles: github-ssh end" { managed = 0; next }
     !managed {
       line = $0
       sub(/^[[:space:]]*/, "", line)
@@ -220,18 +220,14 @@ validate_github_ssh_config() {
 write_github_ssh_config() (
   local identity_file="$1"
   local ssh_config_dir="$HOME/.ssh"
-  local ssh_config_local="$ssh_config_dir/config.local"
   local ssh_github_config="$ssh_config_dir/github.config"
   local tmp_github
-  local tmp_local
-  local migrate_local=0
 
   mkdir -p "$ssh_config_dir"
   chmod 0700 "$ssh_config_dir"
 
   tmp_github="$(mktemp)"
-  tmp_local="$(mktemp)"
-  trap 'rm -f "$tmp_github" "$tmp_local"' EXIT
+  trap 'rm -f "$tmp_github"' EXIT
 
   cat > "$tmp_github" <<EOF
 # dotfiles: github-ssh begin
@@ -244,22 +240,8 @@ Host github.com
 # dotfiles: github-ssh end
 EOF
 
-  if [ -f "$ssh_config_local" ] && grep -Eq '^# (uinaf-)?dotfiles: github-ssh begin$' "$ssh_config_local"; then
-    migrate_local=1
-    awk '
-      $0 == "# dotfiles: github-ssh begin" || $0 == "# uinaf-dotfiles: github-ssh begin" { skip = 1; next }
-      $0 == "# dotfiles: github-ssh end" || $0 == "# uinaf-dotfiles: github-ssh end" { skip = 0; next }
-      !skip { print }
-    ' "$ssh_config_local" > "$tmp_local"
-  fi
-
   install -m 0600 "$tmp_github" "$ssh_github_config"
   printf 'wrote %s\n' "$ssh_github_config"
-
-  if [ "$migrate_local" -eq 1 ]; then
-    install -m 0600 "$tmp_local" "$ssh_config_local"
-    printf 'migrated managed GitHub block out of %s\n' "$ssh_config_local"
-  fi
 )
 
 if [ -z "$profile" ]; then

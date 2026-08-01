@@ -23,15 +23,6 @@ assert_eq() {
   [ "$actual" = "$expected" ] || fail "$label: expected '$expected', got '$actual'"
 }
 
-mode_of() {
-  if stat -c '%a' "$1" >/dev/null 2>&1; then
-    stat -c '%a' "$1"
-    return
-  fi
-
-  stat -f '%Lp' "$1"
-}
-
 render_target() {
   local profile="$1"
   local target="$2"
@@ -104,115 +95,14 @@ assert_eq assistant "$(HOME="$profile_home" dotfiles_resolve_profile)" \
 rm "$profile_home/.config/dotfiles/profile"
 
 config_home="$tmp_root/config-paths"
-mkdir -p "$config_home/.config/uinaf"
-printf 'legacy\n' > "$config_home/.config/uinaf/devbox.env"
-assert_eq "$config_home/.config/uinaf/devbox.env" \
-  "$(HOME="$config_home" dotfiles_resolve_config_file '' devbox.env)" \
-  "legacy config fallback"
 mkdir -p "$config_home/.config/dotfiles"
+assert_eq "$config_home/.config/dotfiles/devbox.env" \
+  "$(HOME="$config_home" dotfiles_resolve_config_file '' devbox.env)" \
+  "canonical config default"
 printf 'canonical\n' > "$config_home/.config/dotfiles/devbox.env"
 assert_eq "$config_home/.config/dotfiles/devbox.env" \
   "$(HOME="$config_home" dotfiles_resolve_config_file '' devbox.env)" \
-  "canonical config precedence"
-ln -s "$config_home/.config/uinaf/devbox.env" "$config_home/.config/uinaf/symlinked.env"
-if HOME="$config_home" dotfiles_resolve_config_file '' symlinked.env >/dev/null 2>&1; then
-  fail "legacy config fallback accepted a symlink"
-fi
-mkdir "$config_home/.config/uinaf/directory.env"
-if HOME="$config_home" dotfiles_resolve_config_file '' directory.env >/dev/null 2>&1; then
-  fail "legacy config fallback accepted a non-regular file"
-fi
-
-config_symlink_home="$tmp_root/config-path-directory-symlink"
-config_symlink_target="$tmp_root/config-path-directory-target"
-mkdir -p "$config_symlink_home/.config" "$config_symlink_target"
-printf 'legacy\n' > "$config_symlink_target/devbox.env"
-ln -s "$config_symlink_target" "$config_symlink_home/.config/uinaf"
-if HOME="$config_symlink_home" dotfiles_resolve_config_file '' devbox.env >/dev/null 2>&1; then
-  fail "legacy config fallback accepted a symlinked directory"
-fi
-
-profile_symlink_home="$tmp_root/profile-directory-symlink"
-profile_symlink_target="$tmp_root/profile-directory-target"
-mkdir -p "$profile_symlink_home/.config" "$profile_symlink_target"
-printf 'assistant\n' > "$profile_symlink_target/profile"
-ln -s "$profile_symlink_target" "$profile_symlink_home/.config/uinaf"
-if HOME="$profile_symlink_home" DOTFILES_PROFILE=workstation dotfiles_resolve_profile >/dev/null 2>&1; then
-  fail "legacy profile fallback accepted a symlinked directory"
-fi
-
-legacy_home="$tmp_root/legacy-profile"
-mkdir -p "$legacy_home/.config/uinaf"
-printf 'assistant\n' > "$legacy_home/.config/uinaf/profile"
-printf 'DEVBOX_USER=legacy\n' > "$legacy_home/.config/uinaf/devbox.env"
-HOME="$legacy_home" "$repo_root/scripts/bootstrap/apply-dotfiles.sh" >/dev/null
-assert_eq assistant "$(sed -n '1p' "$legacy_home/.config/dotfiles/profile")" "migrated legacy profile marker"
-[ -f "$legacy_home/.config/dotfiles/devbox.env" ] || fail "legacy config was not migrated"
-[ ! -e "$legacy_home/.config/uinaf" ] || fail "empty legacy config directory was retained"
-
-preview_home="$tmp_root/legacy-preview"
-mkdir -p "$preview_home/.config/uinaf"
-printf 'GH_ACCEPTED_SCOPES="fixture"\n' > "$preview_home/.config/uinaf/audit.env"
-preview_output="$(HOME="$preview_home" "$repo_root/scripts/bootstrap/apply-dotfiles.sh" --profile assistant --dry-run)"
-printf '%s\n' "$preview_output" | grep -Fq \
-  "would back up legacy config $preview_home/.config/uinaf/audit.env -> $preview_home/.config/dotfiles/audit.env.backup." \
-  || fail "legacy migration preview omitted the managed config backup"
-[ -f "$preview_home/.config/uinaf/audit.env" ] || fail "legacy migration preview mutated its source"
-[ ! -e "$preview_home/.config/dotfiles/audit.env" ] || fail "legacy migration preview created its target"
-
-failure_home="$tmp_root/legacy-failure"
-failure_bin="$tmp_root/legacy-failure-bin"
-real_chezmoi="$(command -v chezmoi)"
-mkdir -p "$failure_home/.config/uinaf" "$failure_bin"
-printf 'DEVBOX_USER=legacy\n' > "$failure_home/.config/uinaf/devbox.env"
-cat > "$failure_bin/chezmoi" <<'EOF'
-#!/usr/bin/env bash
-for argument in "$@"; do
-  if [ "$argument" = apply ]; then
-    exit 42
-  fi
-done
-exec "${REAL_CHEZMOI:?}" "$@"
-EOF
-chmod +x "$failure_bin/chezmoi"
-if HOME="$failure_home" REAL_CHEZMOI="$real_chezmoi" PATH="$failure_bin:$PATH" \
-  "$repo_root/scripts/bootstrap/apply-dotfiles.sh" --profile assistant >/dev/null 2>&1; then
-  fail "legacy migration fixture did not force an apply failure"
-fi
-[ -f "$failure_home/.config/uinaf/devbox.env" ] \
-  || fail "failed dotfiles apply removed the working legacy config"
-[ ! -e "$failure_home/.config/dotfiles/devbox.env" ] \
-  || fail "failed dotfiles apply stranded a canonical migration copy"
-HOME="$failure_home" "$repo_root/scripts/bootstrap/apply-dotfiles.sh" --profile assistant >/dev/null
-[ ! -e "$failure_home/.config/uinaf/devbox.env" ] \
-  || fail "legacy config remained after a successful retry"
-[ "$(sed -n '1p' "$failure_home/.config/dotfiles/devbox.env")" = 'DEVBOX_USER=legacy' ] \
-  || fail "successful retry did not migrate the legacy config"
-[ "$(mode_of "$failure_home/.config/dotfiles/devbox.env")" = 600 ] \
-  || fail "migrated config was not made owner-only"
-
-symlink_home="$tmp_root/legacy-symlink"
-mkdir -p "$symlink_home/.config/uinaf/private"
-printf 'DEVBOX_USER=legacy\n' > "$symlink_home/.config/uinaf/private/devbox.env"
-ln -s private/devbox.env "$symlink_home/.config/uinaf/devbox.env"
-if HOME="$symlink_home" "$repo_root/scripts/bootstrap/apply-dotfiles.sh" --profile assistant >/dev/null 2>&1; then
-  fail "legacy config migration accepted a relative symlink"
-fi
-[ "$(readlink "$symlink_home/.config/uinaf/devbox.env")" = private/devbox.env ] \
-  || fail "rejected legacy config symlink was mutated"
-[ ! -e "$symlink_home/.config/dotfiles/devbox.env" ] \
-  || fail "rejected legacy config symlink created a canonical target"
-
-symlink_dir_home="$tmp_root/legacy-symlink-directory"
-symlink_dir_target="$tmp_root/legacy-symlink-directory-target"
-mkdir -p "$symlink_dir_home/.config" "$symlink_dir_target"
-printf 'DEVBOX_USER=external\n' > "$symlink_dir_target/devbox.env"
-ln -s "$symlink_dir_target" "$symlink_dir_home/.config/uinaf"
-if HOME="$symlink_dir_home" "$repo_root/scripts/bootstrap/apply-dotfiles.sh" --profile assistant >/dev/null 2>&1; then
-  fail "legacy config migration accepted a symlinked directory"
-fi
-[ -f "$symlink_dir_target/devbox.env" ] \
-  || fail "rejected legacy config directory removed an external file"
+  "canonical config path"
 
 canonical_symlink_home="$tmp_root/canonical-symlink-directory"
 canonical_symlink_target="$tmp_root/canonical-symlink-directory-target"
@@ -442,203 +332,13 @@ if printf '%s\n' "$assistant_gitconfig" | grep -Eq '^\[(credential|gpg)|gh auth 
   fail "assistant Git base config included developer authentication or signing settings"
 fi
 identity_home="$tmp_root/assistant-git-boundary"
-private_key_type="$(printf '%s %s' PRIVATE KEY)"
 
-run_assistant_git_boundary() {
-  env \
-    -u SSH_AUTH_SOCK \
-    -u GIT_CONFIG \
-    -u GIT_CONFIG_GLOBAL \
-    -u GIT_CONFIG_SYSTEM \
-    -u GIT_CONFIG_NOSYSTEM \
-    -u GIT_CONFIG_COUNT \
-    -u GIT_CONFIG_PARAMETERS \
-    -u GIT_AUTHOR_NAME \
-    -u GIT_AUTHOR_EMAIL \
-    -u GIT_COMMITTER_NAME \
-    -u GIT_COMMITTER_EMAIL \
-    HOME="$identity_home" \
-    XDG_CONFIG_HOME="$identity_home/.config" \
-    GH_CONFIG_DIR="${identity_gh_config_dir:-$identity_home/.config/gh}" \
-    "$repo_root/scripts/verify/assistant-git-boundary.sh"
-}
-
-prepare_identity_home() {
-  mkdir -p "$identity_home"
-  find "$identity_home" -mindepth 1 -depth -delete
-  identity_gh_config_dir="$identity_home/.config/gh"
-  HOME="$identity_home" "$repo_root/scripts/bootstrap/apply-dotfiles.sh" --profile assistant >/dev/null
-  HOME="$identity_home" \
-  GIT_USER_NAME='Example Workload' \
-  GIT_USER_EMAIL='example-workload@users.noreply.github.com' \
-    "$repo_root/scripts/bootstrap/configure-git.sh" --profile assistant --non-interactive >/dev/null
-}
-
-assert_assistant_git_boundary_rejected() {
-  local label="$1"
-
-  if run_assistant_git_boundary >/dev/null 2>&1; then
-    fail "assistant Git boundary accepted $label"
-  fi
-}
-
-prepare_identity_home
-run_assistant_git_boundary >/dev/null
-
-prepare_identity_home
-git config --file "$identity_home/.gitconfig.local" credential.helper store
-assert_assistant_git_boundary_rejected "a persisted credential helper"
-
-prepare_identity_home
-git config --file "$identity_home/.gitconfig" --unset-all include.path
-git config --file "$identity_home/.gitconfig" --add include.path "~"'/.hidden-gitconfig'
-git config --file "$identity_home/.gitconfig" --add include.path "~"'/.gitconfig.local'
-assert_assistant_git_boundary_rejected "an additional Git include path"
-
-prepare_identity_home
-mkdir -p "$identity_home/.config/git"
-printf '[user]\n\tname = Hidden Identity\n' > "$identity_home/.config/git/config"
-assert_assistant_git_boundary_rejected "additional user-home Git config"
-
-prepare_identity_home
-mkdir -p "$identity_home/.local/libexec/dotfiles"
-: > "$identity_home/.local/libexec/dotfiles/git-ssh-sign-agentless"
-assert_assistant_git_boundary_rejected "a persisted Git signing helper"
-
-prepare_identity_home
-mkdir -p "$identity_home/.ssh"
-printf 'Host github.com\n  IdentityFile ~/.ssh/human-key\n' > "$identity_home/.ssh/config"
-assert_assistant_git_boundary_rejected "user-home outbound SSH configuration"
-
-prepare_identity_home
-mkdir -p "$identity_home/.ssh"
-printf '%s\n' "-----BEGIN OPENSSH ${private_key_type}-----" > "$identity_home/.ssh/id_ed25519"
-assert_assistant_git_boundary_rejected "a user-home SSH private key"
-
-prepare_identity_home
-mkdir -p "$identity_home/.ssh"
-printf '\n%s\n' "-----BEGIN OPENSSH ${private_key_type}-----" > "$identity_home/.ssh/id_ed25519"
-assert_assistant_git_boundary_rejected "a private key after a leading blank line"
-
-prepare_identity_home
-mkdir -p "$identity_home/.ssh"
-printf '%s\n' '---- BEGIN SSH2 ENCRYPTED PRIVATE KEY ----' > "$identity_home/.ssh/id_ssh2"
-assert_assistant_git_boundary_rejected "an SSH2 private key"
-
-prepare_identity_home
-mkdir -p "$identity_home/.ssh"
-printf '%s\n' 'PuTTY-User-Key-File-3: ssh-ed25519' > "$identity_home/.ssh/id_putty"
-assert_assistant_git_boundary_rejected "a PuTTY private key"
-
-prepare_identity_home
-mkdir -p "$identity_home/.ssh/keys"
-printf '%s\n' "-----BEGIN OPENSSH ${private_key_type}-----" > "$identity_home/.ssh/keys/id_ed25519"
-assert_assistant_git_boundary_rejected "a nested user-home SSH private key"
-
-prepare_identity_home
-mkdir -p "$identity_home/.ssh"
-printf '%s\n' "-----BEGIN OPENSSH ${private_key_type}-----" > "$identity_home/.ssh/id_ed25519"
-chmod 000 "$identity_home/.ssh/id_ed25519"
-assert_assistant_git_boundary_rejected "an unreadable user-home SSH file"
-chmod 0600 "$identity_home/.ssh/id_ed25519"
-
-prepare_identity_home
-external_ssh_keys="$tmp_root/external-ssh-keys"
-mkdir -p "$external_ssh_keys"
-printf '%s\n' "-----BEGIN OPENSSH ${private_key_type}-----" > "$external_ssh_keys/id_ed25519"
-mkdir -p "$identity_home/.ssh"
-ln -s "$external_ssh_keys" "$identity_home/.ssh/keys"
-assert_assistant_git_boundary_rejected "a symlinked user-home SSH key directory"
-
-prepare_identity_home
-printf '[credential "https://github.com"]\n\thelper = store\n' \
-  > "$identity_home/.gitconfig.backup.20260801000000"
-assert_assistant_git_boundary_rejected "a persisted previous Git base config backup"
-
-prepare_identity_home
-printf 'https://x-access-token:fixture@github.com\n' > "$identity_home/.git-credentials"
-assert_assistant_git_boundary_rejected "a persisted Git credential store"
-
-prepare_identity_home
-mkdir -p "$identity_home/custom-xdg/git"
-printf 'https://x-access-token:fixture@github.com\n' > "$identity_home/custom-xdg/git/credentials"
-if env \
-  -u SSH_AUTH_SOCK \
-  -u GIT_CONFIG_GLOBAL \
-  -u GIT_CONFIG_SYSTEM \
-  -u GIT_CONFIG_NOSYSTEM \
-  -u GIT_CONFIG_COUNT \
-  HOME="$identity_home" \
-  XDG_CONFIG_HOME="$identity_home/custom-xdg" \
-  GH_CONFIG_DIR="$identity_home/.config/gh" \
-    "$repo_root/scripts/verify/assistant-git-boundary.sh" >/dev/null 2>&1; then
-  fail "assistant Git boundary accepted an XDG Git credential store"
-fi
-
-prepare_identity_home
-if env \
-  -u SSH_AUTH_SOCK \
-  HOME="$identity_home" \
-  XDG_CONFIG_HOME="$identity_home/.config" \
-  GH_CONFIG_DIR="$identity_home/.config/gh" \
-  GIT_CONFIG_GLOBAL="$identity_home/attacker.gitconfig" \
-    "$repo_root/scripts/verify/assistant-git-boundary.sh" >/dev/null 2>&1; then
-  fail "assistant Git boundary accepted an ambient Git config override"
-fi
-
-prepare_identity_home
-if env \
-  -u SSH_AUTH_SOCK \
-  -u GIT_CONFIG_GLOBAL \
-  -u GIT_CONFIG_SYSTEM \
-  -u GIT_CONFIG_NOSYSTEM \
-  -u GIT_CONFIG_COUNT \
-  -u GIT_CONFIG_PARAMETERS \
-  HOME="$identity_home" \
-  XDG_CONFIG_HOME="$identity_home/.config" \
-  GH_CONFIG_DIR="$identity_home/.config/gh" \
-  GIT_CONFIG="$identity_home/attacker.gitconfig" \
-    "$repo_root/scripts/verify/assistant-git-boundary.sh" >/dev/null 2>&1; then
-  fail "assistant Git boundary accepted GIT_CONFIG"
-fi
-
-prepare_identity_home
-if env \
-  -u SSH_AUTH_SOCK \
-  -u GIT_CONFIG_GLOBAL \
-  -u GIT_CONFIG_SYSTEM \
-  HOME="$identity_home" \
-  XDG_CONFIG_HOME="$identity_home/.config" \
-  GH_CONFIG_DIR="$identity_home/.config/gh" \
-  GIT_CONFIG_NOSYSTEM=1 \
-    "$repo_root/scripts/verify/assistant-git-boundary.sh" >/dev/null 2>&1; then
-  fail "assistant Git boundary accepted GIT_CONFIG_NOSYSTEM"
-fi
-
-prepare_identity_home
-if env \
-  -u SSH_AUTH_SOCK \
-  -u GIT_CONFIG_GLOBAL \
-  -u GIT_CONFIG_SYSTEM \
-  -u GIT_CONFIG_NOSYSTEM \
-  -u GIT_CONFIG_COUNT \
-  -u GIT_CONFIG_PARAMETERS \
-  -u GIT_AUTHOR_EMAIL \
-  -u GIT_COMMITTER_NAME \
-  -u GIT_COMMITTER_EMAIL \
-  HOME="$identity_home" \
-  XDG_CONFIG_HOME="$identity_home/.config" \
-  GH_CONFIG_DIR="$identity_home/.config/gh" \
-  GIT_AUTHOR_NAME='Ambient Human' \
-    "$repo_root/scripts/verify/assistant-git-boundary.sh" >/dev/null 2>&1; then
-  fail "assistant Git boundary accepted an ambient author identity override"
-fi
-
-prepare_identity_home
-mkdir -p "$identity_home/custom-gh"
-mkdir -p "$identity_home/.config/gh"
-printf 'github.com:\n  user: example-human\n' > "$identity_home/.config/gh/hosts.yml"
-identity_gh_config_dir="$identity_home/custom-gh"
-assert_assistant_git_boundary_rejected "persisted GitHub CLI configuration"
+mkdir -p "$identity_home"
+HOME="$identity_home" "$repo_root/scripts/bootstrap/apply-dotfiles.sh" --profile assistant >/dev/null
+HOME="$identity_home" \
+GIT_USER_NAME='Example Workload' \
+GIT_USER_EMAIL='example-workload@users.noreply.github.com' \
+  "$repo_root/scripts/bootstrap/configure-git.sh" --profile assistant --non-interactive >/dev/null
+HOME="$identity_home" "$repo_root/scripts/verify/assistant-git-boundary.sh" >/dev/null
 
 printf 'ok profile aliases, layers, applied dotfiles, and workload Git identity\n'

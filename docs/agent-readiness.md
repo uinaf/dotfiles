@@ -33,7 +33,7 @@ SARIF for tools that can emit it cleanly.
 | Install local push guard | `./scripts/bootstrap/install-git-hooks.sh` | Adds a pre-push hook that runs `scripts/verify/repo.sh --skip-security` before pushing. |
 | Workstation bootstrap | `mise run verify:bootstrap:workstation` | Desktop/developer CLIs, Homebrew layers, mise, Codex defaults, and installed config exist. |
 | Devbox bootstrap | `mise run verify:bootstrap:devbox` | Shared/devbox CLIs, Homebrew doctor and bundle checks, mise, Codex defaults, and installed config pass on the live host. |
-| Assistant bootstrap | `mise run verify:bootstrap:assistant` | Minimal runtime layers exist, workload commit identity is configured, and persisted GitHub CLI, signing, or outbound SSH credentials are absent from common user-home locations. |
+| Assistant bootstrap | `mise run verify:bootstrap:assistant` | Minimal runtime layers exist and the managed Git base plus workload commit identity match the assistant contract. |
 | Devbox service boundary | `mise run verify:devbox-services` | process-compose and Infisical CLI availability match the local devbox contract. |
 | Devbox security drift | `mise run audit:devbox` | Secret boundaries, Git/GitHub identity, SSH key modes, admin drift, and Tailscale health are sane for that Unix user. |
 | Workstation security drift | `mise run audit:workstation` | Human shell, Git, SSH, Codex, and local secret boundaries do not show obvious drift. |

@@ -58,24 +58,10 @@ dotfiles_read_persisted_profile() {
 dotfiles_resolve_profile() {
   local requested="${1:-}"
   local profile_file="${DOTFILES_PROFILE_FILE:-$HOME/.config/dotfiles/profile}"
-  local legacy_profile_file="$HOME/.config/uinaf/profile"
   local explicit_profile_file=0
 
   if [ -n "${DOTFILES_PROFILE_FILE:-}" ]; then
     explicit_profile_file=1
-  fi
-
-  if [ "$explicit_profile_file" -eq 0 ] \
-    && [ ! -e "$profile_file" ] \
-    && [ ! -L "$profile_file" ] \
-    && [ -L "$HOME/.config/uinaf" ]; then
-    return 3
-  fi
-  if [ "$explicit_profile_file" -eq 0 ] \
-    && [ ! -e "$profile_file" ] \
-    && [ ! -L "$profile_file" ] \
-    && { [ -e "$legacy_profile_file" ] || [ -L "$legacy_profile_file" ]; }; then
-    profile_file="$legacy_profile_file"
   fi
 
   if [ -z "$requested" ]; then

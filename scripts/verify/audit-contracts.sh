@@ -52,16 +52,4 @@ printf '%s\n' "$personal_task_json" | grep -Fq '"audit":"personal-security"' \
 grep -Fqx './scripts/audit/personal.sh' "$repo_root/.mise/tasks/audit/personal/_default" \
   || fail "personal default task bypassed the personal audit wrapper"
 
-mkdir -p "$HOME/.config/uinaf"
-ln -s "$HOME/missing-audit-policy" "$HOME/.config/uinaf/audit.env"
-fail_count=0
-AUDIT_POLICY_FILE='' load_audit_policy
-[ "$fail_count" -eq 1 ] || fail "unsafe legacy audit policy did not record a failed check"
-rm "$HOME/.config/uinaf/audit.env"
-fail_count=0
-printf 'DEVBOX_USER=legacy-fixture\nPROCESS_COMPOSE_ENABLED=0\n' > "$HOME/.config/uinaf/devbox.env"
-devbox_json="$(HOME="$HOME" USER=fixture SHELL=/bin/sh "$repo_root/scripts/audit/devbox.sh" --json 2>/dev/null || true)"
-printf '%s\n' "$devbox_json" | grep -Fq '"devbox_user":"legacy-fixture"' \
-  || fail "devbox audit ignored the supported legacy config"
-
 printf 'ok audit output privacy and recursive SSH private-key classification\n'

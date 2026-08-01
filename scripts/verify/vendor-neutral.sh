@@ -49,9 +49,14 @@ while IFS=: read -r file line content; do
         *legacy*com.uinaf.*|*legacy*config/uinaf*) continue ;;
       esac
       ;;
+    docs/migrating-to-role-profiles.md)
+      case "$content" in
+        *config/uinaf*|*libexec/uinaf*|*com.uinaf.*|*uinaf-dotfiles*) continue ;;
+      esac
+      ;;
     scripts/bootstrap/install-devbox-service-daemons.sh)
       case "$content" in
-        *retired_agent*com.uinaf.*|*check_job*com.uinaf.*|*reject_legacy_system_job*com.uinaf.*|*retire_agent*com.uinaf.*) continue ;;
+        *forbidden_agent*com.uinaf.*|*check_job*com.uinaf.*|*reject_legacy_system_job*com.uinaf.*|*reject_user_agent*com.uinaf.*) continue ;;
       esac
       ;;
     scripts/verify/devbox-services.sh)
@@ -59,19 +64,9 @@ while IFS=: read -r file line content; do
         *LaunchDaemons/com.uinaf.*) continue ;;
       esac
       ;;
-    docs/profiles.md|scripts/bootstrap/apply-dotfiles.sh|scripts/lib/config-paths.sh|scripts/lib/profile.sh|scripts/verify/audit-contracts.sh|scripts/verify/profiles.sh)
-      case "$content" in
-        *config/uinaf*) continue ;;
-      esac
-      ;;
     scripts/bootstrap/configure-git.sh|scripts/bootstrap/install-git-hooks.sh|scripts/verify/configure-git.sh)
       case "$content" in
         *uinaf*dotfiles*) continue ;;
-      esac
-      ;;
-    scripts/verify/assistant-git-boundary.sh)
-      case "$content" in
-        *libexec/uinaf*) continue ;;
       esac
       ;;
   esac

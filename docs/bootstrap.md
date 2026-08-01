@@ -231,10 +231,10 @@ public-key-only, and 1Password-backed signing are unsupported. The generated
 `~/.ssh/github.config` block uses the same key for `github.com` without routing
 through the 1Password agent. The tracked SSH entrypoint includes that dedicated
 file before the untouched `~/.ssh/config.local`, so local global directives and
-host-specific configuration keep their original scope. Setup migrates only the
-old marker-delimited GitHub block out of `config.local`; if an unmarked
-`Host github.com` entry already exists, it stops before changing Git state and
-asks you to resolve the local configuration explicitly. It also stops if
+host-specific configuration keep their original scope. Setup does not migrate
+former marker-delimited GitHub blocks. Remove those blocks manually while
+preserving unrelated directives; any remaining `Host github.com` entry stops
+setup before it changes Git state. Setup also stops if
 `~/.ssh/github.config` already exists without the managed markers; move
 that file aside or migrate its directives to `~/.ssh/config.local` before
 rerunning. OpenSSH keeps
@@ -384,12 +384,11 @@ Token minting and Git transport are follow-up platform work; do not persist a
 human account or ad hoc token in Git config, `gh auth`, shell startup, or a
 process manager to bridge that gap.
 
-Bootstrap verification checks the managed workload identity and common
-user-home credential locations. It does not prove the absence of identity in
-system configuration or arbitrary repository-local config. Treat a clean home
-plus scoped runtime credentials as the boundary. Run
-`./scripts/verify/assistant-git-boundary.sh` directly when investigating a
-failure.
+Bootstrap verification checks the managed Git base and workload identity. It
+does not inventory or clean unrelated user-home state. Migration agents audit
+and remove old credentials and developer state separately, then run
+`./scripts/verify/assistant-git-boundary.sh` to confirm the expected assistant
+identity contract.
 
 The profile provides minimal Node, Python, uv, browser, media, and process
 supervision support. The owning workload installs and verifies OpenClaw,

@@ -86,11 +86,10 @@ authenticated human `user` session and verifies the machine identity can mint a
 token before writing config. It does not persist secret paths; paths belong at
 the command boundary.
 
-Standalone secret and verification helpers prefer the canonical
-`~/.config/dotfiles` files and temporarily fall back to matching files under
-legacy `~/.config/uinaf`. Applying dotfiles migrates known legacy files when no
-canonical file exists; the fallback keeps maintenance commands usable before
-that apply step.
+Secret and verification helpers read only canonical files under
+`~/.config/dotfiles`. Existing users must complete the manual path migration in
+[Migrating to Role Profiles](migrating-to-role-profiles.md) before applying the
+new devbox profile.
 
 Routine command-boundary use gives one child command a short-lived machine
 token and the configured Infisical project selectors:
@@ -357,11 +356,9 @@ sudo ./scripts/bootstrap/install-devbox-service-daemons.sh --user agent-user --o
 sudo ./scripts/bootstrap/install-devbox-service-daemons.sh --user agent-user --healthd
 ```
 
-The installer retires the equivalent per-user LaunchAgents only after the
-system jobs load successfully. For healthd, it also completes one check cycle
-before retiring a same-user legacy LaunchAgent. Run one service per invocation
-when migrating production machines so failures stay isolated; a partial
-multi-service run aborts with earlier services already migrated.
+The installer does not retire per-user LaunchAgents. An agent or authorized
+administrator must unload and archive the old job first, then install and
+verify one replacement service per invocation so failures stay isolated.
 
 New system jobs use the vendor-neutral `local.dotfiles.<service>.<user>` label
 namespace. Pass `--namespace org.example.dotfiles` when an organization needs
@@ -375,8 +372,7 @@ namespace. Check mode never creates it.
 The installer does not automatically replace a matching legacy `com.uinaf.*.<user>`
 system job. It fails before changing services when the old
 plist exists or remains loaded. Retire that job explicitly during a maintenance
-window, then rerun the installer; this keeps a failed namespace migration from
-taking a working service offline.
+window, then rerun the installer.
 
 Healthd may run directly under launchd when it is the fleet monitor; it does
 not need an extra process-compose layer. Verify boot-independent service

@@ -8,9 +8,6 @@ verbose=0
 profile=""
 override_data=""
 chezmoi_base=()
-legacy_config_sources=()
-legacy_config_targets=()
-legacy_config_managed=()
 
 # shellcheck source=scripts/lib/profile.sh
 . "$repo_root/scripts/lib/profile.sh"
@@ -148,110 +145,6 @@ remove_obsolete_link_suffix() {
   fi
 }
 
-stage_legacy_config() {
-  local legacy_dir="$HOME/.config/uinaf"
-  local config_dir="$HOME/.config/dotfiles"
-  local legacy
-  local target
-  local backup
-  local rendered
-  local managed_targets
-  local name
-
-  if [ -L "$config_dir" ]; then
-    fail "canonical config directory must not be a symlink: $config_dir"
-  fi
-  if [ -e "$config_dir" ] && [ ! -d "$config_dir" ]; then
-    fail "canonical config path must be a directory: $config_dir"
-  fi
-  if [ -L "$legacy_dir" ]; then
-    fail "legacy config directory symlinks must be resolved manually before migration: $legacy_dir"
-  fi
-  [ -d "$legacy_dir" ] || return 0
-  managed_targets="$("${chezmoi_base[@]}" managed --include=files,symlinks --path-style absolute)"
-
-  for name in audit.env devbox.env infisical-machine.env profile sudo-age-identity.txt; do
-    legacy="$legacy_dir/$name"
-    target="$config_dir/$name"
-    [ -e "$legacy" ] || [ -L "$legacy" ] || continue
-    if [ -L "$legacy" ]; then
-      fail "legacy config symlinks must be resolved manually before migration: $legacy"
-    fi
-    [ -f "$legacy" ] || fail "legacy config must be a regular file: $legacy"
-
-    if [ -e "$target" ] || [ -L "$target" ]; then
-      if [ -f "$target" ] && [ ! -L "$target" ] && cmp -s "$legacy" "$target"; then
-        legacy_config_sources+=("$legacy")
-        legacy_config_targets+=("$target")
-        legacy_config_managed+=(1)
-        if [ "$dry_run" -eq 1 ]; then
-          printf 'would finish identical legacy migration %s -> %s\n' "$legacy" "$target"
-        else
-          printf 'resuming identical legacy migration %s -> %s\n' "$legacy" "$target"
-        fi
-      else
-        printf 'kept legacy config because the canonical target already exists: %s\n' "$legacy" >&2
-      fi
-      continue
-    fi
-
-    if [ "$dry_run" -eq 1 ]; then
-      printf 'would migrate %s -> %s\n' "$legacy" "$target"
-    fi
-
-    if printf '%s\n' "$managed_targets" | grep -Fqx -- "$target"; then
-      legacy_config_sources+=("$legacy")
-      legacy_config_targets+=("$target")
-      legacy_config_managed+=(1)
-      rendered="$(mktemp "${TMPDIR:-/tmp}/dotfiles-legacy-render.XXXXXX")"
-      if ! "${chezmoi_base[@]}" cat "$target" > "$rendered"; then
-        rm -f "$rendered"
-        fail "could not render managed migration target: $target"
-      fi
-      if ! cmp -s "$rendered" "$legacy"; then
-        backup="$target.backup.$(date +%Y%m%d%H%M%S)"
-        if [ "$dry_run" -eq 1 ]; then
-          printf 'would back up legacy config %s -> %s\n' "$legacy" "$backup"
-        else
-          mkdir -p "$config_dir"
-          chmod 0700 "$config_dir"
-          install -m 0600 "$legacy" "$backup"
-          printf 'backed up legacy config %s -> %s\n' "$legacy" "$backup"
-        fi
-      fi
-      rm -f "$rendered"
-    else
-      legacy_config_sources+=("$legacy")
-      legacy_config_targets+=("$target")
-      legacy_config_managed+=(0)
-    fi
-  done
-}
-
-finish_legacy_config_migration() {
-  local legacy_dir="$HOME/.config/uinaf"
-  local config_dir="$HOME/.config/dotfiles"
-  local index
-
-  for ((index = 0; index < ${#legacy_config_sources[@]}; index++)); do
-    if [ "${legacy_config_managed[$index]}" -eq 0 ]; then
-      if [ -e "${legacy_config_targets[$index]}" ] || [ -L "${legacy_config_targets[$index]}" ]; then
-        fail "canonical migration target appeared during apply: ${legacy_config_targets[$index]}"
-      fi
-      install -d -m 0700 "$config_dir"
-      install -m 0600 "${legacy_config_sources[$index]}" "${legacy_config_targets[$index]}"
-    fi
-    rm -f "${legacy_config_sources[$index]}"
-    printf 'migrated %s -> %s\n' \
-      "${legacy_config_sources[$index]}" \
-      "${legacy_config_targets[$index]}"
-  done
-
-  if [ "$dry_run" -eq 0 ] && rmdir "$legacy_dir" 2>/dev/null; then
-    printf 'removed empty legacy config directory %s\n' "$legacy_dir"
-  fi
-}
-
 [ -d "$source_dir" ] || fail "missing chezmoi source directory: $source_dir"
 command -v chezmoi >/dev/null 2>&1 || fail "chezmoi is required; run scripts/bootstrap/brew-bundle.sh for the selected profile first"
 
@@ -266,7 +159,10 @@ chezmoi_base=(
   --destination "$HOME"
   --override-data "$override_data"
 )
-stage_legacy_config
+config_dir="$HOME/.config/dotfiles"
+[ ! -L "$config_dir" ] || fail "canonical config directory must not be a symlink: $config_dir"
+[ ! -e "$config_dir" ] || [ -d "$config_dir" ] \
+  || fail "canonical config path must be a directory: $config_dir"
 
 remove_obsolete_link_suffix "$HOME/.zlogin" "/home/.zlogin"
 if dotfiles_profile_is_developer "$profile"; then
@@ -288,6 +184,5 @@ fi
 if [ "$dry_run" -eq 1 ]; then
   printf 'dotfiles previewed for %s with chezmoi source %s\n' "$profile" "$source_dir"
 else
-  finish_legacy_config_migration
   printf 'dotfiles applied for %s with chezmoi source %s\n' "$profile" "$source_dir"
 fi

@@ -10,8 +10,8 @@ It is standalone. It does not require an agent framework, workspace manager,
 or any other companion repository.
 
 Installed paths, commands, and configuration keys use generic `dotfiles`
-names. Repository, tap, contact, and legacy migration identifiers retain their
-real external coordinates.
+names. Repository, tap, contact, and identifiers documented only in the manual
+breaking-change guide retain their real external coordinates.
 
 It does not own secrets, identity, Codex auth/state, browser profiles, app
 caches, dependency folders, build output, or project checkouts. Those stay
@@ -31,6 +31,11 @@ host-wide. Read [User profiles](docs/profiles.md) before changing a shared host.
 `personal` remains a temporary command alias for `workstation`.
 
 ## Fast Path
+
+The role-profile release is breaking for existing users. Complete
+[Migrating to Role Profiles](docs/migrating-to-role-profiles.md) before running
+the new installer; no owner-specific configuration or service state is moved
+automatically.
 
 Install Apple Command Line Tools, Homebrew, `git`, and `gh`, then clone the
 repo:

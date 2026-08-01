@@ -58,11 +58,9 @@ scoped machine identity in the platform layer when repository access is
 actually needed. Until then, the assistant can create local commits but cannot
 fetch or push private workspace state unattended.
 
-The assistant bootstrap checks the managed workload identity and common
-user-home credential locations. It is not proof about system Git/SSH
-configuration or repository-local configuration elsewhere on the host.
-Clean-user provisioning and scoped runtime credentials are the security
-boundary. Run the check directly with
+The assistant bootstrap checks the managed Git base and workload identity. It
+does not inventory or clean unrelated user-home state; migration agents own
+that work. Run the expected-contract check directly with
 `./scripts/verify/assistant-git-boundary.sh`.
 
 Unattended users use a scoped machine identity for secret access. If a workload
@@ -101,21 +99,8 @@ GIT_USER_EMAIL='APP_BOT_NOREPLY_EMAIL' \
 
 ## Migrate an Existing User
 
-Preview dotfile changes before applying a new role:
-
-```zsh
-./scripts/bootstrap/apply-dotfiles.sh --profile <profile> --dry-run --verbose
-```
-
-Profile application adds or updates declared state. It does not uninstall
-host-wide Homebrew packages or delete existing credentials, editor state,
-runtimes, or service data. Audit and remove those separately only after proving
-that retained workloads do not depend on them.
-
-On apply, known regular files from the legacy `~/.config/uinaf` namespace move
-to `~/.config/dotfiles` when the canonical target does not already exist. A
-conflicting legacy file is retained and reported instead of overwritten;
-legacy symlinks fail closed for explicit operator resolution rather than being
-copied across directories with potentially different relative targets.
-Standalone Infisical and verification helpers prefer the canonical files and
-fall back to matching legacy files until that migration runs.
+This release is breaking. Profile application does not read, migrate, or
+delete former owner-specific configuration, credentials, editor state,
+runtimes, or services. Follow [Migrating to Role Profiles](migrating-to-role-profiles.md)
+for the per-user inventory, manual path changes, service transition, and
+verification checklist before applying a new role.
