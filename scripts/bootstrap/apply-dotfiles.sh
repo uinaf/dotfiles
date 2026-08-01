@@ -164,6 +164,9 @@ stage_legacy_config() {
     legacy="$legacy_dir/$name"
     target="$config_dir/$name"
     [ -e "$legacy" ] || [ -L "$legacy" ] || continue
+    if [ -L "$legacy" ]; then
+      fail "legacy config symlinks must be resolved manually before migration: $legacy"
+    fi
 
     if [ -e "$target" ] || [ -L "$target" ]; then
       printf 'kept legacy config because the canonical target already exists: %s\n' "$legacy" >&2

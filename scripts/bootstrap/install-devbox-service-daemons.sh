@@ -300,20 +300,13 @@ install_job() {
   printf 'installed %s for %s\n' "$label" "$target_user"
 }
 
-retire_system_job() {
+reject_legacy_system_job() {
   local old_label="$1"
   local old_path="$launch_daemon_dir/$old_label.plist"
-  local retired_dir="/Library/LaunchDaemons.disabled"
-  local retired_path="$retired_dir/$old_label.plist"
 
-  [ -e "$old_path" ] || return 0
-  [ ! -e "$retired_path" ] || fail "retired LaunchDaemon already exists: $retired_path"
-
-  bootout_if_loaded system "$old_label"
-  install -d -o root -g wheel -m 0755 "$retired_dir"
-  mv "$old_path" "$retired_path"
-  chmod 0644 "$retired_path"
-  printf 'retired legacy system job %s\n' "$old_label"
+  if [ -e "$old_path" ] || launchctl print "system/$old_label" >/dev/null 2>&1; then
+    fail "legacy system job $old_label must be retired explicitly before installing its replacement"
+  fi
 }
 
 retire_agent() {
@@ -333,9 +326,44 @@ retire_agent() {
   fi
 }
 
+process_start="$target_home/.local/bin/process-compose-start.sh"
+env_wrapper="$target_home/.openclaw/service-env/ai.openclaw.gateway-env-wrapper.sh"
+env_file="$target_home/.openclaw/service-env/ai.openclaw.gateway.env"
+gateway_wrapper="$target_home/.local/bin/openclaw-gateway-mise-wrapper"
 if [ "$install_process_compose" -eq 1 ]; then
-  process_start="$target_home/.local/bin/process-compose-start.sh"
   [ -x "$process_start" ] || fail "missing executable $process_start"
+fi
+if [ "$install_openclaw" -eq 1 ]; then
+  [ -x "$env_wrapper" ] || fail "missing executable $env_wrapper"
+  [ -f "$env_file" ] || fail "missing $env_file"
+  [ -x "$gateway_wrapper" ] || fail "missing executable $gateway_wrapper"
+fi
+if [ "$install_healthd" -eq 1 ]; then
+  run_as_target "$healthd_binary" validate --config "$healthd_config" >/dev/null \
+    || fail "invalid healthd config: $healthd_config"
+fi
+
+if [ "$install_process_compose" -eq 1 ]; then
+  reject_legacy_system_job "com.uinaf.process-compose.$target_user"
+fi
+if [ "$install_openclaw" -eq 1 ]; then
+  reject_legacy_system_job "com.uinaf.openclaw-gateway.$target_user"
+fi
+if [ "$install_healthd" -eq 1 ]; then
+  reject_legacy_system_job "com.uinaf.healthd.$target_user"
+fi
+if [ "$install_colima" -eq 1 ]; then
+  reject_legacy_system_job "com.uinaf.colima.$target_user"
+fi
+
+launchd_namespace_dir="$(dirname "$launchd_namespace_file")"
+run_as_target install -d -m 0700 "$launchd_namespace_dir"
+namespace_tmp="$(run_as_target mktemp "$launchd_namespace_dir/.launchd-namespace.XXXXXX")"
+printf '%s\n' "$launchd_namespace" | run_as_target tee "$namespace_tmp" >/dev/null
+run_as_target chmod 0600 "$namespace_tmp"
+run_as_target mv -f "$namespace_tmp" "$launchd_namespace_file"
+
+if [ "$install_process_compose" -eq 1 ]; then
   install -d -o "$target_user" -g "$target_group" -m 0700 "$target_home/.local/run"
   install -d -o "$target_user" -g "$target_group" -m 0750 "$target_home/.local/log/process-compose"
   process_plist="$tmp_dir/$process_label.plist"
@@ -346,18 +374,11 @@ if [ "$install_process_compose" -eq 1 ]; then
     "$target_home/.local/log/process-compose/stdout.log" \
     "$target_home/.local/log/process-compose/stderr.log" \
     "$process_start"
-  retire_system_job "com.uinaf.process-compose.$target_user"
   install_job "$process_plist" "$process_label"
   retire_agent com.uinaf.process-compose
 fi
 
 if [ "$install_openclaw" -eq 1 ]; then
-  env_wrapper="$target_home/.openclaw/service-env/ai.openclaw.gateway-env-wrapper.sh"
-  env_file="$target_home/.openclaw/service-env/ai.openclaw.gateway.env"
-  gateway_wrapper="$target_home/.local/bin/openclaw-gateway-mise-wrapper"
-  [ -x "$env_wrapper" ] || fail "missing executable $env_wrapper"
-  [ -f "$env_file" ] || fail "missing $env_file"
-  [ -x "$gateway_wrapper" ] || fail "missing executable $gateway_wrapper"
   install -d -o "$target_user" -g "$target_group" -m 0750 "$target_home/Library/Logs/openclaw"
   openclaw_plist="$tmp_dir/$openclaw_label.plist"
   create_plist \
@@ -373,14 +394,11 @@ if [ "$install_openclaw" -eq 1 ]; then
     gateway \
     --port \
     18789
-  retire_system_job "com.uinaf.openclaw-gateway.$target_user"
   install_job "$openclaw_plist" "$openclaw_label"
   retire_agent ai.openclaw.gateway
 fi
 
 if [ "$install_healthd" -eq 1 ]; then
-  run_as_target "$healthd_binary" validate --config "$healthd_config" >/dev/null \
-    || fail "invalid healthd config: $healthd_config"
   install -d -o "$target_user" -g "$target_group" -m 0750 "$target_home/Library/Logs/healthd"
   healthd_plist="$tmp_dir/$healthd_label.plist"
   create_plist \
@@ -393,7 +411,6 @@ if [ "$install_healthd" -eq 1 ]; then
     run \
     --config \
     "$healthd_config"
-  retire_system_job "com.uinaf.healthd.$target_user"
   install_job "$healthd_plist" "$healthd_label"
   check_healthd ""
   retire_agent com.uinaf.healthd
@@ -412,16 +429,8 @@ if [ "$install_colima" -eq 1 ]; then
     "$target_home/.local/log/colima/launchd-error.log" \
     "$colima_start"
   plutil -replace KeepAlive -bool false "$colima_plist"
-  retire_system_job "com.uinaf.colima.$target_user"
   install_job "$colima_plist" "$colima_label"
   check_colima
 fi
-
-launchd_namespace_dir="$(dirname "$launchd_namespace_file")"
-run_as_target install -d -m 0700 "$launchd_namespace_dir"
-namespace_tmp="$(run_as_target mktemp "$launchd_namespace_dir/.launchd-namespace.XXXXXX")"
-printf '%s\n' "$launchd_namespace" | run_as_target tee "$namespace_tmp" >/dev/null
-run_as_target chmod 0600 "$namespace_tmp"
-run_as_target mv -f "$namespace_tmp" "$launchd_namespace_file"
 
 printf 'devbox service daemon installation ok\n'

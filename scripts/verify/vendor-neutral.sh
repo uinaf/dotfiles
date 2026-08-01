@@ -36,7 +36,7 @@ while IFS=: read -r file line content; do
       ;;
     scripts/bootstrap/install-devbox-service-daemons.sh)
       case "$content" in
-        *retired_agent*com.uinaf.*|*check_job*com.uinaf.*|*retire_system_job*com.uinaf.*|*retire_agent*com.uinaf.*) continue ;;
+        *retired_agent*com.uinaf.*|*check_job*com.uinaf.*|*reject_legacy_system_job*com.uinaf.*|*retire_agent*com.uinaf.*) continue ;;
       esac
       ;;
     scripts/verify/devbox-services.sh)

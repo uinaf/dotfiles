@@ -125,6 +125,18 @@ fi
 [ -f "$failure_home/.config/uinaf/devbox.env" ] \
   || fail "failed dotfiles apply removed the working legacy config"
 
+symlink_home="$tmp_root/legacy-symlink"
+mkdir -p "$symlink_home/.config/uinaf/private"
+printf 'DEVBOX_USER=legacy\n' > "$symlink_home/.config/uinaf/private/devbox.env"
+ln -s private/devbox.env "$symlink_home/.config/uinaf/devbox.env"
+if HOME="$symlink_home" "$repo_root/scripts/bootstrap/apply-dotfiles.sh" --profile assistant >/dev/null 2>&1; then
+  fail "legacy config migration accepted a relative symlink"
+fi
+[ "$(readlink "$symlink_home/.config/uinaf/devbox.env")" = private/devbox.env ] \
+  || fail "rejected legacy config symlink was mutated"
+[ ! -e "$symlink_home/.config/dotfiles/devbox.env" ] \
+  || fail "rejected legacy config symlink created a canonical target"
+
 task_home="$tmp_root/task-profile"
 mkdir -p "$task_home"
 (

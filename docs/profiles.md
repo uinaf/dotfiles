@@ -111,8 +111,10 @@ host-wide Homebrew packages or delete existing credentials, editor state,
 runtimes, or service data. Audit and remove those separately only after proving
 that retained workloads do not depend on them.
 
-On apply, known files from the legacy `~/.config/uinaf` namespace move to
-`~/.config/dotfiles` when the canonical target does not already exist. A
-conflicting legacy file is retained and reported instead of overwritten.
+On apply, known regular files from the legacy `~/.config/uinaf` namespace move
+to `~/.config/dotfiles` when the canonical target does not already exist. A
+conflicting legacy file is retained and reported instead of overwritten;
+legacy symlinks fail closed for explicit operator resolution rather than being
+copied across directories with potentially different relative targets.
 Standalone Infisical and verification helpers prefer the canonical files and
 fall back to matching legacy files until that migration runs.

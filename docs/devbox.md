@@ -368,10 +368,15 @@ namespace. Pass `--namespace org.example.dotfiles` when an organization needs
 its own stable namespace. The installer stores the resolved value in the target
 user's owner-only `~/.config/dotfiles/launchd-namespace`; later install, check,
 and live verification commands reuse it automatically and reject a conflicting
-explicit namespace. The installer moves matching
-legacy `com.uinaf.*.<user>` system plists to
-`/Library/LaunchDaemons.disabled` before installing the replacement; the move
-is recoverable and occurs only during an explicit root-level installation.
+explicit namespace. Installation records this write-ahead contract before its
+first service mutation so a partial multi-service retry cannot drift to another
+namespace. Check mode never creates it.
+
+The installer does not automatically replace a matching legacy `com.uinaf.*.<user>`
+system job. It fails before changing services when the old
+plist exists or remains loaded. Retire that job explicitly during a maintenance
+window, then rerun the installer; this keeps a failed namespace migration from
+taking a working service offline.
 
 Healthd may run directly under launchd when it is the fleet monitor; it does
 not need an extra process-compose layer. Verify boot-independent service
