@@ -7,6 +7,12 @@ install_openclaw=0
 install_healthd=0
 install_colima=0
 check_only=0
+print_labels=0
+launchd_namespace="${DOTFILES_LAUNCHD_NAMESPACE:-}"
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+
+# shellcheck source=scripts/lib/launchd.sh
+. "$repo_root/scripts/lib/launchd.sh"
 
 usage() {
   cat <<'USAGE'
@@ -21,6 +27,8 @@ Services:
 
 Options:
   --check            Verify the selected LaunchDaemons without changing them.
+  --print-labels     Print the generic labels for the selected user and exit.
+  --namespace NAME   Stable label namespace; defaults to local.dotfiles.
 
 The installer must run as root on macOS. It creates root-owned system
 LaunchDaemons that drop privileges to the selected user, then retires the
@@ -55,6 +63,14 @@ while [ "$#" -gt 0 ]; do
     --check)
       check_only=1
       ;;
+    --print-labels)
+      print_labels=1
+      ;;
+    --namespace)
+      [ "$#" -ge 2 ] || fail "--namespace requires a value"
+      launchd_namespace="$2"
+      shift
+      ;;
     -h|--help)
       usage
       exit 0
@@ -67,11 +83,23 @@ while [ "$#" -gt 0 ]; do
   shift
 done
 
-[ "$(uname -s)" = "Darwin" ] || fail "this installer supports macOS only"
 [ -n "$target_user" ] || fail "--user is required"
 case "$target_user" in
   *[!A-Za-z0-9._-]*) fail "unsupported user name: $target_user" ;;
 esac
+if ! launchd_namespace="$(dotfiles_resolve_launchd_namespace "$launchd_namespace")"; then
+  fail "LaunchDaemon namespace must contain dot-separated letters, numbers, hyphens, or underscores"
+fi
+process_label="$(dotfiles_launchd_label process-compose "$target_user" "$launchd_namespace")"
+openclaw_label="$(dotfiles_launchd_label openclaw-gateway "$target_user" "$launchd_namespace")"
+healthd_label="$(dotfiles_launchd_label healthd "$target_user" "$launchd_namespace")"
+colima_label="$(dotfiles_launchd_label colima "$target_user" "$launchd_namespace")"
+if [ "$print_labels" -eq 1 ]; then
+  printf '%s\n%s\n%s\n%s\n' "$process_label" "$openclaw_label" "$healthd_label" "$colima_label"
+  exit 0
+fi
+
+[ "$(uname -s)" = "Darwin" ] || fail "this installer supports macOS only"
 [ "$install_process_compose" -eq 1 ] || [ "$install_openclaw" -eq 1 ] \
   || [ "$install_healthd" -eq 1 ] \
   || [ "$install_colima" -eq 1 ] \
@@ -82,10 +110,6 @@ target_group="$(id -gn "$target_user")"
 target_home="$(dscl . -read "/Users/$target_user" NFSHomeDirectory 2>/dev/null | awk '{print $2}')"
 [ -n "$target_home" ] && [ -d "$target_home" ] || fail "missing home for $target_user"
 
-process_label="com.uinaf.process-compose.$target_user"
-openclaw_label="com.uinaf.openclaw-gateway.$target_user"
-healthd_label="com.uinaf.healthd.$target_user"
-colima_label="com.uinaf.colima.$target_user"
 launch_daemon_dir="/Library/LaunchDaemons"
 healthd_config="$target_home/.config/healthd/config.toml"
 healthd_binary=""
@@ -248,6 +272,22 @@ install_job() {
   printf 'installed %s for %s\n' "$label" "$target_user"
 }
 
+retire_system_job() {
+  local old_label="$1"
+  local old_path="$launch_daemon_dir/$old_label.plist"
+  local retired_dir="/Library/LaunchDaemons.disabled"
+  local retired_path="$retired_dir/$old_label.plist"
+
+  [ -e "$old_path" ] || return 0
+  [ ! -e "$retired_path" ] || fail "retired LaunchDaemon already exists: $retired_path"
+
+  launchctl bootout "system/$old_label" >/dev/null 2>&1 || true
+  install -d -o root -g wheel -m 0755 "$retired_dir"
+  mv "$old_path" "$retired_path"
+  chmod 0644 "$retired_path"
+  printf 'retired legacy system job %s\n' "$old_label"
+}
+
 retire_agent() {
   local old_agent_label="$1"
   local old_agent_path="$target_home/Library/LaunchAgents/$old_agent_label.plist"
@@ -278,6 +318,7 @@ if [ "$install_process_compose" -eq 1 ]; then
     "$target_home/.local/log/process-compose/stdout.log" \
     "$target_home/.local/log/process-compose/stderr.log" \
     "$process_start"
+  retire_system_job "com.uinaf.process-compose.$target_user"
   install_job "$process_plist" "$process_label"
   retire_agent com.uinaf.process-compose
 fi
@@ -304,6 +345,7 @@ if [ "$install_openclaw" -eq 1 ]; then
     gateway \
     --port \
     18789
+  retire_system_job "com.uinaf.openclaw-gateway.$target_user"
   install_job "$openclaw_plist" "$openclaw_label"
   retire_agent ai.openclaw.gateway
 fi
@@ -323,6 +365,7 @@ if [ "$install_healthd" -eq 1 ]; then
     run \
     --config \
     "$healthd_config"
+  retire_system_job "com.uinaf.healthd.$target_user"
   install_job "$healthd_plist" "$healthd_label"
   check_healthd ""
   retire_agent com.uinaf.healthd
@@ -341,6 +384,7 @@ if [ "$install_colima" -eq 1 ]; then
     "$target_home/.local/log/colima/launchd-error.log" \
     "$colima_start"
   plutil -replace KeepAlive -bool false "$colima_plist"
+  retire_system_job "com.uinaf.colima.$target_user"
   install_job "$colima_plist" "$colima_label"
   check_colima
 fi

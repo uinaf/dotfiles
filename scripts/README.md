@@ -55,6 +55,7 @@ GIT_USER_NAME='Workload Name' GIT_USER_EMAIL='APP_BOT_NOREPLY_EMAIL' \
 ./scripts/bootstrap/configure-power.sh --profile devbox
 ./scripts/bootstrap/configure-spotlight.sh
 ./scripts/bootstrap/configure-desktop.sh
+./scripts/bootstrap/install-devbox-service-daemons.sh --user example --namespace org.example.dotfiles --print-labels
 ./scripts/bootstrap/trust-agent-worktrees.sh
 ```
 

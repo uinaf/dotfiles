@@ -357,6 +357,14 @@ before retiring a same-user legacy LaunchAgent. Run one service per invocation
 when migrating production machines so failures stay isolated; a partial
 multi-service run aborts with earlier services already migrated.
 
+New system jobs use the vendor-neutral `local.dotfiles.<service>.<user>` label
+namespace. Pass `--namespace org.example.dotfiles` when an organization needs
+its own stable namespace, and keep that value in `DOTFILES_LAUNCHD_NAMESPACE`
+for live verification. The installer moves matching
+legacy `com.uinaf.*.<user>` system plists to
+`/Library/LaunchDaemons.disabled` before installing the replacement; the move
+is recoverable and occurs only during an explicit root-level installation.
+
 Healthd may run directly under launchd when it is the fleet monitor; it does
 not need an extra process-compose layer. Verify boot-independent service
 definitions without changing them (the healthd and colima functional checks

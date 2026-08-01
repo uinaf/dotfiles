@@ -20,6 +20,8 @@ infisical_sudo_age_identity_file="${INFISICAL_SUDO_AGE_IDENTITY_FILE:-$HOME/.con
 . "$repo_root/scripts/lib/infisical.sh"
 # shellcheck source=scripts/lib/infisical-sudo.sh
 . "$repo_root/scripts/lib/infisical-sudo.sh"
+# shellcheck source=scripts/lib/launchd.sh
+. "$repo_root/scripts/lib/launchd.sh"
 
 usage() {
   cat <<'USAGE'
@@ -233,9 +235,15 @@ check_infisical() {
 check_launchd_daemons() {
   section "managed launchd daemons"
 
-  local plist label found=0
+  local plist label namespace found=0
+  namespace="$(dotfiles_resolve_launchd_namespace)" \
+    || fail "invalid DOTFILES_LAUNCHD_NAMESPACE"
 
-  for plist in /Library/LaunchDaemons/com.uinaf.healthd.*.plist /Library/LaunchDaemons/com.uinaf.colima.*.plist; do
+  for plist in \
+    "/Library/LaunchDaemons/$namespace.healthd."*.plist \
+    "/Library/LaunchDaemons/$namespace.colima."*.plist \
+    /Library/LaunchDaemons/com.uinaf.healthd.*.plist \
+    /Library/LaunchDaemons/com.uinaf.colima.*.plist; do
     [ -e "$plist" ] || continue
     found=1
     label="$(basename "$plist" .plist)"

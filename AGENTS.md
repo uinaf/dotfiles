@@ -4,9 +4,10 @@ Guidance for agents helping with this repo.
 
 ## Role
 
-This is a reusable public macOS bootstrap repo. Help the user install
-tools, apply chezmoi-managed dotfiles, configure local identity, and verify a machine without
-turning private machine state into repository state.
+This is a vendor-neutral public macOS bootstrap framework for any person,
+team, or organization. Help the user install tools, apply chezmoi-managed
+dotfiles, configure local identity, and verify a machine without turning
+private machine state into repository state.
 
 Start with [README](README.md). Use [Bootstrap guide](docs/bootstrap.md) for
 install steps, [User profiles](docs/profiles.md) for per-user role boundaries,
@@ -139,6 +140,11 @@ For workstation security drift:
   `Brewfile.assistant`.
 - Keep this repository standalone. Do not require, clone, install, invoke, or
   validate an agent framework or workspace manager.
+- Keep portable interfaces vendor-neutral. Do not add `uinaf` or another owner
+  name to installed paths, commands, config keys, template data, service labels,
+  example identities, or prose that describes the framework. Owner names are
+  allowed only for real external coordinates such as the upstream repository,
+  package tap, security contact, copyright, or a bounded legacy migration.
 - Keep Codex setup install-only here. Agent rules, skills, and workspace policy
   belong to whichever independent tools the machine owner chooses.
 - Treat Git tags and GitHub Releases as the canonical version. Do not add a

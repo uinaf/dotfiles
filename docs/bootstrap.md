@@ -1,6 +1,6 @@
 # Bootstrap Guide
 
-Use this guide when installing or refreshing a Mac from `uinaf/dotfiles`.
+Use this guide when installing or refreshing a Mac from this repository.
 
 The repo has three per-user profiles:
 

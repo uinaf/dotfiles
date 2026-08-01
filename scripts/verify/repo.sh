@@ -96,6 +96,12 @@ section "devbox Homebrew wrapper"
 section "profile contracts"
 ./scripts/verify/profiles.sh
 
+section "service labels"
+./scripts/verify/service-labels.sh
+
+section "vendor-neutral interfaces"
+./scripts/verify/vendor-neutral.sh
+
 section "GitHub CLI extensions"
 ./scripts/verify/gh-extensions.sh
 
