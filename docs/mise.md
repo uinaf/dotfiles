@@ -120,8 +120,8 @@ repository-owned version source. The Node postinstall pins npm itself to
 repository-local and is invoked through the owning package manager.
 
 `scripts/bootstrap/install.sh` enables Corepack, installs the stable pnpm
-default, removes the retired mise-managed global Vite+ package, and refreshes
-mise shims. A fresh Node install gets the same pnpm state from the Node
+default, removes the retired mise-managed global Vite+ package and standalone
+state under `~/.vite-plus`, and refreshes mise shims. A fresh Node install gets the same pnpm state from the Node
 postinstall hook.
 The assistant branch intentionally contains only Node, Python, and uv.
 `scripts/verify/bootstrap.sh` checks the commands and versions required by the

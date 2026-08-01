@@ -209,7 +209,10 @@ check_runtime_versions() {
   if zsh -lic 'command -v vp >/dev/null 2>&1'; then
     fail "vp is available globally; Vite+ must resolve from each repository"
   fi
-  printf 'ok no global vp command\n'
+  if [ -e "$HOME/.vite-plus" ] || [ -L "$HOME/.vite-plus" ]; then
+    fail "$HOME/.vite-plus exists; remove standalone Vite+ state"
+  fi
+  printf 'ok no global vp command or standalone state\n'
 
   section "npm isolation"
   node_root="$(zsh -lic 'mise where node')" || fail "mise Node root"

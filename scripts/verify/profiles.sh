@@ -177,9 +177,12 @@ assert_eq "$(printf 'apply-dotfiles.sh --profile assistant\ninstall-gh-app-auth.
   "assistant install execution"
 
 : > "$install_log"
+install_devbox_home="$tmp_root/install-devbox-home"
+mkdir -p "$install_devbox_home/.vite-plus"
+touch "$install_devbox_home/.vite-plus/retired-state"
 PATH="$install_fixture/bin:$PATH" \
 DOTFILES_INSTALL_LOG="$install_log" \
-HOME="$tmp_root/install-devbox-home" \
+HOME="$install_devbox_home" \
   "$install_fixture/scripts/bootstrap/install.sh" --profile devbox
 expected_install_log="$(cat <<'EOF'
 apply-dotfiles.sh --profile devbox
@@ -193,6 +196,7 @@ configure-codex.sh
 EOF
 )"
 assert_eq "$expected_install_log" "$(cat "$install_log")" "devbox install execution"
+[ ! -e "$install_devbox_home/.vite-plus" ] || fail "devbox install kept standalone Vite+ state"
 
 : > "$install_log"
 printf 'caller-input\n' | \

@@ -82,6 +82,9 @@ run_step() {
         mise uninstall --all --yes npm:vite-plus
         mise reshim
       fi
+      if [ -e "$HOME/.vite-plus" ] || [ -L "$HOME/.vite-plus" ]; then
+        rm -rf -- "$HOME/.vite-plus"
+      fi
       ;;
     install-pnpm)
       if command -v corepack >/dev/null 2>&1; then
