@@ -241,7 +241,7 @@ check_launchd_daemons() {
 
   local plist label namespace namespace_file namespace_status found=0
   namespace_file="$HOME/.config/dotfiles/launchd-namespace"
-  if namespace="$(dotfiles_resolve_launchd_namespace_contract "${DOTFILES_LAUNCHD_NAMESPACE:-}" "$namespace_file")"; then
+  if namespace="$(dotfiles_resolve_launchd_namespace_contract "${DOTFILES_LAUNCHD_NAMESPACE:-}" "$namespace_file" "$(id -u)")"; then
     :
   else
     namespace_status=$?

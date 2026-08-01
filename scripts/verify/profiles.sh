@@ -71,6 +71,17 @@ elif [ "$?" -ne 3 ]; then
   fail "unreadable persisted profile did not return its distinct status"
 fi
 rm "$profile_home/.config/dotfiles/profile"
+printf 'assistant\nextra\n' > "$profile_home/.config/dotfiles/profile"
+if HOME="$profile_home" dotfiles_resolve_profile >/dev/null 2>&1; then
+  fail "multi-record persisted profile was accepted"
+fi
+rm "$profile_home/.config/dotfiles/profile"
+printf 'assistant\n' > "$profile_home/profile-target"
+ln -s "$profile_home/profile-target" "$profile_home/.config/dotfiles/profile"
+if HOME="$profile_home" dotfiles_resolve_profile >/dev/null 2>&1; then
+  fail "symlinked persisted profile was accepted"
+fi
+rm "$profile_home/.config/dotfiles/profile"
 
 config_home="$tmp_root/config-paths"
 mkdir -p "$config_home/.config/uinaf"
@@ -136,6 +147,17 @@ fi
   || fail "rejected legacy config symlink was mutated"
 [ ! -e "$symlink_home/.config/dotfiles/devbox.env" ] \
   || fail "rejected legacy config symlink created a canonical target"
+
+symlink_dir_home="$tmp_root/legacy-symlink-directory"
+symlink_dir_target="$tmp_root/legacy-symlink-directory-target"
+mkdir -p "$symlink_dir_home/.config" "$symlink_dir_target"
+printf 'DEVBOX_USER=external\n' > "$symlink_dir_target/devbox.env"
+ln -s "$symlink_dir_target" "$symlink_dir_home/.config/uinaf"
+if HOME="$symlink_dir_home" "$repo_root/scripts/bootstrap/apply-dotfiles.sh" --profile assistant >/dev/null 2>&1; then
+  fail "legacy config migration accepted a symlinked directory"
+fi
+[ -f "$symlink_dir_target/devbox.env" ] \
+  || fail "rejected legacy config directory removed an external file"
 
 task_home="$tmp_root/task-profile"
 mkdir -p "$task_home"

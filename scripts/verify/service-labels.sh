@@ -42,6 +42,15 @@ printf 'org.example.dotfiles\n' > "$namespace_file"
 if dotfiles_resolve_launchd_namespace_contract local.dotfiles "$namespace_file" >/dev/null 2>&1; then
   fail "conflicting explicit namespace was accepted"
 fi
+chmod 0644 "$namespace_file"
+if dotfiles_resolve_launchd_namespace_contract '' "$namespace_file" >/dev/null 2>&1; then
+  fail "group/world-readable stored namespace was accepted"
+fi
+chmod 0600 "$namespace_file"
+printf 'org.example.dotfiles\nsecond.record\n' > "$namespace_file"
+if dotfiles_resolve_launchd_namespace_contract '' "$namespace_file" >/dev/null 2>&1; then
+  fail "multi-record stored namespace was accepted"
+fi
 : > "$namespace_file"
 if dotfiles_resolve_launchd_namespace_contract '' "$namespace_file" >/dev/null 2>&1; then
   fail "empty stored namespace was accepted"

@@ -15,15 +15,31 @@ dotfiles_resolve_launchd_namespace() {
 dotfiles_resolve_launchd_namespace_contract() {
   local requested_namespace="${1:-}"
   local namespace_file="${2:-}"
+  local expected_uid="${3:-}"
   local requested_resolved=""
   local stored_namespace=""
+  local namespace_mode=""
+  local namespace_uid=""
 
   if [ -n "$requested_namespace" ]; then
     requested_resolved="$(dotfiles_resolve_launchd_namespace "$requested_namespace")" || return 2
   fi
   if [ -n "$namespace_file" ] \
     && { [ -e "$namespace_file" ] || [ -L "$namespace_file" ]; }; then
-    [ -r "$namespace_file" ] || return 4
+    [ -f "$namespace_file" ] && [ ! -L "$namespace_file" ] && [ -r "$namespace_file" ] \
+      || return 4
+    if [ "$(uname -s)" = Darwin ]; then
+      namespace_mode="$(stat -f '%Lp' "$namespace_file")" || return 4
+      namespace_uid="$(stat -f '%u' "$namespace_file")" || return 4
+    else
+      namespace_mode="$(stat -c '%a' "$namespace_file" 2>/dev/null)" || return 4
+      namespace_uid="$(stat -c '%u' "$namespace_file")" || return 4
+    fi
+    [ "$namespace_mode" = 600 ] || return 4
+    if [ -n "$expected_uid" ] && [ "$namespace_uid" != "$expected_uid" ]; then
+      return 4
+    fi
+    awk 'END { exit NR == 1 ? 0 : 1 }' "$namespace_file" || return 4
     stored_namespace="$(sed -n '1p' "$namespace_file")"
     [ -n "$stored_namespace" ] || return 2
     stored_namespace="$(dotfiles_resolve_launchd_namespace "$stored_namespace")" || return 2

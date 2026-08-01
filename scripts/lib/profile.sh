@@ -41,7 +41,9 @@ dotfiles_resolve_profile() {
 
   if [ -z "$requested" ]; then
     if [ -e "$profile_file" ] || [ -L "$profile_file" ]; then
-      [ -r "$profile_file" ] || return 3
+      [ -f "$profile_file" ] && [ ! -L "$profile_file" ] && [ -r "$profile_file" ] \
+        || return 3
+      awk 'END { exit NR == 1 ? 0 : 1 }' "$profile_file" || return 3
       IFS= read -r requested < "$profile_file" || return 3
     elif [ "$explicit_profile_file" -eq 1 ]; then
       return 3

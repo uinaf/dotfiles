@@ -157,6 +157,9 @@ stage_legacy_config() {
   local managed_targets
   local name
 
+  if [ -L "$legacy_dir" ]; then
+    fail "legacy config directory symlinks must be resolved manually before migration: $legacy_dir"
+  fi
   [ -d "$legacy_dir" ] || return 0
   managed_targets="$("${chezmoi_base[@]}" managed --include=files,symlinks --path-style absolute)"
 

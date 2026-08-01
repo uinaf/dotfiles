@@ -110,7 +110,7 @@ target_group="$(id -gn "$target_user")"
 target_home="$(dscl . -read "/Users/$target_user" NFSHomeDirectory 2>/dev/null | awk '{print $2}')"
 [ -n "$target_home" ] && [ -d "$target_home" ] || fail "missing home for $target_user"
 launchd_namespace_file="$target_home/.config/dotfiles/launchd-namespace"
-if launchd_namespace="$(dotfiles_resolve_launchd_namespace_contract "$launchd_namespace" "$launchd_namespace_file")"; then
+if launchd_namespace="$(dotfiles_resolve_launchd_namespace_contract "$launchd_namespace" "$launchd_namespace_file" "$target_uid")"; then
   :
 else
   namespace_status=$?
