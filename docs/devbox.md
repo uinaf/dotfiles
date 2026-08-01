@@ -154,6 +154,24 @@ Then run:
 ./scripts/secrets/infisical-devbox-sudo.sh -- <non-interactive-command>
 ```
 
+For a SOPS-backed deployment, keep the same inner `SUDO_PASSWORD_AGE`
+ciphertext in an identity-scoped SOPS payload and set its absolute path in the
+owner-only devbox config:
+
+```dotenv
+SOPS_SUDO_SECRET_FILE=/absolute/path/to/identity-sudo.sops.json
+```
+
+Run the equivalent process-boundary wrapper:
+
+```sh
+./scripts/secrets/sops-devbox-sudo.sh -- <non-interactive-command>
+```
+
+The deployment's general SOPS age identity decrypts the outer payload. The
+separate sudo age identity decrypts the password only when askpass is invoked.
+Both identities must remain owner-only and have independent recovery copies.
+
 Commands such as Homebrew must remain unprivileged but may invoke sudo for a
 narrow application-bundle ownership step. Run those through nested mode so the
 child command receives the fixed askpass boundary without running the whole
