@@ -134,7 +134,7 @@ assert_eq "$(printf 'Brewfile\nBrewfile.developer\nBrewfile.workstation')" "$wor
 assistant_steps="$("$repo_root/scripts/bootstrap/install.sh" --print-steps --profile assistant)"
 assert_eq "$(printf 'apply-dotfiles\ninstall-gh-app-auth')" "$assistant_steps" "assistant install steps"
 developer_steps="$("$repo_root/scripts/bootstrap/install.sh" --print-steps --profile workstation)"
-for step in apply-dotfiles trust-agent-worktrees install-gh-extensions install-native-pnpm configure-codex; do
+for step in apply-dotfiles trust-agent-worktrees install-gh-extensions remove-global-vite-plus install-pnpm configure-codex; do
   printf '%s\n' "$developer_steps" | grep -Fqx "$step" || fail "workstation install missed $step"
 done
 devbox_steps="$("$repo_root/scripts/bootstrap/install.sh" --print-steps --profile devbox)"
@@ -158,7 +158,7 @@ fi
 EOF
   chmod 0700 "$install_fixture/scripts/bootstrap/$helper"
 done
-for command_name in corepack npm codex; do
+for command_name in corepack mise npm codex; do
 cat > "$install_fixture/bin/$command_name" <<'EOF'
 #!/usr/bin/env bash
 printf '%s' "$(basename "$0")" >> "${DOTFILES_INSTALL_LOG:?}"
@@ -185,8 +185,10 @@ expected_install_log="$(cat <<'EOF'
 apply-dotfiles.sh --profile devbox
 trust-agent-worktrees.sh
 install-gh-extensions.sh
-corepack disable pnpm
-npm install --global --allow-scripts=pnpm pnpm@12.0.0-beta.2
+mise uninstall --all --yes npm:vite-plus
+mise reshim
+corepack enable pnpm
+corepack install --global pnpm@11.18.0
 configure-codex.sh
 EOF
 )"
@@ -232,6 +234,11 @@ done
 workstation_mise="$(render_target workstation .config/mise/config.toml)"
 for expected in 'bun = "1.3.10"' 'java = "temurin-21"' 'go = "1.26.2"' 'trusted_config_paths'; do
   printf '%s\n' "$workstation_mise" | grep -Fq "$expected" || fail "workstation mise config missed $expected"
+done
+for rejected in 'pnpm@12.0.0-beta.2' 'npm:vite-plus'; do
+  if printf '%s\n' "$workstation_mise" | grep -Fq "$rejected"; then
+    fail "workstation mise config included retired tooling $rejected"
+  fi
 done
 
 devbox_mise="$(render_target devbox .config/mise/config.toml)"

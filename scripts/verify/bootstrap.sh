@@ -148,6 +148,23 @@ check_exact_version() {
   fi
 }
 
+check_default_pnpm_version() {
+  local expected="$1"
+  local actual
+
+  section "pnpm version"
+  actual="$(
+    probe_dir="$(mktemp -d)"
+    trap 'rmdir "$probe_dir"' EXIT
+    cd "$probe_dir"
+    zsh -lic 'pnpm --version'
+  )" || fail "pnpm version"
+  printf '%s\n' "$actual"
+  if [ "$actual" != "$expected" ]; then
+    fail "pnpm version is $actual; expected $expected"
+  fi
+}
+
 check_mise_tool_owner() {
   local label="$1"
   local command="$2"
@@ -181,14 +198,18 @@ check_runtime_versions() {
     return
   fi
 
-  check_exact_version "pnpm" "12.0.0-beta.2" "pnpm --version"
+  check_default_pnpm_version "11.18.0"
   check_exact_version "npm" "12.0.1" "npm --version"
   check_exact_version "Playwright CLI" "0.1.17" "playwright-cli --version"
-  check_exact_version "Vite+" "vp v0.2.5" "vp --version 2>/dev/null | head -n 1"
   check_mise_tool_owner "pnpm" "pnpm" "node"
   check_mise_tool_owner "npm" "npm" "node"
   check_mise_tool_owner "Playwright CLI" "playwright-cli" "npm:@playwright/cli"
-  check_mise_tool_owner "Vite+" "vp" "npm:vite-plus"
+
+  section "global Vite+"
+  if zsh -lic 'command -v vp >/dev/null 2>&1'; then
+    fail "vp is available globally; Vite+ must resolve from each repository"
+  fi
+  printf 'ok no global vp command\n'
 
   section "npm isolation"
   node_root="$(zsh -lic 'mise where node')" || fail "mise Node root"

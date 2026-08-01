@@ -59,12 +59,6 @@ typeset -U path PATH
 # User binaries
 path+=("$HOME/.local/bin")
 
-# Vite+
-if [ -f "$HOME/.vite-plus/env" ]; then
-  . "$HOME/.vite-plus/env"
-  path+=("$HOME/.vite-plus/bin")
-fi
-
 typeset -U path PATH
 
 if command -v mise >/dev/null 2>&1; then

@@ -41,7 +41,7 @@ Workstation and devbox retain the full shared development runtime set.
 Assistant dotfile application installs a minimal Git base without GitHub
 authentication. It skips developer signing, credential helpers, outbound SSH
 configuration, Zed, and Ghostty state. It also skips developer worktree trust,
-native pnpm setup, Codex desktop defaults, and developer-only GitHub
+stable Corepack-managed pnpm setup, Codex desktop defaults, and developer-only GitHub
 extensions. The assistant install step adds a pinned `gh-app-auth` execution
 adapter without provisioning credentials.
 

@@ -57,7 +57,8 @@ install_steps() {
   elif dotfiles_profile_is_developer "$profile"; then
     printf 'trust-agent-worktrees\n'
     printf 'install-gh-extensions\n'
-    printf 'install-native-pnpm\n'
+    printf 'remove-global-vite-plus\n'
+    printf 'install-pnpm\n'
     printf 'configure-codex\n'
   fi
 }
@@ -76,14 +77,18 @@ run_step() {
     install-gh-extensions)
       "$repo_root/scripts/bootstrap/install-gh-extensions.sh"
       ;;
-    install-native-pnpm)
-      if command -v npm >/dev/null 2>&1; then
-        if command -v corepack >/dev/null 2>&1; then
-          corepack disable pnpm || true
-        fi
-        npm install --global --allow-scripts=pnpm pnpm@12.0.0-beta.2
+    remove-global-vite-plus)
+      if command -v mise >/dev/null 2>&1; then
+        mise uninstall --all --yes npm:vite-plus
+        mise reshim
+      fi
+      ;;
+    install-pnpm)
+      if command -v corepack >/dev/null 2>&1; then
+        corepack enable pnpm
+        corepack install --global pnpm@11.18.0
       else
-        printf 'skipped pnpm setup; install the pinned Node runtime with mise install\n' >&2
+        printf 'skipped pnpm setup; install the pinned Node runtime with Corepack support\n' >&2
       fi
       ;;
     configure-codex)
