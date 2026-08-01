@@ -91,6 +91,9 @@ printf 'ok managed Ghostty SSH environment and terminfo integration\n'
 section "Infisical sudo runner"
 ./scripts/verify/infisical-devbox-sudo.sh
 
+section "SOPS age identity"
+./scripts/verify/sops-age-identity.sh
+
 section "devbox Homebrew wrapper"
 ./scripts/verify/brew-devbox.sh
 

@@ -11,6 +11,8 @@ private machine state into repository state.
 
 Start with [README](README.md). Use [Bootstrap guide](docs/bootstrap.md) for
 install steps, [User profiles](docs/profiles.md) for per-user role boundaries,
+[Identity provisioning](docs/identities.md) for age, SSH, GitHub, and recovery
+boundaries,
 [Devbox setup](docs/devbox.md) for shared agent hosts, and
 [Agent readiness](docs/agent-readiness.md) for verification expectations. Use
 [Chezmoi source state](docs/chezmoi.md) for dotfile changes and
@@ -47,6 +49,7 @@ service-account refresh stacks.
 3. Read only the relevant deep doc:
    - workstation or first-machine setup: [Bootstrap guide](docs/bootstrap.md)
    - user-role boundaries: [User profiles](docs/profiles.md)
+   - age, SSH, GitHub, or recovery identity: [Identity provisioning](docs/identities.md)
    - shared agent host: [Devbox setup](docs/devbox.md)
    - dotfile source changes: [Chezmoi source state](docs/chezmoi.md)
    - mise task or runtime changes: [Mise tasks](docs/mise.md)

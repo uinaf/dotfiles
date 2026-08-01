@@ -13,9 +13,10 @@ Installed paths, commands, and configuration keys use generic `dotfiles`
 names. Repository, tap, contact, and identifiers documented only in the manual
 breaking-change guide retain their real external coordinates.
 
-It does not own secrets, identity, Codex auth/state, browser profiles, app
-caches, dependency folders, build output, or project checkouts. Those stay
-machine-local.
+It does not own secret values, private identity material, Codex auth/state,
+browser profiles, app caches, dependency folders, build output, or project
+checkouts. Those stay machine-local or in their approved recovery system. It
+does own portable identity provisioning and verification mechanics.
 
 ## Choose a Profile
 
@@ -48,6 +49,7 @@ cd ~/projects/dotfiles
 
 ./scripts/bootstrap/brew-bundle.sh workstation
 ./scripts/bootstrap/install.sh --profile workstation
+./scripts/secrets/configure-sops-age-identity.sh
 ./scripts/bootstrap/configure-git.sh --profile workstation
 ./scripts/bootstrap/configure-power.sh --profile workstation
 ./scripts/bootstrap/configure-spotlight.sh
@@ -79,6 +81,7 @@ pins.
 | mise | `chezmoi/private_dot_config/mise/config.toml.tmpl` | repo-local runtime files; the selected profile controls machine runtime pins |
 | Git | `chezmoi/dot_gitconfig.tmpl` | `~/.gitconfig.local`; assistants use workload authorship only |
 | GitHub CLI | Developer and assistant layers install `gh`; developers receive `github/gh-stack`, while assistants receive a pinned `gh-app-auth` execution adapter | GitHub App credentials, token policy, and unrelated extensions |
+| SOPS and age | Base layer plus explicit per-user identity provisioning | private identity backup, repository recipient policy, and encrypted payloads |
 | SSH (workstation/devbox) | `chezmoi/private_dot_ssh/private_config` | `~/.ssh/github.config`, `~/.ssh/config.local`, private keys |
 | Codex | installer-managed defaults, including ChatGPT-login enforcement | auth, sessions, approvals, memory, worktrees |
 | Editors | developer Homebrew layer and chezmoi-managed Zed/Ghostty defaults | app state, fonts, caches |
@@ -95,6 +98,7 @@ Keep these out of Git:
 - Git identity and signing keys.
 - Infisical workspace/project auth and 1Password human vault references.
 - SSH private keys, certificates, Tizen archives, and device keys.
+- SOPS age private identities and decrypted secret files.
 - Codex auth, Browser approvals, sessions, caches, worktrees, and app state.
 - Browser profiles, Docker/Colima state, dependency folders, and build output.
 
@@ -168,6 +172,7 @@ audit, and macOS Security Compliance Project flow.
 | --- | --- |
 | Install or update a Mac | [Bootstrap guide](docs/bootstrap.md) |
 | Choose a per-user role | [User profiles](docs/profiles.md) |
+| Provision and recover an identity | [Identity provisioning](docs/identities.md) |
 | Operate a shared agent host | [Devbox setup](docs/devbox.md) |
 | Understand dotfile source state | [Chezmoi source state](docs/chezmoi.md) |
 | Understand mise tasks and runtime pins | [Mise tasks](docs/mise.md) |
