@@ -21,7 +21,7 @@ host-wide on macOS. Run those changes once from an authorized host
 administrator. Applying a per-user profile must not imply that the user owns or
 may mutate every host-wide dependency.
 
-The role is stored in `~/.config/uinaf/profile`. Per-user verification checks
+The role is stored in `~/.config/dotfiles/profile`. Per-user verification checks
 that the selected role matches this marker.
 
 Shared software visibility is not isolation. Enforce isolation with Unix
@@ -54,7 +54,7 @@ operator input and are never tracked.
 
 Assistant GitHub authentication is separate from commit authorship. Use a
 short-lived GitHub App installation token over an HTTPS remote through
-`~/.local/bin/uinaf-git-app`. Do not persist the token in the remote URL, Git
+`~/.local/bin/git-as-github-app`. Do not persist the token in the remote URL, Git
 configuration, `gh auth`, or SSH keys. The wrapper reads
 `GITHUB_APP_INSTALLATION_TOKEN` only from the command environment.
 
@@ -110,3 +110,7 @@ Profile application adds or updates declared state. It does not uninstall
 host-wide Homebrew packages or delete existing credentials, editor state,
 runtimes, or service data. Audit and remove those separately only after proving
 that retained workloads do not depend on them.
+
+On apply, known files from the legacy `~/.config/uinaf` namespace move to
+`~/.config/dotfiles` when the canonical target does not already exist. A
+conflicting legacy file is retained and reported instead of overwritten.

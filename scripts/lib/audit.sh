@@ -148,7 +148,7 @@ scan_files_for_secrets() {
     return
   fi
 
-  scan_root="$(mktemp -d "${TMPDIR:-/tmp}/uinaf-secret-scan.XXXXXX")"
+  scan_root="$(mktemp -d "${TMPDIR:-/tmp}/dotfiles-secret-scan.XXXXXX")"
   chmod 700 "$scan_root"
 
   while IFS= read -r path; do
@@ -239,7 +239,7 @@ find_matching_files() {
 }
 
 load_audit_policy() {
-  local policy_path="${AUDIT_POLICY_FILE:-$HOME/.config/uinaf/audit.env}"
+  local policy_path="${AUDIT_POLICY_FILE:-$HOME/.config/dotfiles/audit.env}"
 
   if [ ! -e "$policy_path" ]; then
     return 0

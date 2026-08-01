@@ -79,7 +79,7 @@ if [ -z "$profile" ]; then
   exit 2
 fi
 
-if ! profile="$(uinaf_normalize_profile "$profile")"; then
+if ! profile="$(dotfiles_normalize_profile "$profile")"; then
   usage >&2
   exit 2
 fi
@@ -90,7 +90,7 @@ if [ "$print_files" -eq 1 ]; then
   else
     while IFS= read -r file; do
       printf '%s/%s\n' "$repo_root" "$file"
-    done < <(uinaf_profile_brewfiles "$profile")
+    done < <(dotfiles_profile_brewfiles "$profile")
   fi
   exit 0
 fi
@@ -103,7 +103,7 @@ fi
 run_bundle() {
   local file="$1"
   printf '\n## brew bundle --file %s\n' "$file"
-  if uinaf_profile_uses_shared_brew "$profile"; then
+  if dotfiles_profile_uses_shared_brew "$profile"; then
     "$repo_root/scripts/bootstrap/brew-devbox.sh" bundle --file "$file"
   else
     brew bundle --file "$file"
@@ -113,7 +113,7 @@ run_bundle() {
 run_bundle "$repo_root/Brewfile"
 
 if [ "$shared_only" -eq 0 ]; then
-  if uinaf_profile_is_developer "$profile"; then
+  if dotfiles_profile_is_developer "$profile"; then
     run_bundle "$repo_root/Brewfile.developer"
   fi
   run_bundle "$repo_root/Brewfile.$profile"

@@ -16,7 +16,7 @@ Usage:
   scripts/bootstrap/install.sh --print-steps --profile PROFILE
 
 Applies per-user dotfiles and runs only the setup steps owned by the selected
-role. An existing ~/.config/uinaf/profile is used when --profile is omitted.
+role. An existing ~/.config/dotfiles/profile is used when --profile is omitted.
 USAGE
 }
 
@@ -45,14 +45,14 @@ while [ "$#" -gt 0 ]; do
   shift
 done
 
-if ! profile="$(uinaf_resolve_profile "$profile")"; then
+if ! profile="$(dotfiles_resolve_profile "$profile")"; then
   printf 'a supported profile is required: workstation, devbox, or assistant\n' >&2
   exit 2
 fi
 
 if [ "$print_steps" -eq 1 ]; then
   printf 'apply-dotfiles\n'
-  if uinaf_profile_is_developer "$profile"; then
+  if dotfiles_profile_is_developer "$profile"; then
     printf 'trust-agent-worktrees\n'
     printf 'install-gh-extensions\n'
     printf 'install-native-pnpm\n'
@@ -63,7 +63,7 @@ fi
 
 "$repo_root/scripts/bootstrap/apply-dotfiles.sh" --profile "$profile"
 
-if uinaf_profile_is_developer "$profile"; then
+if dotfiles_profile_is_developer "$profile"; then
   "$repo_root/scripts/bootstrap/trust-agent-worktrees.sh"
   "$repo_root/scripts/bootstrap/install-gh-extensions.sh"
 

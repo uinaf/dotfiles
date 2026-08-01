@@ -57,7 +57,7 @@ while IFS= read -r entry; do
   [ -n "$entry" ] || continue
   key="${entry%%=*}"
   case "$key" in
-    user.name|user.email|commit.gpgsign|tag.gpgsign|uinaf.identity) ;;
+    user.name|user.email|commit.gpgsign|tag.gpgsign|dotfiles.identity) ;;
     *) fail "assistant workload Git config contains unsupported key: $key" ;;
   esac
 done <<< "$workload_entries"
@@ -70,7 +70,7 @@ done <<< "$workload_entries"
   || fail "assistant workload commits must not use a persisted signing key"
 [ "$(git config --file "$workload_config" --get tag.gpgsign)" = false ] \
   || fail "assistant workload tags must not use a persisted signing key"
-[ "$(git config --file "$workload_config" --get uinaf.identity)" = workload ] \
+[ "$(git config --file "$workload_config" --get dotfiles.identity)" = workload ] \
   || fail "assistant Git identity is not marked as workload-owned"
 
 for tracked_backup in "$HOME"/.gitconfig.backup.*; do
@@ -93,7 +93,8 @@ done <<< "$extra_git_configs"
 if [ -e "$HOME/.config/git/allowed_signers.local" ]; then
   fail "assistant has persisted Git signing identity material"
 fi
-if [ -e "$HOME/.local/libexec/uinaf/git-ssh-sign-agentless" ]; then
+if [ -e "$HOME/.local/libexec/dotfiles/git-ssh-sign-agentless" ] \
+  || [ -e "$HOME/.local/libexec/uinaf/git-ssh-sign-agentless" ]; then
   fail "assistant has a persisted Git signing helper"
 fi
 

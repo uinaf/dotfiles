@@ -137,7 +137,7 @@ defaults write com.apple.WindowManager StageManagerHideWidgets -bool true
 
 wallpaper_dir="$(dirname "$wallpaper_index")"
 mkdir -p "$wallpaper_dir"
-tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/uinaf-desktop.XXXXXX")"
+tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/dotfiles-desktop.XXXXXX")"
 trap 'rm -rf "$tmp_dir"' EXIT
 tmp_index="$tmp_dir/Index.plist"
 

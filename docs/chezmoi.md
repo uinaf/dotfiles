@@ -13,16 +13,16 @@ Use chezmoi source attributes instead of literal target filenames:
 | `chezmoi/dot_zshrc` | `~/.zshrc` |
 | `chezmoi/dot_gitconfig.tmpl` | `~/.gitconfig` |
 | `chezmoi/private_dot_config/mise/config.toml.tmpl` | `~/.config/mise/config.toml` |
-| `chezmoi/private_dot_config/private_uinaf/profile.tmpl` | `~/.config/uinaf/profile` |
+| `chezmoi/private_dot_config/private_dotfiles/profile.tmpl` | `~/.config/dotfiles/profile` |
 | `chezmoi/private_dot_ssh/private_config` | `~/.ssh/config` |
-| `chezmoi/private_dot_local/private_libexec/private_uinaf/private_executable_git-ssh-sign-agentless` | `~/.local/libexec/uinaf/git-ssh-sign-agentless` |
+| `chezmoi/private_dot_local/private_libexec/private_dotfiles/private_executable_git-ssh-sign-agentless` | `~/.local/libexec/dotfiles/git-ssh-sign-agentless` |
 | `chezmoi/private_dot_config/zed/private_settings.json` | `~/.config/zed/settings.json` |
 
 The `private_` attribute is used for parent config directories and files that
 should land as owner-only local config.
 
 The assistant profile renders a minimal Git base with a local workload-identity
-include and installs `~/.local/bin/uinaf-git-app` for ephemeral HTTPS
+include and installs `~/.local/bin/git-as-github-app` for ephemeral HTTPS
 authentication. It excludes the outbound SSH, signing-helper, allowed-signers,
 Zed, and Ghostty sources used by workstation and devbox profiles.
 
@@ -63,9 +63,9 @@ For normal edits:
 3. If changing bootstrap behavior, test in a temporary destination:
 
 ```zsh
-tmp_dest="$(mktemp -d /tmp/uinaf-chezmoi-apply.XXXXXX)"
+tmp_dest="$(mktemp -d /tmp/dotfiles-chezmoi-apply.XXXXXX)"
 chezmoi --source "$PWD/chezmoi" --destination "$tmp_dest" \
-  --override-data '{"uinafProfile":"workstation"}' --force apply
+  --override-data '{"dotfilesProfile":"workstation"}' --force apply
 find "$tmp_dest" -maxdepth 4 -type f -o -type l | sort
 rm -rf "$tmp_dest"
 ```

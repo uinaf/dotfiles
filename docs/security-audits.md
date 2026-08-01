@@ -51,8 +51,8 @@ check failed.
 
 ## Local Audit Policy
 
-Shared audit policy lives in `~/.config/uinaf/audit.env`, installed from the
-tracked `chezmoi/private_dot_config/uinaf/audit.env`. Keep it public-safe: it may contain
+Shared audit policy lives in `~/.config/dotfiles/audit.env`, installed from the
+tracked `chezmoi/private_dot_config/private_dotfiles/audit.env`. Keep it public-safe: it may contain
 accepted scope names and drift thresholds, but never secrets, tokens, 1Password
 references, or identity-specific values.
 
@@ -194,7 +194,7 @@ It checks:
 - Gitleaks and TruffleHog do not report leaks in shell startup backups, Git
   config backups, SSH config backups, process-compose backups, workspace
   env backups, common credential files, Docker config, LaunchAgents, or
-  uinaf LaunchDaemons
+  managed LaunchDaemons
 - application credential, device, identity, and plugin-runtime stores are
   excluded from the default local secret scan when they are known runtime
   stores; backups and rollback files are scanned because they are common

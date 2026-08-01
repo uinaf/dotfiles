@@ -2,7 +2,7 @@
 
 ## Scope
 
-This repo is a public Mac bootstrap layer for uinaf machines.
+This repo is a reusable public macOS bootstrap layer.
 
 Keep changes portable. Machine identity, secrets, tokens, keys, certificates,
 Codex state, browser profiles, app caches, and project checkouts stay local.
@@ -15,8 +15,8 @@ the [Bootstrap guide](docs/bootstrap.md), then choose the profile for this Mac:
 ```zsh
 gh auth login
 
-gh repo clone uinaf/dotfiles ~/projects/uinaf/dotfiles
-cd ~/projects/uinaf/dotfiles
+gh repo clone uinaf/dotfiles ~/projects/dotfiles
+cd ~/projects/dotfiles
 profile=workstation # use devbox for a remote coding identity
 ./scripts/bootstrap/brew-bundle.sh "$profile"
 ```

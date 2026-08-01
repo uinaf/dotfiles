@@ -139,7 +139,7 @@ if ! command -v lynis >/dev/null 2>&1; then
   lynis_suggestion_count=0
   ran_privileged=0
 else
-  tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/uinaf-lynis.XXXXXX")"
+  tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/dotfiles-lynis.XXXXXX")"
   chmod 700 "$tmp_dir"
   report_file="$tmp_dir/lynis-report.dat"
   log_file="$tmp_dir/lynis.log"

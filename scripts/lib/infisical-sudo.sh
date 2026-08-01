@@ -43,9 +43,9 @@ infisical_sudo_prepare() {
   tmp_base="${TMPDIR:-/tmp}"
   [ "$tmp_base" = "/" ] || tmp_base="${tmp_base%/}"
   [ -n "$tmp_base" ] && [ "${tmp_base#/}" != "$tmp_base" ] && [ -d "$tmp_base" ] || return 1
-  INFISICAL_SUDO_TMP_DIR="$(mktemp -d "$tmp_base/uinaf-sudo.XXXXXX")" || return 1
+  INFISICAL_SUDO_TMP_DIR="$(mktemp -d "$tmp_base/dotfiles-sudo.XXXXXX")" || return 1
   case "$INFISICAL_SUDO_TMP_DIR" in
-    "$tmp_base"/uinaf-sudo.*) ;;
+    "$tmp_base"/dotfiles-sudo.*) ;;
     *)
       infisical_sudo_cleanup
       return 1

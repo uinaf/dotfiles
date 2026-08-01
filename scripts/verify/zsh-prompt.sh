@@ -20,15 +20,15 @@ unset \
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 zshrc="$repo_root/chezmoi/dot_zshrc"
-test_home="$(mktemp -d "${TMPDIR:-/tmp}/uinaf-zsh-prompt.XXXXXX")"
+test_home="$(mktemp -d "${TMPDIR:-/tmp}/dotfiles-zsh-prompt.XXXXXX")"
 
 cleanup() {
   rm -rf "$test_home"
 }
 trap cleanup EXIT
 
-mkdir -p "$test_home/.config/uinaf"
-touch "$test_home/.config/uinaf/devbox.env"
+mkdir -p "$test_home/.config/dotfiles"
+touch "$test_home/.config/dotfiles/devbox.env"
 git init -q "$test_home/repo"
 git -C "$test_home/repo" symbolic-ref HEAD refs/heads/demo
 

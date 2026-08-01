@@ -79,8 +79,8 @@ identity ID shown in the identity details panel. Humans should source those
 values from their secret manager, usually 1Password or Infisical, and enter them
 locally. Do not paste them into agent chat.
 
-It writes non-secret selectors to `~/.config/uinaf/devbox.env` and machine
-credentials to `~/.config/uinaf/infisical-machine.env`. Both files must be mode
+It writes non-secret selectors to `~/.config/dotfiles/devbox.env` and machine
+credentials to `~/.config/dotfiles/infisical-machine.env`. Both files must be mode
 `0600`. The helper refuses to continue when the Infisical CLI has an
 authenticated human `user` session and verifies the machine identity can mint a
 token before writing config. It does not persist secret paths; paths belong at
@@ -102,7 +102,7 @@ Repo-local setup example:
 
 ```sh
 INFISICAL_SECRET_PATH=/example-repo/runtime \
-  ~/projects/uinaf/dotfiles/scripts/secrets/infisical-devbox-run.sh -- \
+  ~/projects/dotfiles/scripts/secrets/infisical-devbox-run.sh -- \
   make secrets-setup
 ```
 
@@ -113,7 +113,7 @@ OpenClaw-shaped example:
 
 ```sh
 INFISICAL_SECRET_PATH=/example-devbox/openclaw-env \
-  ~/projects/uinaf/dotfiles/scripts/secrets/infisical-devbox-run.sh -- \
+  ~/projects/dotfiles/scripts/secrets/infisical-devbox-run.sh -- \
   openclaw <env-render-or-run-command>
 ```
 
@@ -123,7 +123,7 @@ not in this public repo.
 For unattended elevated maintenance, store only an ASCII-armored age ciphertext
 as `SUDO_PASSWORD_AGE` in the identity's Infisical folder. Never store the
 plaintext password in Infisical. Each host keeps a dedicated age identity at
-`~/.config/uinaf/sudo-age-identity.txt` with mode `0600`; its private value is
+`~/.config/dotfiles/sudo-age-identity.txt` with mode `0600`; its private value is
 recovery material and may be backed up to the matching human 1Password item.
 Create or verify the local identity and print its public recipient with:
 
@@ -191,7 +191,7 @@ Small `AGENTS.md` snippet for a repo that frequently needs runtime secrets:
 
 On agent devboxes, use Infisical through the dotfiles runner:
 
-`INFISICAL_SECRET_PATH=/this-repo/runtime ~/projects/uinaf/dotfiles/scripts/secrets/infisical-devbox-run.sh -- make secrets-setup`
+`INFISICAL_SECRET_PATH=/this-repo/runtime ~/projects/dotfiles/scripts/secrets/infisical-devbox-run.sh -- make secrets-setup`
 
 Do not use 1Password, workspace `.env` symlinks, or committed/generated secret
 files for agent runtime env.
@@ -319,7 +319,7 @@ INFISICAL_ENV=dev
 ```
 
 The file should be mode `0600`. Persistent machine credentials live separately
-in `~/.config/uinaf/infisical-machine.env`, also mode `0600`:
+in `~/.config/dotfiles/infisical-machine.env`, also mode `0600`:
 
 ```sh
 INFISICAL_CLIENT_ID=...

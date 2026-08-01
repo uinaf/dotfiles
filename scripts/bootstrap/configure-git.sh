@@ -6,7 +6,7 @@ profile="${DOTFILES_PROFILE:-}"
 git_name="${GIT_USER_NAME:-}"
 git_email="${GIT_USER_EMAIL:-}"
 signing_key="${GIT_SIGNING_KEY:-}"
-agentless_signing_program="$HOME/.local/libexec/uinaf/git-ssh-sign-agentless"
+agentless_signing_program="$HOME/.local/libexec/dotfiles/git-ssh-sign-agentless"
 sign_commits="${GIT_SIGN_COMMITS:-}"
 allowed_signer_principal="${GIT_ALLOWED_SIGNER_PRINCIPAL:-}"
 git_ssh_identity_file="${GIT_SSH_IDENTITY_FILE:-}"
@@ -35,7 +35,7 @@ Environment:
   GIT_SSH_IDENTITY_FILE optional SSH private key path for git@github.com; devbox defaults to GIT_SIGNING_KEY
 
 Assistant push authentication is separate. Supply a short-lived
-GITHUB_APP_INSTALLATION_TOKEN to ~/.local/bin/uinaf-git-app.
+GITHUB_APP_INSTALLATION_TOKEN to ~/.local/bin/git-as-github-app.
 EOF
 }
 
@@ -151,13 +151,13 @@ validate_github_ssh_config() {
   fi
 
   if [ -f "$ssh_github_config" ] && ! awk '
-    $0 == "# uinaf-dotfiles: github-ssh begin" {
+    $0 == "# dotfiles: github-ssh begin" || $0 == "# uinaf-dotfiles: github-ssh begin" {
       if (managed || blocks) exit 1
       managed = 1
       blocks = 1
       next
     }
-    $0 == "# uinaf-dotfiles: github-ssh end" {
+    $0 == "# dotfiles: github-ssh end" || $0 == "# uinaf-dotfiles: github-ssh end" {
       if (!managed) exit 1
       managed = 0
       next
@@ -167,7 +167,7 @@ validate_github_ssh_config() {
       if (managed || blocks != 1 || unmanaged) exit 1
     }
   ' "$ssh_github_config"; then
-    printf 'cannot configure git@github.com SSH auth; existing file is not managed exclusively by uinaf dotfiles: %s\n' "$ssh_github_config" >&2
+    printf 'cannot configure git@github.com SSH auth; existing file is not managed exclusively by these dotfiles: %s\n' "$ssh_github_config" >&2
     printf 'move it aside or migrate its directives to ~/.ssh/config.local before rerunning configure-git.sh\n' >&2
     exit 1
   fi
@@ -175,12 +175,12 @@ validate_github_ssh_config() {
   [ -f "$ssh_config_local" ] || return 0
 
   if ! awk '
-    $0 == "# uinaf-dotfiles: github-ssh begin" {
+    $0 == "# dotfiles: github-ssh begin" || $0 == "# uinaf-dotfiles: github-ssh begin" {
       if (managed) exit 1
       managed = 1
       next
     }
-    $0 == "# uinaf-dotfiles: github-ssh end" {
+    $0 == "# dotfiles: github-ssh end" || $0 == "# uinaf-dotfiles: github-ssh end" {
       if (!managed) exit 1
       managed = 0
       next
@@ -194,8 +194,8 @@ validate_github_ssh_config() {
   fi
 
   if awk '
-    $0 == "# uinaf-dotfiles: github-ssh begin" { managed = 1; next }
-    $0 == "# uinaf-dotfiles: github-ssh end" { managed = 0; next }
+    $0 == "# dotfiles: github-ssh begin" || $0 == "# uinaf-dotfiles: github-ssh begin" { managed = 1; next }
+    $0 == "# dotfiles: github-ssh end" || $0 == "# uinaf-dotfiles: github-ssh end" { managed = 0; next }
     !managed {
       line = $0
       sub(/^[[:space:]]*/, "", line)
@@ -235,21 +235,21 @@ write_github_ssh_config() (
   trap 'rm -f "$tmp_github" "$tmp_local"' EXIT
 
   cat > "$tmp_github" <<EOF
-# uinaf-dotfiles: github-ssh begin
+# dotfiles: github-ssh begin
 Host github.com
   HostName github.com
   User git
   IdentityFile $identity_file
   IdentitiesOnly yes
   IdentityAgent none
-# uinaf-dotfiles: github-ssh end
+# dotfiles: github-ssh end
 EOF
 
-  if [ -f "$ssh_config_local" ] && grep -q '^# uinaf-dotfiles: github-ssh begin$' "$ssh_config_local"; then
+  if [ -f "$ssh_config_local" ] && grep -Eq '^# (uinaf-)?dotfiles: github-ssh begin$' "$ssh_config_local"; then
     migrate_local=1
     awk '
-      $0 == "# uinaf-dotfiles: github-ssh begin" { skip = 1; next }
-      $0 == "# uinaf-dotfiles: github-ssh end" { skip = 0; next }
+      $0 == "# dotfiles: github-ssh begin" || $0 == "# uinaf-dotfiles: github-ssh begin" { skip = 1; next }
+      $0 == "# dotfiles: github-ssh end" || $0 == "# uinaf-dotfiles: github-ssh end" { skip = 0; next }
       !skip { print }
     ' "$ssh_config_local" > "$tmp_local"
   fi
@@ -282,7 +282,7 @@ case "$profile" in
     ;;
 esac
 
-if ! profile="$(uinaf_normalize_profile "$profile")"; then
+if ! profile="$(dotfiles_normalize_profile "$profile")"; then
   printf 'unsupported profile: %s\n' "$profile" >&2
   exit 2
 fi
@@ -386,7 +386,7 @@ fi
     printf '\tdirectory = /opt/homebrew\n'
   fi
   if [ "$profile" = "assistant" ]; then
-    printf '\n[uinaf]\n'
+    printf '\n[dotfiles]\n'
     printf '\tidentity = workload\n'
   fi
   if [ "$sign_commits" = "true" ]; then

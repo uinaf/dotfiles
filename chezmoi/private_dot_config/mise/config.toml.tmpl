@@ -1,5 +1,5 @@
 [tools]
-{{ if eq .uinafProfile "assistant" }}
+{{ if eq .dotfilesProfile "assistant" }}
 node = "24.18.0"
 python = "3.13"
 uv = "0.11.4"
@@ -15,7 +15,7 @@ go = "1.26.2"
 {{ end }}
 
 [settings]
-{{ if ne .uinafProfile "assistant" }}
+{{ if ne .dotfilesProfile "assistant" }}
 idiomatic_version_file_enable_tools = ["java"]
 trusted_config_paths = ["~/.codex/worktrees", "~/.claude/worktrees"]
 {{ end }}

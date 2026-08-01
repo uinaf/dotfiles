@@ -48,9 +48,9 @@ gh auth login
 Clone the repo:
 
 ```zsh
-mkdir -p ~/projects/uinaf
-gh repo clone uinaf/dotfiles ~/projects/uinaf/dotfiles
-cd ~/projects/uinaf/dotfiles
+mkdir -p ~/projects
+gh repo clone uinaf/dotfiles ~/projects/dotfiles
+cd ~/projects/dotfiles
 mise trust
 ```
 
@@ -65,12 +65,12 @@ tools to fetch a public GitHub archive, which lets a human or agent inspect the
 bootstrap files before running anything:
 
 ```zsh
-mkdir -p ~/projects/uinaf
+mkdir -p ~/projects
 curl -fL https://github.com/uinaf/dotfiles/archive/refs/heads/main.zip \
-  -o /tmp/uinaf-dotfiles-main.zip
-ditto -x -k /tmp/uinaf-dotfiles-main.zip ~/projects/uinaf
-mv ~/projects/uinaf/dotfiles-main ~/projects/uinaf/dotfiles
-cd ~/projects/uinaf/dotfiles
+  -o /tmp/dotfiles-main.zip
+ditto -x -k /tmp/dotfiles-main.zip ~/projects
+mv ~/projects/dotfiles-main ~/projects/dotfiles
+cd ~/projects/dotfiles
 ```
 
 Archive checkouts are disposable. They are acceptable for reading docs and
@@ -80,7 +80,7 @@ are installed, replace the archive with a real clone so updates, diffs, hooks,
 and contribution checks work normally:
 
 ```zsh
-cd ~/projects/uinaf
+cd ~/projects
 mv dotfiles dotfiles.archive.$(date +%Y%m%d%H%M%S)
 gh repo clone uinaf/dotfiles dotfiles
 cd dotfiles
@@ -225,7 +225,7 @@ but revoking or rotating the local key affects both operations.
 
 The generated Git config signs directly from the unencrypted local private key.
 The dotfile install provides an owner-only signing program under
-`~/.local/libexec/uinaf/`; Git uses it to clear `SSH_AUTH_SOCK` before invoking
+`~/.local/libexec/dotfiles/`; Git uses it to clear `SSH_AUTH_SOCK` before invoking
 `ssh-keygen`, so ambient agents are never part of commit signing. Encrypted,
 public-key-only, and 1Password-backed signing are unsupported. The generated
 `~/.ssh/github.config` block uses the same key for `github.com` without routing
@@ -235,7 +235,7 @@ host-specific configuration keep their original scope. Setup migrates only the
 old marker-delimited GitHub block out of `config.local`; if an unmarked
 `Host github.com` entry already exists, it stops before changing Git state and
 asks you to resolve the local configuration explicitly. It also stops if
-`~/.ssh/github.config` already exists without the uinaf managed markers; move
+`~/.ssh/github.config` already exists without the managed markers; move
 that file aside or migrate its directives to `~/.ssh/config.local` before
 rerunning. OpenSSH keeps
 file-backed `IdentityFile` values additive, so wildcard local identities may
@@ -382,7 +382,7 @@ installed wrapper:
 
 ```zsh
 git remote set-url origin https://github.com/OWNER/REPOSITORY.git
-GITHUB_APP_INSTALLATION_TOKEN="$TOKEN" ~/.local/bin/uinaf-git-app push origin main
+GITHUB_APP_INSTALLATION_TOKEN="$TOKEN" ~/.local/bin/git-as-github-app push origin main
 ```
 
 Do not store the token in the remote URL, Git config, `gh auth`, shell startup,
@@ -408,7 +408,7 @@ the retained workload passes its runtime checks.
 Pull the repo and rerun the relevant profile:
 
 ```zsh
-cd ~/projects/uinaf/dotfiles
+cd ~/projects/dotfiles
 git pull --ff-only
 ./scripts/bootstrap/brew-bundle.sh workstation
 ./scripts/bootstrap/install.sh --profile workstation

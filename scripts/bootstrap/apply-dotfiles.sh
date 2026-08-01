@@ -143,14 +143,42 @@ remove_obsolete_link_suffix() {
   fi
 }
 
+migrate_legacy_config() {
+  local legacy_dir="$HOME/.config/uinaf"
+  local config_dir="$HOME/.config/dotfiles"
+  local name
+
+  [ -d "$legacy_dir" ] || return 0
+
+  for name in audit.env devbox.env infisical-machine.env profile sudo-age-identity.txt; do
+    [ -e "$legacy_dir/$name" ] || [ -L "$legacy_dir/$name" ] || continue
+
+    if [ -e "$config_dir/$name" ] || [ -L "$config_dir/$name" ]; then
+      printf 'kept legacy config because the canonical target already exists: %s\n' "$legacy_dir/$name" >&2
+    elif [ "$dry_run" -eq 1 ]; then
+      printf 'would migrate %s -> %s\n' "$legacy_dir/$name" "$config_dir/$name"
+    else
+      mkdir -p "$config_dir"
+      chmod 0700 "$config_dir"
+      mv "$legacy_dir/$name" "$config_dir/$name"
+      printf 'migrated %s -> %s\n' "$legacy_dir/$name" "$config_dir/$name"
+    fi
+  done
+
+  if [ "$dry_run" -eq 0 ] && rmdir "$legacy_dir" 2>/dev/null; then
+    printf 'removed empty legacy config directory %s\n' "$legacy_dir"
+  fi
+}
+
 [ -d "$source_dir" ] || fail "missing chezmoi source directory: $source_dir"
 command -v chezmoi >/dev/null 2>&1 || fail "chezmoi is required; run scripts/bootstrap/brew-bundle.sh for the selected profile first"
 
-if ! profile="$(uinaf_resolve_profile "$profile")"; then
+if ! profile="$(dotfiles_resolve_profile "$profile")"; then
   printf 'a supported profile is required: workstation, devbox, or assistant\n' >&2
   exit 2
 fi
-override_data="$(printf '{"uinafProfile":"%s"}' "$profile")"
+migrate_legacy_config
+override_data="$(printf '{"dotfilesProfile":"%s"}' "$profile")"
 chezmoi_base=(
   chezmoi
   --source "$source_dir"

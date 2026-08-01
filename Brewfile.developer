@@ -3,7 +3,6 @@
 # Taps
 tap "f1bonacc1/tap"
 tap "teamookla/speedtest"
-tap "uinaf/tap"
 
 # Terminal, browser, and coding agents
 cask "ghostty"

@@ -15,7 +15,7 @@ Usage:
   scripts/verify/bootstrap.sh [--profile workstation|devbox|assistant] [--desktop]
 
 Checks the live per-user bootstrap for the selected profile. An existing
-~/.config/uinaf/profile is used when --profile is omitted. The legacy personal
+~/.config/dotfiles/profile is used when --profile is omitted. The legacy personal
 name maps to workstation. --desktop is valid only with devbox.
 USAGE
 }
@@ -48,7 +48,7 @@ while [ "$#" -gt 0 ]; do
   shift
 done
 
-if ! profile="$(uinaf_resolve_profile "$profile")"; then
+if ! profile="$(dotfiles_resolve_profile "$profile")"; then
   usage >&2
   exit 2
 fi
@@ -99,7 +99,7 @@ assistant_cli_checks=(
 )
 
 common_config_paths=(
-  "$HOME/.config/uinaf/profile"
+  "$HOME/.config/dotfiles/profile"
   "$HOME/.config/mise/config.toml"
   "$HOME/.gitconfig"
 )
@@ -173,7 +173,7 @@ check_runtime_versions() {
   check_exact_version "Node" "v24.18.0" "node --version"
   check_mise_tool_owner "Node" "node" "node"
 
-  if ! uinaf_profile_is_developer "$profile"; then
+  if ! dotfiles_profile_is_developer "$profile"; then
     return
   fi
 
@@ -261,13 +261,13 @@ check_desktop_baseline() {
 check_mise() {
   check_mise_doctor "login interactive" -lic
   check_mise_doctor "interactive" -ic
-  if uinaf_profile_is_developer "$profile"; then
+  if dotfiles_profile_is_developer "$profile"; then
     "$repo_root/scripts/bootstrap/trust-agent-worktrees.sh" --check
   fi
 }
 
 check_truecolor_shell() {
-  if ! uinaf_profile_is_developer "$profile"; then
+  if ! dotfiles_profile_is_developer "$profile"; then
     return
   fi
 
@@ -277,7 +277,7 @@ check_truecolor_shell() {
 }
 
 check_ghostty_ssh_integration() {
-  if ! uinaf_profile_is_developer "$profile"; then
+  if ! dotfiles_profile_is_developer "$profile"; then
     return
   fi
 
@@ -305,7 +305,7 @@ check_cli_tools() {
     run_zsh_check "$check"
   done
 
-  if uinaf_profile_is_developer "$profile"; then
+  if dotfiles_profile_is_developer "$profile"; then
     for check in "${developer_cli_checks[@]}"; do
       run_zsh_check "$check"
     done
@@ -336,7 +336,7 @@ check_brew_bundle() {
   section "brew bundle checks"
   while IFS= read -r file; do
     brew bundle check --file "$repo_root/$file" || fail "missing Homebrew dependencies from $file"
-  done < <(uinaf_profile_brewfiles "$profile")
+  done < <(dotfiles_profile_brewfiles "$profile")
 }
 
 check_devbox_homebrew() {
@@ -360,7 +360,7 @@ check_config_paths() {
     fi
   done
 
-  if uinaf_profile_is_developer "$profile"; then
+  if dotfiles_profile_is_developer "$profile"; then
     for path in "${developer_config_paths[@]}"; do
       if [ -e "$path" ]; then
         printf 'ok %s\n' "$path"
@@ -370,7 +370,7 @@ check_config_paths() {
     done
   fi
 
-  if [ "$(sed -n '1p' "$HOME/.config/uinaf/profile")" != "$profile" ]; then
+  if [ "$(sed -n '1p' "$HOME/.config/dotfiles/profile")" != "$profile" ]; then
     fail "installed profile does not match $profile"
   fi
 }
@@ -394,7 +394,7 @@ check_cli_tools
 check_no_legacy_tool_versions
 check_config_paths
 check_ghostty_ssh_integration
-if uinaf_profile_is_developer "$profile"; then
+if dotfiles_profile_is_developer "$profile"; then
   check_codex_config
   check_spotlight_indexing
 fi

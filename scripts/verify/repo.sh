@@ -2,7 +2,7 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-agentless_signer="$repo_root/chezmoi/private_dot_local/private_libexec/private_uinaf/private_executable_git-ssh-sign-agentless"
+agentless_signer="$repo_root/chezmoi/private_dot_local/private_libexec/private_dotfiles/private_executable_git-ssh-sign-agentless"
 ghostty_config="$repo_root/chezmoi/private_Library/private_Application Support/com.mitchellh.ghostty/private_config"
 run_security=1
 

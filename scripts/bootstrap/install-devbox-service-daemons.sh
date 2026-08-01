@@ -195,7 +195,7 @@ fi
 command -v plutil >/dev/null || fail "missing plutil"
 command -v launchctl >/dev/null || fail "missing launchctl"
 
-tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/uinaf-service-daemons.XXXXXX")"
+tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/dotfiles-service-daemons.XXXXXX")"
 trap 'rm -rf "$tmp_dir"' EXIT
 
 plist_add_arguments() {

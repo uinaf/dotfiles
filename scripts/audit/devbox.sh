@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-config_path="${DEVBOX_CONFIG:-$HOME/.config/uinaf/devbox.env}"
-machine_config_path="${INFISICAL_MACHINE_CONFIG:-$HOME/.config/uinaf/infisical-machine.env}"
+config_path="${DEVBOX_CONFIG:-$HOME/.config/dotfiles/devbox.env}"
+machine_config_path="${INFISICAL_MACHINE_CONFIG:-$HOME/.config/dotfiles/infisical-machine.env}"
 devbox_user="${DEVBOX_USER:-$USER}"
 process_compose_enabled="${PROCESS_COMPOSE_ENABLED:-1}"
 process_compose_port="${PROCESS_COMPOSE_PORT:-9191}"
@@ -27,7 +27,7 @@ Usage:
 Runs a non-destructive devbox drift audit for the current Unix user.
 
 Options:
-  --config PATH                 local devbox config, default: ~/.config/uinaf/devbox.env
+  --config PATH                 local devbox config, default: ~/.config/dotfiles/devbox.env
   --json                        print a machine-readable summary instead of prose
   -h, --help
 
@@ -323,7 +323,7 @@ done
 
 section "project directory privacy"
 
-for path in "$HOME/projects/uinaf" "$HOME/projects/$devbox_user"; do
+for path in "$HOME/projects" "$HOME/projects/$devbox_user"; do
   if [ -d "$path" ]; then
     mode="$(mode_of "$path")"
     if [ $((8#$mode & 0077)) -eq 0 ]; then

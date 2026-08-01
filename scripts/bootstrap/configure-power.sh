@@ -9,7 +9,7 @@ usage() {
 Usage:
   scripts/bootstrap/configure-power.sh [--profile workstation|devbox] [--check]
 
-Configures plugged-in macOS power policy for uinaf Macs:
+Configures plugged-in macOS power policy for managed Macs:
   - disables system sleep on AC power
   - disables display sleep on AC power
   - disables disk sleep on AC power

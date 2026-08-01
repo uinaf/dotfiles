@@ -4,7 +4,7 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 configure_git="$repo_root/scripts/bootstrap/configure-git.sh"
 ssh_entrypoint="$repo_root/chezmoi/private_dot_ssh/private_config"
-agentless_signer_source="$repo_root/chezmoi/private_dot_local/private_libexec/private_uinaf/private_executable_git-ssh-sign-agentless"
+agentless_signer_source="$repo_root/chezmoi/private_dot_local/private_libexec/private_dotfiles/private_executable_git-ssh-sign-agentless"
 tmp_root="$(mktemp -d)"
 trap 'rm -rf "$tmp_root"' EXIT
 
@@ -32,7 +32,7 @@ fail() {
 
 make_home() {
   local home="$1"
-  local agentless_signer="$home/.local/libexec/uinaf/git-ssh-sign-agentless"
+  local agentless_signer="$home/.local/libexec/dotfiles/git-ssh-sign-agentless"
 
   mkdir -p "$home/.ssh" "$(dirname "$agentless_signer")"
   chmod 0700 "$home/.ssh"
@@ -76,7 +76,7 @@ snapshot_owned() {
   for path in \
     "$home/.gitconfig.local" \
     "$home/.config/git/allowed_signers.local" \
-    "$home/.local/libexec/uinaf/git-ssh-sign-agentless" \
+    "$home/.local/libexec/dotfiles/git-ssh-sign-agentless" \
     "$home/.ssh/github.config" \
     "$home/.ssh/config.local"; do
     if [ -f "$path" ]; then
@@ -135,14 +135,14 @@ configure \
 
 [ "$(HOME="$personal_home" git config --file "$personal_home/.gitconfig.local" --get user.signingkey)" = "$personal_home/.ssh/signing" ] \
   || fail "personal Git signing did not select the matching local private key"
-agentless_program="$personal_home/.local/libexec/uinaf/git-ssh-sign-agentless"
+agentless_program="$personal_home/.local/libexec/dotfiles/git-ssh-sign-agentless"
 [ "$(HOME="$personal_home" git config --file "$personal_home/.gitconfig.local" --get gpg.ssh.program)" = "$agentless_program" ] \
   || fail "personal Git signing did not select the agentless signing program"
 [ -x "$agentless_program" ] || fail "agentless signing program is not executable"
 grep -qx 'unset SSH_AUTH_SOCK' "$agentless_program" || fail "agentless signing program does not clear SSH_AUTH_SOCK"
 
 github_config="$personal_home/.ssh/github.config"
-[ "$(grep -c '^# uinaf-dotfiles: github-ssh begin$' "$github_config")" -eq 1 ] || fail "dedicated GitHub block is missing or duplicated"
+[ "$(grep -c '^# dotfiles: github-ssh begin$' "$github_config")" -eq 1 ] || fail "dedicated GitHub block is missing or duplicated"
 cmp -s "$tmp_root/personal.config.before" "$personal_home/.ssh/config.local" || fail "personal config.local was rewritten"
 
 effective_github="$(ssh -F "$personal_home/.ssh/config" -G github.com 2>/dev/null)"
@@ -184,7 +184,7 @@ assert_rejected_without_mutation \
 missing_signer_home="$tmp_root/missing-signer"
 make_home "$missing_signer_home"
 make_key "$missing_signer_home/.ssh/signing"
-rm "$missing_signer_home/.local/libexec/uinaf/git-ssh-sign-agentless"
+rm "$missing_signer_home/.local/libexec/dotfiles/git-ssh-sign-agentless"
 assert_rejected_without_mutation \
   "$missing_signer_home" 'agentless signer is missing or not executable' \
   "$missing_signer_home" personal "$missing_signer_home/.ssh/signing"
@@ -218,7 +218,7 @@ make_home "$devbox_home"
 make_key "$devbox_home/.ssh/signing"
 configure "$devbox_home" devbox "$devbox_home/.ssh/signing" >/dev/null
 grep -q "^  IdentityFile $devbox_home/.ssh/signing$" "$devbox_home/.ssh/github.config" || fail "devbox did not resolve the signing private key"
-[ "$(HOME="$devbox_home" git config --file "$devbox_home/.gitconfig.local" --get gpg.ssh.program)" = "$devbox_home/.local/libexec/uinaf/git-ssh-sign-agentless" ] \
+[ "$(HOME="$devbox_home" git config --file "$devbox_home/.gitconfig.local" --get gpg.ssh.program)" = "$devbox_home/.local/libexec/dotfiles/git-ssh-sign-agentless" ] \
   || fail "devbox local signing did not select the agentless signing program"
 
 missing_home="$tmp_root/missing"
@@ -262,7 +262,7 @@ Host github.com
   ProxyCommand false
 EOF
 assert_rejected_without_mutation \
-  "$unmanaged_github_config_home" 'existing file is not managed exclusively by uinaf dotfiles' \
+  "$unmanaged_github_config_home" 'existing file is not managed exclusively by these dotfiles' \
   "$unmanaged_github_config_home" personal "$unmanaged_github_config_home/.ssh/signing" "$unmanaged_github_config_home/.ssh/signing"
 
 conflict_home="$tmp_root/conflict"
@@ -305,7 +305,7 @@ assistant_config="$assistant_home/.gitconfig.local"
   || fail "assistant workload Git name was not configured"
 [ "$(HOME="$assistant_home" git config --file "$assistant_config" --get user.email)" = 'example-workload@users.noreply.github.com' ] \
   || fail "assistant workload Git email was not configured"
-[ "$(HOME="$assistant_home" git config --file "$assistant_config" --get uinaf.identity)" = workload ] \
+[ "$(HOME="$assistant_home" git config --file "$assistant_config" --get dotfiles.identity)" = workload ] \
   || fail "assistant workload identity marker was not configured"
 [ "$(HOME="$assistant_home" git config --file "$assistant_config" --get commit.gpgsign)" = false ] \
   || fail "assistant workload commits did not disable signing"

@@ -3,7 +3,7 @@ export ZSH="$HOME/.oh-my-zsh"
 ZSH_THEME="robbyrussell"
 plugins=(git)
 
-if [ -n "$SSH_CONNECTION$SSH_TTY" ] && [ -r "$HOME/.config/uinaf/devbox.env" ]; then
+if [ -n "$SSH_CONNECTION$SSH_TTY" ] && [ -r "$HOME/.config/dotfiles/devbox.env" ]; then
   DISABLE_AUTO_TITLE="true"
 fi
 
@@ -11,7 +11,7 @@ if [ -f "$ZSH/oh-my-zsh.sh" ]; then
   source "$ZSH/oh-my-zsh.sh"
 fi
 
-if [ -n "$SSH_CONNECTION$SSH_TTY" ] && [ -r "$HOME/.config/uinaf/devbox.env" ]; then
+if [ -n "$SSH_CONNECTION$SSH_TTY" ] && [ -r "$HOME/.config/dotfiles/devbox.env" ]; then
   setopt prompt_subst
 
   devbox_git_prompt_info() {

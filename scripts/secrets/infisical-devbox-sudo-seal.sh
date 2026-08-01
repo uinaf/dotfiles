@@ -2,8 +2,8 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-config_path="${DEVBOX_CONFIG:-$HOME/.config/uinaf/devbox.env}"
-identity_file="${INFISICAL_SUDO_AGE_IDENTITY_FILE:-$HOME/.config/uinaf/sudo-age-identity.txt}"
+config_path="${DEVBOX_CONFIG:-$HOME/.config/dotfiles/devbox.env}"
+identity_file="${INFISICAL_SUDO_AGE_IDENTITY_FILE:-$HOME/.config/dotfiles/sudo-age-identity.txt}"
 
 # shellcheck source=scripts/lib/infisical.sh
 . "$repo_root/scripts/lib/infisical.sh"

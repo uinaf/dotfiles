@@ -1,14 +1,17 @@
 # dotfiles
 
-Public Mac bootstrap files for uinaf machines.
+Reusable macOS bootstrap files for workstations, devboxes, and assistants.
 
 This repo owns the portable layer: Homebrew bundles, chezmoi-managed zsh
 startup, mise runtimes, Git and SSH defaults, Codex defaults, editor settings,
 and setup and audit scripts.
 
-It is standalone. It does not clone or run `uinaf/agents` or
-`uinaf/workspace-kit`; those are optional companion tools with independent
-installation, releases, and verification.
+It is standalone. It does not require an agent framework, workspace manager,
+or any other companion repository.
+
+Installed paths, commands, and configuration keys use generic `dotfiles`
+names. Repository, tap, contact, and legacy migration identifiers retain their
+real external coordinates.
 
 It does not own secrets, identity, Codex auth/state, browser profiles, app
 caches, dependency folders, build output, or project checkouts. Those stay
@@ -34,9 +37,9 @@ repo:
 
 ```zsh
 gh auth login
-mkdir -p ~/projects/uinaf
-gh repo clone uinaf/dotfiles ~/projects/uinaf/dotfiles
-cd ~/projects/uinaf/dotfiles
+mkdir -p ~/projects
+gh repo clone uinaf/dotfiles ~/projects/dotfiles
+cd ~/projects/dotfiles
 
 ./scripts/bootstrap/brew-bundle.sh workstation
 ./scripts/bootstrap/install.sh --profile workstation
@@ -75,7 +78,7 @@ pins.
 | Codex | installer-managed defaults, including ChatGPT-login enforcement | auth, sessions, approvals, memory, worktrees |
 | Editors | developer Homebrew layer and chezmoi-managed Zed/Ghostty defaults | app state, fonts, caches |
 
-Assistant users receive a minimal Git base and the `uinaf-git-app` HTTPS
+Assistant users receive a minimal Git base and the `git-as-github-app` HTTPS
 wrapper, but no signing, GitHub credential helper, outbound SSH, or developer
 desktop state. Workload-owned GitHub App tokens are supplied at runtime.
 
@@ -100,7 +103,7 @@ generated dotenv refresh stacks.
 `Brewfile.workstation` is the shared human-operated Mac profile, not a private app
 wishlist. Keep one-machine tweaks in local config files, keep durable personal
 preferences in a fork, and send focused pull requests for changes that should
-become part of the shared uinaf bootstrap.
+become part of the shared bootstrap.
 
 ## Verification
 

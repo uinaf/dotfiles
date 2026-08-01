@@ -4,7 +4,7 @@ Guidance for agents helping with this repo.
 
 ## Role
 
-This is a public Mac bootstrap repo for uinaf machines. Help the user install
+This is a reusable public macOS bootstrap repo. Help the user install
 tools, apply chezmoi-managed dotfiles, configure local identity, and verify a machine without
 turning private machine state into repository state.
 
@@ -86,7 +86,7 @@ them to `~/.gitconfig.local`. On devboxes, use the human-provisioned local SSH
 key file for GitHub SSH auth; `configure-git.sh` writes the matching
 `~/.ssh/github.config` override when the signing key is a local path.
 Assistants use explicit workload authorship, unsigned commits, HTTPS remotes,
-and ephemeral GitHub App installation tokens through `uinaf-git-app`; never
+and ephemeral GitHub App installation tokens through `git-as-github-app`; never
 invent the workload name, email, App identity, or token.
 
 ## Verification
@@ -137,9 +137,8 @@ For workstation security drift:
 - Put the shared coding stack in `Brewfile.developer`.
 - Put role-specific software in `Brewfile.workstation`, `Brewfile.devbox`, or
   `Brewfile.assistant`.
-- Keep this repository standalone. Do not clone, install, invoke, or validate
-  `uinaf/agents` or `uinaf/workspace-kit`. They are optional companion tools
-  with their own setup and verification.
+- Keep this repository standalone. Do not require, clone, install, invoke, or
+  validate an agent framework or workspace manager.
 - Keep Codex setup install-only here. Agent rules, skills, and workspace policy
   belong to whichever independent tools the machine owner chooses.
 - Treat Git tags and GitHub Releases as the canonical version. Do not add a
@@ -150,5 +149,5 @@ For workstation security drift:
   [Mise tasks](docs/mise.md).
 - Update docs when scripts, profile behavior, audit behavior, or workflow names
   change.
-- Follow the uinaf repo-doc voice: proper-case headings, sentence-case body,
+- Follow the repo-doc voice: proper-case headings, sentence-case body,
   short direct prose, no emoji, no marketing copy.

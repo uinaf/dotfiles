@@ -26,7 +26,7 @@ if [ ! -x "$HOME/.local/bin/agent" ]; then
   exit 1
 fi
 
-if [ -r "$HOME/.config/uinaf/devbox.env" ]; then
+if [ -r "$HOME/.config/dotfiles/devbox.env" ]; then
   env AGENT_CLI_CREDENTIAL_STORE=file "$agent_path" --version
 else
   "$agent_path" --version

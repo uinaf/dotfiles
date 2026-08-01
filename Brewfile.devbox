@@ -4,6 +4,7 @@
 # Taps
 tap "steipete/tap"
 tap "openclaw/tap"
+tap "uinaf/tap"
 
 # Cloud CLI
 cask "gcloud-cli"

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-identity_file="${INFISICAL_SUDO_AGE_IDENTITY_FILE:-$HOME/.config/uinaf/sudo-age-identity.txt}"
+identity_file="${INFISICAL_SUDO_AGE_IDENTITY_FILE:-$HOME/.config/dotfiles/sudo-age-identity.txt}"
 
 usage() {
   cat <<'USAGE'

@@ -2,8 +2,8 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-config_path="${DEVBOX_CONFIG:-$HOME/.config/uinaf/devbox.env}"
-machine_config_path="${INFISICAL_MACHINE_CONFIG:-$HOME/.config/uinaf/infisical-machine.env}"
+config_path="${DEVBOX_CONFIG:-$HOME/.config/dotfiles/devbox.env}"
+machine_config_path="${INFISICAL_MACHINE_CONFIG:-$HOME/.config/dotfiles/infisical-machine.env}"
 machine_auth_required="${INFISICAL_MACHINE_AUTH_REQUIRED:-1}"
 devbox_user="${DEVBOX_USER:-$USER}"
 process_compose_enabled="${PROCESS_COMPOSE_ENABLED:-1}"
@@ -14,7 +14,7 @@ infisical_project_id="${INFISICAL_PROJECT_ID:-}"
 infisical_env="${INFISICAL_ENV:-dev}"
 infisical_secret_path="${INFISICAL_SECRET_PATH:-}"
 infisical_sudo_secret_path="${INFISICAL_SUDO_SECRET_PATH:-}"
-infisical_sudo_age_identity_file="${INFISICAL_SUDO_AGE_IDENTITY_FILE:-$HOME/.config/uinaf/sudo-age-identity.txt}"
+infisical_sudo_age_identity_file="${INFISICAL_SUDO_AGE_IDENTITY_FILE:-$HOME/.config/dotfiles/sudo-age-identity.txt}"
 
 # shellcheck source=scripts/lib/infisical.sh
 . "$repo_root/scripts/lib/infisical.sh"
@@ -26,10 +26,10 @@ usage() {
 Usage:
   scripts/verify/devbox-services.sh
 
-Checks devbox supervisor, uinaf healthd/colima system LaunchDaemons, Infisical
+Checks devbox supervisor, managed healthd/colima system LaunchDaemons, Infisical
 CLI availability, persistent machine auth, and default-shell token boundaries
 for the current Unix user. Configure process-compose and Infisical selectors
-through ~/.config/uinaf/devbox.env.
+through ~/.config/dotfiles/devbox.env.
 USAGE
 }
 
@@ -231,7 +231,7 @@ check_infisical() {
 }
 
 check_launchd_daemons() {
-  section "uinaf launchd daemons"
+  section "managed launchd daemons"
 
   local plist label found=0
 
@@ -245,7 +245,7 @@ check_launchd_daemons() {
     printf 'ok %s loaded\n' "$label"
   done
 
-  [ "$found" -eq 1 ] || printf 'ok no uinaf healthd/colima system daemons on this machine\n'
+  [ "$found" -eq 1 ] || printf 'ok no managed healthd/colima system daemons on this machine\n'
 }
 
 check_process_compose() {

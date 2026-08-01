@@ -28,7 +28,7 @@ render_target() {
   local data
 
   mkdir -p "$home"
-  data="$(printf '{"uinafProfile":"%s"}' "$profile")"
+  data="$(printf '{"dotfilesProfile":"%s"}' "$profile")"
   chezmoi \
     --source "$repo_root/chezmoi" \
     --destination "$home" \
@@ -36,19 +36,28 @@ render_target() {
     cat "$home/$target"
 }
 
-assert_eq workstation "$(uinaf_normalize_profile personal)" "personal compatibility alias"
-assert_eq workstation "$(uinaf_normalize_profile workstation)" "workstation profile"
-assert_eq devbox "$(uinaf_normalize_profile devbox)" "devbox profile"
-assert_eq assistant "$(uinaf_normalize_profile assistant)" "assistant profile"
-if uinaf_normalize_profile unsupported >/dev/null 2>&1; then
+assert_eq workstation "$(dotfiles_normalize_profile personal)" "personal compatibility alias"
+assert_eq workstation "$(dotfiles_normalize_profile workstation)" "workstation profile"
+assert_eq devbox "$(dotfiles_normalize_profile devbox)" "devbox profile"
+assert_eq assistant "$(dotfiles_normalize_profile assistant)" "assistant profile"
+if dotfiles_normalize_profile unsupported >/dev/null 2>&1; then
   fail "unsupported profile was accepted"
 fi
 
-assistant_files="$(uinaf_profile_brewfiles assistant)"
+legacy_home="$tmp_root/legacy-profile"
+mkdir -p "$legacy_home/.config/uinaf"
+printf 'assistant\n' > "$legacy_home/.config/uinaf/profile"
+printf 'DEVBOX_USER=legacy\n' > "$legacy_home/.config/uinaf/devbox.env"
+HOME="$legacy_home" "$repo_root/scripts/bootstrap/apply-dotfiles.sh" >/dev/null
+assert_eq assistant "$(sed -n '1p' "$legacy_home/.config/dotfiles/profile")" "migrated legacy profile marker"
+[ -f "$legacy_home/.config/dotfiles/devbox.env" ] || fail "legacy config was not migrated"
+[ ! -e "$legacy_home/.config/uinaf" ] || fail "empty legacy config directory was retained"
+
+assistant_files="$(dotfiles_profile_brewfiles assistant)"
 assert_eq "$(printf 'Brewfile\nBrewfile.assistant')" "$assistant_files" "assistant Brewfile layers"
-devbox_files="$(uinaf_profile_brewfiles devbox)"
+devbox_files="$(dotfiles_profile_brewfiles devbox)"
 assert_eq "$(printf 'Brewfile\nBrewfile.developer\nBrewfile.devbox')" "$devbox_files" "devbox Brewfile layers"
-workstation_files="$(uinaf_profile_brewfiles workstation)"
+workstation_files="$(dotfiles_profile_brewfiles workstation)"
 assert_eq "$(printf 'Brewfile\nBrewfile.developer\nBrewfile.workstation')" "$workstation_files" "workstation Brewfile layers"
 
 assistant_steps="$("$repo_root/scripts/bootstrap/install.sh" --print-steps --profile assistant)"
@@ -73,27 +82,27 @@ for expected in 'bun = "1.3.10"' 'java = "temurin-21"' 'go = "1.26.2"' 'trusted_
   printf '%s\n' "$workstation_mise" | grep -Fq "$expected" || fail "workstation mise config missed $expected"
 done
 
-assert_eq assistant "$(render_target assistant .config/uinaf/profile)" "rendered assistant profile"
+assert_eq assistant "$(render_target assistant .config/dotfiles/profile)" "rendered assistant profile"
 
 assistant_managed="$({
-  data='{"uinafProfile":"assistant"}'
+  data='{"dotfilesProfile":"assistant"}'
   chezmoi \
     --source "$repo_root/chezmoi" \
     --destination "$tmp_root/assistant" \
     --override-data "$data" \
     managed --path-style relative
 })"
-printf '%s\n' "$assistant_managed" | grep -Fqx '.config/uinaf/profile' || fail "assistant profile marker is unmanaged"
-for required_path in '.gitconfig' '.local/bin/uinaf-git-app'; do
+printf '%s\n' "$assistant_managed" | grep -Fqx '.config/dotfiles/profile' || fail "assistant profile marker is unmanaged"
+for required_path in '.gitconfig' '.local/bin/git-as-github-app'; do
   printf '%s\n' "$assistant_managed" | grep -Fqx "$required_path" \
     || fail "assistant profile does not manage $required_path"
 done
-if printf '%s\n' "$assistant_managed" | grep -Eq '^(\.config/git|\.config/zed|\.local/libexec/uinaf/git-ssh-sign-agentless|\.ssh|Library/Application Support/com.mitchellh.ghostty)(/|$)'; then
+if printf '%s\n' "$assistant_managed" | grep -Eq '^(\.config/git|\.config/zed|\.local/libexec/dotfiles/git-ssh-sign-agentless|\.ssh|Library/Application Support/com.mitchellh.ghostty)(/|$)'; then
   fail "assistant profile manages developer or identity state"
 fi
 
 workstation_managed="$({
-  data='{"uinafProfile":"workstation"}'
+  data='{"dotfilesProfile":"workstation"}'
   chezmoi \
     --source "$repo_root/chezmoi" \
     --destination "$tmp_root/workstation" \
@@ -104,7 +113,7 @@ for required_path in \
   '.config/git/allowed_signers' \
   '.config/zed/settings.json' \
   '.gitconfig' \
-  '.local/libexec/uinaf/git-ssh-sign-agentless' \
+  '.local/libexec/dotfiles/git-ssh-sign-agentless' \
   '.ssh/config' \
   'Library/Application Support/com.mitchellh.ghostty/config'; do
   printf '%s\n' "$workstation_managed" | grep -Fqx "$required_path" \
@@ -114,11 +123,11 @@ done
 assistant_home="$tmp_root/assistant-applied"
 mkdir -p "$assistant_home"
 HOME="$assistant_home" "$repo_root/scripts/bootstrap/apply-dotfiles.sh" --profile assistant >/dev/null
-assert_eq assistant "$(sed -n '1p' "$assistant_home/.config/uinaf/profile")" "applied assistant profile"
+assert_eq assistant "$(sed -n '1p' "$assistant_home/.config/dotfiles/profile")" "applied assistant profile"
 for rejected_path in \
   "$assistant_home/.config/git" \
   "$assistant_home/.config/zed" \
-  "$assistant_home/.local/libexec/uinaf/git-ssh-sign-agentless" \
+  "$assistant_home/.local/libexec/dotfiles/git-ssh-sign-agentless" \
   "$assistant_home/.ssh" \
   "$assistant_home/Library/Application Support/com.mitchellh.ghostty"; do
   if [ -e "$rejected_path" ] || [ -L "$rejected_path" ]; then
@@ -133,39 +142,39 @@ printf '%s\n' "$assistant_gitconfig" | grep -Fqx '[include]' \
 if printf '%s\n' "$assistant_gitconfig" | grep -Eq '^\[(credential|gpg)|gh auth git-credential|signing'; then
   fail "assistant Git base config included developer authentication or signing settings"
 fi
-assistant_git_app="$assistant_home/.local/bin/uinaf-git-app"
+assistant_git_app="$assistant_home/.local/bin/git-as-github-app"
 [ -x "$assistant_git_app" ] || fail "assistant GitHub App wrapper is not executable"
 assert_eq x-access-token "$(
-  UINAF_GITHUB_APP_ASKPASS=1 \
+  DOTFILES_GITHUB_APP_ASKPASS=1 \
   GITHUB_APP_INSTALLATION_TOKEN=token-fixture \
     "$assistant_git_app" "Username for 'https://github.com/OWNER/REPOSITORY.git': "
 )" "GitHub App HTTPS username"
 assert_eq token-fixture "$(
-  UINAF_GITHUB_APP_ASKPASS=1 \
+  DOTFILES_GITHUB_APP_ASKPASS=1 \
   GITHUB_APP_INSTALLATION_TOKEN=token-fixture \
     "$assistant_git_app" "Password for 'https://x-access-token@github.com/OWNER/REPOSITORY.git': "
 )" "GitHub App HTTPS password"
-if UINAF_GITHUB_APP_ASKPASS=1 \
+if DOTFILES_GITHUB_APP_ASKPASS=1 \
   GITHUB_APP_INSTALLATION_TOKEN=token-fixture \
     "$assistant_git_app" "Password for 'https://example.com/OWNER/REPOSITORY.git': " >/dev/null 2>&1; then
   fail "GitHub App askpass returned a token for a non-GitHub host"
 fi
-if UINAF_GITHUB_APP_ASKPASS=1 \
+if DOTFILES_GITHUB_APP_ASKPASS=1 \
   GITHUB_APP_INSTALLATION_TOKEN=token-fixture \
     "$assistant_git_app" "Password for 'http://example.com/https://github.com/OWNER/REPOSITORY.git': " >/dev/null 2>&1; then
   fail "GitHub App askpass trusted a GitHub URL embedded under another host"
 fi
-if UINAF_GITHUB_APP_ASKPASS=1 \
+if DOTFILES_GITHUB_APP_ASKPASS=1 \
   GITHUB_APP_INSTALLATION_TOKEN=token-fixture \
     "$assistant_git_app" "Password for 'https://github.com:443@example.com/OWNER/REPOSITORY.git': " >/dev/null 2>&1; then
   fail "GitHub App askpass confused userinfo with the GitHub authority"
 fi
-if UINAF_GITHUB_APP_ASKPASS=1 \
+if DOTFILES_GITHUB_APP_ASKPASS=1 \
   GITHUB_APP_INSTALLATION_TOKEN=token-fixture \
     "$assistant_git_app" "Password  for 'https://x-access-token@github.com/OWNER/REPOSITORY.git': " >/dev/null 2>&1; then
   fail "GitHub App askpass accepted non-literal prompt spacing"
 fi
-if UINAF_GITHUB_APP_ASKPASS=1 \
+if DOTFILES_GITHUB_APP_ASKPASS=1 \
   GITHUB_APP_INSTALLATION_TOKEN=token-fixture \
     "$assistant_git_app" "Password for 'https://x-access-token@github.com/OWNER/REPOSITORY.git':" >/dev/null 2>&1; then
   fail "GitHub App askpass accepted a prompt without the literal trailing space"
@@ -257,8 +266,8 @@ printf '[user]\n\tname = Hidden Identity\n' > "$identity_home/.config/git/config
 assert_assistant_git_boundary_rejected "additional user-home Git config"
 
 prepare_identity_home
-mkdir -p "$identity_home/.local/libexec/uinaf"
-: > "$identity_home/.local/libexec/uinaf/git-ssh-sign-agentless"
+mkdir -p "$identity_home/.local/libexec/dotfiles"
+: > "$identity_home/.local/libexec/dotfiles/git-ssh-sign-agentless"
 assert_assistant_git_boundary_rejected "a persisted Git signing helper"
 
 prepare_identity_home
