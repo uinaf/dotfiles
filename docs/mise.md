@@ -6,7 +6,7 @@ This repo uses mise in two different scopes:
 - Root `mise.toml` is the repo-level mise config and documents that task
   entrypoints live in `.mise/tasks/`.
 - `chezmoi/private_dot_config/mise/config.toml.tmpl` defines profile runtime pins,
-  native pnpm setup, shared npm CLIs, and trusted generated worktree roots
+  Corepack-managed pnpm setup, shared npm CLIs, and trusted generated worktree roots
   applied into `~/.config/mise/config.toml`.
 
 Do not mix those scopes. A repo command belongs in `.mise/tasks/`; a profile
@@ -113,17 +113,16 @@ When changing `chezmoi/private_dot_config/mise/config.toml.tmpl`:
 
 Avoid floating runtime versions such as `latest` in profile machine config.
 
-The workstation/devbox Node entry installs the exact native pnpm release used outside projects.
-Native pnpm 12 reads a project's `packageManager` field and switches to that
-pinned release itself; this does not depend on a Corepack shim. The pnpm
-wrapper's reviewed install script is explicitly allowed so it can install the
-platform-native binary. Shared npm CLIs such as npm itself, Playwright CLI, and
-Vite+ are exact `npm:` backend entries, so `mise install` owns their versions
-without relying on ambient global npm state.
+The workstation/devbox Node entry enables Corepack and installs pnpm 11.18.0 as
+the default outside projects. A project's `packageManager` field remains the
+repository-owned version source. Shared npm CLIs such as npm itself and
+Playwright CLI are exact `npm:` backend entries, so `mise install` owns their
+versions without relying on ambient global npm state. Vite+ stays
+repository-local and is invoked through the owning package manager.
 
-`scripts/bootstrap/install.sh` removes any stale Corepack pnpm shim and
-reinstalls the default native release when refreshing an existing Node
-installation. A fresh Node install gets the same state from the Node
+`scripts/bootstrap/install.sh` enables Corepack, installs the stable pnpm
+default, removes the retired mise-managed global Vite+ package, and refreshes
+mise shims. A fresh Node install gets the same pnpm state from the Node
 postinstall hook.
 The assistant branch intentionally contains only Node, Python, and uv.
 `scripts/verify/bootstrap.sh` checks the commands and versions required by the
