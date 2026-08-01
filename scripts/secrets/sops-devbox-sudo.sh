@@ -136,5 +136,6 @@ sops_age_identity_file="$(sops_identity_path)"
 
 printf -v command '%q ' \
   "$repo_root/scripts/secrets/sops-devbox-sudo.sh" --consume-secret "$@"
+export SUDO_AGE_IDENTITY_FILE="$sudo_age_identity_file"
 SOPS_AGE_KEY_FILE="$sops_age_identity_file" \
   exec "$sops_binary" exec-env --same-process "$SOPS_SUDO_SECRET_FILE" "$command"

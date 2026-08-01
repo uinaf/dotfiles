@@ -94,6 +94,9 @@ section "Infisical sudo runner"
 section "SOPS age identity"
 ./scripts/verify/sops-age-identity.sh
 
+section "SOPS sudo runner"
+./scripts/verify/sops-devbox-sudo.sh
+
 section "devbox Homebrew wrapper"
 ./scripts/verify/brew-devbox.sh
 
