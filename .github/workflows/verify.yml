@@ -29,7 +29,7 @@ jobs:
           persist-credentials: false
 
       - name: Install verification tools
-        run: brew install actionlint shellcheck
+        run: brew install actionlint chezmoi shellcheck
 
       - name: Verify repository
         run: ./scripts/verify/repo.sh --skip-security

@@ -2,8 +2,12 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-config_path="${DEVBOX_CONFIG:-$HOME/.config/uinaf/devbox.env}"
-machine_config_path="${INFISICAL_MACHINE_CONFIG:-$HOME/.config/uinaf/infisical-machine.env}"
+
+# shellcheck source=scripts/lib/config-paths.sh
+. "$repo_root/scripts/lib/config-paths.sh"
+
+config_path="$(dotfiles_resolve_config_file "${DEVBOX_CONFIG:-}" devbox.env)"
+machine_config_path="$(dotfiles_resolve_config_file "${INFISICAL_MACHINE_CONFIG:-}" infisical-machine.env)"
 
 # shellcheck source=scripts/lib/infisical.sh
 . "$repo_root/scripts/lib/infisical.sh"

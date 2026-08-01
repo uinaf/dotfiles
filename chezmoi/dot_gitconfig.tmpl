@@ -1,6 +1,7 @@
 [core]
 	ignorecase = false
 
+{{ if ne .dotfilesProfile "assistant" -}}
 [gpg]
 	format = ssh
 
@@ -15,5 +16,6 @@
 	helper =
 	helper = !/opt/homebrew/bin/gh auth git-credential
 
+{{ end -}}
 [include]
 	path = ~/.gitconfig.local

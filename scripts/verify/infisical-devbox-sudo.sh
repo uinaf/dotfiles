@@ -187,7 +187,7 @@ bash -c '
   . "$1"
   export TMPDIR="$2"
   infisical_sudo_install_cleanup_traps
-  INFISICAL_SUDO_TMP_DIR="$TMPDIR/uinaf-sudo.signal"
+  INFISICAL_SUDO_TMP_DIR="$TMPDIR/dotfiles-sudo.signal"
   mkdir -p "$INFISICAL_SUDO_TMP_DIR"
   printf "%s\n" fixture-ciphertext >"$INFISICAL_SUDO_TMP_DIR/password.age"
   kill -TERM "$$"

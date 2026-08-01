@@ -5,12 +5,12 @@ This repo uses mise in two different scopes:
 - `.mise/tasks/` defines repo tasks for humans and agents.
 - Root `mise.toml` is the repo-level mise config and documents that task
   entrypoints live in `.mise/tasks/`.
-- `chezmoi/private_dot_config/mise/config.toml` defines machine runtime pins,
+- `chezmoi/private_dot_config/mise/config.toml.tmpl` defines profile runtime pins,
   native pnpm setup, shared npm CLIs, and trusted generated worktree roots
   applied into `~/.config/mise/config.toml`.
 
-Do not mix those scopes. A repo command belongs in `.mise/tasks/`; a shared
-machine runtime pin belongs in the chezmoi-managed home config.
+Do not mix those scopes. A repo command belongs in `.mise/tasks/`; a profile
+runtime pin belongs in the chezmoi-managed home config.
 
 Trust the repo config once per checkout before using repo tasks or installing
 runtime pins:
@@ -74,19 +74,22 @@ mise run audit:mscp
 Live host checks:
 
 ```zsh
-mise run verify:bootstrap:personal
+mise run verify:bootstrap:workstation
 mise run verify:bootstrap:devbox
+mise run verify:bootstrap:assistant
 mise run verify:devbox-services
 mise run audit:host
 mise run audit:host:json
-mise run audit:personal
-mise run audit:personal:json
+mise run audit:workstation
+mise run audit:workstation:json
 mise run audit:devbox
 mise run audit:devbox:json
 ```
 
 Use repo checks for ordinary PR work. Use live host checks only on a machine
 that should actually satisfy that profile or audit boundary.
+The `personal` task names remain compatibility aliases for the matching
+`workstation` tasks and do not need to be run separately.
 
 Bootstrap helpers:
 
@@ -94,23 +97,23 @@ Bootstrap helpers:
 mise run bootstrap:trust-agent-worktrees
 ```
 
-The shared machine config trusts Codex and Claude generated worktree roots:
+Workstation and devbox configs trust Codex and Claude generated worktree roots:
 `~/.codex/worktrees` and `~/.claude/worktrees`. The helper also refreshes trust
 for existing `mise.toml` and `.mise.toml` files near those roots, and is called
 by `scripts/bootstrap/install.sh`.
 
 ## Runtime Pins
 
-When changing `chezmoi/private_dot_config/mise/config.toml`:
+When changing `chezmoi/private_dot_config/mise/config.toml.tmpl`:
 
-1. Confirm the pin is intended for all uinaf machines.
+1. Confirm which profiles should receive the pin.
 2. Keep exact versions where practical.
 3. Preview dotfile output with `mise run dotfiles:diff`.
 4. Run `mise run verify`.
 
-Avoid floating runtime versions such as `latest` in shared machine config.
+Avoid floating runtime versions such as `latest` in profile machine config.
 
-The Node entry installs the exact native pnpm release used outside projects.
+The workstation/devbox Node entry installs the exact native pnpm release used outside projects.
 Native pnpm 12 reads a project's `packageManager` field and switches to that
 pinned release itself; this does not depend on a Corepack shim. The pnpm
 wrapper's reviewed install script is explicitly allowed so it can install the
@@ -122,5 +125,6 @@ without relying on ambient global npm state.
 reinstalls the default native release when refreshing an existing Node
 installation. A fresh Node install gets the same state from the Node
 postinstall hook.
-`scripts/verify/bootstrap.sh` checks the commands and exact shared versions on
-both profiles.
+The assistant branch intentionally contains only Node, Python, and uv.
+`scripts/verify/bootstrap.sh` checks the commands and versions required by the
+selected profile.

@@ -1,57 +1,12 @@
-# Shared Homebrew layer for every uinaf Mac.
-# Install with one profile:
-#   ./scripts/bootstrap/brew-bundle.sh personal
-#   ./scripts/bootstrap/brew-bundle.sh devbox
+# Minimal Homebrew layer for every managed Unix user on macOS.
+# Profile-specific software belongs in Brewfile.developer and Brewfile.<profile>.
 
-# Taps
-tap "f1bonacc1/tap"
-tap "teamookla/speedtest"
-tap "uinaf/tap"
-
-# Terminal, browser, and agent apps
+# Identity-safe bootstrap tools
 brew "age"
-cask "ghostty"
-cask "zed"
-cask "google-chrome"
-cask "codex"
-cask "claude-code@latest"
-
-# Core CLI
 brew "git"
-brew "gh"
 brew "chezmoi"
 brew "mise"
 brew "direnv"
 brew "infisical"
 brew "btop"
 brew "ripgrep"
-brew "git-crypt"
-brew "git-filter-repo"
-brew "actionlint"
-brew "shellcheck"
-brew "xcodes"
-
-# Download and media helpers
-brew "aria2"
-brew "ffmpeg"
-brew "mole"
-
-# Containers
-brew "colima"
-brew "docker"
-brew "docker-buildx"
-brew "docker-compose"
-
-# Networking and diagnostics
-brew "fping"
-brew "teamookla/speedtest/speedtest"
-
-# Security
-brew "gitleaks"
-brew "lynis"
-brew "trufflehog"
-
-# uinaf tools
-
-# Process supervision
-brew "f1bonacc1/tap/process-compose"

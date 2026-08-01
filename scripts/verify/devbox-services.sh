@@ -2,8 +2,12 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-config_path="${DEVBOX_CONFIG:-$HOME/.config/uinaf/devbox.env}"
-machine_config_path="${INFISICAL_MACHINE_CONFIG:-$HOME/.config/uinaf/infisical-machine.env}"
+
+# shellcheck source=scripts/lib/config-paths.sh
+. "$repo_root/scripts/lib/config-paths.sh"
+
+config_path="$(dotfiles_resolve_config_file "${DEVBOX_CONFIG:-}" devbox.env)"
+machine_config_path="$(dotfiles_resolve_config_file "${INFISICAL_MACHINE_CONFIG:-}" infisical-machine.env)"
 machine_auth_required="${INFISICAL_MACHINE_AUTH_REQUIRED:-1}"
 devbox_user="${DEVBOX_USER:-$USER}"
 process_compose_enabled="${PROCESS_COMPOSE_ENABLED:-1}"
@@ -14,22 +18,24 @@ infisical_project_id="${INFISICAL_PROJECT_ID:-}"
 infisical_env="${INFISICAL_ENV:-dev}"
 infisical_secret_path="${INFISICAL_SECRET_PATH:-}"
 infisical_sudo_secret_path="${INFISICAL_SUDO_SECRET_PATH:-}"
-infisical_sudo_age_identity_file="${INFISICAL_SUDO_AGE_IDENTITY_FILE:-$HOME/.config/uinaf/sudo-age-identity.txt}"
+infisical_sudo_age_identity_file="$(dotfiles_resolve_config_file "${INFISICAL_SUDO_AGE_IDENTITY_FILE:-}" sudo-age-identity.txt)"
 
 # shellcheck source=scripts/lib/infisical.sh
 . "$repo_root/scripts/lib/infisical.sh"
 # shellcheck source=scripts/lib/infisical-sudo.sh
 . "$repo_root/scripts/lib/infisical-sudo.sh"
+# shellcheck source=scripts/lib/launchd.sh
+. "$repo_root/scripts/lib/launchd.sh"
 
 usage() {
   cat <<'USAGE'
 Usage:
   scripts/verify/devbox-services.sh
 
-Checks devbox supervisor, uinaf healthd/colima system LaunchDaemons, Infisical
+Checks devbox supervisor, managed healthd/colima system LaunchDaemons, Infisical
 CLI availability, persistent machine auth, and default-shell token boundaries
 for the current Unix user. Configure process-compose and Infisical selectors
-through ~/.config/uinaf/devbox.env.
+through ~/.config/dotfiles/devbox.env.
 USAGE
 }
 
@@ -231,11 +237,28 @@ check_infisical() {
 }
 
 check_launchd_daemons() {
-  section "uinaf launchd daemons"
+  section "managed launchd daemons"
 
-  local plist label found=0
+  local plist label namespace namespace_file namespace_status found=0
+  case "$devbox_user" in
+    ""|*[!A-Za-z0-9._-]*) fail "unsupported DEVBOX_USER: $devbox_user" ;;
+  esac
+  namespace_file="$HOME/.config/dotfiles/launchd-namespace"
+  if namespace="$(dotfiles_resolve_launchd_namespace_contract "${DOTFILES_LAUNCHD_NAMESPACE:-}" "$namespace_file" "$(id -u)")"; then
+    :
+  else
+    namespace_status=$?
+    if [ "$namespace_status" -eq 3 ]; then
+      fail "DOTFILES_LAUNCHD_NAMESPACE differs from the stored host contract"
+    fi
+    fail "invalid DOTFILES_LAUNCHD_NAMESPACE or stored namespace"
+  fi
 
-  for plist in /Library/LaunchDaemons/com.uinaf.healthd.*.plist /Library/LaunchDaemons/com.uinaf.colima.*.plist; do
+  for plist in \
+    "/Library/LaunchDaemons/$namespace.healthd.$devbox_user.plist" \
+    "/Library/LaunchDaemons/$namespace.colima.$devbox_user.plist" \
+    "/Library/LaunchDaemons/com.uinaf.healthd.$devbox_user.plist" \
+    "/Library/LaunchDaemons/com.uinaf.colima.$devbox_user.plist"; do
     [ -e "$plist" ] || continue
     found=1
     label="$(basename "$plist" .plist)"
@@ -245,7 +268,7 @@ check_launchd_daemons() {
     printf 'ok %s loaded\n' "$label"
   done
 
-  [ "$found" -eq 1 ] || printf 'ok no uinaf healthd/colima system daemons on this machine\n'
+  [ "$found" -eq 1 ] || printf 'ok no managed healthd/colima system daemons on this machine\n'
 }
 
 check_process_compose() {

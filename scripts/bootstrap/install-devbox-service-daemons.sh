@@ -7,6 +7,12 @@ install_openclaw=0
 install_healthd=0
 install_colima=0
 check_only=0
+print_labels=0
+launchd_namespace="${DOTFILES_LAUNCHD_NAMESPACE:-}"
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+
+# shellcheck source=scripts/lib/launchd.sh
+. "$repo_root/scripts/lib/launchd.sh"
 
 usage() {
   cat <<'USAGE'
@@ -21,10 +27,12 @@ Services:
 
 Options:
   --check            Verify the selected LaunchDaemons without changing them.
+  --print-labels     Print the generic labels for the selected user and exit.
+  --namespace NAME   Stable label namespace; defaults to local.dotfiles.
 
 The installer must run as root on macOS. It creates root-owned system
-LaunchDaemons that drop privileges to the selected user, then retires the
-equivalent GUI-session LaunchAgents after the system jobs load successfully.
+LaunchDaemons that drop privileges to the selected user. Conflicting
+GUI-session LaunchAgents must be retired explicitly before installation.
 USAGE
 }
 
@@ -55,6 +63,14 @@ while [ "$#" -gt 0 ]; do
     --check)
       check_only=1
       ;;
+    --print-labels)
+      print_labels=1
+      ;;
+    --namespace)
+      [ "$#" -ge 2 ] || fail "--namespace requires a value"
+      launchd_namespace="$2"
+      shift
+      ;;
     -h|--help)
       usage
       exit 0
@@ -67,11 +83,31 @@ while [ "$#" -gt 0 ]; do
   shift
 done
 
-[ "$(uname -s)" = "Darwin" ] || fail "this installer supports macOS only"
 [ -n "$target_user" ] || fail "--user is required"
 case "$target_user" in
   *[!A-Za-z0-9._-]*) fail "unsupported user name: $target_user" ;;
 esac
+if [ "$print_labels" -eq 1 ]; then
+  if [ "$(uname -s)" = Darwin ] \
+    && target_uid="$(id -u "$target_user" 2>/dev/null)"; then
+    target_home="$(dscl . -read "/Users/$target_user" NFSHomeDirectory 2>/dev/null | awk '{print $2}')"
+    [ -n "$target_home" ] && [ -d "$target_home" ] || fail "missing home for $target_user"
+    launchd_namespace_file="$target_home/.config/dotfiles/launchd-namespace"
+    if ! launchd_namespace="$(dotfiles_resolve_launchd_namespace_contract "$launchd_namespace" "$launchd_namespace_file" "$target_uid")"; then
+      fail "invalid or conflicting stored LaunchDaemon namespace contract"
+    fi
+  elif ! launchd_namespace="$(dotfiles_resolve_launchd_namespace "$launchd_namespace")"; then
+    fail "LaunchDaemon namespace must contain dot-separated letters, numbers, hyphens, or underscores"
+  fi
+  process_label="$(dotfiles_launchd_label process-compose "$target_user" "$launchd_namespace")"
+  openclaw_label="$(dotfiles_launchd_label openclaw-gateway "$target_user" "$launchd_namespace")"
+  healthd_label="$(dotfiles_launchd_label healthd "$target_user" "$launchd_namespace")"
+  colima_label="$(dotfiles_launchd_label colima "$target_user" "$launchd_namespace")"
+  printf '%s\n%s\n%s\n%s\n' "$process_label" "$openclaw_label" "$healthd_label" "$colima_label"
+  exit 0
+fi
+
+[ "$(uname -s)" = "Darwin" ] || fail "this installer supports macOS only"
 [ "$install_process_compose" -eq 1 ] || [ "$install_openclaw" -eq 1 ] \
   || [ "$install_healthd" -eq 1 ] \
   || [ "$install_colima" -eq 1 ] \
@@ -81,11 +117,21 @@ target_uid="$(id -u "$target_user" 2>/dev/null)" || fail "unknown user: $target_
 target_group="$(id -gn "$target_user")"
 target_home="$(dscl . -read "/Users/$target_user" NFSHomeDirectory 2>/dev/null | awk '{print $2}')"
 [ -n "$target_home" ] && [ -d "$target_home" ] || fail "missing home for $target_user"
+launchd_namespace_file="$target_home/.config/dotfiles/launchd-namespace"
+if launchd_namespace="$(dotfiles_resolve_launchd_namespace_contract "$launchd_namespace" "$launchd_namespace_file" "$target_uid")"; then
+  :
+else
+  namespace_status=$?
+  if [ "$namespace_status" -eq 3 ]; then
+    fail "LaunchDaemon namespace differs from the stored host contract"
+  fi
+  fail "LaunchDaemon namespace must contain dot-separated letters, numbers, hyphens, or underscores"
+fi
+process_label="$(dotfiles_launchd_label process-compose "$target_user" "$launchd_namespace")"
+openclaw_label="$(dotfiles_launchd_label openclaw-gateway "$target_user" "$launchd_namespace")"
+healthd_label="$(dotfiles_launchd_label healthd "$target_user" "$launchd_namespace")"
+colima_label="$(dotfiles_launchd_label colima "$target_user" "$launchd_namespace")"
 
-process_label="com.uinaf.process-compose.$target_user"
-openclaw_label="com.uinaf.openclaw-gateway.$target_user"
-healthd_label="com.uinaf.healthd.$target_user"
-colima_label="com.uinaf.colima.$target_user"
 launch_daemon_dir="/Library/LaunchDaemons"
 healthd_config="$target_home/.config/healthd/config.toml"
 healthd_binary=""
@@ -139,22 +185,22 @@ fi
 
 check_job() {
   local label="$1"
-  local retired_agent="${2:-}"
+  local forbidden_agent="${2:-}"
 
   [ -f "$launch_daemon_dir/$label.plist" ] || fail "missing $launch_daemon_dir/$label.plist"
   [ "$(stat -f '%Su:%Sg:%Lp' "$launch_daemon_dir/$label.plist")" = "root:wheel:644" ] \
     || fail "$label plist must be root:wheel mode 0644"
   launchctl print "system/$label" >/dev/null 2>&1 || fail "$label is not loaded"
-  if [ -n "$retired_agent" ]; then
-    [ ! -e "$target_home/Library/LaunchAgents/$retired_agent.plist" ] \
-      || fail "conflicting LaunchAgent remains: $retired_agent"
+  if [ -n "$forbidden_agent" ]; then
+    [ ! -e "$target_home/Library/LaunchAgents/$forbidden_agent.plist" ] \
+      || fail "conflicting LaunchAgent remains: $forbidden_agent"
   fi
   printf 'ok %s loaded for %s\n' "$label" "$target_user"
 }
 
 check_healthd() {
-  local retired_agent="${1-com.uinaf.healthd}"
-  check_job "$healthd_label" "$retired_agent"
+  local forbidden_agent="${1-com.uinaf.healthd}"
+  check_job "$healthd_label" "$forbidden_agent"
   if can_run_as_target; then
     run_as_target "$healthd_binary" check --config "$healthd_config" --json >/dev/null \
       || fail "$healthd_label check failed"
@@ -195,7 +241,7 @@ fi
 command -v plutil >/dev/null || fail "missing plutil"
 command -v launchctl >/dev/null || fail "missing launchctl"
 
-tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/uinaf-service-daemons.XXXXXX")"
+tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/dotfiles-service-daemons.XXXXXX")"
 trap 'rm -rf "$tmp_dir"' EXIT
 
 plist_add_arguments() {
@@ -235,11 +281,25 @@ create_plist() {
   plutil -lint "$plist" >/dev/null
 }
 
+bootout_if_loaded() {
+  local domain="$1"
+  local label="$2"
+
+  if ! launchctl print "$domain/$label" >/dev/null 2>&1; then
+    return 0
+  fi
+  launchctl bootout "$domain/$label" >/dev/null \
+    || fail "could not unload $domain/$label"
+  if launchctl print "$domain/$label" >/dev/null 2>&1; then
+    fail "$domain/$label remains loaded after bootout"
+  fi
+}
+
 install_job() {
   local source_plist="$1"
   local label="$2"
 
-  launchctl bootout "system/$label" >/dev/null 2>&1 || true
+  bootout_if_loaded system "$label"
   install -o root -g wheel -m 0644 "$source_plist" "$launch_daemon_dir/$label.plist"
   launchctl bootstrap system "$launch_daemon_dir/$label.plist"
   launchctl enable "system/$label"
@@ -248,26 +308,67 @@ install_job() {
   printf 'installed %s for %s\n' "$label" "$target_user"
 }
 
-retire_agent() {
-  local old_agent_label="$1"
-  local old_agent_path="$target_home/Library/LaunchAgents/$old_agent_label.plist"
-  local retired_dir="$target_home/Library/LaunchAgents.disabled"
-  local retired_path="$retired_dir/$old_agent_label.plist"
+reject_legacy_system_job() {
+  local old_label="$1"
+  local old_path="$launch_daemon_dir/$old_label.plist"
 
-  launchctl bootout "gui/$target_uid/$old_agent_label" >/dev/null 2>&1 || true
-  launchctl bootout "user/$target_uid/$old_agent_label" >/dev/null 2>&1 || true
-  if [ -e "$old_agent_path" ]; then
-    install -d -o "$target_user" -g "$target_group" -m 0700 "$retired_dir"
-    [ ! -e "$retired_path" ] || fail "retired LaunchAgent already exists: $retired_path"
-    mv "$old_agent_path" "$retired_path"
-    chown "$target_user:$target_group" "$retired_path"
-    chmod 0600 "$retired_path"
+  if [ -e "$old_path" ] || launchctl print "system/$old_label" >/dev/null 2>&1; then
+    fail "legacy system job $old_label must be retired explicitly before installing its replacement"
   fi
 }
 
+reject_user_agent() {
+  local old_agent_label="$1"
+  local old_agent_path="$target_home/Library/LaunchAgents/$old_agent_label.plist"
+
+  if [ -e "$old_agent_path" ] \
+    || launchctl print "gui/$target_uid/$old_agent_label" >/dev/null 2>&1 \
+    || launchctl print "user/$target_uid/$old_agent_label" >/dev/null 2>&1; then
+    fail "user LaunchAgent $old_agent_label must be retired explicitly before installing its replacement"
+  fi
+}
+
+process_start="$target_home/.local/bin/process-compose-start.sh"
+env_wrapper="$target_home/.openclaw/service-env/ai.openclaw.gateway-env-wrapper.sh"
+env_file="$target_home/.openclaw/service-env/ai.openclaw.gateway.env"
+gateway_wrapper="$target_home/.local/bin/openclaw-gateway-mise-wrapper"
 if [ "$install_process_compose" -eq 1 ]; then
-  process_start="$target_home/.local/bin/process-compose-start.sh"
   [ -x "$process_start" ] || fail "missing executable $process_start"
+fi
+if [ "$install_openclaw" -eq 1 ]; then
+  [ -x "$env_wrapper" ] || fail "missing executable $env_wrapper"
+  [ -f "$env_file" ] || fail "missing $env_file"
+  [ -x "$gateway_wrapper" ] || fail "missing executable $gateway_wrapper"
+fi
+if [ "$install_healthd" -eq 1 ]; then
+  run_as_target "$healthd_binary" validate --config "$healthd_config" >/dev/null \
+    || fail "invalid healthd config: $healthd_config"
+fi
+
+if [ "$install_process_compose" -eq 1 ]; then
+  reject_legacy_system_job "com.uinaf.process-compose.$target_user"
+  reject_user_agent com.uinaf.process-compose
+fi
+if [ "$install_openclaw" -eq 1 ]; then
+  reject_legacy_system_job "com.uinaf.openclaw-gateway.$target_user"
+  reject_user_agent ai.openclaw.gateway
+fi
+if [ "$install_healthd" -eq 1 ]; then
+  reject_legacy_system_job "com.uinaf.healthd.$target_user"
+  reject_user_agent com.uinaf.healthd
+fi
+if [ "$install_colima" -eq 1 ]; then
+  reject_legacy_system_job "com.uinaf.colima.$target_user"
+fi
+
+launchd_namespace_dir="$(dirname "$launchd_namespace_file")"
+run_as_target install -d -m 0700 "$launchd_namespace_dir"
+namespace_tmp="$(run_as_target mktemp "$launchd_namespace_dir/.launchd-namespace.XXXXXX")"
+printf '%s\n' "$launchd_namespace" | run_as_target tee "$namespace_tmp" >/dev/null
+run_as_target chmod 0600 "$namespace_tmp"
+run_as_target mv -f "$namespace_tmp" "$launchd_namespace_file"
+
+if [ "$install_process_compose" -eq 1 ]; then
   install -d -o "$target_user" -g "$target_group" -m 0700 "$target_home/.local/run"
   install -d -o "$target_user" -g "$target_group" -m 0750 "$target_home/.local/log/process-compose"
   process_plist="$tmp_dir/$process_label.plist"
@@ -279,16 +380,9 @@ if [ "$install_process_compose" -eq 1 ]; then
     "$target_home/.local/log/process-compose/stderr.log" \
     "$process_start"
   install_job "$process_plist" "$process_label"
-  retire_agent com.uinaf.process-compose
 fi
 
 if [ "$install_openclaw" -eq 1 ]; then
-  env_wrapper="$target_home/.openclaw/service-env/ai.openclaw.gateway-env-wrapper.sh"
-  env_file="$target_home/.openclaw/service-env/ai.openclaw.gateway.env"
-  gateway_wrapper="$target_home/.local/bin/openclaw-gateway-mise-wrapper"
-  [ -x "$env_wrapper" ] || fail "missing executable $env_wrapper"
-  [ -f "$env_file" ] || fail "missing $env_file"
-  [ -x "$gateway_wrapper" ] || fail "missing executable $gateway_wrapper"
   install -d -o "$target_user" -g "$target_group" -m 0750 "$target_home/Library/Logs/openclaw"
   openclaw_plist="$tmp_dir/$openclaw_label.plist"
   create_plist \
@@ -305,12 +399,9 @@ if [ "$install_openclaw" -eq 1 ]; then
     --port \
     18789
   install_job "$openclaw_plist" "$openclaw_label"
-  retire_agent ai.openclaw.gateway
 fi
 
 if [ "$install_healthd" -eq 1 ]; then
-  run_as_target "$healthd_binary" validate --config "$healthd_config" >/dev/null \
-    || fail "invalid healthd config: $healthd_config"
   install -d -o "$target_user" -g "$target_group" -m 0750 "$target_home/Library/Logs/healthd"
   healthd_plist="$tmp_dir/$healthd_label.plist"
   create_plist \
@@ -324,8 +415,6 @@ if [ "$install_healthd" -eq 1 ]; then
     --config \
     "$healthd_config"
   install_job "$healthd_plist" "$healthd_label"
-  check_healthd ""
-  retire_agent com.uinaf.healthd
   check_healthd
 fi
 

@@ -1,0 +1,43 @@
+# Shared development layer for workstation and devbox users.
+
+# Taps
+tap "f1bonacc1/tap"
+tap "teamookla/speedtest"
+
+# Terminal, browser, and coding agents
+cask "ghostty"
+cask "zed"
+cask "google-chrome"
+cask "codex"
+cask "claude-code@latest"
+
+# Development CLI
+brew "gh"
+brew "git-crypt"
+brew "git-filter-repo"
+brew "actionlint"
+brew "shellcheck"
+brew "xcodes"
+
+# Download and media helpers
+brew "aria2"
+brew "ffmpeg"
+brew "mole"
+
+# Containers
+brew "colima"
+brew "docker"
+brew "docker-buildx"
+brew "docker-compose"
+
+# Networking and diagnostics
+brew "fping"
+brew "teamookla/speedtest/speedtest"
+
+# Security
+brew "gitleaks"
+brew "lynis"
+brew "trufflehog"
+
+# Process supervision
+brew "f1bonacc1/tap/process-compose"

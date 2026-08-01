@@ -118,7 +118,7 @@ export PATH="/opt/homebrew/opt/ruby/bin:$PATH"
 ```
 
 Or pin via mise at the project level if the repo has a `mise.toml`. Do not
-add Ruby to the shared global mise config; it does not apply to every uinaf
+add Ruby to the shared global mise config; it does not apply to every managed
 machine.
 
 ## Watchman

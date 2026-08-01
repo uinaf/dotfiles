@@ -4,15 +4,23 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 configure_git="$repo_root/scripts/bootstrap/configure-git.sh"
 ssh_entrypoint="$repo_root/chezmoi/private_dot_ssh/private_config"
-agentless_signer_source="$repo_root/chezmoi/private_dot_local/private_libexec/private_uinaf/private_executable_git-ssh-sign-agentless"
+agentless_signer_source="$repo_root/chezmoi/private_dot_local/private_libexec/private_dotfiles/private_executable_git-ssh-sign-agentless"
 tmp_root="$(mktemp -d)"
 trap 'rm -rf "$tmp_root"' EXIT
 
 unset \
   GIT_ALTERNATE_OBJECT_DIRECTORIES \
   GIT_CONFIG \
+  GIT_CONFIG_GLOBAL \
+  GIT_CONFIG_SYSTEM \
+  GIT_CONFIG_NOSYSTEM \
   GIT_CONFIG_PARAMETERS \
   GIT_CONFIG_COUNT \
+  GIT_TEMPLATE_DIR \
+  GIT_AUTHOR_NAME \
+  GIT_AUTHOR_EMAIL \
+  GIT_COMMITTER_NAME \
+  GIT_COMMITTER_EMAIL \
   GIT_OBJECT_DIRECTORY \
   GIT_DIR \
   GIT_WORK_TREE \
@@ -32,7 +40,7 @@ fail() {
 
 make_home() {
   local home="$1"
-  local agentless_signer="$home/.local/libexec/uinaf/git-ssh-sign-agentless"
+  local agentless_signer="$home/.local/libexec/dotfiles/git-ssh-sign-agentless"
 
   mkdir -p "$home/.ssh" "$(dirname "$agentless_signer")"
   chmod 0700 "$home/.ssh"
@@ -76,7 +84,7 @@ snapshot_owned() {
   for path in \
     "$home/.gitconfig.local" \
     "$home/.config/git/allowed_signers.local" \
-    "$home/.local/libexec/uinaf/git-ssh-sign-agentless" \
+    "$home/.local/libexec/dotfiles/git-ssh-sign-agentless" \
     "$home/.ssh/github.config" \
     "$home/.ssh/config.local"; do
     if [ -f "$path" ]; then
@@ -129,20 +137,20 @@ cp "$personal_home/.ssh/config.local" "$tmp_root/personal.config.before"
 
 configure \
   "$personal_home" \
-  personal \
+  workstation \
   "$personal_home/.ssh/signing" \
   "$personal_home/.ssh/signing" >/dev/null
 
 [ "$(HOME="$personal_home" git config --file "$personal_home/.gitconfig.local" --get user.signingkey)" = "$personal_home/.ssh/signing" ] \
   || fail "personal Git signing did not select the matching local private key"
-agentless_program="$personal_home/.local/libexec/uinaf/git-ssh-sign-agentless"
+agentless_program="$personal_home/.local/libexec/dotfiles/git-ssh-sign-agentless"
 [ "$(HOME="$personal_home" git config --file "$personal_home/.gitconfig.local" --get gpg.ssh.program)" = "$agentless_program" ] \
   || fail "personal Git signing did not select the agentless signing program"
 [ -x "$agentless_program" ] || fail "agentless signing program is not executable"
 grep -qx 'unset SSH_AUTH_SOCK' "$agentless_program" || fail "agentless signing program does not clear SSH_AUTH_SOCK"
 
 github_config="$personal_home/.ssh/github.config"
-[ "$(grep -c '^# uinaf-dotfiles: github-ssh begin$' "$github_config")" -eq 1 ] || fail "dedicated GitHub block is missing or duplicated"
+[ "$(grep -c '^# dotfiles: github-ssh begin$' "$github_config")" -eq 1 ] || fail "dedicated GitHub block is missing or duplicated"
 cmp -s "$tmp_root/personal.config.before" "$personal_home/.ssh/config.local" || fail "personal config.local was rewritten"
 
 effective_github="$(ssh -F "$personal_home/.ssh/config" -G github.com 2>/dev/null)"
@@ -184,41 +192,30 @@ assert_rejected_without_mutation \
 missing_signer_home="$tmp_root/missing-signer"
 make_home "$missing_signer_home"
 make_key "$missing_signer_home/.ssh/signing"
-rm "$missing_signer_home/.local/libexec/uinaf/git-ssh-sign-agentless"
+rm "$missing_signer_home/.local/libexec/dotfiles/git-ssh-sign-agentless"
 assert_rejected_without_mutation \
   "$missing_signer_home" 'agentless signer is missing or not executable' \
   "$missing_signer_home" personal "$missing_signer_home/.ssh/signing"
 
-migration_home="$tmp_root/migration"
-make_home "$migration_home"
-make_key "$migration_home/.ssh/signing"
-cat > "$migration_home/.ssh/config.local" <<'EOF'
-StrictHostKeyChecking yes
-
+legacy_marker_home="$tmp_root/legacy-marker"
+make_home "$legacy_marker_home"
+make_key "$legacy_marker_home/.ssh/signing"
+cat > "$legacy_marker_home/.ssh/config.local" <<'EOF'
 # uinaf-dotfiles: github-ssh begin
 Host github.com
   IdentityAgent none
 # uinaf-dotfiles: github-ssh end
-
-Host unrelated.example
-  User example
 EOF
-cat > "$tmp_root/migration.expected" <<'EOF'
-StrictHostKeyChecking yes
-
-
-Host unrelated.example
-  User example
-EOF
-configure "$migration_home" personal "$migration_home/.ssh/signing" "$migration_home/.ssh/signing" >/dev/null
-cmp -s "$tmp_root/migration.expected" "$migration_home/.ssh/config.local" || fail "legacy marker migration changed unrelated SSH config"
+assert_rejected_without_mutation \
+  "$legacy_marker_home" 'unmanaged Host github.com entry exists' \
+  "$legacy_marker_home" personal "$legacy_marker_home/.ssh/signing" "$legacy_marker_home/.ssh/signing"
 
 devbox_home="$tmp_root/devbox"
 make_home "$devbox_home"
 make_key "$devbox_home/.ssh/signing"
 configure "$devbox_home" devbox "$devbox_home/.ssh/signing" >/dev/null
 grep -q "^  IdentityFile $devbox_home/.ssh/signing$" "$devbox_home/.ssh/github.config" || fail "devbox did not resolve the signing private key"
-[ "$(HOME="$devbox_home" git config --file "$devbox_home/.gitconfig.local" --get gpg.ssh.program)" = "$devbox_home/.local/libexec/uinaf/git-ssh-sign-agentless" ] \
+[ "$(HOME="$devbox_home" git config --file "$devbox_home/.gitconfig.local" --get gpg.ssh.program)" = "$devbox_home/.local/libexec/dotfiles/git-ssh-sign-agentless" ] \
   || fail "devbox local signing did not select the agentless signing program"
 
 missing_home="$tmp_root/missing"
@@ -262,7 +259,7 @@ Host github.com
   ProxyCommand false
 EOF
 assert_rejected_without_mutation \
-  "$unmanaged_github_config_home" 'existing file is not managed exclusively by uinaf dotfiles' \
+  "$unmanaged_github_config_home" 'existing file is not managed exclusively by these dotfiles' \
   "$unmanaged_github_config_home" personal "$unmanaged_github_config_home/.ssh/signing" "$unmanaged_github_config_home/.ssh/signing"
 
 conflict_home="$tmp_root/conflict"
@@ -279,7 +276,7 @@ assert_rejected_without_mutation \
 malformed_home="$tmp_root/malformed"
 make_home "$malformed_home"
 make_key "$malformed_home/.ssh/signing"
-printf '# uinaf-dotfiles: github-ssh begin\n' > "$malformed_home/.ssh/config.local"
+printf '# dotfiles: github-ssh begin\n' > "$malformed_home/.ssh/config.local"
 assert_rejected_without_mutation \
   "$malformed_home" 'malformed managed block' \
   "$malformed_home" personal "$malformed_home/.ssh/signing" "$malformed_home/.ssh/signing"
@@ -292,4 +289,76 @@ assert_rejected_without_mutation \
   "$public_only_home" 'key file is not an SSH private key' \
   "$public_only_home" devbox "$public_only_home/.ssh/signing.pub"
 
-printf 'ok Git bootstrap preserves SSH scope and signs locally while ignoring an active matching agent\n'
+invalid_profile_home="$tmp_root/invalid-profile"
+mkdir -p "$invalid_profile_home/.config/dotfiles"
+printf 'invalid\n' > "$invalid_profile_home/.config/dotfiles/profile"
+if HOME="$invalid_profile_home" \
+  GIT_USER_NAME='Unexpected Workstation' \
+  GIT_USER_EMAIL='unexpected@example.com' \
+    "$configure_git" --non-interactive >/dev/null 2>&1; then
+  fail "invalid persisted profile fell back to workstation"
+fi
+[ ! -e "$invalid_profile_home/.gitconfig.local" ] \
+  || fail "invalid persisted profile mutated Git config"
+
+assistant_home="$tmp_root/assistant"
+mkdir -p "$assistant_home"
+HOME="$assistant_home" "$repo_root/scripts/bootstrap/apply-dotfiles.sh" --profile assistant >/dev/null
+HOME="$assistant_home" \
+GIT_USER_NAME='Example Workload' \
+GIT_USER_EMAIL='example-workload@users.noreply.github.com' \
+  "$configure_git" --profile assistant --non-interactive >/dev/null
+
+assistant_config="$assistant_home/.gitconfig.local"
+[ "$(HOME="$assistant_home" git config --file "$assistant_config" --get user.name)" = 'Example Workload' ] \
+  || fail "assistant workload Git name was not configured"
+[ "$(HOME="$assistant_home" git config --file "$assistant_config" --get user.email)" = 'example-workload@users.noreply.github.com' ] \
+  || fail "assistant workload Git email was not configured"
+[ "$(HOME="$assistant_home" git config --file "$assistant_config" --get dotfiles.identity)" = workload ] \
+  || fail "assistant workload identity marker was not configured"
+[ "$(HOME="$assistant_home" git config --file "$assistant_config" --get commit.gpgsign)" = false ] \
+  || fail "assistant workload commits did not disable signing"
+if HOME="$assistant_home" git config --file "$assistant_config" --get user.signingkey >/dev/null 2>&1; then
+  fail "assistant workload config persisted a signing key"
+fi
+
+assistant_repo="$assistant_home/proof"
+HOME="$assistant_home" git init -q "$assistant_repo"
+printf 'workload identity proof\n' > "$assistant_repo/proof.txt"
+HOME="$assistant_home" git -C "$assistant_repo" add proof.txt
+HOME="$assistant_home" git -C "$assistant_repo" commit -q -m 'test: prove workload commit identity'
+[ "$(HOME="$assistant_home" git -C "$assistant_repo" log -1 --format='%an <%ae>')" = \
+  'Example Workload <example-workload@users.noreply.github.com>' ] \
+  || fail "assistant commit did not use the workload identity"
+
+HOME="$assistant_home" \
+DOTFILES_PROFILE=workstation \
+GIT_USER_NAME='Persisted Workload' \
+GIT_USER_EMAIL='persisted-workload@users.noreply.github.com' \
+  "$configure_git" --non-interactive >/dev/null
+[ "$(HOME="$assistant_home" git config --file "$assistant_config" --get dotfiles.identity)" = workload ] \
+  || fail "persisted assistant role did not override an ambient profile"
+
+assistant_before="$(shasum -a 256 "$assistant_config")"
+if HOME="$assistant_home" \
+  GIT_USER_NAME='Example Workload' \
+  GIT_USER_EMAIL='example-workload@users.noreply.github.com' \
+  GIT_SIGN_COMMITS=true \
+  GIT_SIGNING_KEY="$assistant_home/signing" \
+    "$configure_git" --profile assistant --non-interactive >/dev/null 2>&1; then
+  fail "assistant workload identity accepted persisted commit signing"
+fi
+[ "$assistant_before" = "$(shasum -a 256 "$assistant_config")" ] \
+  || fail "assistant workload config changed after rejecting signing"
+
+if HOME="$assistant_home" \
+  GIT_USER_NAME='Example Workload' \
+  GIT_USER_EMAIL='example-workload@users.noreply.github.com' \
+  GIT_SSH_IDENTITY_FILE="$assistant_home/github-key" \
+    "$configure_git" --profile assistant --non-interactive >/dev/null 2>&1; then
+  fail "assistant workload identity accepted GitHub SSH authentication"
+fi
+[ "$assistant_before" = "$(shasum -a 256 "$assistant_config")" ] \
+  || fail "assistant workload config changed after rejecting GitHub SSH authentication"
+
+printf 'ok Git bootstrap preserves developer signing and configures unsigned workload commits for assistants\n'

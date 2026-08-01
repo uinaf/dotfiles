@@ -4,12 +4,14 @@ Guidance for agents helping with this repo.
 
 ## Role
 
-This is a public Mac bootstrap repo for uinaf machines. Help the user install
-tools, apply chezmoi-managed dotfiles, configure local identity, and verify a machine without
-turning private machine state into repository state.
+This is a vendor-neutral public macOS bootstrap framework for any person,
+team, or organization. Help the user install tools, apply chezmoi-managed
+dotfiles, configure local identity, and verify a machine without turning
+private machine state into repository state.
 
 Start with [README](README.md). Use [Bootstrap guide](docs/bootstrap.md) for
-install steps, [Devbox setup](docs/devbox.md) for shared agent hosts, and
+install steps, [User profiles](docs/profiles.md) for per-user role boundaries,
+[Devbox setup](docs/devbox.md) for shared agent hosts, and
 [Agent readiness](docs/agent-readiness.md) for verification expectations. Use
 [Chezmoi source state](docs/chezmoi.md) for dotfile changes and
 [Mise tasks](docs/mise.md) for task/runtime boundaries.
@@ -40,9 +42,11 @@ service-account refresh stacks.
 ## Agent Operating Checklist
 
 1. Run `git status --short --branch` before editing.
-2. Identify the target profile: `personal`, `devbox`, or repo-only docs/scripts.
+2. Identify the target profile: `workstation`, `devbox`, `assistant`, or
+   repo-only docs/scripts.
 3. Read only the relevant deep doc:
-   - personal or first-machine setup: [Bootstrap guide](docs/bootstrap.md)
+   - workstation or first-machine setup: [Bootstrap guide](docs/bootstrap.md)
+   - user-role boundaries: [User profiles](docs/profiles.md)
    - shared agent host: [Devbox setup](docs/devbox.md)
    - dotfile source changes: [Chezmoi source state](docs/chezmoi.md)
    - mise task or runtime changes: [Mise tasks](docs/mise.md)
@@ -60,7 +64,7 @@ service-account refresh stacks.
 
 ## Setup Flow
 
-For a human-operated Mac, follow [Personal Mac](docs/bootstrap.md#personal-mac).
+For a human-operated Mac, follow [Workstation Mac](docs/bootstrap.md#workstation-mac).
 
 For a shared agent host, follow [Devbox Mac](docs/bootstrap.md#devbox-mac) and
 then [Devbox setup](docs/devbox.md). Devbox commit signing is expected and must
@@ -82,6 +86,9 @@ Do not put identity-specific values in tracked files. `configure-git.sh` writes
 them to `~/.gitconfig.local`. On devboxes, use the human-provisioned local SSH
 key file for GitHub SSH auth; `configure-git.sh` writes the matching
 `~/.ssh/github.config` override when the signing key is a local path.
+Assistants use explicit workload authorship and unsigned commits. GitHub
+authentication is separate platform-owned setup; never invent the workload
+name, email, App identity, or credentials.
 
 ## Verification
 
@@ -106,8 +113,9 @@ To install the same fast gate as a local pre-push hook:
 For a live machine that should use these dotfiles:
 
 ```zsh
-./scripts/verify/bootstrap.sh --profile personal
+./scripts/verify/bootstrap.sh --profile workstation
 ./scripts/verify/bootstrap.sh --profile devbox
+./scripts/verify/bootstrap.sh --profile assistant
 ```
 
 For devbox users:
@@ -117,21 +125,26 @@ For devbox users:
 ./scripts/audit/devbox.sh
 ```
 
-For personal security drift:
+For workstation security drift:
 
 ```zsh
-./scripts/audit/personal.sh
+./scripts/audit/workstation.sh
 ```
 
 ## Repo Rules
 
 - Use Conventional Commits.
-- Keep `Brewfile` shared and profile-neutral.
-- Put laptop-only apps in `Brewfile.personal`.
-- Put shared agent-host and devbox tools in `Brewfile.devbox`.
-- Keep this repository standalone. Do not clone, install, invoke, or validate
-  `uinaf/agents` or `uinaf/workspace-kit`. They are optional companion tools
-  with their own setup and verification.
+- Keep `Brewfile` minimal and identity-safe.
+- Put the shared coding stack in `Brewfile.developer`.
+- Put role-specific software in `Brewfile.workstation`, `Brewfile.devbox`, or
+  `Brewfile.assistant`.
+- Keep this repository standalone. Do not require, clone, install, invoke, or
+  validate an agent framework or workspace manager.
+- Keep portable interfaces vendor-neutral. Do not add `uinaf` or another owner
+  name to installed paths, commands, config keys, template data, service labels,
+  example identities, or prose that describes the framework. Owner names are
+  allowed only for real external coordinates such as the upstream repository,
+  package tap, security contact, copyright, or a bounded legacy migration.
 - Keep Codex setup install-only here. Agent rules, skills, and workspace policy
   belong to whichever independent tools the machine owner chooses.
 - Treat Git tags and GitHub Releases as the canonical version. Do not add a
@@ -142,5 +155,5 @@ For personal security drift:
   [Mise tasks](docs/mise.md).
 - Update docs when scripts, profile behavior, audit behavior, or workflow names
   change.
-- Follow the uinaf repo-doc voice: proper-case headings, sentence-case body,
+- Follow the repo-doc voice: proper-case headings, sentence-case body,
   short direct prose, no emoji, no marketing copy.

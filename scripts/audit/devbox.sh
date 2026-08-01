@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-config_path="${DEVBOX_CONFIG:-$HOME/.config/uinaf/devbox.env}"
-machine_config_path="${INFISICAL_MACHINE_CONFIG:-$HOME/.config/uinaf/infisical-machine.env}"
+config_path="${DEVBOX_CONFIG:-}"
+machine_config_path="${INFISICAL_MACHINE_CONFIG:-}"
 devbox_user="${DEVBOX_USER:-$USER}"
 process_compose_enabled="${PROCESS_COMPOSE_ENABLED:-1}"
 process_compose_port="${PROCESS_COMPOSE_PORT:-9191}"
@@ -27,7 +27,7 @@ Usage:
 Runs a non-destructive devbox drift audit for the current Unix user.
 
 Options:
-  --config PATH                 local devbox config, default: ~/.config/uinaf/devbox.env
+  --config PATH                 local devbox config, default: ~/.config/dotfiles/devbox.env
   --json                        print a machine-readable summary instead of prose
   -h, --help
 
@@ -134,6 +134,9 @@ while [ "$#" -gt 0 ]; do
       ;;
   esac
 done
+
+config_path="$(dotfiles_resolve_config_file "$config_path" devbox.env)"
+machine_config_path="$(dotfiles_resolve_config_file "$machine_config_path" infisical-machine.env)"
 
 section "local devbox config"
 
@@ -323,7 +326,7 @@ done
 
 section "project directory privacy"
 
-for path in "$HOME/projects/uinaf" "$HOME/projects/$devbox_user"; do
+for path in "$HOME/projects" "$HOME/projects/$devbox_user"; do
   if [ -d "$path" ]; then
     mode="$(mode_of "$path")"
     if [ $((8#$mode & 0077)) -eq 0 ]; then
@@ -336,10 +339,10 @@ done
 
 section "Git and GitHub identity"
 
-git_name="$(git config --get user.name 2>/dev/null || true)"
-git_email="$(git config --get user.email 2>/dev/null || true)"
-git_signing_key="$(git config --get user.signingkey 2>/dev/null || true)"
-git_gpgsign="$(git config --get commit.gpgsign 2>/dev/null || true)"
+git_name="$(git config --file "$HOME/.gitconfig" --includes --get user.name 2>/dev/null || true)"
+git_email="$(git config --file "$HOME/.gitconfig" --includes --get user.email 2>/dev/null || true)"
+git_signing_key="$(git config --file "$HOME/.gitconfig" --includes --get user.signingkey 2>/dev/null || true)"
+git_gpgsign="$(git config --file "$HOME/.gitconfig" --includes --get commit.gpgsign 2>/dev/null || true)"
 
 [ -n "$git_name" ] || fail_check "missing git user.name"
 [ -n "$git_email" ] || fail_check "missing git user.email"
@@ -379,19 +382,7 @@ fi
 
 section "SSH key file permissions"
 
-if [ -d "$HOME/.ssh" ]; then
-  while IFS= read -r key_path; do
-    [ -n "$key_path" ] || continue
-    key_mode="$(mode_of "$key_path")"
-    if [ $((8#$key_mode & 0077)) -eq 0 ]; then
-      ok "$key_path mode $key_mode"
-    else
-      fail_check "$key_path mode $key_mode is group/world accessible"
-    fi
-  done < <(find "$HOME/.ssh" -maxdepth 1 -type f ! -name '*.pub' ! -name 'known_hosts*' ! -name 'config' -print 2>/dev/null | sort)
-else
-  warn "missing $HOME/.ssh"
-fi
+check_ssh_private_key_modes
 
 section "Tailscale"
 

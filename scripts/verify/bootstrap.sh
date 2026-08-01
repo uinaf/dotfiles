@@ -1,19 +1,22 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-profile="personal"
+profile=""
 desktop_baseline=0
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 ghostty_config="$HOME/Library/Application Support/com.mitchellh.ghostty/config"
 
+# shellcheck source=scripts/lib/profile.sh
+. "$repo_root/scripts/lib/profile.sh"
+
 usage() {
   cat <<'USAGE'
 Usage:
-  scripts/verify/bootstrap.sh [--profile personal|devbox] [--desktop]
+  scripts/verify/bootstrap.sh [--profile workstation|devbox|assistant] [--desktop]
 
-Checks the live machine bootstrap for the selected profile. The default profile
-is personal for backward compatibility. --desktop adds the owner-only devbox
-desktop baseline and is valid only with --profile devbox.
+Checks the live per-user bootstrap for the selected profile. An existing
+~/.config/dotfiles/profile is used when --profile is omitted. The legacy personal
+name maps to workstation. --desktop is valid only with devbox.
 USAGE
 }
 
@@ -27,7 +30,7 @@ while [ "$#" -gt 0 ]; do
       fi
       profile="$1"
       ;;
-    personal|devbox)
+    personal|workstation|devbox|assistant)
       profile="$1"
       ;;
     --desktop)
@@ -45,14 +48,10 @@ while [ "$#" -gt 0 ]; do
   shift
 done
 
-case "$profile" in
-  personal|devbox)
-    ;;
-  *)
-    usage >&2
-    exit 2
-    ;;
-esac
+if ! profile="$(dotfiles_resolve_profile "$profile")"; then
+  usage >&2
+  exit 2
+fi
 
 if [ "$desktop_baseline" -eq 1 ] && [ "$profile" != "devbox" ]; then
   printf 'FAILED: --desktop requires --profile devbox\n' >&2
@@ -63,21 +62,24 @@ common_cli_checks=(
   "brew --version"
   "chezmoi --version"
   "git --version"
-  "gh auth status"
-  "gh stack --help"
   "mise --version"
-  "bun --version"
   "python --version"
-  "java -version"
   "uv --version"
   "infisical --version"
+)
+
+developer_cli_checks=(
+  "gh auth status"
+  "gh stack --help"
+  "bun --version"
+  "java -version"
   "codex --version"
   "cursor-agent --version"
   "gitcrawl --version"
   "tailscale status --peers=false"
 )
 
-personal_cli_checks=(
+workstation_cli_checks=(
   "op --version"
   "blacksmith --version"
 )
@@ -91,13 +93,25 @@ devbox_cli_checks=(
   "xcodes version"
 )
 
+assistant_cli_checks=(
+  "process-compose version"
+  "ffmpeg -version"
+)
+
 common_config_paths=(
+  "$HOME/.config/dotfiles/profile"
+  "$HOME/.config/mise/config.toml"
+  "$HOME/.gitconfig"
+)
+
+developer_config_paths=(
+  "$HOME/.config/git/allowed_signers"
   "$HOME/.config/zed/settings.json"
   "$HOME/.config/zed/keymap.json"
   "$HOME/.codex/config.toml"
   "$ghostty_config"
-  "$HOME/.gitconfig"
   "$HOME/.gitconfig.local"
+  "$HOME/.ssh/config"
 )
 
 section() {
@@ -150,13 +164,19 @@ check_mise_tool_owner() {
   esac
 }
 
-check_node_tool_versions() {
+check_runtime_versions() {
   local node_root
   local npm_prefix
   local npm_global_root
   local npm_exec_node
 
   check_exact_version "Node" "v24.18.0" "node --version"
+  check_mise_tool_owner "Node" "node" "node"
+
+  if ! dotfiles_profile_is_developer "$profile"; then
+    return
+  fi
+
   check_exact_version "pnpm" "12.0.0-beta.2" "pnpm --version"
   check_exact_version "npm" "12.0.1" "npm --version"
   check_exact_version "Playwright CLI" "0.1.17" "playwright-cli --version"
@@ -241,31 +261,41 @@ check_desktop_baseline() {
 check_mise() {
   check_mise_doctor "login interactive" -lic
   check_mise_doctor "interactive" -ic
-  "$repo_root/scripts/bootstrap/trust-agent-worktrees.sh" --check
+  if dotfiles_profile_is_developer "$profile"; then
+    "$repo_root/scripts/bootstrap/trust-agent-worktrees.sh" --check
+  fi
 }
 
 check_truecolor_shell() {
+  if ! dotfiles_profile_is_developer "$profile"; then
+    return
+  fi
+
   section "shell truecolor"
   TERM=xterm-ghostty zsh -ic '[ "$COLORTERM" = truecolor ]' || fail "interactive zsh does not set COLORTERM=truecolor for Ghostty SSH sessions"
   printf 'ok COLORTERM=truecolor\n'
 }
 
 check_ghostty_ssh_integration() {
+  if ! dotfiles_profile_is_developer "$profile"; then
+    return
+  fi
+
   section "Ghostty SSH integration"
   grep -Fqx 'shell-integration-features = ssh-env,ssh-terminfo' "$ghostty_config" ||
     fail "Ghostty SSH environment and terminfo integration are not configured in $ghostty_config"
   printf 'ok Ghostty SSH environment and terminfo integration\n'
 }
 
-check_devbox_ssh_prompt() {
+check_remote_ssh_prompt() {
   if [ "$profile" != "devbox" ]; then
     return
   fi
 
-  section "devbox ssh prompt"
+  section "remote user ssh prompt"
   SSH_CONNECTION="${SSH_CONNECTION:-127.0.0.1 1 127.0.0.1 22}" \
-    zsh -ic '[[ "$PROMPT" == *"%n@%m"* ]]' || fail "devbox SSH shells do not show user@host in PROMPT"
-  printf 'ok devbox SSH prompt includes user@host\n'
+    zsh -ic '[[ "$PROMPT" == *"%n@%m"* ]]' || fail "remote SSH shells do not show user@host in PROMPT"
+  printf 'ok remote SSH prompt includes user@host\n'
 }
 
 check_cli_tools() {
@@ -275,24 +305,38 @@ check_cli_tools() {
     run_zsh_check "$check"
   done
 
-  if [ "$profile" = "personal" ]; then
-    for check in "${personal_cli_checks[@]}"; do
-      run_zsh_check "$check"
-    done
-  else
-    for check in "${devbox_cli_checks[@]}"; do
+  if dotfiles_profile_is_developer "$profile"; then
+    for check in "${developer_cli_checks[@]}"; do
       run_zsh_check "$check"
     done
   fi
+
+  case "$profile" in
+    workstation)
+      for check in "${workstation_cli_checks[@]}"; do
+        run_zsh_check "$check"
+      done
+      ;;
+    devbox)
+      for check in "${devbox_cli_checks[@]}"; do
+        run_zsh_check "$check"
+      done
+      ;;
+    assistant)
+      for check in "${assistant_cli_checks[@]}"; do
+        run_zsh_check "$check"
+      done
+      ;;
+  esac
 }
 
 check_brew_bundle() {
   local file
 
   section "brew bundle checks"
-  for file in Brewfile "Brewfile.$profile"; do
+  while IFS= read -r file; do
     brew bundle check --file "$repo_root/$file" || fail "missing Homebrew dependencies from $file"
-  done
+  done < <(dotfiles_profile_brewfiles "$profile")
 }
 
 check_devbox_homebrew() {
@@ -315,20 +359,47 @@ check_config_paths() {
       fail "missing $path"
     fi
   done
+
+  if dotfiles_profile_is_developer "$profile"; then
+    for path in "${developer_config_paths[@]}"; do
+      if [ -e "$path" ]; then
+        printf 'ok %s\n' "$path"
+      else
+        fail "missing $path"
+      fi
+    done
+  fi
+
+  if ! installed_profile="$(dotfiles_read_persisted_profile "$HOME/.config/dotfiles/profile" "$(id -u)")" \
+    || [ "$installed_profile" != "$profile" ]; then
+    fail "installed profile does not match $profile"
+  fi
+}
+
+check_assistant_git_boundary() {
+  if [ "$profile" != "assistant" ]; then
+    return
+  fi
+
+  section "assistant workload Git boundary"
+  "$repo_root/scripts/verify/assistant-git-boundary.sh"
 }
 
 check_mise
 check_truecolor_shell
-check_devbox_ssh_prompt
-check_node_tool_versions
+check_remote_ssh_prompt
+check_runtime_versions
 check_devbox_homebrew
 check_brew_bundle
 check_cli_tools
 check_no_legacy_tool_versions
 check_config_paths
 check_ghostty_ssh_integration
-check_codex_config
-check_spotlight_indexing
+if dotfiles_profile_is_developer "$profile"; then
+  check_codex_config
+  check_spotlight_indexing
+fi
+check_assistant_git_boundary
 check_desktop_baseline
 
 printf '\nbootstrap verification ok (%s)\n' "$profile"

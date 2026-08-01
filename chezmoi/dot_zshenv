@@ -5,7 +5,7 @@ export LC_ALL="en_US.UTF-8"
 
 # Headless devbox sessions cannot rely on an unlocked macOS login keychain.
 # Keep Cursor Agent credentials owner-local without changing personal Macs.
-if [ -r "$HOME/.config/uinaf/devbox.env" ]; then
+if [ -r "$HOME/.config/dotfiles/devbox.env" ]; then
   export AGENT_CLI_CREDENTIAL_STORE="file"
 fi
 

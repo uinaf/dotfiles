@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#MISE description="Verify a live personal Mac bootstrap"
+#MISE description="Compatibility alias for workstation bootstrap verification"
 set -euo pipefail
 
-./scripts/verify/bootstrap.sh --profile personal
+./scripts/verify/bootstrap.sh --profile workstation

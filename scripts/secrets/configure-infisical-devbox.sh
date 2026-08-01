@@ -2,8 +2,12 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-config_path="${DEVBOX_CONFIG:-$HOME/.config/uinaf/devbox.env}"
-machine_config_path="${INFISICAL_MACHINE_CONFIG:-$HOME/.config/uinaf/infisical-machine.env}"
+
+# shellcheck source=scripts/lib/config-paths.sh
+. "$repo_root/scripts/lib/config-paths.sh"
+
+config_path="$(dotfiles_resolve_config_file "${DEVBOX_CONFIG:-}" devbox.env)"
+machine_config_path="$(dotfiles_resolve_config_file "${INFISICAL_MACHINE_CONFIG:-}" infisical-machine.env)"
 
 # shellcheck source=scripts/lib/infisical.sh
 . "$repo_root/scripts/lib/infisical.sh"
@@ -167,8 +171,8 @@ chmod 700 "$config_dir"
 mkdir -p "$machine_config_dir"
 chmod 700 "$machine_config_dir"
 
-tmp_config="$(mktemp "${TMPDIR:-/tmp}/uinaf-devbox-config.XXXXXX")"
-tmp_machine="$(mktemp "${TMPDIR:-/tmp}/uinaf-infisical-machine.XXXXXX")"
+tmp_config="$(mktemp "${TMPDIR:-/tmp}/dotfiles-devbox-config.XXXXXX")"
+tmp_machine="$(mktemp "${TMPDIR:-/tmp}/dotfiles-infisical-machine.XXXXXX")"
 trap 'rm -f "$tmp_config" "$tmp_machine"; unset infisical_client_secret' EXIT
 
 write_devbox_config "$tmp_config" "$config_path"

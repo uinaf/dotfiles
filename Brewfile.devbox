@@ -1,9 +1,10 @@
 # Devbox Homebrew layer.
-# Run through ./scripts/bootstrap/brew-bundle.sh so the shared Brewfile installs first.
+# Run through brew-bundle.sh so base and developer layers install first.
 
 # Taps
 tap "steipete/tap"
 tap "openclaw/tap"
+tap "uinaf/tap"
 
 # Cloud CLI
 cask "gcloud-cli"

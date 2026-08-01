@@ -2,18 +2,25 @@
 set -euo pipefail
 
 non_interactive=0
-profile="${DOTFILES_PROFILE:-}"
+profile=""
 git_name="${GIT_USER_NAME:-}"
 git_email="${GIT_USER_EMAIL:-}"
 signing_key="${GIT_SIGNING_KEY:-}"
-agentless_signing_program="$HOME/.local/libexec/uinaf/git-ssh-sign-agentless"
+agentless_signing_program="$HOME/.local/libexec/dotfiles/git-ssh-sign-agentless"
 sign_commits="${GIT_SIGN_COMMITS:-}"
 allowed_signer_principal="${GIT_ALLOWED_SIGNER_PRINCIPAL:-}"
 git_ssh_identity_file="${GIT_SSH_IDENTITY_FILE:-}"
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+
+# shellcheck source=scripts/lib/profile.sh
+. "$repo_root/scripts/lib/profile.sh"
 
 usage() {
   cat <<EOF
-usage: $0 [--profile personal|devbox] [--non-interactive]
+usage: $0 [--profile workstation|devbox|assistant] [--non-interactive]
+
+The legacy personal profile name maps to workstation. Assistant profiles write
+an explicit workload commit identity without signing or SSH authentication.
 
 Writes:
   ~/.gitconfig.local
@@ -26,6 +33,8 @@ Environment:
   GIT_SIGN_COMMITS    true|false
   GIT_ALLOWED_SIGNER_PRINCIPAL optional SSH signing verification principal; defaults to GIT_USER_EMAIL
   GIT_SSH_IDENTITY_FILE optional SSH private key path for git@github.com; devbox defaults to GIT_SIGNING_KEY
+
+Assistant GitHub authentication is intentionally outside this profile setup.
 EOF
 }
 
@@ -141,13 +150,13 @@ validate_github_ssh_config() {
   fi
 
   if [ -f "$ssh_github_config" ] && ! awk '
-    $0 == "# uinaf-dotfiles: github-ssh begin" {
+    $0 == "# dotfiles: github-ssh begin" {
       if (managed || blocks) exit 1
       managed = 1
       blocks = 1
       next
     }
-    $0 == "# uinaf-dotfiles: github-ssh end" {
+    $0 == "# dotfiles: github-ssh end" {
       if (!managed) exit 1
       managed = 0
       next
@@ -157,7 +166,7 @@ validate_github_ssh_config() {
       if (managed || blocks != 1 || unmanaged) exit 1
     }
   ' "$ssh_github_config"; then
-    printf 'cannot configure git@github.com SSH auth; existing file is not managed exclusively by uinaf dotfiles: %s\n' "$ssh_github_config" >&2
+    printf 'cannot configure git@github.com SSH auth; existing file is not managed exclusively by these dotfiles: %s\n' "$ssh_github_config" >&2
     printf 'move it aside or migrate its directives to ~/.ssh/config.local before rerunning configure-git.sh\n' >&2
     exit 1
   fi
@@ -165,12 +174,12 @@ validate_github_ssh_config() {
   [ -f "$ssh_config_local" ] || return 0
 
   if ! awk '
-    $0 == "# uinaf-dotfiles: github-ssh begin" {
+    $0 == "# dotfiles: github-ssh begin" {
       if (managed) exit 1
       managed = 1
       next
     }
-    $0 == "# uinaf-dotfiles: github-ssh end" {
+    $0 == "# dotfiles: github-ssh end" {
       if (!managed) exit 1
       managed = 0
       next
@@ -184,8 +193,8 @@ validate_github_ssh_config() {
   fi
 
   if awk '
-    $0 == "# uinaf-dotfiles: github-ssh begin" { managed = 1; next }
-    $0 == "# uinaf-dotfiles: github-ssh end" { managed = 0; next }
+    $0 == "# dotfiles: github-ssh begin" { managed = 1; next }
+    $0 == "# dotfiles: github-ssh end" { managed = 0; next }
     !managed {
       line = $0
       sub(/^[[:space:]]*/, "", line)
@@ -211,68 +220,73 @@ validate_github_ssh_config() {
 write_github_ssh_config() (
   local identity_file="$1"
   local ssh_config_dir="$HOME/.ssh"
-  local ssh_config_local="$ssh_config_dir/config.local"
   local ssh_github_config="$ssh_config_dir/github.config"
   local tmp_github
-  local tmp_local
-  local migrate_local=0
 
   mkdir -p "$ssh_config_dir"
   chmod 0700 "$ssh_config_dir"
 
   tmp_github="$(mktemp)"
-  tmp_local="$(mktemp)"
-  trap 'rm -f "$tmp_github" "$tmp_local"' EXIT
+  trap 'rm -f "$tmp_github"' EXIT
 
   cat > "$tmp_github" <<EOF
-# uinaf-dotfiles: github-ssh begin
+# dotfiles: github-ssh begin
 Host github.com
   HostName github.com
   User git
   IdentityFile $identity_file
   IdentitiesOnly yes
   IdentityAgent none
-# uinaf-dotfiles: github-ssh end
+# dotfiles: github-ssh end
 EOF
-
-  if [ -f "$ssh_config_local" ] && grep -q '^# uinaf-dotfiles: github-ssh begin$' "$ssh_config_local"; then
-    migrate_local=1
-    awk '
-      $0 == "# uinaf-dotfiles: github-ssh begin" { skip = 1; next }
-      $0 == "# uinaf-dotfiles: github-ssh end" { skip = 0; next }
-      !skip { print }
-    ' "$ssh_config_local" > "$tmp_local"
-  fi
 
   install -m 0600 "$tmp_github" "$ssh_github_config"
   printf 'wrote %s\n' "$ssh_github_config"
-
-  if [ "$migrate_local" -eq 1 ]; then
-    install -m 0600 "$tmp_local" "$ssh_config_local"
-    printf 'migrated managed GitHub block out of %s\n' "$ssh_config_local"
-  fi
 )
 
-default_name="$(git config --global --get user.name 2>/dev/null || true)"
-default_email="$(git config --global --get user.email 2>/dev/null || true)"
+if [ -z "$profile" ]; then
+  if profile="$(dotfiles_resolve_profile "")"; then
+    :
+  else
+    profile_status=$?
+    if [ "$profile_status" -ne 1 ]; then
+      printf '%s\n' 'stored or environment profile is invalid' >&2
+      exit 2
+    fi
+    profile="$(prompt 'Profile (workstation/devbox/assistant)' workstation)"
+  fi
+fi
+
+if ! profile="$(dotfiles_normalize_profile "$profile")"; then
+  printf 'unsupported profile: %s\n' "$profile" >&2
+  exit 2
+fi
 
 case "$profile" in
   devbox)
     sign_commits="${sign_commits:-true}"
     ;;
-  "")
-    profile="$(prompt 'Profile (personal/devbox)' personal)"
-    if [ "$profile" = "devbox" ]; then
-      sign_commits="${sign_commits:-true}"
-    fi
+  assistant)
+    sign_commits="${sign_commits:-false}"
     ;;
-  personal)
+  workstation)
     ;;
 esac
 
-if [ "$profile" != "personal" ] && [ "$profile" != "devbox" ]; then
-  printf 'unsupported profile: %s\n' "$profile" >&2
-  exit 2
+if [ "$profile" = "assistant" ]; then
+  if [ "$sign_commits" != "false" ] || [ -n "$signing_key" ]; then
+    printf 'assistant workload commits do not use a persisted signing key\n' >&2
+    exit 2
+  fi
+  if [ -n "$git_ssh_identity_file" ]; then
+    printf 'assistant GitHub authentication uses an installation token over HTTPS, not an SSH identity file\n' >&2
+    exit 2
+  fi
+  default_name=""
+  default_email=""
+else
+  default_name="$(git config --global --get user.name 2>/dev/null || true)"
+  default_email="$(git config --global --get user.email 2>/dev/null || true)"
 fi
 
 git_name="${git_name:-$(prompt 'Git user.name' "$default_name")}"
@@ -356,6 +370,10 @@ fi
   if [ "$profile" = "devbox" ]; then
     printf '\n[safe]\n'
     printf '\tdirectory = /opt/homebrew\n'
+  fi
+  if [ "$profile" = "assistant" ]; then
+    printf '\n[dotfiles]\n'
+    printf '\tidentity = workload\n'
   fi
   if [ "$sign_commits" = "true" ]; then
     printf '\n[gpg "ssh"]\n'

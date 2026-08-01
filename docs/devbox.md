@@ -3,6 +3,9 @@
 Devbox automation keeps always-on agent users reproducible without making their
 secrets or identities part of the public dotfiles repo.
 
+Assistant profiles reuse the machine-identity and system-service boundaries in
+this guide without inheriting the devbox coding toolchain or human Git identity.
+
 ## Boundaries
 
 Tracked here:
@@ -76,12 +79,17 @@ identity ID shown in the identity details panel. Humans should source those
 values from their secret manager, usually 1Password or Infisical, and enter them
 locally. Do not paste them into agent chat.
 
-It writes non-secret selectors to `~/.config/uinaf/devbox.env` and machine
-credentials to `~/.config/uinaf/infisical-machine.env`. Both files must be mode
+It writes non-secret selectors to `~/.config/dotfiles/devbox.env` and machine
+credentials to `~/.config/dotfiles/infisical-machine.env`. Both files must be mode
 `0600`. The helper refuses to continue when the Infisical CLI has an
 authenticated human `user` session and verifies the machine identity can mint a
 token before writing config. It does not persist secret paths; paths belong at
 the command boundary.
+
+Secret and verification helpers read only canonical files under
+`~/.config/dotfiles`. Existing users must complete the manual path migration in
+[Migrating to Role Profiles](migrating-to-role-profiles.md) before applying the
+new devbox profile.
 
 Routine command-boundary use gives one child command a short-lived machine
 token and the configured Infisical project selectors:
@@ -99,7 +107,7 @@ Repo-local setup example:
 
 ```sh
 INFISICAL_SECRET_PATH=/example-repo/runtime \
-  ~/projects/uinaf/dotfiles/scripts/secrets/infisical-devbox-run.sh -- \
+  ~/projects/dotfiles/scripts/secrets/infisical-devbox-run.sh -- \
   make secrets-setup
 ```
 
@@ -110,7 +118,7 @@ OpenClaw-shaped example:
 
 ```sh
 INFISICAL_SECRET_PATH=/example-devbox/openclaw-env \
-  ~/projects/uinaf/dotfiles/scripts/secrets/infisical-devbox-run.sh -- \
+  ~/projects/dotfiles/scripts/secrets/infisical-devbox-run.sh -- \
   openclaw <env-render-or-run-command>
 ```
 
@@ -120,7 +128,7 @@ not in this public repo.
 For unattended elevated maintenance, store only an ASCII-armored age ciphertext
 as `SUDO_PASSWORD_AGE` in the identity's Infisical folder. Never store the
 plaintext password in Infisical. Each host keeps a dedicated age identity at
-`~/.config/uinaf/sudo-age-identity.txt` with mode `0600`; its private value is
+`~/.config/dotfiles/sudo-age-identity.txt` with mode `0600`; its private value is
 recovery material and may be backed up to the matching human 1Password item.
 Create or verify the local identity and print its public recipient with:
 
@@ -188,7 +196,7 @@ Small `AGENTS.md` snippet for a repo that frequently needs runtime secrets:
 
 On agent devboxes, use Infisical through the dotfiles runner:
 
-`INFISICAL_SECRET_PATH=/this-repo/runtime ~/projects/uinaf/dotfiles/scripts/secrets/infisical-devbox-run.sh -- make secrets-setup`
+`INFISICAL_SECRET_PATH=/this-repo/runtime ~/projects/dotfiles/scripts/secrets/infisical-devbox-run.sh -- make secrets-setup`
 
 Do not use 1Password, workspace `.env` symlinks, or committed/generated secret
 files for agent runtime env.
@@ -316,7 +324,7 @@ INFISICAL_ENV=dev
 ```
 
 The file should be mode `0600`. Persistent machine credentials live separately
-in `~/.config/uinaf/infisical-machine.env`, also mode `0600`:
+in `~/.config/dotfiles/infisical-machine.env`, also mode `0600`:
 
 ```sh
 INFISICAL_CLIENT_ID=...
@@ -348,11 +356,23 @@ sudo ./scripts/bootstrap/install-devbox-service-daemons.sh --user agent-user --o
 sudo ./scripts/bootstrap/install-devbox-service-daemons.sh --user agent-user --healthd
 ```
 
-The installer retires the equivalent per-user LaunchAgents only after the
-system jobs load successfully. For healthd, it also completes one check cycle
-before retiring a same-user legacy LaunchAgent. Run one service per invocation
-when migrating production machines so failures stay isolated; a partial
-multi-service run aborts with earlier services already migrated.
+The installer does not retire per-user LaunchAgents. An agent or authorized
+administrator must unload and archive the old job first, then install and
+verify one replacement service per invocation so failures stay isolated.
+
+New system jobs use the vendor-neutral `local.dotfiles.<service>.<user>` label
+namespace. Pass `--namespace org.example.dotfiles` when an organization needs
+its own stable namespace. The installer stores the resolved value in the target
+user's owner-only `~/.config/dotfiles/launchd-namespace`; later install, check,
+and live verification commands reuse it automatically and reject a conflicting
+explicit namespace. Installation records this write-ahead contract before its
+first service mutation so a partial multi-service retry cannot drift to another
+namespace. Check mode never creates it.
+
+The installer does not automatically replace a matching legacy `com.uinaf.*.<user>`
+system job. It fails before changing services when the old
+plist exists or remains loaded. Retire that job explicitly during a maintenance
+window, then rerun the installer.
 
 Healthd may run directly under launchd when it is the fleet monitor; it does
 not need an extra process-compose layer. Verify boot-independent service

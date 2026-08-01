@@ -2,7 +2,7 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-agentless_signer="$repo_root/chezmoi/private_dot_local/private_libexec/private_uinaf/private_executable_git-ssh-sign-agentless"
+agentless_signer="$repo_root/chezmoi/private_dot_local/private_libexec/private_dotfiles/private_executable_git-ssh-sign-agentless"
 ghostty_config="$repo_root/chezmoi/private_Library/private_Application Support/com.mitchellh.ghostty/private_config"
 run_security=1
 
@@ -20,7 +20,7 @@ Runs repository-level verification for dotfiles changes:
   - repo secret scan through scripts/audit/repo.sh --skip-mscp
 
 This checks the repository, not the live machine bootstrap. Use
-scripts/verify/bootstrap.sh for live personal/devbox setup checks.
+scripts/verify/bootstrap.sh for live workstation/devbox/assistant checks.
 USAGE
 }
 
@@ -36,7 +36,8 @@ fail() {
 need_command() {
   local command="$1"
 
-  command -v "$command" >/dev/null 2>&1 || fail "missing $command; install the shared Brewfile first"
+  command -v "$command" >/dev/null 2>&1 \
+    || fail "missing $command; install the developer Brewfile layers before repository verification"
 }
 
 while [ "$#" -gt 0 ]; do
@@ -61,6 +62,7 @@ cd "$repo_root"
 section "required tools"
 need_command git
 need_command bash
+need_command chezmoi
 need_command shellcheck
 if [ -d .github/workflows ]; then
   need_command actionlint
@@ -91,6 +93,18 @@ section "Infisical sudo runner"
 
 section "devbox Homebrew wrapper"
 ./scripts/verify/brew-devbox.sh
+
+section "profile contracts"
+./scripts/verify/profiles.sh
+
+section "service labels"
+./scripts/verify/service-labels.sh
+
+section "audit contracts"
+./scripts/verify/audit-contracts.sh
+
+section "vendor-neutral interfaces"
+./scripts/verify/vendor-neutral.sh
 
 section "GitHub CLI extensions"
 ./scripts/verify/gh-extensions.sh

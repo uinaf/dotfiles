@@ -1,13 +1,15 @@
 # Bootstrap Guide
 
-Use this guide when installing or refreshing a Mac from `uinaf/dotfiles`.
+Use this guide when installing or refreshing a Mac from this repository.
 
-The repo has two install profiles:
+The repo has three per-user profiles:
 
-- `personal` for a human-operated Mac.
-- `devbox` for a shared SSH-first agent host.
+- `workstation` for a human-operated Mac.
+- `devbox` for a remote coding identity on an SSH-first host.
+- `assistant` for an unattended assistant or platform-service identity.
 
-Cursor Agent CLI is required for both profiles and installed per user with
+The role contract and host/user boundary are defined in [User profiles](profiles.md).
+Cursor Agent CLI is required for workstation and devbox profiles and installed per user with
 `./scripts/bootstrap/install-cursor-agent.sh`. The desktop app is not managed by
 this repository. Devbox shells use Cursor's owner-local file credential store
 because SSH sessions cannot depend on an unlocked macOS login keychain.
@@ -28,7 +30,7 @@ Install Homebrew:
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 ```
 
-Install the minimum tools needed to clone the repo on a personal Mac:
+Install the minimum tools needed to clone the repo on a workstation Mac:
 
 ```zsh
 brew install git gh
@@ -46,9 +48,9 @@ gh auth login
 Clone the repo:
 
 ```zsh
-mkdir -p ~/projects/uinaf
-gh repo clone uinaf/dotfiles ~/projects/uinaf/dotfiles
-cd ~/projects/uinaf/dotfiles
+mkdir -p ~/projects
+gh repo clone uinaf/dotfiles ~/projects/dotfiles
+cd ~/projects/dotfiles
 mise trust
 ```
 
@@ -63,12 +65,12 @@ tools to fetch a public GitHub archive, which lets a human or agent inspect the
 bootstrap files before running anything:
 
 ```zsh
-mkdir -p ~/projects/uinaf
+mkdir -p ~/projects
 curl -fL https://github.com/uinaf/dotfiles/archive/refs/heads/main.zip \
-  -o /tmp/uinaf-dotfiles-main.zip
-ditto -x -k /tmp/uinaf-dotfiles-main.zip ~/projects/uinaf
-mv ~/projects/uinaf/dotfiles-main ~/projects/uinaf/dotfiles
-cd ~/projects/uinaf/dotfiles
+  -o /tmp/dotfiles-main.zip
+ditto -x -k /tmp/dotfiles-main.zip ~/projects
+mv ~/projects/dotfiles-main ~/projects/dotfiles
+cd ~/projects/dotfiles
 ```
 
 Archive checkouts are disposable. They are acceptable for reading docs and
@@ -78,26 +80,26 @@ are installed, replace the archive with a real clone so updates, diffs, hooks,
 and contribution checks work normally:
 
 ```zsh
-cd ~/projects/uinaf
+cd ~/projects
 mv dotfiles dotfiles.archive.$(date +%Y%m%d%H%M%S)
 gh repo clone uinaf/dotfiles dotfiles
 cd dotfiles
 ```
 
 Do not run identity, signing-key, or secret setup from guessed values just
-because the repo was fetched this way. Keep using the `personal` or `devbox`
+because the repo was fetched this way. Keep using the selected
 profile steps below.
 
-## Personal Mac
+## Workstation Mac
 
 Install Homebrew dependencies:
 
 ```zsh
-./scripts/bootstrap/brew-bundle.sh personal
+./scripts/bootstrap/brew-bundle.sh workstation
 ./scripts/bootstrap/install-cursor-agent.sh
 ```
 
-Install personal Mac App Store apps and remove bundled apps this setup does not
+Install workstation Mac App Store apps and remove bundled apps this setup does not
 use:
 
 ```zsh
@@ -159,26 +161,26 @@ remote_connections = true
 Apply dotfiles and configure local state:
 
 ```zsh
-./scripts/bootstrap/install.sh
-./scripts/bootstrap/configure-git.sh --profile personal
-./scripts/bootstrap/configure-power.sh --profile personal
+./scripts/bootstrap/install.sh --profile workstation
+./scripts/bootstrap/configure-git.sh --profile workstation
+./scripts/bootstrap/configure-power.sh --profile workstation
 ./scripts/bootstrap/configure-spotlight.sh
 mise trust
 mise install
 ```
 
-The shared mise config pins Node, installs the default native pnpm release, and
+The developer mise config pins Node, installs the default native pnpm release, and
 installs the exact shared npm, Playwright CLI, and Vite+ versions. `install.sh`
 also replaces a stale Corepack shim on an existing Node installation; `mise
 install` remains required for a fresh runtime or CLI version change.
 
 The dotfile step applies the repo-local chezmoi source state from `chezmoi/`.
-Preview it with `./scripts/bootstrap/apply-dotfiles.sh --dry-run --verbose`
+Preview it with `./scripts/bootstrap/apply-dotfiles.sh --profile workstation --dry-run --verbose`
 when changing source-state files. The power step disables system, display, and
 disk sleep only while the Mac is plugged in. Battery settings stay under macOS
 defaults so laptops still sleep normally when unplugged. It prompts for sudo;
 `install.sh` remains a user-level dotfile and Codex-defaults step.
-`configure-spotlight.sh` is the same host-wide baseline for personal and
+`configure-spotlight.sh` is the same host-wide baseline for workstation and
 devbox Macs: it disables indexing on mounted volumes without deleting existing
 index data.
 
@@ -190,11 +192,11 @@ Chrome vertical tabs are a local browser preference. Quit Chrome first, then:
 
 ### Local Git Signing Key
 
-Personal Macs may use an existing 1Password SSH key for autonomous Git signing
+Workstation Macs may use an existing 1Password SSH key for autonomous Git signing
 without depending on the 1Password SSH agent at commit time. This is a one-time
 human bootstrap: open the SSH Key item in 1Password, export its private key in
 OpenSSH format without a passphrase, and save it to an owner-only path such as
-`~/.ssh/personal_ed25519`. Leaving the export unencrypted is required for
+`~/.ssh/workstation_ed25519`. Leaving the export unencrypted is required for
 unattended signing and means any process running as the local user can use the
 key. Keep 1Password as the recovery copy and do not copy the exported file into
 this repository.
@@ -202,18 +204,18 @@ this repository.
 Derive the public key and lock the file permissions before configuration:
 
 ```zsh
-chmod 0600 ~/.ssh/personal_ed25519
-ssh-keygen -y -f ~/.ssh/personal_ed25519 > ~/.ssh/personal_ed25519.pub
-chmod 0644 ~/.ssh/personal_ed25519.pub
+chmod 0600 ~/.ssh/workstation_ed25519
+ssh-keygen -y -f ~/.ssh/workstation_ed25519 > ~/.ssh/workstation_ed25519.pub
+chmod 0644 ~/.ssh/workstation_ed25519.pub
 ```
 
 Configure the exported key for commit signing and, when the same key is already
 registered for GitHub SSH authentication, for GitHub pushes:
 
 ```zsh
-GIT_SIGNING_KEY="$HOME/.ssh/personal_ed25519" \
-GIT_SSH_IDENTITY_FILE="$HOME/.ssh/personal_ed25519" \
-  ./scripts/bootstrap/configure-git.sh --profile personal
+GIT_SIGNING_KEY="$HOME/.ssh/workstation_ed25519" \
+GIT_SSH_IDENTITY_FILE="$HOME/.ssh/workstation_ed25519" \
+  ./scripts/bootstrap/configure-git.sh --profile workstation
 ```
 
 GitHub tracks authentication and signing registrations separately even when
@@ -223,17 +225,17 @@ but revoking or rotating the local key affects both operations.
 
 The generated Git config signs directly from the unencrypted local private key.
 The dotfile install provides an owner-only signing program under
-`~/.local/libexec/uinaf/`; Git uses it to clear `SSH_AUTH_SOCK` before invoking
+`~/.local/libexec/dotfiles/`; Git uses it to clear `SSH_AUTH_SOCK` before invoking
 `ssh-keygen`, so ambient agents are never part of commit signing. Encrypted,
 public-key-only, and 1Password-backed signing are unsupported. The generated
 `~/.ssh/github.config` block uses the same key for `github.com` without routing
 through the 1Password agent. The tracked SSH entrypoint includes that dedicated
 file before the untouched `~/.ssh/config.local`, so local global directives and
-host-specific configuration keep their original scope. Setup migrates only the
-old marker-delimited GitHub block out of `config.local`; if an unmarked
-`Host github.com` entry already exists, it stops before changing Git state and
-asks you to resolve the local configuration explicitly. It also stops if
-`~/.ssh/github.config` already exists without the uinaf managed markers; move
+host-specific configuration keep their original scope. Setup does not migrate
+former marker-delimited GitHub blocks. Remove those blocks manually while
+preserving unrelated directives; any remaining `Host github.com` entry stops
+setup before it changes Git state. Setup also stops if
+`~/.ssh/github.config` already exists without the managed markers; move
 that file aside or migrate its directives to `~/.ssh/config.local` before
 rerunning. OpenSSH keeps
 file-backed `IdentityFile` values additive, so wildcard local identities may
@@ -244,9 +246,9 @@ being used for GitHub.
 Verify:
 
 ```zsh
-./scripts/verify/bootstrap.sh --profile personal
+./scripts/verify/bootstrap.sh --profile workstation
 ./scripts/audit/host.sh
-./scripts/audit/personal.sh
+./scripts/audit/workstation.sh
 ```
 
 ## Devbox Mac
@@ -289,14 +291,14 @@ self-updates from `~/.local/bin`.
 Apply dotfiles:
 
 ```zsh
-./scripts/bootstrap/install.sh
+./scripts/bootstrap/install.sh --profile devbox
 ./scripts/bootstrap/configure-power.sh --profile devbox
 ./scripts/bootstrap/configure-spotlight.sh
 mise trust
 mise install
 ```
 
-The shared mise config pins Node, installs the default native pnpm release, and
+The developer mise config pins Node, installs the default native pnpm release, and
 installs the exact shared npm, Playwright CLI, and Vite+ versions. `install.sh`
 replaces a stale Corepack shim on an existing Node installation, while `mise
 install` installs missing runtimes and CLIs.
@@ -304,7 +306,7 @@ install` installs missing runtimes and CLIs.
 The power step keeps plugged-in devboxes awake for agents, remote access, and
 always-on dashboards. It leaves battery settings untouched and prompts for sudo
 instead of hiding system changes inside `install.sh`.
-The Spotlight step is the same host-wide baseline used by personal Macs.
+The Spotlight step is the same host-wide baseline used by workstation Macs.
 
 Configure local Git identity from explicit values. Do not invent these for the
 user. On headless devboxes, prefer a human-provisioned local SSH key file over
@@ -345,23 +347,72 @@ Verify each devbox user:
 ./scripts/audit/devbox.sh
 ```
 
+## Assistant User
+
+An assistant is a minimal unattended Unix identity, not a coding devbox. On a
+shared Mac, an authorized host administrator installs the Homebrew layers once:
+
+```zsh
+./scripts/bootstrap/brew-bundle.sh assistant
+```
+
+Run the user-local setup as the assistant identity:
+
+```zsh
+git clone https://github.com/uinaf/dotfiles.git ~/.local/src/dotfiles
+cd ~/.local/src/dotfiles
+./scripts/bootstrap/install.sh --profile assistant
+mise trust
+mise install
+./scripts/secrets/configure-infisical-devbox.sh
+GIT_USER_NAME='Workload Name' \
+GIT_USER_EMAIL='APP_BOT_NOREPLY_EMAIL' \
+  ./scripts/bootstrap/configure-git.sh --profile assistant --non-interactive
+./scripts/verify/bootstrap.sh --profile assistant
+```
+
+Do not install Cursor Agent or configure Codex desktop defaults for an
+assistant. Start with a dedicated Unix user and a clean home. The assistant
+`configure-git.sh` flow writes only workload commit authorship; it rejects
+signing keys and GitHub SSH identity files.
+
+GitHub authentication is intentionally not configured by the assistant
+profile. The assistant can create unsigned local commits with its workload
+identity, but unattended fetch/push remains disabled until the platform layer
+provisions a workload-owned GitHub App or another scoped machine identity.
+Token minting and Git transport are follow-up platform work; do not persist a
+human account or ad hoc token in Git config, `gh auth`, shell startup, or a
+process manager to bridge that gap.
+
+Bootstrap verification checks the managed Git base and workload identity. It
+does not inventory or clean unrelated user-home state. Migration agents audit
+and remove old credentials and developer state separately, then run
+`./scripts/verify/assistant-git-boundary.sh` to confirm the expected assistant
+identity contract.
+
+The profile provides minimal Node, Python, uv, browser, media, and process
+supervision support. The owning workload installs and verifies OpenClaw,
+Hermes, providers, channels, and service definitions. Profile application does
+not remove old developer packages or credentials; audit those separately after
+the retained workload passes its runtime checks.
+
 ## Updating an Existing Machine
 
 Pull the repo and rerun the relevant profile:
 
 ```zsh
-cd ~/projects/uinaf/dotfiles
+cd ~/projects/dotfiles
 git pull --ff-only
-./scripts/bootstrap/brew-bundle.sh personal
-./scripts/bootstrap/install.sh
-./scripts/bootstrap/configure-power.sh --profile personal
+./scripts/bootstrap/brew-bundle.sh workstation
+./scripts/bootstrap/install.sh --profile workstation
+./scripts/bootstrap/configure-power.sh --profile workstation
 ./scripts/bootstrap/configure-spotlight.sh
 mise trust
 mise install
-./scripts/verify/bootstrap.sh --profile personal
+./scripts/verify/bootstrap.sh --profile workstation
 ```
 
-Use `devbox` instead of `personal` on shared agent hosts.
+Use the target Unix user's `devbox` or `assistant` role instead when appropriate.
 
 ## React Native
 
@@ -407,8 +458,9 @@ can hang.
 - If shared env access is missing over SSH, check the Infisical/devbox contract
   in [Devbox setup](devbox.md) instead of exporting service tokens in shell
   startup.
-- If `codex` is not installed yet, `install.sh` skips Codex defaults; rerun it
-  after installing the shared Brewfile.
+- If `codex` is not installed yet for a workstation or devbox user,
+  `install.sh` skips Codex defaults; rerun it after installing the developer
+  Homebrew layer.
 - If macOS Gatekeeper blocks an embedded Cursor Agent `.node` module, remove a
   Homebrew `cursor-cli` cask installation and run
   `./scripts/bootstrap/install-cursor-agent.sh`. The repo intentionally uses

@@ -2,4 +2,4 @@
 #MISE description="Apply the repo-local chezmoi source state"
 set -euo pipefail
 
-./scripts/bootstrap/apply-dotfiles.sh
+./scripts/bootstrap/apply-dotfiles.sh "$@"
