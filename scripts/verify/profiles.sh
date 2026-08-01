@@ -166,6 +166,9 @@ cat > "$install_fixture/bin/$command_name" <<'EOF'
 printf '%s' "$(basename "$0")" >> "${DOTFILES_INSTALL_LOG:?}"
 [ "$#" -eq 0 ] || printf ' %s' "$@" >> "${DOTFILES_INSTALL_LOG:?}"
 printf '\n' >> "${DOTFILES_INSTALL_LOG:?}"
+if [ "$(basename "$0")" = npm ] && [ -n "${npm_config_prefix:-}" ]; then
+  printf 'npm_config_prefix %s\n' "$npm_config_prefix" >> "${DOTFILES_INSTALL_LOG:?}"
+fi
 if [ "$(basename "$0")" = mise ] && [ "$*" = "ls node --installed --json" ]; then
   printf '[{"install_path":"%s"}]\n' "${DOTFILES_INSTALL_NODE_ROOT:?}"
 fi
@@ -194,13 +197,14 @@ DOTFILES_INSTALL_LOG="$install_log" \
 DOTFILES_INSTALL_NODE_ROOT="$install_node_root" \
 HOME="$install_devbox_home" \
   "$install_fixture/scripts/bootstrap/install.sh" --profile devbox
-expected_install_log="$(cat <<'EOF'
+expected_install_log="$(cat <<EOF
 apply-dotfiles.sh --profile devbox
 trust-agent-worktrees.sh
 install-gh-extensions.sh
 mise uninstall --all --yes npm:vite-plus
 mise ls node --installed --json
 npm uninstall --global vite-plus
+npm_config_prefix $install_node_root
 mise reshim --force
 corepack enable pnpm
 corepack install --global pnpm@11.18.0
