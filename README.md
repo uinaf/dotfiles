@@ -80,33 +80,35 @@ pins.
 | zsh | `chezmoi/dot_zshenv`, `chezmoi/dot_zprofile`, `chezmoi/dot_zshrc` | machine shell history and ad hoc local files |
 | mise | `chezmoi/private_dot_config/mise/config.toml.tmpl` | repo-local runtime files; the selected profile controls machine runtime pins |
 | Git | `chezmoi/dot_gitconfig.tmpl` | `~/.gitconfig.local`; assistants use workload authorship only |
-| GitHub CLI | Developer and assistant layers install `gh`; developers receive `github/gh-stack`, while assistants receive a pinned `gh-app-auth` execution adapter | GitHub App credentials, token policy, and unrelated extensions |
+| GitHub CLI | Developer and assistant layers install `gh`; developers receive `github/gh-stack`, while assistants receive a pinned `gh-app-auth` adapter and a generic exact-repository configurator | GitHub App identity values, private keys, and unrelated extensions |
 | SOPS and age | Base layer plus explicit per-user identity provisioning | private identity backup, repository recipient policy, and encrypted payloads |
 | SSH (workstation/devbox) | `chezmoi/private_dot_ssh/private_config` | `~/.ssh/github.config`, `~/.ssh/config.local`, private keys |
 | Codex | installer-managed defaults, including ChatGPT-login enforcement | auth, sessions, approvals, memory, worktrees |
 | Editors | developer Homebrew layer and chezmoi-managed Zed/Ghostty defaults | app state, fonts, caches |
 
 Assistant users receive a minimal Git base and workload authorship, but no
-signing, GitHub credential helper, outbound SSH, or developer desktop state.
-The profile installs the `gh-app-auth` execution adapter, while GitHub App
-credentials and repository authorization remain platform-owned setup.
+signing, human GitHub login, outbound SSH, or developer desktop state. The
+profile installs `gh-app-auth`; an explicit follow-up command binds the
+operator-supplied App to exact repositories and installs one user-global,
+path-aware Git credential helper.
 
 ## Local State Boundaries
 
 Keep these out of Git:
 
 - Git identity and signing keys.
-- Infisical workspace/project auth and 1Password human vault references.
+- Secret-manager workspace/project auth and password-manager vault references.
 - SSH private keys, certificates, Tizen archives, and device keys.
 - SOPS age private identities and decrypted secret files.
 - Codex auth, Browser approvals, sessions, caches, worktrees, and app state.
 - Browser profiles, Docker/Colima state, dependency folders, and build output.
 
-For always-on agent hosts, use the secret model in
-[Devbox setup](docs/devbox.md). The short version: humans may use 1Password and
-Infisical, agents use Infisical machine identity auth only, and tokens or client
-credentials must not live in default shells, process managers, tracked files, or
-generated dotenv refresh stacks.
+For unattended assistants, use SOPS ciphertext, one age identity per
+deployment, owner-only GitHub App keys, and exact repository patterns as
+described in [Identity provisioning](docs/identities.md). Coding devboxes that
+still need dynamic secret-manager access use [Devbox setup](docs/devbox.md).
+Neither model permits tokens or client credentials in default shells, process
+managers, tracked files, or generated dotenv refresh stacks.
 
 ## Workstation Personalization
 

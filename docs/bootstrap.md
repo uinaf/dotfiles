@@ -376,10 +376,14 @@ cd ~/.local/src/dotfiles
 ./scripts/secrets/configure-sops-age-identity.sh
 mise trust
 mise install
-./scripts/secrets/configure-infisical-devbox.sh
 GIT_USER_NAME='Workload Name' \
 GIT_USER_EMAIL='APP_BOT_NOREPLY_EMAIL' \
   ./scripts/bootstrap/configure-git.sh --profile assistant --non-interactive
+./scripts/bootstrap/configure-assistant-github-app.sh \
+  --name example-app \
+  --app-id APP_ID \
+  --installation-id INSTALLATION_ID \
+  --repo github.com/example/workspace
 ./scripts/verify/bootstrap.sh --profile assistant
 ```
 
@@ -393,13 +397,13 @@ from a checksum-verified source archive. It uses a temporary pinned Go
 toolchain and removes the compiler, module cache, and build cache afterward;
 Go is not retained as part of the assistant profile.
 
-GitHub credentials are intentionally not configured by the assistant profile.
-The assistant can create unsigned local commits with its workload identity,
-while the platform layer provisions a workload-owned GitHub App or another
-scoped machine identity. The owning workload supplies secret retrieval,
-repository scope, and an on-demand wrapper for API and Git commands. Do not
-persist a human account or ad hoc token in Git config, `gh auth`, shell startup,
-or a process manager.
+GitHub credentials are intentionally not selected by the assistant profile.
+The assistant can create unsigned local commits with its workload identity;
+the explicit App configurator then binds an owner-only workload key to exact
+repositories and installs one path-aware Git helper for the Unix user. Use
+`gh app-auth exec --repo github.com/OWNER/REPO -- ...` for CLI/API commands. Do
+not persist a human account or ad hoc token in `gh auth`, shell startup, or a
+process manager.
 
 Bootstrap verification checks the managed Git base, `gh-app-auth` dispatch,
 and workload identity. It does not inventory or clean unrelated user-home
