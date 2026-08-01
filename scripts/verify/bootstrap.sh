@@ -148,6 +148,23 @@ check_exact_version() {
   fi
 }
 
+check_default_pnpm_version() {
+  local expected="$1"
+  local actual
+
+  section "pnpm version"
+  actual="$(
+    probe_dir="$(mktemp -d)"
+    trap 'rmdir "$probe_dir"' EXIT
+    cd "$probe_dir"
+    zsh -lic 'pnpm --version'
+  )" || fail "pnpm version"
+  printf '%s\n' "$actual"
+  if [ "$actual" != "$expected" ]; then
+    fail "pnpm version is $actual; expected $expected"
+  fi
+}
+
 check_mise_tool_owner() {
   local label="$1"
   local command="$2"
@@ -181,7 +198,7 @@ check_runtime_versions() {
     return
   fi
 
-  check_exact_version "pnpm" "11.18.0" "pnpm --version"
+  check_default_pnpm_version "11.18.0"
   check_exact_version "npm" "12.0.1" "npm --version"
   check_exact_version "Playwright CLI" "0.1.17" "playwright-cli --version"
   check_mise_tool_owner "pnpm" "pnpm" "node"

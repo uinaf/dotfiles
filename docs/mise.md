@@ -115,9 +115,8 @@ Avoid floating runtime versions such as `latest` in profile machine config.
 
 The workstation/devbox Node entry enables Corepack and installs pnpm 11.18.0 as
 the default outside projects. A project's `packageManager` field remains the
-repository-owned version source. Shared npm CLIs such as npm itself and
-Playwright CLI are exact `npm:` backend entries, so `mise install` owns their
-versions without relying on ambient global npm state. Vite+ stays
+repository-owned version source. The Node postinstall pins npm itself to
+12.0.1, while Playwright CLI is an exact `npm:` backend entry. Vite+ stays
 repository-local and is invoked through the owning package manager.
 
 `scripts/bootstrap/install.sh` enables Corepack, installs the stable pnpm
