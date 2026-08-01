@@ -273,7 +273,7 @@ assistant_managed="$({
 printf '%s\n' "$assistant_managed" | grep -Fqx '.config/dotfiles/profile' || fail "assistant profile marker is unmanaged"
 printf '%s\n' "$assistant_managed" | grep -Fqx '.gitconfig' \
   || fail "assistant profile does not manage .gitconfig"
-if printf '%s\n' "$assistant_managed" | grep -Eq '^(\.config/git|\.config/zed|\.local/libexec/dotfiles/git-ssh-sign-agentless|\.ssh|Library/Application Support/com.mitchellh.ghostty)(/|$)'; then
+if printf '%s\n' "$assistant_managed" | grep -Eq '^(\.codex|\.config/1Password/ssh|\.config/git|\.config/zed|\.local/libexec/dotfiles/git-ssh-sign-agentless|\.ssh|Library/Application Support/com.mitchellh.ghostty)(/|$)'; then
   fail "assistant profile manages developer or identity state"
 fi
 
@@ -318,6 +318,24 @@ assistant_home="$tmp_root/assistant-applied"
 mkdir -p "$assistant_home"
 HOME="$assistant_home" "$repo_root/scripts/bootstrap/apply-dotfiles.sh" --profile assistant >/dev/null
 assert_eq assistant "$(sed -n '1p' "$assistant_home/.config/dotfiles/profile")" "applied assistant profile"
+
+preservation_home="$tmp_root/assistant-preserves-developer-state"
+mkdir -p \
+  "$preservation_home/.config/1Password/ssh" \
+  "$preservation_home/.codex/browser"
+ln -s "$repo_root/home/.config/1Password/ssh/agent.toml" \
+  "$preservation_home/.config/1Password/ssh/agent.toml"
+ln -s "$repo_root/home/.codex/config.toml" "$preservation_home/.codex/config.toml"
+ln -s "$repo_root/home/.codex/browser/config.toml" \
+  "$preservation_home/.codex/browser/config.toml"
+HOME="$preservation_home" "$repo_root/scripts/bootstrap/apply-dotfiles.sh" --profile assistant >/dev/null
+for preserved_path in \
+  "$preservation_home/.config/1Password/ssh/agent.toml" \
+  "$preservation_home/.codex/config.toml" \
+  "$preservation_home/.codex/browser/config.toml"; do
+  [ -L "$preserved_path" ] || fail "assistant apply mutated prior developer state at $preserved_path"
+done
+
 for rejected_path in \
   "$assistant_home/.config/git" \
   "$assistant_home/.config/zed" \

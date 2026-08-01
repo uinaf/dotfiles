@@ -241,9 +241,11 @@ chezmoi_base=(
 stage_legacy_config
 
 remove_obsolete_link_suffix "$HOME/.zlogin" "/home/.zlogin"
-remove_obsolete_link_suffix "$HOME/.config/1Password/ssh/agent.toml" "/home/.config/1Password/ssh/agent.toml"
-remove_obsolete_link_suffix "$HOME/.codex/config.toml" "/home/.codex/config.toml"
-remove_obsolete_link_suffix "$HOME/.codex/browser/config.toml" "/home/.codex/browser/config.toml"
+if dotfiles_profile_is_developer "$profile"; then
+  remove_obsolete_link_suffix "$HOME/.config/1Password/ssh/agent.toml" "/home/.config/1Password/ssh/agent.toml"
+  remove_obsolete_link_suffix "$HOME/.codex/config.toml" "/home/.codex/config.toml"
+  remove_obsolete_link_suffix "$HOME/.codex/browser/config.toml" "/home/.codex/browser/config.toml"
+fi
 backup_preexisting_targets
 
 cmd=("${chezmoi_base[@]}" --force apply)
