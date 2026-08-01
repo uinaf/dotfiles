@@ -3,11 +3,10 @@
 dotfiles_homebrew_path_uid() {
   local target="$1"
 
-  if stat -f '%u' "$target" >/dev/null 2>&1; then
-    stat -f '%u' "$target"
-  else
-    stat -c '%u' "$target"
-  fi
+  case "$(uname -s)" in
+    Darwin) stat -f '%u' "$target" ;;
+    *) stat -c '%u' "$target" ;;
+  esac
 }
 
 dotfiles_homebrew_require_prefix_owner() {
