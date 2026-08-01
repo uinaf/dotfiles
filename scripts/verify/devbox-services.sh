@@ -2,8 +2,12 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-config_path="${DEVBOX_CONFIG:-$HOME/.config/dotfiles/devbox.env}"
-machine_config_path="${INFISICAL_MACHINE_CONFIG:-$HOME/.config/dotfiles/infisical-machine.env}"
+
+# shellcheck source=scripts/lib/config-paths.sh
+. "$repo_root/scripts/lib/config-paths.sh"
+
+config_path="$(dotfiles_resolve_config_file "${DEVBOX_CONFIG:-}" devbox.env)"
+machine_config_path="$(dotfiles_resolve_config_file "${INFISICAL_MACHINE_CONFIG:-}" infisical-machine.env)"
 machine_auth_required="${INFISICAL_MACHINE_AUTH_REQUIRED:-1}"
 devbox_user="${DEVBOX_USER:-$USER}"
 process_compose_enabled="${PROCESS_COMPOSE_ENABLED:-1}"
@@ -14,7 +18,7 @@ infisical_project_id="${INFISICAL_PROJECT_ID:-}"
 infisical_env="${INFISICAL_ENV:-dev}"
 infisical_secret_path="${INFISICAL_SECRET_PATH:-}"
 infisical_sudo_secret_path="${INFISICAL_SUDO_SECRET_PATH:-}"
-infisical_sudo_age_identity_file="${INFISICAL_SUDO_AGE_IDENTITY_FILE:-$HOME/.config/dotfiles/sudo-age-identity.txt}"
+infisical_sudo_age_identity_file="$(dotfiles_resolve_config_file "${INFISICAL_SUDO_AGE_IDENTITY_FILE:-}" sudo-age-identity.txt)"
 
 # shellcheck source=scripts/lib/infisical.sh
 . "$repo_root/scripts/lib/infisical.sh"
@@ -235,9 +239,17 @@ check_infisical() {
 check_launchd_daemons() {
   section "managed launchd daemons"
 
-  local plist label namespace found=0
-  namespace="$(dotfiles_resolve_launchd_namespace)" \
-    || fail "invalid DOTFILES_LAUNCHD_NAMESPACE"
+  local plist label namespace namespace_file namespace_status found=0
+  namespace_file="$HOME/.config/dotfiles/launchd-namespace"
+  if namespace="$(dotfiles_resolve_launchd_namespace_contract "${DOTFILES_LAUNCHD_NAMESPACE:-}" "$namespace_file")"; then
+    :
+  else
+    namespace_status=$?
+    if [ "$namespace_status" -eq 3 ]; then
+      fail "DOTFILES_LAUNCHD_NAMESPACE differs from the stored host contract"
+    fi
+    fail "invalid DOTFILES_LAUNCHD_NAMESPACE or stored namespace"
+  fi
 
   for plist in \
     "/Library/LaunchDaemons/$namespace.healthd."*.plist \

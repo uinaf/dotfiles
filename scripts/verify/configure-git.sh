@@ -11,8 +11,16 @@ trap 'rm -rf "$tmp_root"' EXIT
 unset \
   GIT_ALTERNATE_OBJECT_DIRECTORIES \
   GIT_CONFIG \
+  GIT_CONFIG_GLOBAL \
+  GIT_CONFIG_SYSTEM \
+  GIT_CONFIG_NOSYSTEM \
   GIT_CONFIG_PARAMETERS \
   GIT_CONFIG_COUNT \
+  GIT_TEMPLATE_DIR \
+  GIT_AUTHOR_NAME \
+  GIT_AUTHOR_EMAIL \
+  GIT_COMMITTER_NAME \
+  GIT_COMMITTER_EMAIL \
   GIT_OBJECT_DIRECTORY \
   GIT_DIR \
   GIT_WORK_TREE \
@@ -292,6 +300,18 @@ assert_rejected_without_mutation \
   "$public_only_home" 'key file is not an SSH private key' \
   "$public_only_home" devbox "$public_only_home/.ssh/signing.pub"
 
+invalid_profile_home="$tmp_root/invalid-profile"
+mkdir -p "$invalid_profile_home/.config/dotfiles"
+printf 'invalid\n' > "$invalid_profile_home/.config/dotfiles/profile"
+if HOME="$invalid_profile_home" \
+  GIT_USER_NAME='Unexpected Workstation' \
+  GIT_USER_EMAIL='unexpected@example.com' \
+    "$configure_git" --non-interactive >/dev/null 2>&1; then
+  fail "invalid persisted profile fell back to workstation"
+fi
+[ ! -e "$invalid_profile_home/.gitconfig.local" ] \
+  || fail "invalid persisted profile mutated Git config"
+
 assistant_home="$tmp_root/assistant"
 mkdir -p "$assistant_home"
 HOME="$assistant_home" "$repo_root/scripts/bootstrap/apply-dotfiles.sh" --profile assistant >/dev/null
@@ -321,6 +341,14 @@ HOME="$assistant_home" git -C "$assistant_repo" commit -q -m 'test: prove worklo
 [ "$(HOME="$assistant_home" git -C "$assistant_repo" log -1 --format='%an <%ae>')" = \
   'Example Workload <example-workload@users.noreply.github.com>' ] \
   || fail "assistant commit did not use the workload identity"
+
+HOME="$assistant_home" \
+DOTFILES_PROFILE=workstation \
+GIT_USER_NAME='Persisted Workload' \
+GIT_USER_EMAIL='persisted-workload@users.noreply.github.com' \
+  "$configure_git" --non-interactive >/dev/null
+[ "$(HOME="$assistant_home" git config --file "$assistant_config" --get dotfiles.identity)" = workload ] \
+  || fail "persisted assistant role did not override an ambient profile"
 
 assistant_before="$(shasum -a 256 "$assistant_config")"
 if HOME="$assistant_home" \

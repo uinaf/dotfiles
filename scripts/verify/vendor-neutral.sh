@@ -3,6 +3,17 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 unexpected=0
+matches=""
+grep_status=0
+
+set +e
+matches="$(git -C "$repo_root" grep -n -i uinaf -- ':!scripts/verify/vendor-neutral.sh')"
+grep_status=$?
+set -e
+if [ "$grep_status" -ne 0 ] && [ "$grep_status" -ne 1 ]; then
+  printf 'vendor-neutral scan failed with git grep status %s\n' "$grep_status" >&2
+  exit "$grep_status"
+fi
 
 while IFS=: read -r file line content; do
   [ -n "$file" ] || continue
@@ -20,7 +31,7 @@ while IFS=: read -r file line content; do
       ;;
     docs/devbox.md)
       case "$content" in
-        *legacy*com.uinaf.*) continue ;;
+        *legacy*com.uinaf.*|*legacy*config/uinaf*) continue ;;
       esac
       ;;
     scripts/bootstrap/install-devbox-service-daemons.sh)
@@ -33,7 +44,7 @@ while IFS=: read -r file line content; do
         *LaunchDaemons/com.uinaf.*) continue ;;
       esac
       ;;
-    docs/profiles.md|scripts/bootstrap/apply-dotfiles.sh|scripts/lib/profile.sh|scripts/verify/profiles.sh)
+    docs/profiles.md|scripts/bootstrap/apply-dotfiles.sh|scripts/lib/config-paths.sh|scripts/lib/profile.sh|scripts/verify/profiles.sh)
       case "$content" in
         *config/uinaf*) continue ;;
       esac
@@ -52,7 +63,7 @@ while IFS=: read -r file line content; do
 
   printf 'unexpected vendor branding: %s:%s:%s\n' "$file" "$line" "$content" >&2
   unexpected=1
-done < <(git -C "$repo_root" grep -n -i uinaf -- ':!scripts/verify/vendor-neutral.sh' || true)
+done <<< "$matches"
 
 [ "$unexpected" -eq 0 ] || exit 1
 printf 'ok owner names are limited to external coordinates and legacy compatibility\n'

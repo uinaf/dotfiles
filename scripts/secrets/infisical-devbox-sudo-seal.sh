@@ -2,8 +2,12 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-config_path="${DEVBOX_CONFIG:-$HOME/.config/dotfiles/devbox.env}"
-identity_file="${INFISICAL_SUDO_AGE_IDENTITY_FILE:-$HOME/.config/dotfiles/sudo-age-identity.txt}"
+
+# shellcheck source=scripts/lib/config-paths.sh
+. "$repo_root/scripts/lib/config-paths.sh"
+
+config_path="$(dotfiles_resolve_config_file "${DEVBOX_CONFIG:-}" devbox.env)"
+identity_file="$(dotfiles_resolve_config_file "${INFISICAL_SUDO_AGE_IDENTITY_FILE:-}" sudo-age-identity.txt)"
 
 # shellcheck source=scripts/lib/infisical.sh
 . "$repo_root/scripts/lib/infisical.sh"

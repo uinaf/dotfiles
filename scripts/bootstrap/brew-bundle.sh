@@ -44,6 +44,10 @@ while [ "$#" -gt 0 ]; do
       fi
       case "$1" in
         personal|workstation|devbox|assistant)
+          if [ -n "$profile" ]; then
+            usage >&2
+            exit 2
+          fi
           profile="$1"
           ;;
         *)
@@ -110,11 +114,10 @@ run_bundle() {
   fi
 }
 
-run_bundle "$repo_root/Brewfile"
-
-if [ "$shared_only" -eq 0 ]; then
-  if dotfiles_profile_is_developer "$profile"; then
-    run_bundle "$repo_root/Brewfile.developer"
-  fi
-  run_bundle "$repo_root/Brewfile.$profile"
+if [ "$shared_only" -eq 1 ]; then
+  run_bundle "$repo_root/Brewfile"
+else
+  while IFS= read -r file; do
+    run_bundle "$repo_root/$file"
+  done < <(dotfiles_profile_brewfiles "$profile")
 fi

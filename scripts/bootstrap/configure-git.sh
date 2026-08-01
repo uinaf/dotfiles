@@ -2,7 +2,7 @@
 set -euo pipefail
 
 non_interactive=0
-profile="${DOTFILES_PROFILE:-}"
+profile=""
 git_name="${GIT_USER_NAME:-}"
 git_email="${GIT_USER_EMAIL:-}"
 signing_key="${GIT_SIGNING_KEY:-}"
@@ -34,8 +34,7 @@ Environment:
   GIT_ALLOWED_SIGNER_PRINCIPAL optional SSH signing verification principal; defaults to GIT_USER_EMAIL
   GIT_SSH_IDENTITY_FILE optional SSH private key path for git@github.com; devbox defaults to GIT_SIGNING_KEY
 
-Assistant push authentication is separate. Supply a short-lived
-GITHUB_APP_INSTALLATION_TOKEN to ~/.local/bin/git-as-github-app.
+Assistant GitHub authentication is intentionally outside this profile setup.
 EOF
 }
 
@@ -263,6 +262,24 @@ EOF
   fi
 )
 
+if [ -z "$profile" ]; then
+  if profile="$(dotfiles_resolve_profile "")"; then
+    :
+  else
+    profile_status=$?
+    if [ "$profile_status" -ne 1 ]; then
+      printf '%s\n' 'stored or environment profile is invalid' >&2
+      exit 2
+    fi
+    profile="$(prompt 'Profile (workstation/devbox/assistant)' workstation)"
+  fi
+fi
+
+if ! profile="$(dotfiles_normalize_profile "$profile")"; then
+  printf 'unsupported profile: %s\n' "$profile" >&2
+  exit 2
+fi
+
 case "$profile" in
   devbox)
     sign_commits="${sign_commits:-true}"
@@ -270,22 +287,9 @@ case "$profile" in
   assistant)
     sign_commits="${sign_commits:-false}"
     ;;
-  "")
-    profile="$(prompt 'Profile (workstation/devbox/assistant)' workstation)"
-    if [ "$profile" = "devbox" ]; then
-      sign_commits="${sign_commits:-true}"
-    elif [ "$profile" = "assistant" ]; then
-      sign_commits="${sign_commits:-false}"
-    fi
-    ;;
-  personal|workstation)
+  workstation)
     ;;
 esac
-
-if ! profile="$(dotfiles_normalize_profile "$profile")"; then
-  printf 'unsupported profile: %s\n' "$profile" >&2
-  exit 2
-fi
 
 if [ "$profile" = "assistant" ]; then
   if [ "$sign_commits" != "false" ] || [ -n "$signing_key" ]; then

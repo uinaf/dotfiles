@@ -78,9 +78,9 @@ pins.
 | Codex | installer-managed defaults, including ChatGPT-login enforcement | auth, sessions, approvals, memory, worktrees |
 | Editors | developer Homebrew layer and chezmoi-managed Zed/Ghostty defaults | app state, fonts, caches |
 
-Assistant users receive a minimal Git base and the `git-as-github-app` HTTPS
-wrapper, but no signing, GitHub credential helper, outbound SSH, or developer
-desktop state. Workload-owned GitHub App tokens are supplied at runtime.
+Assistant users receive a minimal Git base and workload authorship, but no
+signing, GitHub credential helper, outbound SSH, or developer desktop state.
+GitHub authentication is separate platform-owned setup.
 
 ## Local State Boundaries
 

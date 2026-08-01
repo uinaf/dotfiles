@@ -12,9 +12,34 @@ dotfiles_resolve_launchd_namespace() {
   printf '%s\n' "$namespace"
 }
 
+dotfiles_resolve_launchd_namespace_contract() {
+  local requested_namespace="${1:-}"
+  local namespace_file="${2:-}"
+  local requested_resolved=""
+  local stored_namespace=""
+
+  if [ -n "$requested_namespace" ]; then
+    requested_resolved="$(dotfiles_resolve_launchd_namespace "$requested_namespace")" || return 2
+  fi
+  if [ -n "$namespace_file" ] \
+    && { [ -e "$namespace_file" ] || [ -L "$namespace_file" ]; }; then
+    [ -r "$namespace_file" ] || return 4
+    stored_namespace="$(sed -n '1p' "$namespace_file")"
+    [ -n "$stored_namespace" ] || return 2
+    stored_namespace="$(dotfiles_resolve_launchd_namespace "$stored_namespace")" || return 2
+    if [ -n "$requested_resolved" ] && [ "$requested_resolved" != "$stored_namespace" ]; then
+      return 3
+    fi
+    printf '%s\n' "$stored_namespace"
+    return
+  fi
+
+  dotfiles_resolve_launchd_namespace "$requested_resolved"
+}
+
 dotfiles_launchd_label() {
-  local service="$1"
-  local user="$2"
+  local service="${1:-}"
+  local user="${2:-}"
   local requested_namespace="${3:-}"
   local namespace
 

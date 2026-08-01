@@ -86,9 +86,9 @@ Do not put identity-specific values in tracked files. `configure-git.sh` writes
 them to `~/.gitconfig.local`. On devboxes, use the human-provisioned local SSH
 key file for GitHub SSH auth; `configure-git.sh` writes the matching
 `~/.ssh/github.config` override when the signing key is a local path.
-Assistants use explicit workload authorship, unsigned commits, HTTPS remotes,
-and ephemeral GitHub App installation tokens through `git-as-github-app`; never
-invent the workload name, email, App identity, or token.
+Assistants use explicit workload authorship and unsigned commits. GitHub
+authentication is separate platform-owned setup; never invent the workload
+name, email, App identity, or credentials.
 
 ## Verification
 

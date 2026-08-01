@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 
+audit_lib_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# shellcheck source=scripts/lib/config-paths.sh
+. "$audit_lib_dir/config-paths.sh"
+
 : "${json_output:=0}"
 : "${warn_count:=0}"
 : "${fail_count:=0}"
@@ -86,6 +91,36 @@ check_mode_any() {
   done
 
   fail_check "$path mode is $mode, expected one of: $*"
+}
+
+check_ssh_private_key_modes() {
+  local ssh_dir="${1:-$HOME/.ssh}"
+  local key_path
+  local key_mode
+
+  if [ ! -d "$ssh_dir" ]; then
+    warn "missing $ssh_dir"
+    return
+  fi
+
+  while IFS= read -r -d '' key_path; do
+    if [ ! -r "$key_path" ]; then
+      warn "cannot inspect SSH file $key_path"
+      continue
+    fi
+    if ! grep -Eq \
+      '^(-----BEGIN ([A-Z0-9]+ )?PRIVATE KEY-----|---- BEGIN SSH2 (ENCRYPTED )?PRIVATE KEY ----|PuTTY-User-Key-File-[23]:)' \
+      "$key_path"; then
+      continue
+    fi
+
+    key_mode="$(mode_of "$key_path")"
+    if [ $((8#$key_mode & 0077)) -eq 0 ]; then
+      ok "$key_path mode $key_mode"
+    else
+      fail_check "$key_path mode $key_mode is group/world accessible"
+    fi
+  done < <(find "$ssh_dir" -type f -print0 2>/dev/null)
 }
 
 check_pattern_absent() {
@@ -239,7 +274,8 @@ find_matching_files() {
 }
 
 load_audit_policy() {
-  local policy_path="${AUDIT_POLICY_FILE:-$HOME/.config/dotfiles/audit.env}"
+  local policy_path
+  policy_path="$(dotfiles_resolve_config_file "${AUDIT_POLICY_FILE:-}" audit.env)"
 
   if [ ! -e "$policy_path" ]; then
     return 0

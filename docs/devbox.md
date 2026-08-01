@@ -86,6 +86,12 @@ authenticated human `user` session and verifies the machine identity can mint a
 token before writing config. It does not persist secret paths; paths belong at
 the command boundary.
 
+Standalone secret and verification helpers prefer the canonical
+`~/.config/dotfiles` files and temporarily fall back to matching files under
+legacy `~/.config/uinaf`. Applying dotfiles migrates known legacy files when no
+canonical file exists; the fallback keeps maintenance commands usable before
+that apply step.
+
 Routine command-boundary use gives one child command a short-lived machine
 token and the configured Infisical project selectors:
 
@@ -359,8 +365,10 @@ multi-service run aborts with earlier services already migrated.
 
 New system jobs use the vendor-neutral `local.dotfiles.<service>.<user>` label
 namespace. Pass `--namespace org.example.dotfiles` when an organization needs
-its own stable namespace, and keep that value in `DOTFILES_LAUNCHD_NAMESPACE`
-for live verification. The installer moves matching
+its own stable namespace. The installer stores the resolved value in the target
+user's owner-only `~/.config/dotfiles/launchd-namespace`; later install, check,
+and live verification commands reuse it automatically and reject a conflicting
+explicit namespace. The installer moves matching
 legacy `com.uinaf.*.<user>` system plists to
 `/Library/LaunchDaemons.disabled` before installing the replacement; the move
 is recoverable and occurs only during an explicit root-level installation.

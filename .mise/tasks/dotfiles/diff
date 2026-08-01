@@ -2,4 +2,4 @@
 #MISE description="Preview the repo-local chezmoi source state"
 set -euo pipefail
 
-./scripts/bootstrap/apply-dotfiles.sh --dry-run --verbose
+./scripts/bootstrap/apply-dotfiles.sh --dry-run --verbose "$@"

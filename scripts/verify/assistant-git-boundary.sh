@@ -29,6 +29,18 @@ cleanup() {
 }
 
 trap cleanup EXIT
+
+for config_override in \
+  GIT_CONFIG_GLOBAL \
+  GIT_CONFIG_SYSTEM \
+  GIT_CONFIG_NOSYSTEM \
+  GIT_CONFIG_COUNT \
+  GIT_CONFIG_PARAMETERS; do
+  if [ -n "${!config_override:-}" ]; then
+    fail "assistant shell overrides Git config through $config_override"
+  fi
+done
+
 [ -f "$tracked_config" ] \
   || fail "missing assistant Git base config; reapply the assistant profile"
 [ -f "$workload_config" ] \
@@ -90,6 +102,20 @@ while IFS= read -r extra_git_config; do
     fail "assistant has additional user-home Git config: $extra_git_config"
   fi
 done <<< "$extra_git_configs"
+
+credential_stores="$HOME/.git-credentials
+$HOME/.config/git/credentials"
+if [ "${XDG_CONFIG_HOME:-$HOME/.config}" != "$HOME/.config" ]; then
+  credential_stores="$credential_stores
+${XDG_CONFIG_HOME}/git/credentials"
+fi
+while IFS= read -r credential_store; do
+  [ -n "$credential_store" ] || continue
+  if [ -s "$credential_store" ]; then
+    fail "assistant has a persisted Git credential store: $credential_store"
+  fi
+done <<< "$credential_stores"
+
 if [ -e "$HOME/.config/git/allowed_signers.local" ]; then
   fail "assistant has persisted Git signing identity material"
 fi
@@ -119,10 +145,9 @@ elif [ -d "$HOME/.ssh" ]; then
     elif [ -f "$ssh_path" ]; then
       [ -r "$ssh_path" ] \
         || fail "assistant SSH file cannot be inspected: $ssh_path"
-      first_line="$(sed -n '1p' "$ssh_path")" \
-        || fail "assistant SSH file cannot be inspected: $ssh_path"
-      if printf '%s\n' "$first_line" \
-        | grep -Eq '^-----BEGIN ([A-Z0-9]+ )?PRIVATE KEY-----$'; then
+      if grep -Eq \
+        '^(-----BEGIN ([A-Z0-9]+ )?PRIVATE KEY-----|---- BEGIN SSH2 (ENCRYPTED )?PRIVATE KEY ----|PuTTY-User-Key-File-[23]:)' \
+        "$ssh_path"; then
         fail "assistant has a user-home SSH private key: $ssh_path"
       fi
     fi

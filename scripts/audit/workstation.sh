@@ -37,11 +37,10 @@ print_json_summary() {
   fi
 
   printf '{"audit":'
-  json_string "workstation-security"
+  json_string "${DOTFILES_AUDIT_NAME:-workstation-security}"
   printf ',"status":'
   json_string "$status"
-  printf ',"failed":%s,"warnings":%s,"user":' "$fail_count" "$warn_count"
-  json_string "$USER"
+  printf ',"failed":%s,"warnings":%s' "$fail_count" "$warn_count"
   printf ',"secret_scan_count":%s' "$secret_scan_count"
   printf '}\n'
 }
@@ -90,12 +89,20 @@ else
   fail_check "current shell exports INFISICAL_TOKEN"
 fi
 
-if [ "$json_output" -eq 1 ]; then
-  zsh_login_has_no_infisical_token="$(zsh -lic 'test -z "${INFISICAL_TOKEN+x}"' >/dev/null 2>&1; printf '%s' "$?")"
-elif zsh -lic 'test -z "${INFISICAL_TOKEN+x}"'; then
+login_shell="${SHELL:-}"
+if command -v dscl >/dev/null 2>&1; then
+  configured_shell="$(dscl . -read "/Users/$(id -un)" UserShell 2>/dev/null | awk '{print $2}' || true)"
+  if [ -n "$configured_shell" ]; then
+    login_shell="$configured_shell"
+  fi
+fi
+
+zsh_login_has_no_infisical_token=1
+# The login shell, not this audit, expands the probe.
+# shellcheck disable=SC2016
+if [ -x "$login_shell" ] \
+  && "$login_shell" -l -i -c 'test -z "${INFISICAL_TOKEN+x}"' </dev/null >/dev/null 2>&1; then
   zsh_login_has_no_infisical_token=0
-else
-  zsh_login_has_no_infisical_token=1
 fi
 
 if [ "$zsh_login_has_no_infisical_token" = "0" ]; then
@@ -131,13 +138,13 @@ fi
 
 section "Git and GitHub identity"
 
-git_name="$(git config --get user.name 2>/dev/null || true)"
-git_email="$(git config --get user.email 2>/dev/null || true)"
-git_signing_key="$(git config --get user.signingkey 2>/dev/null || true)"
-git_gpgsign="$(git config --get commit.gpgsign 2>/dev/null || true)"
+git_name="$(git config --file "$HOME/.gitconfig" --includes --get user.name 2>/dev/null || true)"
+git_email="$(git config --file "$HOME/.gitconfig" --includes --get user.email 2>/dev/null || true)"
+git_signing_key="$(git config --file "$HOME/.gitconfig" --includes --get user.signingkey 2>/dev/null || true)"
+git_gpgsign="$(git config --file "$HOME/.gitconfig" --includes --get commit.gpgsign 2>/dev/null || true)"
 
 if [ -n "$git_name" ] && [ -n "$git_email" ]; then
-  ok "git identity configured for $git_name <$git_email>"
+  ok "git identity is configured"
 else
   warn "git identity is incomplete"
 fi
@@ -167,19 +174,7 @@ fi
 
 section "SSH key file permissions"
 
-if [ -d "$HOME/.ssh" ]; then
-  while IFS= read -r key_path; do
-    [ -n "$key_path" ] || continue
-    key_mode="$(mode_of "$key_path")"
-    if [ $((8#$key_mode & 0077)) -eq 0 ]; then
-      ok "$key_path mode $key_mode"
-    else
-      fail_check "$key_path mode $key_mode is group/world accessible"
-    fi
-  done < <(find "$HOME/.ssh" -maxdepth 1 -type f ! -name '*.pub' ! -name 'known_hosts*' ! -name 'config' -print 2>/dev/null | sort)
-else
-  warn "missing $HOME/.ssh"
-fi
+check_ssh_private_key_modes
 
 section "Codex log size"
 

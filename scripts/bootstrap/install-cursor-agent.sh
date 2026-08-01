@@ -1,9 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+
+# shellcheck source=scripts/lib/config-paths.sh
+. "$repo_root/scripts/lib/config-paths.sh"
+
 installer_url="${CURSOR_AGENT_INSTALLER_URL:-https://cursor.com/install}"
 installer_path="$(mktemp)"
 agent_path="$HOME/.local/bin/cursor-agent"
+devbox_config="$(dotfiles_resolve_config_file "${DEVBOX_CONFIG:-}" devbox.env)"
 
 cleanup() {
   rm -f "$installer_path"
@@ -26,7 +32,7 @@ if [ ! -x "$HOME/.local/bin/agent" ]; then
   exit 1
 fi
 
-if [ -r "$HOME/.config/dotfiles/devbox.env" ]; then
+if [ -r "$devbox_config" ]; then
   env AGENT_CLI_CREDENTIAL_STORE=file "$agent_path" --version
 else
   "$agent_path" --version

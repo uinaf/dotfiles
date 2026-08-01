@@ -87,14 +87,14 @@ done
 case "$target_user" in
   *[!A-Za-z0-9._-]*) fail "unsupported user name: $target_user" ;;
 esac
-if ! launchd_namespace="$(dotfiles_resolve_launchd_namespace "$launchd_namespace")"; then
-  fail "LaunchDaemon namespace must contain dot-separated letters, numbers, hyphens, or underscores"
-fi
-process_label="$(dotfiles_launchd_label process-compose "$target_user" "$launchd_namespace")"
-openclaw_label="$(dotfiles_launchd_label openclaw-gateway "$target_user" "$launchd_namespace")"
-healthd_label="$(dotfiles_launchd_label healthd "$target_user" "$launchd_namespace")"
-colima_label="$(dotfiles_launchd_label colima "$target_user" "$launchd_namespace")"
 if [ "$print_labels" -eq 1 ]; then
+  if ! launchd_namespace="$(dotfiles_resolve_launchd_namespace "$launchd_namespace")"; then
+    fail "LaunchDaemon namespace must contain dot-separated letters, numbers, hyphens, or underscores"
+  fi
+  process_label="$(dotfiles_launchd_label process-compose "$target_user" "$launchd_namespace")"
+  openclaw_label="$(dotfiles_launchd_label openclaw-gateway "$target_user" "$launchd_namespace")"
+  healthd_label="$(dotfiles_launchd_label healthd "$target_user" "$launchd_namespace")"
+  colima_label="$(dotfiles_launchd_label colima "$target_user" "$launchd_namespace")"
   printf '%s\n%s\n%s\n%s\n' "$process_label" "$openclaw_label" "$healthd_label" "$colima_label"
   exit 0
 fi
@@ -109,6 +109,20 @@ target_uid="$(id -u "$target_user" 2>/dev/null)" || fail "unknown user: $target_
 target_group="$(id -gn "$target_user")"
 target_home="$(dscl . -read "/Users/$target_user" NFSHomeDirectory 2>/dev/null | awk '{print $2}')"
 [ -n "$target_home" ] && [ -d "$target_home" ] || fail "missing home for $target_user"
+launchd_namespace_file="$target_home/.config/dotfiles/launchd-namespace"
+if launchd_namespace="$(dotfiles_resolve_launchd_namespace_contract "$launchd_namespace" "$launchd_namespace_file")"; then
+  :
+else
+  namespace_status=$?
+  if [ "$namespace_status" -eq 3 ]; then
+    fail "LaunchDaemon namespace differs from the stored host contract"
+  fi
+  fail "LaunchDaemon namespace must contain dot-separated letters, numbers, hyphens, or underscores"
+fi
+process_label="$(dotfiles_launchd_label process-compose "$target_user" "$launchd_namespace")"
+openclaw_label="$(dotfiles_launchd_label openclaw-gateway "$target_user" "$launchd_namespace")"
+healthd_label="$(dotfiles_launchd_label healthd "$target_user" "$launchd_namespace")"
+colima_label="$(dotfiles_launchd_label colima "$target_user" "$launchd_namespace")"
 
 launch_daemon_dir="/Library/LaunchDaemons"
 healthd_config="$target_home/.config/healthd/config.toml"
@@ -219,6 +233,13 @@ fi
 command -v plutil >/dev/null || fail "missing plutil"
 command -v launchctl >/dev/null || fail "missing launchctl"
 
+launchd_namespace_dir="$(dirname "$launchd_namespace_file")"
+run_as_target install -d -m 0700 "$launchd_namespace_dir"
+namespace_tmp="$(run_as_target mktemp "$launchd_namespace_dir/.launchd-namespace.XXXXXX")"
+printf '%s\n' "$launchd_namespace" | run_as_target tee "$namespace_tmp" >/dev/null
+run_as_target chmod 0600 "$namespace_tmp"
+run_as_target mv -f "$namespace_tmp" "$launchd_namespace_file"
+
 tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/dotfiles-service-daemons.XXXXXX")"
 trap 'rm -rf "$tmp_dir"' EXIT
 
@@ -259,11 +280,25 @@ create_plist() {
   plutil -lint "$plist" >/dev/null
 }
 
+bootout_if_loaded() {
+  local domain="$1"
+  local label="$2"
+
+  if ! launchctl print "$domain/$label" >/dev/null 2>&1; then
+    return 0
+  fi
+  launchctl bootout "$domain/$label" >/dev/null \
+    || fail "could not unload $domain/$label"
+  if launchctl print "$domain/$label" >/dev/null 2>&1; then
+    fail "$domain/$label remains loaded after bootout"
+  fi
+}
+
 install_job() {
   local source_plist="$1"
   local label="$2"
 
-  launchctl bootout "system/$label" >/dev/null 2>&1 || true
+  bootout_if_loaded system "$label"
   install -o root -g wheel -m 0644 "$source_plist" "$launch_daemon_dir/$label.plist"
   launchctl bootstrap system "$launch_daemon_dir/$label.plist"
   launchctl enable "system/$label"
@@ -281,7 +316,7 @@ retire_system_job() {
   [ -e "$old_path" ] || return 0
   [ ! -e "$retired_path" ] || fail "retired LaunchDaemon already exists: $retired_path"
 
-  launchctl bootout "system/$old_label" >/dev/null 2>&1 || true
+  bootout_if_loaded system "$old_label"
   install -d -o root -g wheel -m 0755 "$retired_dir"
   mv "$old_path" "$retired_path"
   chmod 0644 "$retired_path"
@@ -294,8 +329,8 @@ retire_agent() {
   local retired_dir="$target_home/Library/LaunchAgents.disabled"
   local retired_path="$retired_dir/$old_agent_label.plist"
 
-  launchctl bootout "gui/$target_uid/$old_agent_label" >/dev/null 2>&1 || true
-  launchctl bootout "user/$target_uid/$old_agent_label" >/dev/null 2>&1 || true
+  bootout_if_loaded "gui/$target_uid" "$old_agent_label"
+  bootout_if_loaded "user/$target_uid" "$old_agent_label"
   if [ -e "$old_agent_path" ]; then
     install -d -o "$target_user" -g "$target_group" -m 0700 "$retired_dir"
     [ ! -e "$retired_path" ] || fail "retired LaunchAgent already exists: $retired_path"

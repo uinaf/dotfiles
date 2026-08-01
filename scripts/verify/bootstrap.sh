@@ -288,7 +288,7 @@ check_ghostty_ssh_integration() {
 }
 
 check_remote_ssh_prompt() {
-  if [ "$profile" = "workstation" ]; then
+  if [ "$profile" != "devbox" ]; then
     return
   fi
 
@@ -370,7 +370,9 @@ check_config_paths() {
     done
   fi
 
-  if [ "$(sed -n '1p' "$HOME/.config/dotfiles/profile")" != "$profile" ]; then
+  installed_profile="$(sed -n '1p' "$HOME/.config/dotfiles/profile")"
+  if ! installed_profile="$(dotfiles_normalize_profile "$installed_profile")" \
+    || [ "$installed_profile" != "$profile" ]; then
     fail "installed profile does not match $profile"
   fi
 }

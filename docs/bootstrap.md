@@ -359,6 +359,8 @@ shared Mac, an authorized host administrator installs the Homebrew layers once:
 Run the user-local setup as the assistant identity:
 
 ```zsh
+git clone https://github.com/uinaf/dotfiles.git ~/.local/src/dotfiles
+cd ~/.local/src/dotfiles
 ./scripts/bootstrap/install.sh --profile assistant
 mise trust
 mise install
@@ -374,21 +376,13 @@ assistant. Start with a dedicated Unix user and a clean home. The assistant
 `configure-git.sh` flow writes only workload commit authorship; it rejects
 signing keys and GitHub SSH identity files.
 
-Use an HTTPS remote and a short-lived GitHub App installation token for clone,
-fetch, and push. The app needs repository `Contents` permission, with write
-access for pushes. GitHub App installation tokens expire after one hour. Mint
-the token in the owning workload or secret broker, then pass it only to the
-installed wrapper:
-
-```zsh
-git remote set-url origin https://github.com/OWNER/REPOSITORY.git
-GITHUB_APP_INSTALLATION_TOKEN="$TOKEN" ~/.local/bin/git-as-github-app push origin main
-```
-
-Do not store the token in the remote URL, Git config, `gh auth`, shell startup,
-or process-manager configuration. See GitHub's documentation for
-[installation authentication](https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/authenticating-as-a-github-app-installation)
-and [Git access permissions](https://docs.github.com/en/apps/creating-github-apps/registering-a-github-app/choosing-permissions-for-a-github-app#choosing-permissions-for-git-access).
+GitHub authentication is intentionally not configured by the assistant
+profile. The assistant can create unsigned local commits with its workload
+identity, but unattended fetch/push remains disabled until the platform layer
+provisions a workload-owned GitHub App or another scoped machine identity.
+Token minting and Git transport are follow-up platform work; do not persist a
+human account or ad hoc token in Git config, `gh auth`, shell startup, or a
+process manager to bridge that gap.
 
 Bootstrap verification checks the managed workload identity and common
 user-home credential locations. It does not prove the absence of identity in

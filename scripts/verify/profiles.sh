@@ -7,6 +7,8 @@ trap 'rm -rf "$tmp_root"' EXIT
 
 # shellcheck source=scripts/lib/profile.sh
 . "$repo_root/scripts/lib/profile.sh"
+# shellcheck source=scripts/lib/config-paths.sh
+. "$repo_root/scripts/lib/config-paths.sh"
 
 fail() {
   printf 'FAILED: %s\n' "$1" >&2
@@ -44,6 +46,44 @@ if dotfiles_normalize_profile unsupported >/dev/null 2>&1; then
   fail "unsupported profile was accepted"
 fi
 
+profile_home="$tmp_root/profile-resolution"
+mkdir -p "$profile_home/.config/dotfiles"
+printf ' \tassistant\r\n' > "$profile_home/.config/dotfiles/profile"
+assert_eq assistant "$(HOME="$profile_home" DOTFILES_PROFILE=workstation dotfiles_resolve_profile)" \
+  "stored assistant profile precedence"
+rm "$profile_home/.config/dotfiles/profile"
+assert_eq devbox "$(HOME="$profile_home" DOTFILES_PROFILE=' devbox ' dotfiles_resolve_profile)" \
+  "environment profile fallback"
+if HOME="$profile_home" DOTFILES_PROFILE='' dotfiles_resolve_profile >/dev/null 2>&1; then
+  fail "missing profile was accepted"
+elif [ "$?" -ne 1 ]; then
+  fail "missing profile did not return its distinct status"
+fi
+if HOME="$profile_home" DOTFILES_PROFILE=invalid dotfiles_resolve_profile >/dev/null 2>&1; then
+  fail "invalid profile was accepted"
+elif [ "$?" -ne 2 ]; then
+  fail "invalid profile did not return its distinct status"
+fi
+ln -s "$profile_home/missing-profile" "$profile_home/.config/dotfiles/profile"
+if HOME="$profile_home" DOTFILES_PROFILE=workstation dotfiles_resolve_profile >/dev/null 2>&1; then
+  fail "dangling persisted profile fell back to the environment"
+elif [ "$?" -ne 3 ]; then
+  fail "unreadable persisted profile did not return its distinct status"
+fi
+rm "$profile_home/.config/dotfiles/profile"
+
+config_home="$tmp_root/config-paths"
+mkdir -p "$config_home/.config/uinaf"
+printf 'legacy\n' > "$config_home/.config/uinaf/devbox.env"
+assert_eq "$config_home/.config/uinaf/devbox.env" \
+  "$(HOME="$config_home" dotfiles_resolve_config_file '' devbox.env)" \
+  "legacy config fallback"
+mkdir -p "$config_home/.config/dotfiles"
+printf 'canonical\n' > "$config_home/.config/dotfiles/devbox.env"
+assert_eq "$config_home/.config/dotfiles/devbox.env" \
+  "$(HOME="$config_home" dotfiles_resolve_config_file '' devbox.env)" \
+  "canonical config precedence"
+
 legacy_home="$tmp_root/legacy-profile"
 mkdir -p "$legacy_home/.config/uinaf"
 printf 'assistant\n' > "$legacy_home/.config/uinaf/profile"
@@ -52,6 +92,16 @@ HOME="$legacy_home" "$repo_root/scripts/bootstrap/apply-dotfiles.sh" >/dev/null
 assert_eq assistant "$(sed -n '1p' "$legacy_home/.config/dotfiles/profile")" "migrated legacy profile marker"
 [ -f "$legacy_home/.config/dotfiles/devbox.env" ] || fail "legacy config was not migrated"
 [ ! -e "$legacy_home/.config/uinaf" ] || fail "empty legacy config directory was retained"
+
+task_home="$tmp_root/task-profile"
+mkdir -p "$task_home"
+(
+  cd "$repo_root"
+  HOME="$task_home" ./.mise/tasks/dotfiles/diff --profile assistant >/dev/null
+  HOME="$task_home" ./.mise/tasks/dotfiles/apply --profile assistant >/dev/null
+)
+assert_eq assistant "$(sed -n '1p' "$task_home/.config/dotfiles/profile")" \
+  "dotfiles task profile forwarding"
 
 assistant_files="$(dotfiles_profile_brewfiles assistant)"
 assert_eq "$(printf 'Brewfile\nBrewfile.assistant')" "$assistant_files" "assistant Brewfile layers"
@@ -66,6 +116,87 @@ developer_steps="$("$repo_root/scripts/bootstrap/install.sh" --print-steps --pro
 for step in apply-dotfiles trust-agent-worktrees install-gh-extensions install-native-pnpm configure-codex; do
   printf '%s\n' "$developer_steps" | grep -Fqx "$step" || fail "workstation install missed $step"
 done
+devbox_steps="$("$repo_root/scripts/bootstrap/install.sh" --print-steps --profile devbox)"
+assert_eq "$developer_steps" "$devbox_steps" "devbox developer install steps"
+
+install_fixture="$tmp_root/install-fixture"
+install_log="$tmp_root/install-fixture.log"
+mkdir -p "$install_fixture/scripts/bootstrap" "$install_fixture/scripts/lib" "$install_fixture/bin"
+cp "$repo_root/scripts/bootstrap/install.sh" "$install_fixture/scripts/bootstrap/install.sh"
+cp "$repo_root/scripts/lib/profile.sh" "$install_fixture/scripts/lib/profile.sh"
+for helper in apply-dotfiles.sh trust-agent-worktrees.sh install-gh-extensions.sh configure-codex.sh; do
+cat > "$install_fixture/scripts/bootstrap/$helper" <<'EOF'
+#!/usr/bin/env bash
+printf '%s' "$(basename "$0")" >> "${DOTFILES_INSTALL_LOG:?}"
+[ "$#" -eq 0 ] || printf ' %s' "$@" >> "${DOTFILES_INSTALL_LOG:?}"
+printf '\n' >> "${DOTFILES_INSTALL_LOG:?}"
+if [ "${DOTFILES_INSTALL_READ_STDIN:-}" = "$(basename "$0")" ]; then
+  IFS= read -r stdin_value || stdin_value=eof
+  printf 'stdin %s\n' "$stdin_value" >> "${DOTFILES_INSTALL_LOG:?}"
+fi
+EOF
+  chmod 0700 "$install_fixture/scripts/bootstrap/$helper"
+done
+for command_name in corepack npm codex; do
+cat > "$install_fixture/bin/$command_name" <<'EOF'
+#!/usr/bin/env bash
+printf '%s' "$(basename "$0")" >> "${DOTFILES_INSTALL_LOG:?}"
+[ "$#" -eq 0 ] || printf ' %s' "$@" >> "${DOTFILES_INSTALL_LOG:?}"
+printf '\n' >> "${DOTFILES_INSTALL_LOG:?}"
+EOF
+  chmod 0700 "$install_fixture/bin/$command_name"
+done
+
+: > "$install_log"
+PATH="$install_fixture/bin:$PATH" \
+DOTFILES_INSTALL_LOG="$install_log" \
+HOME="$tmp_root/install-assistant-home" \
+  "$install_fixture/scripts/bootstrap/install.sh" --profile assistant
+assert_eq 'apply-dotfiles.sh --profile assistant' "$(cat "$install_log")" \
+  "assistant install execution"
+
+: > "$install_log"
+PATH="$install_fixture/bin:$PATH" \
+DOTFILES_INSTALL_LOG="$install_log" \
+HOME="$tmp_root/install-devbox-home" \
+  "$install_fixture/scripts/bootstrap/install.sh" --profile devbox
+expected_install_log="$(cat <<'EOF'
+apply-dotfiles.sh --profile devbox
+trust-agent-worktrees.sh
+install-gh-extensions.sh
+corepack disable pnpm
+npm install --global --allow-scripts=pnpm pnpm@12.0.0-beta.2
+configure-codex.sh
+EOF
+)"
+assert_eq "$expected_install_log" "$(cat "$install_log")" "devbox install execution"
+
+: > "$install_log"
+printf 'caller-input\n' | \
+  PATH="$install_fixture/bin:$PATH" \
+  DOTFILES_INSTALL_LOG="$install_log" \
+  DOTFILES_INSTALL_READ_STDIN=apply-dotfiles.sh \
+  HOME="$tmp_root/install-stdin-home" \
+    "$install_fixture/scripts/bootstrap/install.sh" --profile assistant
+assert_eq "$(printf 'apply-dotfiles.sh --profile assistant\nstdin caller-input')" \
+  "$(cat "$install_log")" \
+  "install step caller stdin"
+
+assert_install_rejected() {
+  local label="$1"
+  shift
+
+  if PATH="$install_fixture/bin:$PATH" \
+    DOTFILES_INSTALL_LOG="$install_log" \
+    HOME="$tmp_root/install-invalid-home" \
+      "$install_fixture/scripts/bootstrap/install.sh" "$@" >/dev/null 2>&1; then
+    fail "install accepted invalid arguments: $label"
+  fi
+}
+
+assert_install_rejected 'missing profile'
+assert_install_rejected 'unsupported profile' --profile unsupported
+assert_install_rejected 'unknown option' --unknown
 
 assistant_mise="$(render_target assistant .config/mise/config.toml)"
 for expected in 'node = "24.18.0"' 'python = "3.13"' 'uv = "0.11.4"'; do
@@ -82,6 +213,9 @@ for expected in 'bun = "1.3.10"' 'java = "temurin-21"' 'go = "1.26.2"' 'trusted_
   printf '%s\n' "$workstation_mise" | grep -Fq "$expected" || fail "workstation mise config missed $expected"
 done
 
+devbox_mise="$(render_target devbox .config/mise/config.toml)"
+assert_eq "$workstation_mise" "$devbox_mise" "devbox developer mise config"
+
 assert_eq assistant "$(render_target assistant .config/dotfiles/profile)" "rendered assistant profile"
 
 assistant_managed="$({
@@ -93,10 +227,8 @@ assistant_managed="$({
     managed --path-style relative
 })"
 printf '%s\n' "$assistant_managed" | grep -Fqx '.config/dotfiles/profile' || fail "assistant profile marker is unmanaged"
-for required_path in '.gitconfig' '.local/bin/git-as-github-app'; do
-  printf '%s\n' "$assistant_managed" | grep -Fqx "$required_path" \
-    || fail "assistant profile does not manage $required_path"
-done
+printf '%s\n' "$assistant_managed" | grep -Fqx '.gitconfig' \
+  || fail "assistant profile does not manage .gitconfig"
 if printf '%s\n' "$assistant_managed" | grep -Eq '^(\.config/git|\.config/zed|\.local/libexec/dotfiles/git-ssh-sign-agentless|\.ssh|Library/Application Support/com.mitchellh.ghostty)(/|$)'; then
   fail "assistant profile manages developer or identity state"
 fi
@@ -118,6 +250,24 @@ for required_path in \
   'Library/Application Support/com.mitchellh.ghostty/config'; do
   printf '%s\n' "$workstation_managed" | grep -Fqx "$required_path" \
     || fail "workstation profile does not manage $required_path"
+done
+
+devbox_managed="$({
+  data='{"dotfilesProfile":"devbox"}'
+  chezmoi \
+    --source "$repo_root/chezmoi" \
+    --destination "$tmp_root/devbox" \
+    --override-data "$data" \
+    managed --path-style relative
+})"
+for required_path in \
+  '.config/git/allowed_signers' \
+  '.config/zed/settings.json' \
+  '.gitconfig' \
+  '.local/libexec/dotfiles/git-ssh-sign-agentless' \
+  '.ssh/config'; do
+  printf '%s\n' "$devbox_managed" | grep -Fqx "$required_path" \
+    || fail "devbox profile does not manage $required_path"
 done
 
 assistant_home="$tmp_root/assistant-applied"
@@ -142,75 +292,6 @@ printf '%s\n' "$assistant_gitconfig" | grep -Fqx '[include]' \
 if printf '%s\n' "$assistant_gitconfig" | grep -Eq '^\[(credential|gpg)|gh auth git-credential|signing'; then
   fail "assistant Git base config included developer authentication or signing settings"
 fi
-assistant_git_app="$assistant_home/.local/bin/git-as-github-app"
-[ -x "$assistant_git_app" ] || fail "assistant GitHub App wrapper is not executable"
-assert_eq x-access-token "$(
-  DOTFILES_GITHUB_APP_ASKPASS=1 \
-  GITHUB_APP_INSTALLATION_TOKEN=token-fixture \
-    "$assistant_git_app" "Username for 'https://github.com/OWNER/REPOSITORY.git': "
-)" "GitHub App HTTPS username"
-assert_eq token-fixture "$(
-  DOTFILES_GITHUB_APP_ASKPASS=1 \
-  GITHUB_APP_INSTALLATION_TOKEN=token-fixture \
-    "$assistant_git_app" "Password for 'https://x-access-token@github.com/OWNER/REPOSITORY.git': "
-)" "GitHub App HTTPS password"
-if DOTFILES_GITHUB_APP_ASKPASS=1 \
-  GITHUB_APP_INSTALLATION_TOKEN=token-fixture \
-    "$assistant_git_app" "Password for 'https://example.com/OWNER/REPOSITORY.git': " >/dev/null 2>&1; then
-  fail "GitHub App askpass returned a token for a non-GitHub host"
-fi
-if DOTFILES_GITHUB_APP_ASKPASS=1 \
-  GITHUB_APP_INSTALLATION_TOKEN=token-fixture \
-    "$assistant_git_app" "Password for 'http://example.com/https://github.com/OWNER/REPOSITORY.git': " >/dev/null 2>&1; then
-  fail "GitHub App askpass trusted a GitHub URL embedded under another host"
-fi
-if DOTFILES_GITHUB_APP_ASKPASS=1 \
-  GITHUB_APP_INSTALLATION_TOKEN=token-fixture \
-    "$assistant_git_app" "Password for 'https://github.com:443@example.com/OWNER/REPOSITORY.git': " >/dev/null 2>&1; then
-  fail "GitHub App askpass confused userinfo with the GitHub authority"
-fi
-if DOTFILES_GITHUB_APP_ASKPASS=1 \
-  GITHUB_APP_INSTALLATION_TOKEN=token-fixture \
-    "$assistant_git_app" "Password  for 'https://x-access-token@github.com/OWNER/REPOSITORY.git': " >/dev/null 2>&1; then
-  fail "GitHub App askpass accepted non-literal prompt spacing"
-fi
-if DOTFILES_GITHUB_APP_ASKPASS=1 \
-  GITHUB_APP_INSTALLATION_TOKEN=token-fixture \
-    "$assistant_git_app" "Password for 'https://x-access-token@github.com/OWNER/REPOSITORY.git':" >/dev/null 2>&1; then
-  fail "GitHub App askpass accepted a prompt without the literal trailing space"
-fi
-GITHUB_APP_INSTALLATION_TOKEN=token-fixture "$assistant_git_app" --version >/dev/null
-
-credential_helper="$tmp_root/credential-helper"
-credential_helper_log="$tmp_root/credential-helper.log"
-credential_config="$tmp_root/credential-config"
-cat > "$credential_helper" <<EOF
-#!/usr/bin/env bash
-printf 'invoked\\n' >> '$credential_helper_log'
-EOF
-chmod 0700 "$credential_helper"
-git config --file "$credential_config" credential.helper "$credential_helper"
-git config --file "$credential_config" 'credential.https://github.com.helper' "$credential_helper"
-git config --file "$credential_config" alias.print-locale '!env | sed -n "s/^LC_ALL=//p"'
-assert_eq C "$(
-  LC_ALL=POSIX \
-  GIT_CONFIG_GLOBAL="$credential_config" \
-  GITHUB_APP_INSTALLATION_TOKEN=token-fixture \
-    "$assistant_git_app" print-locale
-)" "GitHub App wrapper child locale"
-credential_output="$(
-  printf 'url=https://github.com/OWNER/REPOSITORY.git\n\n' \
-    | GIT_CONFIG_GLOBAL="$credential_config" \
-      GITHUB_APP_INSTALLATION_TOKEN=token-fixture \
-        "$assistant_git_app" credential fill
-)"
-[ ! -e "$credential_helper_log" ] \
-  || fail "GitHub App wrapper invoked an ambient credential helper"
-printf '%s\n' "$credential_output" | grep -Fqx 'username=x-access-token' \
-  || fail "GitHub App wrapper did not supply the HTTPS username"
-printf '%s\n' "$credential_output" | grep -Fqx 'password=token-fixture' \
-  || fail "GitHub App wrapper did not supply the installation token"
-
 identity_home="$tmp_root/assistant-git-boundary"
 private_key_type="$(printf '%s %s' PRIVATE KEY)"
 
@@ -224,7 +305,6 @@ run_assistant_git_boundary() {
     HOME="$identity_home" \
     XDG_CONFIG_HOME="$identity_home/.config" \
     GH_CONFIG_DIR="${identity_gh_config_dir:-$identity_home/.config/gh}" \
-    GITHUB_APP_INSTALLATION_TOKEN=workload-token-fixture \
     "$repo_root/scripts/verify/assistant-git-boundary.sh"
 }
 
@@ -281,6 +361,21 @@ printf '%s\n' "-----BEGIN OPENSSH ${private_key_type}-----" > "$identity_home/.s
 assert_assistant_git_boundary_rejected "a user-home SSH private key"
 
 prepare_identity_home
+mkdir -p "$identity_home/.ssh"
+printf '\n%s\n' "-----BEGIN OPENSSH ${private_key_type}-----" > "$identity_home/.ssh/id_ed25519"
+assert_assistant_git_boundary_rejected "a private key after a leading blank line"
+
+prepare_identity_home
+mkdir -p "$identity_home/.ssh"
+printf '%s\n' '---- BEGIN SSH2 ENCRYPTED PRIVATE KEY ----' > "$identity_home/.ssh/id_ssh2"
+assert_assistant_git_boundary_rejected "an SSH2 private key"
+
+prepare_identity_home
+mkdir -p "$identity_home/.ssh"
+printf '%s\n' 'PuTTY-User-Key-File-3: ssh-ed25519' > "$identity_home/.ssh/id_putty"
+assert_assistant_git_boundary_rejected "a PuTTY private key"
+
+prepare_identity_home
 mkdir -p "$identity_home/.ssh/keys"
 printf '%s\n' "-----BEGIN OPENSSH ${private_key_type}-----" > "$identity_home/.ssh/keys/id_ed25519"
 assert_assistant_git_boundary_rejected "a nested user-home SSH private key"
@@ -306,10 +401,54 @@ printf '[credential "https://github.com"]\n\thelper = store\n' \
 assert_assistant_git_boundary_rejected "a persisted previous Git base config backup"
 
 prepare_identity_home
+printf 'https://x-access-token:fixture@github.com\n' > "$identity_home/.git-credentials"
+assert_assistant_git_boundary_rejected "a persisted Git credential store"
+
+prepare_identity_home
+mkdir -p "$identity_home/custom-xdg/git"
+printf 'https://x-access-token:fixture@github.com\n' > "$identity_home/custom-xdg/git/credentials"
+if env \
+  -u SSH_AUTH_SOCK \
+  -u GIT_CONFIG_GLOBAL \
+  -u GIT_CONFIG_SYSTEM \
+  -u GIT_CONFIG_NOSYSTEM \
+  -u GIT_CONFIG_COUNT \
+  HOME="$identity_home" \
+  XDG_CONFIG_HOME="$identity_home/custom-xdg" \
+  GH_CONFIG_DIR="$identity_home/.config/gh" \
+    "$repo_root/scripts/verify/assistant-git-boundary.sh" >/dev/null 2>&1; then
+  fail "assistant Git boundary accepted an XDG Git credential store"
+fi
+
+prepare_identity_home
+if env \
+  -u SSH_AUTH_SOCK \
+  HOME="$identity_home" \
+  XDG_CONFIG_HOME="$identity_home/.config" \
+  GH_CONFIG_DIR="$identity_home/.config/gh" \
+  GIT_CONFIG_GLOBAL="$identity_home/attacker.gitconfig" \
+    "$repo_root/scripts/verify/assistant-git-boundary.sh" >/dev/null 2>&1; then
+  fail "assistant Git boundary accepted an ambient Git config override"
+fi
+
+prepare_identity_home
+if env \
+  -u SSH_AUTH_SOCK \
+  -u GIT_CONFIG_GLOBAL \
+  -u GIT_CONFIG_SYSTEM \
+  HOME="$identity_home" \
+  XDG_CONFIG_HOME="$identity_home/.config" \
+  GH_CONFIG_DIR="$identity_home/.config/gh" \
+  GIT_CONFIG_NOSYSTEM=1 \
+    "$repo_root/scripts/verify/assistant-git-boundary.sh" >/dev/null 2>&1; then
+  fail "assistant Git boundary accepted GIT_CONFIG_NOSYSTEM"
+fi
+
+prepare_identity_home
 mkdir -p "$identity_home/custom-gh"
 mkdir -p "$identity_home/.config/gh"
 printf 'github.com:\n  user: example-human\n' > "$identity_home/.config/gh/hosts.yml"
 identity_gh_config_dir="$identity_home/custom-gh"
 assert_assistant_git_boundary_rejected "persisted GitHub CLI configuration"
 
-printf 'ok profile aliases, layers, applied dotfiles, workload Git identity, and token transport\n'
+printf 'ok profile aliases, layers, applied dotfiles, and workload Git identity\n'

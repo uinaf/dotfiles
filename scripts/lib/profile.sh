@@ -14,21 +14,44 @@ dotfiles_normalize_profile() {
   esac
 }
 
+dotfiles_trim_profile() {
+  local value="${1:-}"
+
+  value="${value#"${value%%[![:space:]]*}"}"
+  value="${value%"${value##*[![:space:]]}"}"
+  printf '%s\n' "$value"
+}
+
 dotfiles_resolve_profile() {
-  local requested="${1:-${DOTFILES_PROFILE:-}}"
+  local requested="${1:-}"
   local profile_file="${DOTFILES_PROFILE_FILE:-$HOME/.config/dotfiles/profile}"
   local legacy_profile_file="$HOME/.config/uinaf/profile"
+  local explicit_profile_file=0
 
-  if [ -z "${DOTFILES_PROFILE_FILE:-}" ] \
-    && [ ! -r "$profile_file" ] \
-    && [ -r "$legacy_profile_file" ]; then
+  if [ -n "${DOTFILES_PROFILE_FILE:-}" ]; then
+    explicit_profile_file=1
+  fi
+
+  if [ "$explicit_profile_file" -eq 0 ] \
+    && [ ! -e "$profile_file" ] \
+    && [ ! -L "$profile_file" ] \
+    && { [ -e "$legacy_profile_file" ] || [ -L "$legacy_profile_file" ]; }; then
     profile_file="$legacy_profile_file"
   fi
 
-  if [ -z "$requested" ] && [ -r "$profile_file" ]; then
-    IFS= read -r requested < "$profile_file"
+  if [ -z "$requested" ]; then
+    if [ -e "$profile_file" ] || [ -L "$profile_file" ]; then
+      [ -r "$profile_file" ] || return 3
+      IFS= read -r requested < "$profile_file" || return 3
+    elif [ "$explicit_profile_file" -eq 1 ]; then
+      return 3
+    else
+      requested="${DOTFILES_PROFILE:-}"
+    fi
   fi
 
+  requested="$(dotfiles_trim_profile "$requested")"
+  [ -n "$requested" ] || return 1
   dotfiles_normalize_profile "$requested"
 }
 

@@ -50,7 +50,7 @@ if ! profile="$(dotfiles_resolve_profile "$profile")"; then
   exit 2
 fi
 
-if [ "$print_steps" -eq 1 ]; then
+install_steps() {
   printf 'apply-dotfiles\n'
   if dotfiles_profile_is_developer "$profile"; then
     printf 'trust-agent-worktrees\n'
@@ -58,27 +58,52 @@ if [ "$print_steps" -eq 1 ]; then
     printf 'install-native-pnpm\n'
     printf 'configure-codex\n'
   fi
+}
+
+run_step() {
+  case "$1" in
+    apply-dotfiles)
+      "$repo_root/scripts/bootstrap/apply-dotfiles.sh" --profile "$profile"
+      ;;
+    trust-agent-worktrees)
+      "$repo_root/scripts/bootstrap/trust-agent-worktrees.sh"
+      ;;
+    install-gh-extensions)
+      "$repo_root/scripts/bootstrap/install-gh-extensions.sh"
+      ;;
+    install-native-pnpm)
+      if command -v npm >/dev/null 2>&1; then
+        if command -v corepack >/dev/null 2>&1; then
+          corepack disable pnpm || true
+        fi
+        npm install --global --allow-scripts=pnpm pnpm@12.0.0-beta.2
+      else
+        printf 'skipped pnpm setup; install the pinned Node runtime with mise install\n' >&2
+      fi
+      ;;
+    configure-codex)
+      if command -v codex >/dev/null 2>&1; then
+        "$repo_root/scripts/bootstrap/configure-codex.sh"
+      else
+        printf 'skipped Codex defaults; codex is not on PATH yet\n' >&2
+      fi
+      ;;
+    *)
+      printf 'unsupported install step: %s\n' "$1" >&2
+      return 2
+      ;;
+  esac
+}
+
+if [ "$print_steps" -eq 1 ]; then
+  install_steps
   exit 0
 fi
 
-"$repo_root/scripts/bootstrap/apply-dotfiles.sh" --profile "$profile"
-
-if dotfiles_profile_is_developer "$profile"; then
-  "$repo_root/scripts/bootstrap/trust-agent-worktrees.sh"
-  "$repo_root/scripts/bootstrap/install-gh-extensions.sh"
-
-  if command -v npm >/dev/null 2>&1; then
-    if command -v corepack >/dev/null 2>&1; then
-      corepack disable pnpm || true
-    fi
-    npm install --global --allow-scripts=pnpm pnpm@12.0.0-beta.2
-  else
-    printf 'skipped pnpm setup; install the pinned Node runtime with mise install\n' >&2
-  fi
-
-  if command -v codex >/dev/null 2>&1; then
-    "$repo_root/scripts/bootstrap/configure-codex.sh"
-  else
-    printf 'skipped Codex defaults; codex is not on PATH yet\n' >&2
-  fi
-fi
+steps=()
+while IFS= read -r step; do
+  steps+=("$step")
+done < <(install_steps)
+for step in "${steps[@]}"; do
+  run_step "$step"
+done

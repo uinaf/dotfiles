@@ -36,7 +36,8 @@ fail() {
 need_command() {
   local command="$1"
 
-  command -v "$command" >/dev/null 2>&1 || fail "missing $command; install the shared Brewfile first"
+  command -v "$command" >/dev/null 2>&1 \
+    || fail "missing $command; install the developer Brewfile layers before repository verification"
 }
 
 while [ "$#" -gt 0 ]; do
@@ -98,6 +99,9 @@ section "profile contracts"
 
 section "service labels"
 ./scripts/verify/service-labels.sh
+
+section "audit contracts"
+./scripts/verify/audit-contracts.sh
 
 section "vendor-neutral interfaces"
 ./scripts/verify/vendor-neutral.sh

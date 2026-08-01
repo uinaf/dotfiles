@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-identity_file="${INFISICAL_SUDO_AGE_IDENTITY_FILE:-$HOME/.config/dotfiles/sudo-age-identity.txt}"
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+
+# shellcheck source=scripts/lib/config-paths.sh
+. "$repo_root/scripts/lib/config-paths.sh"
+
+identity_file="$(dotfiles_resolve_config_file "${INFISICAL_SUDO_AGE_IDENTITY_FILE:-}" sudo-age-identity.txt)"
 
 usage() {
   cat <<'USAGE'

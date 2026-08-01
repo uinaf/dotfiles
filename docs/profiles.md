@@ -38,11 +38,10 @@ The assistant mise config contains Node, Python, and uv. Workload repositories
 own OpenClaw, Hermes, model providers, and other workload-specific packages.
 Workstation and devbox retain the full shared development runtime set.
 
-Assistant dotfile application installs a minimal Git base and an HTTPS wrapper
-for ephemeral GitHub App tokens. It skips developer signing, credential
-helpers, outbound SSH configuration, Zed, and Ghostty state. It also skips
-GitHub extensions, developer worktree trust, native pnpm setup, and Codex
-desktop defaults.
+Assistant dotfile application installs a minimal Git base without GitHub
+authentication. It skips developer signing, credential helpers, outbound SSH
+configuration, Zed, and Ghostty state. It also skips GitHub extensions,
+developer worktree trust, native pnpm setup, and Codex desktop defaults.
 
 ## Identity Policy
 
@@ -52,11 +51,11 @@ with the same script. It writes `user.name`, `user.email`, disables commit and
 tag signing, and marks the local config as workload-owned. The values are local
 operator input and are never tracked.
 
-Assistant GitHub authentication is separate from commit authorship. Use a
-short-lived GitHub App installation token over an HTTPS remote through
-`~/.local/bin/git-as-github-app`. Do not persist the token in the remote URL, Git
-configuration, `gh auth`, or SSH keys. The wrapper reads
-`GITHUB_APP_INSTALLATION_TOKEN` only from the command environment.
+Assistant GitHub authentication is separate from commit authorship and is not
+configured by this profile. Provision a workload-owned GitHub App or another
+scoped machine identity in the platform layer when repository access is
+actually needed. Until then, the assistant can create local commits but cannot
+fetch or push private workspace state unattended.
 
 The assistant bootstrap checks the managed workload identity and common
 user-home credential locations. It is not proof about system Git/SSH
@@ -67,7 +66,8 @@ boundary. Run the check directly with
 
 Unattended users use a scoped machine identity for secret access. If a workload
 needs repository access, provision a workload-owned GitHub App instead of a
-human account.
+human account; token minting and Git transport belong in that later platform
+integration, not these dotfiles.
 
 ## Apply a Profile
 
@@ -114,3 +114,5 @@ that retained workloads do not depend on them.
 On apply, known files from the legacy `~/.config/uinaf` namespace move to
 `~/.config/dotfiles` when the canonical target does not already exist. A
 conflicting legacy file is retained and reported instead of overwritten.
+Standalone Infisical and verification helpers prefer the canonical files and
+fall back to matching legacy files until that migration runs.

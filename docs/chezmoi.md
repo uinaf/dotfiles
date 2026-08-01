@@ -22,9 +22,9 @@ The `private_` attribute is used for parent config directories and files that
 should land as owner-only local config.
 
 The assistant profile renders a minimal Git base with a local workload-identity
-include and installs `~/.local/bin/git-as-github-app` for ephemeral HTTPS
-authentication. It excludes the outbound SSH, signing-helper, allowed-signers,
-Zed, and Ghostty sources used by workstation and devbox profiles.
+include. It excludes GitHub authentication, outbound SSH, signing-helper,
+allowed-signers, Zed, and Ghostty sources used by workstation and devbox
+profiles.
 
 Use attributes deliberately:
 
@@ -42,7 +42,7 @@ Preview the target state before applying:
 ```zsh
 ./scripts/bootstrap/apply-dotfiles.sh --profile workstation --dry-run --verbose
 mise trust
-mise run dotfiles:diff
+mise run dotfiles:diff -- --profile workstation
 ```
 
 Apply the source state:
@@ -50,7 +50,7 @@ Apply the source state:
 ```zsh
 ./scripts/bootstrap/apply-dotfiles.sh --profile workstation
 mise trust
-mise run dotfiles:apply
+mise run dotfiles:apply -- --profile workstation
 ```
 
 `./scripts/bootstrap/install.sh` calls the same wrapper and then configures

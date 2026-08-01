@@ -15,10 +15,12 @@ chezmoi_base=()
 usage() {
   cat <<'USAGE'
 Usage:
-  scripts/bootstrap/apply-dotfiles.sh --profile PROFILE [--dry-run] [--verbose]
+  scripts/bootstrap/apply-dotfiles.sh [--profile PROFILE] [--dry-run] [--verbose]
 
 Applies the repo-local chezmoi source state for workstation, devbox, or
-assistant to $HOME. The legacy personal name maps to workstation.
+assistant to $HOME. When --profile is omitted, the stored profile is used,
+followed by DOTFILES_PROFILE for first-time setup. The legacy personal name
+maps to workstation.
 USAGE
 }
 
