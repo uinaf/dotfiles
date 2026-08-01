@@ -99,6 +99,7 @@ Devbox checks:
 <concealed-password-command> | ./scripts/secrets/infisical-devbox-sudo-seal.sh
 ./scripts/secrets/infisical-devbox-run.sh -- <command>
 ./scripts/secrets/infisical-devbox-sudo.sh -- <non-interactive-command>
+./scripts/secrets/sops-devbox-sudo.sh -- <non-interactive-command>
 ./scripts/verify/devbox-services.sh
 mise run verify:devbox-services
 ./scripts/audit/devbox.sh
