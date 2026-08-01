@@ -80,6 +80,16 @@ run_step() {
     remove-global-vite-plus)
       if command -v mise >/dev/null 2>&1; then
         mise uninstall --all --yes npm:vite-plus
+        installed_nodes="$(mise ls node --installed --json)"
+        if [ -n "$installed_nodes" ] && command -v node >/dev/null 2>&1; then
+          printf '%s\n' "$installed_nodes" \
+            | node -e 'for (const tool of JSON.parse(require("node:fs").readFileSync(0, "utf8"))) console.log(tool.install_path)' \
+            | while IFS= read -r node_root; do
+                if [ -f "$node_root/lib/node_modules/vite-plus/package.json" ]; then
+                  "$node_root/bin/npm" uninstall --global vite-plus
+                fi
+              done
+        fi
         mise reshim --force
       fi
       if [ -e "$HOME/.vite-plus" ] || [ -L "$HOME/.vite-plus" ]; then

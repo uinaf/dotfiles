@@ -142,6 +142,8 @@ assert_eq "$developer_steps" "$devbox_steps" "devbox developer install steps"
 
 install_fixture="$tmp_root/install-fixture"
 install_log="$tmp_root/install-fixture.log"
+active_node_bin="$(dirname "$(mise which node)")"
+install_fixture_path="$install_fixture/bin:$active_node_bin:$PATH"
 mkdir -p "$install_fixture/scripts/bootstrap" "$install_fixture/scripts/lib" "$install_fixture/bin"
 cp "$repo_root/scripts/bootstrap/install.sh" "$install_fixture/scripts/bootstrap/install.sh"
 cp "$repo_root/scripts/lib/profile.sh" "$install_fixture/scripts/lib/profile.sh"
@@ -164,12 +166,15 @@ cat > "$install_fixture/bin/$command_name" <<'EOF'
 printf '%s' "$(basename "$0")" >> "${DOTFILES_INSTALL_LOG:?}"
 [ "$#" -eq 0 ] || printf ' %s' "$@" >> "${DOTFILES_INSTALL_LOG:?}"
 printf '\n' >> "${DOTFILES_INSTALL_LOG:?}"
+if [ "$(basename "$0")" = mise ] && [ "$*" = "ls node --installed --json" ]; then
+  printf '[{"install_path":"%s"}]\n' "${DOTFILES_INSTALL_NODE_ROOT:?}"
+fi
 EOF
   chmod 0700 "$install_fixture/bin/$command_name"
 done
 
 : > "$install_log"
-PATH="$install_fixture/bin:$PATH" \
+PATH="$install_fixture_path" \
 DOTFILES_INSTALL_LOG="$install_log" \
 HOME="$tmp_root/install-assistant-home" \
   "$install_fixture/scripts/bootstrap/install.sh" --profile assistant
@@ -178,10 +183,15 @@ assert_eq "$(printf 'apply-dotfiles.sh --profile assistant\ninstall-gh-app-auth.
 
 : > "$install_log"
 install_devbox_home="$tmp_root/install-devbox-home"
+install_node_root="$install_fixture/node-root"
 mkdir -p "$install_devbox_home/.vite-plus"
+mkdir -p "$install_node_root/bin" "$install_node_root/lib/node_modules/vite-plus"
 touch "$install_devbox_home/.vite-plus/retired-state"
-PATH="$install_fixture/bin:$PATH" \
+touch "$install_node_root/lib/node_modules/vite-plus/package.json"
+cp "$install_fixture/bin/npm" "$install_node_root/bin/npm"
+PATH="$install_fixture_path" \
 DOTFILES_INSTALL_LOG="$install_log" \
+DOTFILES_INSTALL_NODE_ROOT="$install_node_root" \
 HOME="$install_devbox_home" \
   "$install_fixture/scripts/bootstrap/install.sh" --profile devbox
 expected_install_log="$(cat <<'EOF'
@@ -189,6 +199,8 @@ apply-dotfiles.sh --profile devbox
 trust-agent-worktrees.sh
 install-gh-extensions.sh
 mise uninstall --all --yes npm:vite-plus
+mise ls node --installed --json
+npm uninstall --global vite-plus
 mise reshim --force
 corepack enable pnpm
 corepack install --global pnpm@11.18.0
@@ -200,7 +212,7 @@ assert_eq "$expected_install_log" "$(cat "$install_log")" "devbox install execut
 
 : > "$install_log"
 printf 'caller-input\n' | \
-  PATH="$install_fixture/bin:$PATH" \
+  PATH="$install_fixture_path" \
   DOTFILES_INSTALL_LOG="$install_log" \
   DOTFILES_INSTALL_READ_STDIN=apply-dotfiles.sh \
   HOME="$tmp_root/install-stdin-home" \
@@ -213,7 +225,7 @@ assert_install_rejected() {
   local label="$1"
   shift
 
-  if PATH="$install_fixture/bin:$PATH" \
+  if PATH="$install_fixture_path" \
     DOTFILES_INSTALL_LOG="$install_log" \
     HOME="$tmp_root/install-invalid-home" \
       "$install_fixture/scripts/bootstrap/install.sh" "$@" >/dev/null 2>&1; then
