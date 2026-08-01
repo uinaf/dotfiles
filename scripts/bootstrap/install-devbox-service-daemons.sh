@@ -233,13 +233,6 @@ fi
 command -v plutil >/dev/null || fail "missing plutil"
 command -v launchctl >/dev/null || fail "missing launchctl"
 
-launchd_namespace_dir="$(dirname "$launchd_namespace_file")"
-run_as_target install -d -m 0700 "$launchd_namespace_dir"
-namespace_tmp="$(run_as_target mktemp "$launchd_namespace_dir/.launchd-namespace.XXXXXX")"
-printf '%s\n' "$launchd_namespace" | run_as_target tee "$namespace_tmp" >/dev/null
-run_as_target chmod 0600 "$namespace_tmp"
-run_as_target mv -f "$namespace_tmp" "$launchd_namespace_file"
-
 tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/dotfiles-service-daemons.XXXXXX")"
 trap 'rm -rf "$tmp_dir"' EXIT
 
@@ -423,5 +416,12 @@ if [ "$install_colima" -eq 1 ]; then
   install_job "$colima_plist" "$colima_label"
   check_colima
 fi
+
+launchd_namespace_dir="$(dirname "$launchd_namespace_file")"
+run_as_target install -d -m 0700 "$launchd_namespace_dir"
+namespace_tmp="$(run_as_target mktemp "$launchd_namespace_dir/.launchd-namespace.XXXXXX")"
+printf '%s\n' "$launchd_namespace" | run_as_target tee "$namespace_tmp" >/dev/null
+run_as_target chmod 0600 "$namespace_tmp"
+run_as_target mv -f "$namespace_tmp" "$launchd_namespace_file"
 
 printf 'devbox service daemon installation ok\n'

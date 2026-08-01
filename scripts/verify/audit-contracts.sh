@@ -45,4 +45,8 @@ personal_json="$(HOME="$HOME" SHELL=/bin/sh "$repo_root/scripts/audit/personal.s
 printf '%s\n' "$personal_json" | grep -Fq '"audit":"personal-security"' \
   || fail "personal compatibility audit name changed"
 
+personal_task_json="$(cd "$repo_root" && HOME="$HOME" SHELL=/bin/sh ./.mise/tasks/audit/personal/json 2>/dev/null || true)"
+printf '%s\n' "$personal_task_json" | grep -Fq '"audit":"personal-security"' \
+  || fail "personal compatibility task bypassed the personal audit wrapper"
+
 printf 'ok audit output privacy and recursive SSH private-key classification\n'

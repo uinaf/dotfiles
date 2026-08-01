@@ -4,7 +4,7 @@ dotfiles_resolve_launchd_namespace() {
   local namespace="${1:-${DOTFILES_LAUNCHD_NAMESPACE:-local.dotfiles}}"
 
   case "$namespace" in
-    ""|.*|*.|*..*|*[!A-Za-z0-9.-]*)
+    ""|.*|*.|*..*|*[!A-Za-z0-9._-]*)
       return 2
       ;;
   esac

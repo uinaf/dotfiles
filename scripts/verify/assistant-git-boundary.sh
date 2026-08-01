@@ -35,7 +35,11 @@ for config_override in \
   GIT_CONFIG_SYSTEM \
   GIT_CONFIG_NOSYSTEM \
   GIT_CONFIG_COUNT \
-  GIT_CONFIG_PARAMETERS; do
+  GIT_CONFIG_PARAMETERS \
+  GIT_AUTHOR_NAME \
+  GIT_AUTHOR_EMAIL \
+  GIT_COMMITTER_NAME \
+  GIT_COMMITTER_EMAIL; do
   if [ -n "${!config_override:-}" ]; then
     fail "assistant shell overrides Git config through $config_override"
   fi

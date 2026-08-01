@@ -8,6 +8,8 @@ verbose=0
 profile=""
 override_data=""
 chezmoi_base=()
+legacy_config_sources=()
+legacy_config_targets=()
 
 # shellcheck source=scripts/lib/profile.sh
 . "$repo_root/scripts/lib/profile.sh"
@@ -145,25 +147,72 @@ remove_obsolete_link_suffix() {
   fi
 }
 
-migrate_legacy_config() {
+stage_legacy_config() {
   local legacy_dir="$HOME/.config/uinaf"
   local config_dir="$HOME/.config/dotfiles"
+  local legacy
+  local target
+  local backup
+  local rendered
+  local managed_targets
   local name
 
   [ -d "$legacy_dir" ] || return 0
+  managed_targets="$("${chezmoi_base[@]}" managed --include=files,symlinks --path-style absolute)"
 
   for name in audit.env devbox.env infisical-machine.env profile sudo-age-identity.txt; do
-    [ -e "$legacy_dir/$name" ] || [ -L "$legacy_dir/$name" ] || continue
+    legacy="$legacy_dir/$name"
+    target="$config_dir/$name"
+    [ -e "$legacy" ] || [ -L "$legacy" ] || continue
 
-    if [ -e "$config_dir/$name" ] || [ -L "$config_dir/$name" ]; then
-      printf 'kept legacy config because the canonical target already exists: %s\n' "$legacy_dir/$name" >&2
-    elif [ "$dry_run" -eq 1 ]; then
-      printf 'would migrate %s -> %s\n' "$legacy_dir/$name" "$config_dir/$name"
-    else
+    if [ -e "$target" ] || [ -L "$target" ]; then
+      printf 'kept legacy config because the canonical target already exists: %s\n' "$legacy" >&2
+      continue
+    fi
+
+    legacy_config_sources+=("$legacy")
+    legacy_config_targets+=("$target")
+    if [ "$dry_run" -eq 1 ]; then
+      printf 'would migrate %s -> %s\n' "$legacy" "$target"
+    fi
+
+    if printf '%s\n' "$managed_targets" | grep -Fqx -- "$target"; then
+      rendered="$(mktemp "${TMPDIR:-/tmp}/dotfiles-legacy-render.XXXXXX")"
+      if ! "${chezmoi_base[@]}" cat "$target" > "$rendered"; then
+        rm -f "$rendered"
+        fail "could not render managed migration target: $target"
+      fi
+      if ! cmp -s "$rendered" "$legacy"; then
+        backup="$target.backup.$(date +%Y%m%d%H%M%S)"
+        if [ "$dry_run" -eq 1 ]; then
+          printf 'would back up legacy config %s -> %s\n' "$legacy" "$backup"
+        else
+          mkdir -p "$config_dir"
+          chmod 0700 "$config_dir"
+          cp -pP "$legacy" "$backup"
+          printf 'backed up legacy config %s -> %s\n' "$legacy" "$backup"
+        fi
+      fi
+      rm -f "$rendered"
+    elif [ "$dry_run" -eq 0 ]; then
       mkdir -p "$config_dir"
       chmod 0700 "$config_dir"
-      mv "$legacy_dir/$name" "$config_dir/$name"
-      printf 'migrated %s -> %s\n' "$legacy_dir/$name" "$config_dir/$name"
+      cp -pP "$legacy" "$target"
+      printf 'staged legacy config %s -> %s\n' "$legacy" "$target"
+    fi
+  done
+}
+
+finish_legacy_config_migration() {
+  local legacy_dir="$HOME/.config/uinaf"
+  local index
+
+  for ((index = 0; index < ${#legacy_config_sources[@]}; index++)); do
+    if [ "$dry_run" -eq 0 ]; then
+      rm -f "${legacy_config_sources[$index]}"
+      printf 'migrated %s -> %s\n' \
+        "${legacy_config_sources[$index]}" \
+        "${legacy_config_targets[$index]}"
     fi
   done
 
@@ -179,7 +228,6 @@ if ! profile="$(dotfiles_resolve_profile "$profile")"; then
   printf 'a supported profile is required: workstation, devbox, or assistant\n' >&2
   exit 2
 fi
-migrate_legacy_config
 override_data="$(printf '{"dotfilesProfile":"%s"}' "$profile")"
 chezmoi_base=(
   chezmoi
@@ -187,6 +235,7 @@ chezmoi_base=(
   --destination "$HOME"
   --override-data "$override_data"
 )
+stage_legacy_config
 
 remove_obsolete_link_suffix "$HOME/.zlogin" "/home/.zlogin"
 remove_obsolete_link_suffix "$HOME/.config/1Password/ssh/agent.toml" "/home/.config/1Password/ssh/agent.toml"
@@ -206,5 +255,6 @@ fi
 if [ "$dry_run" -eq 1 ]; then
   printf 'dotfiles previewed for %s with chezmoi source %s\n' "$profile" "$source_dir"
 else
+  finish_legacy_config_migration
   printf 'dotfiles applied for %s with chezmoi source %s\n' "$profile" "$source_dir"
 fi

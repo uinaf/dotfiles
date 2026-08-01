@@ -93,6 +93,38 @@ assert_eq assistant "$(sed -n '1p' "$legacy_home/.config/dotfiles/profile")" "mi
 [ -f "$legacy_home/.config/dotfiles/devbox.env" ] || fail "legacy config was not migrated"
 [ ! -e "$legacy_home/.config/uinaf" ] || fail "empty legacy config directory was retained"
 
+preview_home="$tmp_root/legacy-preview"
+mkdir -p "$preview_home/.config/uinaf"
+printf 'GH_ACCEPTED_SCOPES="fixture"\n' > "$preview_home/.config/uinaf/audit.env"
+preview_output="$(HOME="$preview_home" "$repo_root/scripts/bootstrap/apply-dotfiles.sh" --profile assistant --dry-run)"
+printf '%s\n' "$preview_output" | grep -Fq \
+  "would back up legacy config $preview_home/.config/uinaf/audit.env -> $preview_home/.config/dotfiles/audit.env.backup." \
+  || fail "legacy migration preview omitted the managed config backup"
+[ -f "$preview_home/.config/uinaf/audit.env" ] || fail "legacy migration preview mutated its source"
+[ ! -e "$preview_home/.config/dotfiles/audit.env" ] || fail "legacy migration preview created its target"
+
+failure_home="$tmp_root/legacy-failure"
+failure_bin="$tmp_root/legacy-failure-bin"
+real_chezmoi="$(command -v chezmoi)"
+mkdir -p "$failure_home/.config/uinaf" "$failure_bin"
+printf 'DEVBOX_USER=legacy\n' > "$failure_home/.config/uinaf/devbox.env"
+cat > "$failure_bin/chezmoi" <<'EOF'
+#!/usr/bin/env bash
+for argument in "$@"; do
+  if [ "$argument" = apply ]; then
+    exit 42
+  fi
+done
+exec "${REAL_CHEZMOI:?}" "$@"
+EOF
+chmod +x "$failure_bin/chezmoi"
+if HOME="$failure_home" REAL_CHEZMOI="$real_chezmoi" PATH="$failure_bin:$PATH" \
+  "$repo_root/scripts/bootstrap/apply-dotfiles.sh" --profile assistant >/dev/null 2>&1; then
+  fail "legacy migration fixture did not force an apply failure"
+fi
+[ -f "$failure_home/.config/uinaf/devbox.env" ] \
+  || fail "failed dotfiles apply removed the working legacy config"
+
 task_home="$tmp_root/task-profile"
 mkdir -p "$task_home"
 (
@@ -302,6 +334,11 @@ run_assistant_git_boundary() {
     -u GIT_CONFIG_SYSTEM \
     -u GIT_CONFIG_NOSYSTEM \
     -u GIT_CONFIG_COUNT \
+    -u GIT_CONFIG_PARAMETERS \
+    -u GIT_AUTHOR_NAME \
+    -u GIT_AUTHOR_EMAIL \
+    -u GIT_COMMITTER_NAME \
+    -u GIT_COMMITTER_EMAIL \
     HOME="$identity_home" \
     XDG_CONFIG_HOME="$identity_home/.config" \
     GH_CONFIG_DIR="${identity_gh_config_dir:-$identity_home/.config/gh}" \
@@ -442,6 +479,25 @@ if env \
   GIT_CONFIG_NOSYSTEM=1 \
     "$repo_root/scripts/verify/assistant-git-boundary.sh" >/dev/null 2>&1; then
   fail "assistant Git boundary accepted GIT_CONFIG_NOSYSTEM"
+fi
+
+prepare_identity_home
+if env \
+  -u SSH_AUTH_SOCK \
+  -u GIT_CONFIG_GLOBAL \
+  -u GIT_CONFIG_SYSTEM \
+  -u GIT_CONFIG_NOSYSTEM \
+  -u GIT_CONFIG_COUNT \
+  -u GIT_CONFIG_PARAMETERS \
+  -u GIT_AUTHOR_EMAIL \
+  -u GIT_COMMITTER_NAME \
+  -u GIT_COMMITTER_EMAIL \
+  HOME="$identity_home" \
+  XDG_CONFIG_HOME="$identity_home/.config" \
+  GH_CONFIG_DIR="$identity_home/.config/gh" \
+  GIT_AUTHOR_NAME='Ambient Human' \
+    "$repo_root/scripts/verify/assistant-git-boundary.sh" >/dev/null 2>&1; then
+  fail "assistant Git boundary accepted an ambient author identity override"
 fi
 
 prepare_identity_home

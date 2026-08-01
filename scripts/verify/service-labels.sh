@@ -24,6 +24,10 @@ custom="$("$installer" --user example --namespace org.example.dotfiles --print-l
 printf '%s\n' "$custom" | grep -Fqx 'org.example.dotfiles.healthd.example' \
   || fail "custom LaunchDaemon namespace was not applied"
 
+custom_with_underscore="$("$installer" --user example --namespace org.example_team.dotfiles --print-labels)"
+printf '%s\n' "$custom_with_underscore" | grep -Fqx 'org.example_team.dotfiles.healthd.example' \
+  || fail "an advertised underscore in the LaunchDaemon namespace was rejected"
+
 if "$installer" --user example --namespace 'invalid namespace' --print-labels >/dev/null 2>&1; then
   fail "invalid LaunchDaemon namespace was accepted"
 fi

@@ -2,4 +2,4 @@
 #MISE description="Compatibility alias for the workstation audit JSON summary"
 set -euo pipefail
 
-./scripts/audit/workstation.sh --json
+./scripts/audit/personal.sh --json
