@@ -370,8 +370,7 @@ check_config_paths() {
     done
   fi
 
-  installed_profile="$(sed -n '1p' "$HOME/.config/dotfiles/profile")"
-  if ! installed_profile="$(dotfiles_normalize_profile "$installed_profile")" \
+  if ! installed_profile="$(dotfiles_read_persisted_profile "$HOME/.config/dotfiles/profile" "$(id -u)")" \
     || [ "$installed_profile" != "$profile" ]; then
     fail "installed profile does not match $profile"
   fi

@@ -82,6 +82,13 @@ if HOME="$profile_home" dotfiles_resolve_profile >/dev/null 2>&1; then
   fail "symlinked persisted profile was accepted"
 fi
 rm "$profile_home/.config/dotfiles/profile"
+printf 'assistant\n' > "$profile_home/.config/dotfiles/profile"
+chmod 0666 "$profile_home/.config/dotfiles/profile"
+if HOME="$profile_home" dotfiles_resolve_profile >/dev/null 2>&1; then
+  fail "group/world-writable persisted profile was accepted"
+fi
+chmod 0644 "$profile_home/.config/dotfiles/profile"
+rm "$profile_home/.config/dotfiles/profile"
 
 config_home="$tmp_root/config-paths"
 mkdir -p "$config_home/.config/uinaf"
@@ -94,6 +101,10 @@ printf 'canonical\n' > "$config_home/.config/dotfiles/devbox.env"
 assert_eq "$config_home/.config/dotfiles/devbox.env" \
   "$(HOME="$config_home" dotfiles_resolve_config_file '' devbox.env)" \
   "canonical config precedence"
+ln -s "$config_home/.config/uinaf/devbox.env" "$config_home/.config/uinaf/symlinked.env"
+if HOME="$config_home" dotfiles_resolve_config_file '' symlinked.env >/dev/null 2>&1; then
+  fail "legacy config fallback accepted a symlink"
+fi
 
 legacy_home="$tmp_root/legacy-profile"
 mkdir -p "$legacy_home/.config/uinaf"

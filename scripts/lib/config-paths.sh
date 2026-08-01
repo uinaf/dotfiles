@@ -9,7 +9,9 @@ dotfiles_resolve_config_path() {
     printf '%s\n' "$explicit_path"
   elif [ -e "$canonical_path" ] || [ -L "$canonical_path" ]; then
     printf '%s\n' "$canonical_path"
-  elif [ -e "$legacy_path" ] || [ -L "$legacy_path" ]; then
+  elif [ -L "$legacy_path" ]; then
+    return 3
+  elif [ -e "$legacy_path" ]; then
     printf '%s\n' "$legacy_path"
   else
     printf '%s\n' "$canonical_path"

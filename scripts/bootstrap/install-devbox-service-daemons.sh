@@ -88,7 +88,15 @@ case "$target_user" in
   *[!A-Za-z0-9._-]*) fail "unsupported user name: $target_user" ;;
 esac
 if [ "$print_labels" -eq 1 ]; then
-  if ! launchd_namespace="$(dotfiles_resolve_launchd_namespace "$launchd_namespace")"; then
+  if [ "$(uname -s)" = Darwin ] \
+    && target_uid="$(id -u "$target_user" 2>/dev/null)"; then
+    target_home="$(dscl . -read "/Users/$target_user" NFSHomeDirectory 2>/dev/null | awk '{print $2}')"
+    [ -n "$target_home" ] && [ -d "$target_home" ] || fail "missing home for $target_user"
+    launchd_namespace_file="$target_home/.config/dotfiles/launchd-namespace"
+    if ! launchd_namespace="$(dotfiles_resolve_launchd_namespace_contract "$launchd_namespace" "$launchd_namespace_file" "$target_uid")"; then
+      fail "invalid or conflicting stored LaunchDaemon namespace contract"
+    fi
+  elif ! launchd_namespace="$(dotfiles_resolve_launchd_namespace "$launchd_namespace")"; then
     fail "LaunchDaemon namespace must contain dot-separated letters, numbers, hyphens, or underscores"
   fi
   process_label="$(dotfiles_launchd_label process-compose "$target_user" "$launchd_namespace")"
