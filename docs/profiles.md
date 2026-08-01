@@ -34,9 +34,10 @@ All profiles install the minimal `Brewfile` base. Workstation and devbox also
 install `Brewfile.developer`, followed by their profile layer. Assistant skips
 the developer layer and installs only `Brewfile.assistant`.
 
-The assistant mise config contains Node, Python, and uv. Workload repositories
-own OpenClaw, Hermes, model providers, and other workload-specific packages.
-Workstation and devbox retain the full shared development runtime set.
+The assistant mise config contains only Node. Workload repositories own
+OpenClaw, Hermes, model providers, additional language runtimes, and other
+workload-specific packages. Workstation and devbox retain the full shared
+development runtime set.
 
 Assistant dotfile application installs a minimal Git base without GitHub
 authentication. It skips developer signing, credential helpers, outbound SSH

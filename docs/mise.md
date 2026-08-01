@@ -124,6 +124,7 @@ default, removes the retired Vite+ package from both the mise npm backend and
 every installed mise Node version, removes standalone state under
 `~/.vite-plus`, and force-rebuilds mise shims so retired commands are pruned. A
 fresh Node install gets the same pnpm state from the Node postinstall hook.
-The assistant branch intentionally contains only Node, Python, and uv.
+The assistant branch intentionally contains only Node. Additional language
+runtimes belong to the workload that requires them.
 `scripts/verify/bootstrap.sh` checks the commands and versions required by the
 selected profile.
