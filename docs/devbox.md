@@ -405,10 +405,12 @@ sudo -n /bin/launchctl kickstart -k \
 ```
 
 The rule does not authorize service installation, unloads, other launchd
-labels, an interactive root shell, or arbitrary root commands. Include the
-same flag with `--check` to verify the policy content, ownership, mode, and
-sudoers syntax. The flag can be run without `--openclaw` to add or verify this
-policy for an already-installed gateway without restarting the service.
+labels, an interactive root shell, or arbitrary root commands. As the selected
+user, include the same flag with `--check` to verify the effective exact-command
+authorization. Run that check as root to additionally verify the policy
+content, ownership, mode, and sudoers syntax. The flag can be run without
+`--openclaw` to add or verify this policy for an already-installed gateway
+without restarting the service.
 
 The installer does not retire per-user LaunchAgents. An agent or authorized
 administrator must unload and archive the old job first, then install and
