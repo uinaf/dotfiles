@@ -1,4 +1,4 @@
-# dotfiles
+# uinaf/dotfiles
 
 Reusable macOS bootstrap files for workstations, devboxes, and assistants.
 
