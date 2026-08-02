@@ -106,10 +106,11 @@ Keep these out of Git:
 
 For unattended assistants, use SOPS ciphertext, one age identity per
 deployment, owner-only GitHub App keys, and exact repository patterns as
-described in [Identity provisioning](docs/identities.md). Coding devboxes that
-still need dynamic secret-manager access use [Devbox setup](docs/devbox.md).
-Neither model permits tokens or client credentials in default shells, process
-managers, tracked files, or generated dotenv refresh stacks.
+described in [Identity provisioning](docs/identities.md). The optional
+[SOPS vault template](https://github.com/uinaf/sops-vault-template) can scaffold
+a private capability-scoped vault; generated repositories remain standalone.
+This model does not permit tokens or client credentials in default shells,
+process managers, tracked files, or generated dotenv refresh stacks.
 
 ## Workstation Personalization
 

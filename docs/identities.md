@@ -166,6 +166,15 @@ Consumer repositories own their `.sops.yaml`, encrypted payloads, runtime
 wrapper, and recipient policy. This dotfiles repo owns only the portable tools,
 identity provisioning, and local verification.
 
+For a new vault, the optional
+[SOPS vault template](https://github.com/uinaf/sops-vault-template) provides a
+small standalone starting point with recipient policy, safe create/edit
+commands, and verification. Create a private repository from the template,
+replace its example recipients with the public recovery and deployment
+recipients, then run `mise run verify`. The generated repository owns its copied
+scripts and policy; it does not depend on this dotfiles repository or the
+template after creation.
+
 Safe repository state may include:
 
 - public age recipients and SSH fingerprints
