@@ -94,8 +94,12 @@ The `personal` task names remain compatibility aliases for the matching
 Bootstrap helpers:
 
 ```zsh
+mise run agents:sync
 mise run bootstrap:trust-agent-worktrees
 ```
+
+`agents:sync` refreshes the workstation/devbox global instructions and
+additive skills described in [Agent setup](agents.md).
 
 Workstation and devbox configs trust Codex and Claude generated worktree roots:
 `~/.codex/worktrees` and `~/.claude/worktrees`. The helper also refreshes trust
@@ -124,7 +128,7 @@ default, removes the retired Vite+ package from both the mise npm backend and
 every installed mise Node version, removes standalone state under
 `~/.vite-plus`, and force-rebuilds mise shims so retired commands are pruned. A
 fresh Node install gets the same pnpm state from the Node postinstall hook.
-The assistant branch intentionally contains only Node. Additional language
+The assistant profile intentionally contains only Node. Additional language
 runtimes belong to the workload that requires them.
 `scripts/verify/bootstrap.sh` checks the commands and versions required by the
 selected profile.

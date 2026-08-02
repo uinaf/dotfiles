@@ -1,84 +1,64 @@
 # Agent Readiness
 
-This repo is a bootstrap repo, not an app. There is no server to boot and no UI
-flow to drive. Agent readiness means an agent can:
+This repository separates deterministic repository proof from checks that need
+a real macOS user, home directory, or service runtime.
 
-1. understand which machine profile it is working on
-2. make a scoped repo change safely
-3. verify repository health mechanically
-4. verify live host drift only when it is operating on that host
-5. avoid copying private machine state into Git
+## Repository Proof
 
-## Current Grade
+Run the full gate before committing:
 
-| Dimension | Status | Evidence | Gap |
-| --- | --- | --- | --- |
-| Bootable | pass | `scripts/bootstrap/brew-bundle.sh` installs shared plus profile bundles; `scripts/bootstrap/install.sh` applies the repo-local chezmoi source state and Codex defaults. | First-time macOS still needs Command Line Tools, Homebrew, and GitHub auth. |
-| Testable | pass | `scripts/verify/repo.sh` runs shell syntax, ShellCheck, profile rendering and layer contracts, isolated agent-sync tests, SOPS age identity provisioning contracts, vendor-neutral naming checks, the shared-host Homebrew wrapper contract, isolated Git bootstrap, Actionlint, diff hygiene, entrypoint checks, and secret scans. | Live bootstrap checks require a matching role on macOS. |
-| Observable | pass | Verification and audit scripts print stable sectioned output; security audits also support compact `--json` summaries; CI exposes Verify and Secret scanning logs. | SARIF output is not generated yet. |
-| Verifiable | pass | `.github/workflows/verify.yml`, `.github/workflows/secrets.yml`, `scripts/verify/bootstrap.sh`, `scripts/verify/devbox-services.sh`, and audit scripts. | Host-local age identity and service checks cannot run meaningfully on GitHub-hosted CI. |
+```zsh
+mise run verify
+```
 
-Overall grade: **B for a bootstrap repo**.
+It checks shell syntax and ShellCheck, GitHub Actions, profile rendering,
+agent-sync contracts, SOPS and Git configuration, vendor-neutral interfaces,
+diff hygiene, agent entrypoints, and repository secret scans. Use
+`mise run verify:fast` during local iteration; it omits Gitleaks and
+TruffleHog.
 
-The repo has a reliable repo gate, CI gates, and separate host-local audits.
-The remaining readiness gap is richer machine-readable report formats such as
-SARIF for tools that can emit it cleanly.
+Install the fast gate as a pre-push hook with:
 
-## Verification Matrix
+```zsh
+./scripts/bootstrap/install-git-hooks.sh
+```
 
-| Situation | Command | What it proves |
+## Live Proof
+
+Run live checks only as the Unix user that should satisfy the selected
+profile.
+
+| Surface | Command | Proves |
 | --- | --- | --- |
-| Before committing repo changes | `mise run verify` | Scripts and mise task files parse, ShellCheck passes, workflows lint, diffs are clean, agent entrypoints are valid, and secret scanners pass. |
-| Fast local loop | `mise run verify:fast` | Same repo checks without Gitleaks/TruffleHog. Run the full command before commit. |
-| Install local push guard | `./scripts/bootstrap/install-git-hooks.sh` | Adds a pre-push hook that runs `scripts/verify/repo.sh --skip-security` before pushing. |
-| Workstation bootstrap | `mise run verify:bootstrap:workstation` | Desktop/developer CLIs, Homebrew layers, SOPS age identity, mise, Codex defaults, and installed config exist. |
-| Devbox bootstrap | `mise run verify:bootstrap:devbox` | Shared/devbox CLIs, Homebrew doctor and bundle checks, SOPS age identity, mise, Codex defaults, and installed config pass on the live host. |
-| Assistant bootstrap | `mise run verify:bootstrap:assistant` | Minimal runtime layers, SOPS age identity, and the managed Git base plus workload commit identity match the assistant contract. |
-| Devbox service boundary | `mise run verify:devbox-services` | SOPS age identity, launchd, and process-compose match the local devbox contract. |
-| Devbox security drift | `mise run audit:devbox` | Secret boundaries, Git/GitHub identity, SSH key modes, admin drift, and Tailscale health are sane for that Unix user. |
-| Workstation security drift | `mise run audit:workstation` | Human shell, Git, SSH, Codex, and local secret boundaries do not show obvious drift. |
-| Host hardening audit | `mise run audit:host` | Lynis runs as a maintained broad host scanner and reports hardening index, warnings, and suggestions. |
-| Repository audit | `mise run audit:repo` | Gitleaks/TruffleHog pass without the optional mSCP host audit. |
-| Repository and macOS audit | `mise run audit:mscp` | Gitleaks/TruffleHog pass; optional mSCP check-only audit runs when configured. |
+| Workstation | `mise run verify:bootstrap:workstation` | Required package layers, age identity, mise tools, Codex defaults, and managed config exist. |
+| Devbox | `mise run verify:bootstrap:devbox` | Developer package layers, age identity, mise tools, Codex defaults, and managed config exist. |
+| Assistant | `mise run verify:bootstrap:assistant` | Minimal package layers, age identity, managed Git base, and workload authorship match the assistant contract. |
+| Devbox services | `mise run verify:devbox-services` | Launchd, process-compose, age, and local service configuration match the shared-host contract. |
+| Workstation drift | `mise run audit:workstation` | Human Git, SSH, Codex, secret, permission, and local-state boundaries are visible. |
+| Devbox drift | `mise run audit:devbox` | Agent-user identity, service, secret, project-permission, and Tailscale boundaries are visible. |
+| Host hardening | `mise run audit:host` | Lynis reports the current host hardening index, warnings, and suggestions. |
+
+Live audits support `:json` task variants for compact collection. Treat raw
+prose output as sensitive because maintained scanners may include matched
+material.
 
 ## Agent Workflow
 
-For docs or script changes:
+For a repository change:
 
-1. Read [Agent guide](../AGENTS.md) and the specific doc for the surface being
-   changed.
-2. Run `git status --short --branch`.
+1. Read [Agent guide](../AGENTS.md) and the guide that owns the affected
+   contract.
+2. Preserve unrelated worktree changes.
 3. Make the smallest scoped change.
-4. Run `mise run verify`.
-5. Commit only the scoped diff.
+4. Run focused proof and `mise run verify`.
+5. Commit only the verified diff.
 
-For live machine setup:
+For live setup, confirm the target profile, follow
+[Bootstrap](bootstrap.md), then run its live profile check. Devbox users also
+run the service check and devbox audit.
 
-1. Confirm whether the target is `workstation`, `devbox`, or `assistant`.
-2. Follow [Bootstrap guide](bootstrap.md).
-3. Run the matching live verification command.
-4. For devbox users, also run `./scripts/verify/devbox-services.sh` and
-   `./scripts/audit/devbox.sh`.
-5. Do not copy private values from the live machine into the repo.
+## CI
 
-## CI Contract
-
-GitHub Actions has two separate gates:
-
-- Verify: repo checks that do not need secrets.
-- Secret scanning: Gitleaks and TruffleHog with full Git history.
-
-See [GitHub pipelines](github-pipelines.md) for triggers and non-goals.
-
-## Non-Goals
-
-- No app boot command, seed data, browser e2e, or service health endpoint.
-- No automatic Lynis or mSCP remediation.
-- No tracked Codex state, browser profiles, service tokens, or repo-managed
-  devbox env files.
-- No deploy or release pipeline unless the repo starts publishing an artifact.
-
-## Future Improvements
-
-- Add optional SARIF output for scanners that support it cleanly.
-- Add a lightweight report collector for comparing both devbox users in one run.
+GitHub Actions runs repository checks on macOS and secret scanning with full
+Git history. Host-local identities and services remain live-machine checks.
+See [GitHub pipelines](github-pipelines.md) for triggers and release behavior.

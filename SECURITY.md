@@ -1,46 +1,49 @@
 # Security
 
-## Reporting a Vulnerability
+## Report a Vulnerability
 
-Email `dev@uinaf.dev`.
+Email `dev@uinaf.dev`. Do not open a public issue for credential exposure,
+signing-key problems, or machine-compromise paths.
 
-Do not open a public issue for secrets, credential exposure, signing key
-problems, or anything that could help compromise a machine.
+Include the affected file or setup step, reproduction, impact, and a suggested
+mitigation when available. Do not include secret values or private identity
+material.
 
-## Environment Secrets
+## Protect Local Secrets
 
-Environment variables are process state, not secure storage. Any program run in
-that environment can read them and pass them to child processes.
+Environment variables are process state, not durable secret storage. Store
+long-lived credentials through the SOPS/age model in
+[Identity provisioning](docs/identities.md), and expose plaintext only at the
+intended consumer boundary.
 
-Do not place long-lived service tokens or private identity material in shell
-startup files, launchd plists, process-compose YAML, tracked dotenv files, or
-generated runtime env files.
+Keep service tokens and private identity material out of shell startup,
+launchd plists, process-compose YAML, tracked dotenv files, and generated
+runtime env files. Private age identities stay owner-only; unattended
+workloads do not receive human secret-manager sessions.
 
-Human-operated machines may use human secret-manager sessions. Agent and devbox
-identities use the SOPS/age contract in [Devbox setup](docs/devbox.md): private
-age identities stay owner-only and plaintext exists only at the intended
-consumer boundary.
+## Audit
 
-## Local Audits
+Run the repository gate before submitting security-sensitive changes:
 
-Run `./scripts/audit/repo.sh` for repo secret scans and optional
-check-only macOS Security Compliance Project checks. Run
-`./scripts/audit/personal.sh` on personal Macs and
-`./scripts/audit/devbox.sh` on each shared devbox user to check local
-secret boundaries, identity state, and common stale backup locations. These
-scripts are non-destructive and do not print secret values.
+```zsh
+./scripts/verify/repo.sh
+```
 
-See [Security audits](docs/security-audits.md) for the audit layers, mSCP setup,
-CI secret scanning, devbox drift checks, and maintenance rules.
+Use the matching live audit only on the intended machine or Unix user:
 
-## What to Include
+```zsh
+./scripts/audit/host.sh
+./scripts/audit/workstation.sh
+./scripts/audit/devbox.sh
+```
 
-- Affected file, script, or setup step.
-- Reproduction steps.
-- Impact.
-- Suggested mitigation, if you have one.
+These checks are non-destructive and redact or summarize findings where the
+underlying tools allow it. Treat raw audit output as sensitive. See
+[Security audits](docs/security-audits.md) for scope, JSON output, and mSCP
+setup.
 
-## Response Expectations
+## Response
 
-We triage reports as quickly as possible. This is a public dotfiles repo, so
-most fixes should be small script, documentation, or configuration changes.
+Reports are triaged privately. Public remediation should contain only the
+minimum portable code, configuration, and documentation needed to close the
+issue.

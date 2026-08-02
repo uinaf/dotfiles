@@ -1,6 +1,6 @@
 # React Native
 
-Manual setup for building React Native apps on a personal Mac. Covers
+Manual setup for building React Native apps on a workstation Mac. Covers
 react-native-tvos targets that need both Apple TV and Android TV simulators.
 
 The dotfiles install Android Studio, Xcode tooling, Watchman, and a Temurin 21
@@ -16,11 +16,12 @@ downloads, or license acceptance.
 2. Point command-line tools at the full Xcode install:
 
    ```zsh
-   sudo xcode-select -s /Applications/Xcode-26.4.1.app
+   sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer
    sudo xcodebuild -license accept
    ```
 
-   The exact `Xcode-*.app` name depends on the version installed by `xcodes`.
+   If `xcodes` installed a versioned app, use that app's `Contents/Developer`
+   directory instead.
 
 3. Download the tvOS simulator runtime. This is multi-GB and runs in the
    background:
@@ -136,11 +137,10 @@ watchman watch-del-all
 brew reinstall watchman
 ```
 
-## Verifying
+## Verify
 
-There is no live `verify/bootstrap.sh` check for this stack because the
-required components are per-project and most users do not build native
-mobile apps. If you do, sanity check with:
+Verify the shared tools here, then run the target application's own build and
+test commands:
 
 ```zsh
 xcrun simctl list devicetypes | grep "Apple TV"

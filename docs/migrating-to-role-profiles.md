@@ -54,15 +54,19 @@ layers, create and back up the separate SOPS identity described in
 Preview first, then apply:
 
 ```sh
-./scripts/bootstrap/apply-dotfiles.sh --profile <role> --dry-run --verbose
-./scripts/bootstrap/install.sh --profile <role>
+role=workstation
+./scripts/bootstrap/apply-dotfiles.sh --profile "$role" --dry-run --verbose
+./scripts/bootstrap/apply-dotfiles.sh --profile "$role"
+mise trust
+mise install
+./scripts/bootstrap/install.sh --profile "$role"
 ```
 
 For `workstation` and `devbox`, remove the former marker-delimited GitHub block
 from `~/.ssh/config.local`, preserve any unrelated directives, and rerun:
 
 ```sh
-./scripts/bootstrap/configure-git.sh --profile <role>
+./scripts/bootstrap/configure-git.sh --profile "$role"
 ```
 
 For `assistant`, configure workload authorship first, then use the generic
@@ -99,7 +103,8 @@ the commands in [Devbox Setup](devbox.md).
 Run the role contract and the relevant host audit:
 
 ```sh
-./scripts/verify/bootstrap.sh --profile <role>
+role=workstation
+./scripts/verify/bootstrap.sh --profile "$role"
 ./scripts/audit/host.sh
 ```
 

@@ -1,118 +1,63 @@
 # Scripts
 
-Scripts are grouped by functionality:
+Run scripts from the repository root. Mise tasks in `.mise/tasks/` are thin,
+discoverable wrappers; reusable behavior stays here.
 
 | Directory | Purpose |
 | --- | --- |
-| `agents/` | Sync machine-global instructions and additive skill manifests for coding profiles. |
-| `app-store/` | Mac App Store app installs/removals through `mas`. |
-| `audit/` | Check-only security and drift audits for repo, host, workstation, and devbox contexts. |
-| `bootstrap/` | Install and configure Homebrew, chezmoi dotfiles, Git, Codex, and Chrome. |
-| `lib/` | Shared shell helpers used by scripts. |
-| `secrets/` | Owner-local secret-manager bootstrap and command-boundary wrappers. |
-| `tizen/` | Samsung Tizen Studio install and certificate/profile archive helpers. |
-| `verify/` | Deterministic repo, bootstrap, and devbox service-boundary verification. |
+| `agents/` | Generate global agent rules and install additive skill selections. |
+| `app-store/` | Manage workstation Mac App Store applications through `mas`. |
+| `audit/` | Run non-destructive repository, host, workstation, and devbox audits. |
+| `bootstrap/` | Install packages and configure dotfiles, Git, coding tools, and host policy. |
+| `lib/` | Shared shell helpers. |
+| `secrets/` | Provision SOPS age identities and expose narrow sudo boundaries. |
+| `tizen/` | Install Tizen Studio and manage local certificate/profile archives. |
+| `verify/` | Check repository contracts and live profile/service state. |
 
-Run scripts from the repository root unless a script says otherwise.
-Mise task wrappers live in `.mise/tasks/` and call these scripts; keep reusable
-logic here so scripts remain lintable and directly runnable during bootstrap.
-
-## Common Commands
-
-Repository-only verification:
+## Repository Checks
 
 ```zsh
+./scripts/verify/repo.sh --skip-security
 ./scripts/verify/repo.sh
-mise run verify
-mise run verify:fast
+./scripts/audit/repo.sh --skip-mscp --json
 ```
 
-Install the local pre-push guard:
+## Bootstrap
 
 ```zsh
-./scripts/bootstrap/install-git-hooks.sh
-```
-
-Bootstrap entry points:
-
-```zsh
-./scripts/bootstrap/brew-bundle.sh workstation
-./scripts/bootstrap/brew-bundle.sh devbox
-./scripts/bootstrap/brew-bundle.sh assistant
-./scripts/bootstrap/brew-bundle.sh --shared-only workstation
-./scripts/bootstrap/brew-bundle.sh --shared-only devbox
-./scripts/bootstrap/brew-bundle.sh --shared-only assistant
-./scripts/bootstrap/brew-devbox.sh upgrade
-./scripts/bootstrap/apply-dotfiles.sh --profile workstation --dry-run --verbose
-./scripts/bootstrap/install-blacksmith.sh
-./scripts/bootstrap/install-cursor-agent.sh
-./scripts/bootstrap/install-gh-app-auth.sh
-./scripts/bootstrap/configure-assistant-github-app.sh \
-  --name example-app --app-id APP_ID --installation-id INSTALLATION_ID \
-  --repo github.com/example/workspace
-./scripts/bootstrap/install-gh-extensions.sh
-./scripts/bootstrap/install.sh --profile workstation
-./scripts/bootstrap/configure-git.sh --profile workstation
-./scripts/bootstrap/configure-git.sh --profile devbox
-GIT_USER_NAME='Workload Name' GIT_USER_EMAIL='APP_BOT_NOREPLY_EMAIL' \
-  ./scripts/bootstrap/configure-git.sh --profile assistant --non-interactive
-./scripts/bootstrap/configure-power.sh --profile workstation
-./scripts/bootstrap/configure-power.sh --profile devbox
-./scripts/bootstrap/configure-spotlight.sh
-./scripts/bootstrap/configure-desktop.sh
-./scripts/bootstrap/install-devbox-service-daemons.sh --user example --namespace org.example.dotfiles --print-labels
-./scripts/bootstrap/trust-agent-worktrees.sh
-./scripts/agents/sync.ts
+profile=workstation
+./scripts/bootstrap/brew-bundle.sh "$profile"
+./scripts/bootstrap/apply-dotfiles.sh --profile "$profile"
+mise trust
+mise install
+./scripts/bootstrap/install.sh --profile "$profile"
 ./scripts/secrets/configure-sops-age-identity.sh
-./scripts/secrets/configure-sops-age-identity.sh --check
+./scripts/bootstrap/configure-git.sh --profile "$profile"
+./scripts/verify/bootstrap.sh --profile "$profile"
 ```
 
-`configure-power.sh` and `configure-spotlight.sh` are explicit sudo steps for
-macOS system policy. `install.sh` should stay user-level.
-`brew-devbox.sh` requires the Homebrew prefix owner and scopes a group-safe
-umask to shared Homebrew mutations; `brew-bundle.sh devbox` uses it
-automatically. Bootstrap bundle verification disables Homebrew auto-update.
-`configure-desktop.sh` is an explicit owner-profile step for the black devbox
-desktop, hidden widgets/icons, and Chrome-only Dock. It supports `--check` and
-is not applied to other devbox users by `install.sh`.
+Use [Bootstrap](../docs/bootstrap.md) for the required order,
+[Identity provisioning](../docs/identities.md) for Git and credential setup,
+and [User profiles](../docs/profiles.md) for role boundaries.
 
-Use [User profiles](../docs/profiles.md) and the [Bootstrap guide](../docs/bootstrap.md)
-for the ordered workstation, devbox, and assistant flows.
-Use [Agent setup](../docs/agents.md) for the global instruction and skill-sync
-contract.
-
-Security audits:
+## Global Agent Setup
 
 ```zsh
-./scripts/audit/repo.sh --skip-mscp
-mise run audit:repo
-mise run audit:repo:json
-mise run audit:mscp
-./scripts/audit/host.sh
+mise run agents:sync
+```
+
+The direct entrypoint is `./scripts/agents/sync.ts`. See
+[Agent setup](../docs/agents.md) for sources, generated output, and local
+overrides.
+
+## Live Audits
+
+```zsh
 ./scripts/audit/host.sh --json
-mise run audit:host
-mise run audit:host:json
-./scripts/audit/workstation.sh
 ./scripts/audit/workstation.sh --json
-mise run audit:workstation
-mise run audit:workstation:json
-```
-
-Devbox checks:
-
-```zsh
-./scripts/secrets/configure-sops-age-identity.sh --check
-./scripts/secrets/sops-devbox-sudo.sh -- <non-interactive-command>
-./scripts/verify/devbox-services.sh
-mise run verify:devbox-services
-./scripts/audit/devbox.sh
 ./scripts/audit/devbox.sh --json
-mise run audit:devbox
-mise run audit:devbox:json
+./scripts/verify/devbox-services.sh
 ```
 
-Before committing script changes:
-
-```zsh
-./scripts/verify/repo.sh
-```
+See [Security audits](../docs/security-audits.md) before collecting or sharing
+output from a live machine.

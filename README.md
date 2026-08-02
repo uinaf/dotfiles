@@ -1,198 +1,106 @@
 # uinaf/dotfiles
 
-Reusable macOS bootstrap files for workstations, devboxes, and assistants.
+A vendor-neutral macOS bootstrap framework for workstations, remote coding
+users, and unattended assistants.
 
-This repo owns the portable layer: Homebrew bundles, chezmoi-managed zsh
-startup, mise runtimes, Git and SSH defaults, Codex defaults, editor settings,
-machine-global coding-agent rules and skills, and setup and audit scripts.
-
-It is standalone. It does not require an agent framework, workspace manager,
-or any other companion repository.
-
-Installed paths, commands, and configuration keys use generic `dotfiles`
-names. Repository, tap, contact, and identifiers documented only in the manual
-breaking-change guide retain their real external coordinates.
-
-It does not own secret values, private identity material, Codex auth/state,
-browser profiles, app caches, dependency folders, build output, or project
-checkouts. Those stay machine-local or in their approved recovery system. It
-does own portable identity provisioning and verification mechanics.
+The repository manages Homebrew layers, chezmoi source state, mise runtimes,
+Git and SSH defaults, coding-agent setup, and verification scripts. Installed
+paths and interfaces use generic `dotfiles` names; private identities and
+secret values remain local or in an approved recovery system.
 
 ## Choose a Profile
 
-| Layer or profile | Use it for | Installs |
+Profiles apply to one Unix user. Host-wide Homebrew, power, Spotlight,
+Tailscale, and LaunchDaemon state still requires an authorized administrator.
+
+| Profile | Use it for | Software layers |
 | --- | --- | --- |
-| Base | Minimal tools every managed Unix user needs. | `Brewfile` |
-| Workstation | A human-operated laptop or desktop. | Base + `Brewfile.developer` + `Brewfile.workstation` |
-| Devbox | A remote coding identity on an SSH-first host. | Base + `Brewfile.developer` + `Brewfile.devbox` |
-| Assistant | An unattended assistant or platform-service identity. | Base + `Brewfile.assistant` |
+| `workstation` | Interactive human development on a laptop or desktop | Base + developer + workstation |
+| `devbox` | Remote coding on an SSH-first host | Base + developer + devbox |
+| `assistant` | Unattended assistant or platform-service workloads | Base + assistant |
 
-Profiles apply per Unix user, while Homebrew and other macOS policy can be
-host-wide. Read [User profiles](docs/profiles.md) before changing a shared host.
-`personal` remains a temporary command alias for `workstation`.
+Read [User profiles](docs/profiles.md) before configuring multiple users on one
+Mac. Existing installations that still use the former owner-specific layout
+should follow [Migrating to role profiles](docs/migrating-to-role-profiles.md)
+before applying a profile.
 
-## Fast Path
+## Install
 
-The role-profile release is breaking for existing users. Complete
-[Migrating to Role Profiles](docs/migrating-to-role-profiles.md) before running
-the new installer; no owner-specific configuration or service state is moved
-automatically.
-
-Install Apple Command Line Tools, Homebrew, `git`, and `gh`, then clone the
-repo:
+Install Apple Command Line Tools and Homebrew, then bootstrap a workstation:
 
 ```zsh
+brew install git gh
 gh auth login
 mkdir -p ~/projects
 gh repo clone uinaf/dotfiles ~/projects/dotfiles
 cd ~/projects/dotfiles
 
 ./scripts/bootstrap/brew-bundle.sh workstation
+./scripts/bootstrap/apply-dotfiles.sh --profile workstation
+mise trust
+mise install
 ./scripts/bootstrap/install.sh --profile workstation
 ./scripts/secrets/configure-sops-age-identity.sh
 ./scripts/bootstrap/configure-git.sh --profile workstation
 ./scripts/bootstrap/configure-power.sh --profile workstation
 ./scripts/bootstrap/configure-spotlight.sh
-./scripts/app-store/personal.sh
-mise trust
-mise install
 ./scripts/verify/bootstrap.sh --profile workstation
 ```
 
-If `git` or `gh` is not available yet, or for the full first-machine flow,
-devbox setup, Chrome vertical tabs, Blacksmith, and Tizen notes, read
-[Bootstrap guide](docs/bootstrap.md).
+Use the [Bootstrap guide](docs/bootstrap.md) for first-machine prerequisites,
+devbox and assistant flows, optional desktop setup, updates, and
+troubleshooting.
 
-`configure-power.sh` and `configure-spotlight.sh` are deliberate sudo steps.
-`install.sh` stays user-level and should not change system policy implicitly.
+## Managed Surfaces
 
-## What Gets Installed
+| Surface | Source of truth |
+| --- | --- |
+| Packages | `Brewfile`, `Brewfile.developer`, and `Brewfile.<profile>` |
+| Dotfiles | `chezmoi/` through `scripts/bootstrap/apply-dotfiles.sh` |
+| Runtimes and CLIs | `chezmoi/private_dot_config/mise/config.toml.tmpl` |
+| Git, SSH, age, and GitHub App setup | `scripts/bootstrap/`, `scripts/secrets/`, and [Identity provisioning](docs/identities.md) |
+| Global coding-agent rules and skills | `scripts/agents/` for workstation and devbox profiles |
+| Repository and host checks | `scripts/verify/` and `scripts/audit/` |
 
-`./scripts/bootstrap/install.sh` applies tracked files from `chezmoi/` into
-`$HOME` through `scripts/bootstrap/apply-dotfiles.sh`. Use
-[Bootstrap guide](docs/bootstrap.md) for the ordered setup flow,
-[Chezmoi source state](docs/chezmoi.md) for source naming rules, and
-[Mise tasks](docs/mise.md) for the split between repo tasks and machine runtime
-pins.
+Consumer repositories own project dependencies, encrypted payloads, runtime
+services, and repository-local agent instructions. The optional
+[SOPS vault template](https://github.com/uinaf/sops-vault-template) provides a
+standalone starting point for encrypted capability-scoped repositories.
 
-Workstation and devbox installs also run the additive agent sync documented in
-[Agent setup](docs/agents.md). Assistant installs skip coding-agent rules and
-development skills.
+## Verify
 
-| Surface | Tracked source | Local-only extension |
-| --- | --- | --- |
-| zsh | `chezmoi/dot_zshenv`, `chezmoi/dot_zprofile`, `chezmoi/dot_zshrc` | machine shell history and ad hoc local files |
-| mise | `chezmoi/private_dot_config/mise/config.toml.tmpl` | repo-local runtime files; the selected profile controls machine runtime pins |
-| Git | `chezmoi/dot_gitconfig.tmpl` | `~/.gitconfig.local`; assistants use workload authorship only |
-| GitHub CLI | Developer and assistant layers install `gh`; developers receive `github/gh-stack`, while assistants receive a pinned `gh-app-auth` adapter and a generic exact-repository configurator | GitHub App identity values, private keys, and unrelated extensions |
-| SOPS and age | Base layer plus explicit per-user identity provisioning | private identity backup, repository recipient policy, and encrypted payloads |
-| SSH (workstation/devbox) | `chezmoi/private_dot_ssh/private_config` | `~/.ssh/github.config`, `~/.ssh/config.local`, private keys |
-| Codex | installer-managed defaults, including ChatGPT-login enforcement | auth, sessions, approvals, memory, worktrees |
-| Coding-agent rules and skills | `scripts/agents/` for workstation and devbox profiles | ignored local rule overrides and installed skill copies |
-| Terminal | developer Homebrew layer and chezmoi-managed Ghostty defaults | app state, fonts, caches |
-| Editor | workstation Homebrew layer and chezmoi-managed Zed defaults | app state, fonts, caches |
-
-Assistant users receive a minimal Git base and workload authorship, but no
-signing, human GitHub login, outbound SSH, or developer desktop state. The
-profile installs `gh-app-auth`; an explicit follow-up command binds the
-operator-supplied App to exact repositories and installs one user-global,
-path-aware Git credential helper.
-
-## Local State Boundaries
-
-Keep these out of Git:
-
-- Git identity and signing keys.
-- Secret-manager workspace/project auth and password-manager vault references.
-- SSH private keys, certificates, Tizen archives, and device keys.
-- SOPS age private identities and decrypted secret files.
-- Codex auth, Browser approvals, sessions, caches, worktrees, and app state.
-- Browser profiles, Docker/Colima state, dependency folders, and build output.
-
-For unattended assistants, use SOPS ciphertext, one age identity per
-deployment, owner-only GitHub App keys, and exact repository patterns as
-described in [Identity provisioning](docs/identities.md). The optional
-[SOPS vault template](https://github.com/uinaf/sops-vault-template) can scaffold
-a private capability-scoped vault; generated repositories remain standalone.
-This model does not permit tokens or client credentials in default shells,
-process managers, tracked files, or generated dotenv refresh stacks.
-
-## Workstation Personalization
-
-`Brewfile.workstation` is the shared human-operated Mac profile, not a private app
-wishlist. Keep one-machine tweaks in local config files, keep durable personal
-preferences in a fork, and send focused pull requests for changes that should
-become part of the shared bootstrap.
-
-## Verification
-
-Use repo checks before committing:
+Run the full repository gate before committing:
 
 ```zsh
 ./scripts/verify/repo.sh
 ```
 
-Equivalent mise task:
+Use `mise run verify:fast` for local iteration and `mise run verify` for the
+full equivalent task. Live profile and host checks are documented in
+[Agent readiness](docs/agent-readiness.md) and
+[Security audits](docs/security-audits.md).
 
-```zsh
-mise trust
-mise run verify
-mise run verify:fast
-```
+## Documentation
 
-To install the local pre-push guard for the fast repo gate:
-
-```zsh
-./scripts/bootstrap/install-git-hooks.sh
-```
-
-Use live-machine checks only on a machine that should actually use these
-dotfiles:
-
-```zsh
-./scripts/verify/bootstrap.sh --profile workstation
-./scripts/verify/bootstrap.sh --profile devbox
-./scripts/verify/bootstrap.sh --profile assistant
-./scripts/bootstrap/configure-desktop.sh
-./scripts/verify/bootstrap.sh --profile devbox --desktop
-```
-
-The desktop commands are opt-in for the human owner profile on a devbox. They
-set the built-in black system wallpaper, hide desktop icons and widgets, and
-keep only Google Chrome in the persistent Dock. Do not apply that baseline to
-the other devbox identities unless their desktop policy changes explicitly.
-
-For security posture:
-
-```zsh
-./scripts/audit/repo.sh --skip-mscp
-mise run audit:repo
-./scripts/audit/host.sh
-./scripts/audit/workstation.sh
-./scripts/audit/devbox.sh
-```
-
-See [Security audits](docs/security-audits.md) for the audit layers, Lynis host
-audit, and macOS Security Compliance Project flow.
-
-## Docs Map
-
-| Need | Read |
+| Need | Guide |
 | --- | --- |
-| Install or update a Mac | [Bootstrap guide](docs/bootstrap.md) |
+| Install or update a Mac | [Bootstrap](docs/bootstrap.md) |
 | Choose a per-user role | [User profiles](docs/profiles.md) |
-| Provision and recover an identity | [Identity provisioning](docs/identities.md) |
-| Operate a shared agent host | [Devbox setup](docs/devbox.md) |
-| Understand dotfile source state | [Chezmoi source state](docs/chezmoi.md) |
-| Understand mise tasks and runtime pins | [Mise tasks](docs/mise.md) |
-| Help as an AI agent | [Agent guide](AGENTS.md) |
-| Understand verification and CI | [Agent readiness](docs/agent-readiness.md) |
-| Understand GitHub Actions | [GitHub pipelines](docs/github-pipelines.md) |
+| Provision age, Git, SSH, or GitHub identity | [Identity provisioning](docs/identities.md) |
+| Run services on a shared host | [Devbox setup](docs/devbox.md) |
+| Sync global coding-agent rules and skills | [Agent setup](docs/agents.md) |
+| Edit chezmoi source state | [Chezmoi](docs/chezmoi.md) |
+| Use repo tasks or change runtime pins | [Mise](docs/mise.md) |
+| Understand local and CI proof | [Agent readiness](docs/agent-readiness.md) |
+| Understand Actions and releases | [GitHub pipelines](docs/github-pipelines.md) |
 | Run security checks | [Security audits](docs/security-audits.md) |
 | Build React Native apps | [React Native](docs/react-native.md) |
-| Contribute changes | [Contributing](CONTRIBUTING.md) |
-| Report a vulnerability | [Security](SECURITY.md) |
-| Find scripts | [Script guide](scripts/README.md) |
+| Find script entrypoints | [Scripts](scripts/README.md) |
+
+## Contributing
+
+See [Contributing](CONTRIBUTING.md) for setup and verification expectations.
+Report vulnerabilities through the private path in [Security](SECURITY.md).
 
 ## License
 

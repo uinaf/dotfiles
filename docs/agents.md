@@ -20,14 +20,24 @@ entrypoints, and additively installs every entry in
 `scripts/agents/skills.json`. It does not remove skills outside the manifest.
 First-party skill source lives in [`uinaf/skills`](https://github.com/uinaf/skills).
 
-The first run replaces symlinks managed by the former combined repository.
-Regular files and foreign symlinks are rejected before global state changes.
+Regular files and foreign symlinks at the global instruction entrypoints are
+rejected before global state changes.
+
+## Sources
+
+| Path | Ownership |
+| --- | --- |
+| `scripts/agents/rules/base.md` | Tracked global rules. |
+| `scripts/agents/rules/local.md` | Ignored optional machine overrides. |
+| `scripts/agents/rules/final.md` | Ignored generated rules linked into installed agents. |
+| `scripts/agents/skills.json` | Tracked additive skill selection. |
+| `scripts/agents/sync.ts` | Executable sync entrypoint. |
 
 ## Local Rules
 
-Put private machine-specific additions in ignored
-`scripts/agents/rules/local.md`. Start local content at heading level three;
-the generated file inserts it below `## Local Overrides`.
+Put private machine-specific additions in `scripts/agents/rules/local.md`.
+Start local content at heading level three; the generated file inserts it below
+`## Local Overrides`.
 
 Do not edit `scripts/agents/rules/final.md` or installed copies under
 `~/.agents/skills/`. Edit the tracked rule source here or the skill in its

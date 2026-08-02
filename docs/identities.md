@@ -35,6 +35,44 @@ administrator's public key in the target user's `authorized_keys`. Provision a
 private SSH identity for an assistant only when the assistant must initiate an
 SSH connection.
 
+## Developer Git and SSH
+
+Workstation and devbox users require explicit Git authorship and an owner-only,
+unencrypted local SSH private key for unattended commit signing. Agent-backed,
+encrypted, and public-key-only signing paths are not supported.
+
+If the key comes from a human recovery system, export it in OpenSSH format
+without a passphrase, save it outside this repository, derive its public key,
+and lock down both files:
+
+```zsh
+chmod 0600 ~/.ssh/developer_ed25519
+ssh-keygen -y -f ~/.ssh/developer_ed25519 > ~/.ssh/developer_ed25519.pub
+chmod 0644 ~/.ssh/developer_ed25519.pub
+```
+
+Configure authorship and signing from explicit operator values:
+
+```zsh
+profile=workstation
+GIT_USER_NAME='Developer Name' \
+GIT_USER_EMAIL='developer@example.com' \
+GIT_SIGNING_KEY="$HOME/.ssh/developer_ed25519" \
+GIT_SSH_IDENTITY_FILE="$HOME/.ssh/developer_ed25519" \
+  ./scripts/bootstrap/configure-git.sh --profile "$profile" --non-interactive
+```
+
+`GIT_SSH_IDENTITY_FILE` may point to a different local key. GitHub registers
+authentication and signing keys separately; add the public key for each role
+the deployment uses.
+
+The configurator writes authorship and signing state to `~/.gitconfig.local`.
+When SSH authentication is configured, it writes a managed
+`~/.ssh/github.config` block that selects the local key and disables ambient
+agent identities for `github.com`. Preserve unrelated directives in
+`~/.ssh/config.local`. Move aside an unmanaged `~/.ssh/github.config` or any
+other `Host github.com` block before running the configurator.
+
 ## SOPS Age Identity
 
 Age calls the private decryption key an **identity** and its derived public
@@ -148,8 +186,7 @@ Before using a new general SOPS age identity for live ciphertext:
 2. Attach the general SOPS age identity file and record the deployment name,
    public recipient, creation date, and local path.
 3. Restore that general SOPS age identity attachment to an owner-only temporary
-   path and run
-   `age-keygen -y <restored-path>`.
+   path and run `age-keygen -y /path/to/restored-keys.txt`.
 4. Confirm the restored general age recipient exactly matches
    `configure-sops-age-identity.sh --print-recipient`.
 5. Validate each other applicable attachment against its own live source or
@@ -202,7 +239,8 @@ the old deployment's private identity.
 
 1. Generate and back up the new deployment identity.
 2. Add its public recipient to the owning repository's `.sops.yaml`.
-3. Run `sops updatekeys --yes <encrypted-file>` for each affected file.
+3. Run `sops updatekeys --yes path/to/secrets.sops.yaml` for each affected
+   file.
 4. Prove the new deployment can decrypt its files and cannot decrypt sibling
    identity files.
 5. Remove the old recipient and update the encrypted files again.

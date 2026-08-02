@@ -21,9 +21,10 @@ Local only:
 - workspace payloads, product env files, service state, logs, and sockets
 - Codex and Claude authentication, sessions, and trusted paths
 
-Each identity gets its own Unix user, home directory, Git identity, GitHub
-authorization, SSH keys, age identity, agent homes, workspaces, and service
-state. Grant cross-context access explicitly and temporarily.
+Each identity gets its own Unix user, home directory, Git identity, age
+identity, agent homes, workspaces, and service state. Provision GitHub and
+outbound SSH capabilities only when that identity needs them. Grant
+cross-context access explicitly and temporarily.
 
 ## Secret Model
 
@@ -48,7 +49,7 @@ Provision or verify the age identity:
 Use `SOPS_AGE_KEY_FILE` only when the deployment intentionally uses a
 non-default owner-only path.
 
-## Sudo Without A Plaintext Password File
+## Sudo Without a Plaintext Password File
 
 An identity that needs unattended narrow sudo commands can store
 `SUDO_PASSWORD_AGE` inside its SOPS payload. The inner age ciphertext uses the
@@ -73,7 +74,7 @@ The password exists only in the askpass process. Keep the sudoers allowlist as
 the primary authorization boundary and use the nested mode only when the child
 command itself must stay unprivileged.
 
-## GitHub And SSH
+## GitHub and SSH
 
 Human devbox users may keep their own GitHub account and SSH signing key.
 Unattended identities should use a repository-scoped GitHub App installation
@@ -100,16 +101,47 @@ Do not create broad workspace env bundles or load secrets in shell startup.
 
 ## Supervisor
 
-Use process-compose as the per-user supervisor for long-running agent services.
-Launchd starts process-compose; process-compose owns restart policy, health
-checks, logs, and one-shot tasks. Prefer a per-user Unix socket:
+Use process-compose as the per-user supervisor when one user owns several
+long-running services. Launchd starts process-compose; process-compose owns
+restart policy, health checks, logs, and one-shot tasks. Prefer a per-user Unix
+socket:
 
 ```text
 ~/.local/run/process-compose.sock
 ```
 
+Install selected boot services from an authorized administrator account. The
+installer creates root-owned system LaunchDaemons that drop privileges to the
+target user:
+
+```zsh
+sudo ./scripts/bootstrap/install-devbox-service-daemons.sh \
+  --user example \
+  --process-compose
+```
+
+For an OpenClaw workload that runs directly under launchd, pass its
+user-owned executable wrapper and unique gateway port:
+
+```zsh
+sudo ./scripts/bootstrap/install-devbox-service-daemons.sh \
+  --user example \
+  --openclaw \
+  --openclaw-wrapper /Users/example/.local/bin/openclaw-wrapper \
+  --openclaw-port 18789 \
+  --allow-openclaw-restart
+```
+
+`--allow-openclaw-restart` grants that user passwordless restart of only its
+exact OpenClaw system job. It does not grant general launchctl or sudo access.
+Use `--healthd` or `--colima` only when that target user owns those services.
+Use `--check` with the selected service flags for a non-mutating contract
+check.
+
 System LaunchDaemons must be root-owned and mode `0644`. They may reference
-owner-only files and wrappers but must never embed secret values.
+owner-only files and wrappers but must never embed secret values. Retire a
+competing user LaunchAgent before installing a system service for the same
+process.
 
 ## Verification
 

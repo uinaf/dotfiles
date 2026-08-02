@@ -138,7 +138,7 @@ Use the branch matching the host macOS version, such as `sequoia`, `sonoma`, or
 ```
 
 Review non-compliant rules and decide exceptions before applying remediation.
-Do not blindly apply a federal or STIG-style baseline to personal Macs or
+Do not blindly apply a federal or STIG-style baseline to workstation Macs or
 shared devboxes.
 
 ## Workstation Drift Audit

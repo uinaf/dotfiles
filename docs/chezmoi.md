@@ -93,7 +93,7 @@ stat -f '%OLp %N' "$path"
   identity, Tizen secrets, and local secret-manager auth state in the existing
   explicit scripts or manual setup docs.
 
-## Package And Runtime Layers
+## Package and Runtime Layers
 
 Chezmoi applies dotfiles only. Homebrew Bundle remains the package layer, and
 mise remains the runtime/tool-version layer. Do not duplicate package lists into

@@ -56,12 +56,10 @@ Clone the repo:
 mkdir -p ~/projects
 gh repo clone uinaf/dotfiles ~/projects/dotfiles
 cd ~/projects/dotfiles
-mise trust
 ```
 
-`mise trust` is a local approval for this checkout's `mise.toml`. Run it before
-`mise install`, `mise tasks`, or `mise run ...`; otherwise mise refuses to load
-the repo config.
+The selected Homebrew profile installs mise. Trust this checkout after the
+bundle step and before `mise install`, `mise tasks`, or `mise run ...`.
 
 ## Gitless First Fetch
 
@@ -169,14 +167,19 @@ remote_connections = true
 Apply dotfiles and configure local state:
 
 ```zsh
+./scripts/bootstrap/apply-dotfiles.sh --profile workstation
+mise trust
+mise install
 ./scripts/bootstrap/install.sh --profile workstation
 ./scripts/secrets/configure-sops-age-identity.sh
 ./scripts/bootstrap/configure-git.sh --profile workstation
 ./scripts/bootstrap/configure-power.sh --profile workstation
 ./scripts/bootstrap/configure-spotlight.sh
-mise trust
-mise install
 ```
+
+The first dotfile apply installs the profile's mise config so Node is available
+before `install.sh` runs the typed agent sync. The full installer reapplies the
+same source state, then configures the remaining developer integrations.
 
 The developer mise config pins Node, enables the stable Corepack-managed pnpm
 default, and installs exact shared npm and Playwright CLI versions. Vite+ stays
@@ -200,58 +203,11 @@ Chrome vertical tabs are a local browser preference. Quit Chrome first, then:
 ./scripts/bootstrap/configure-chrome.sh
 ```
 
-### Local Git Signing Key
+### Git Identity
 
-Workstation Macs may use an existing 1Password SSH key for autonomous Git signing
-without depending on the 1Password SSH agent at commit time. This is a one-time
-human bootstrap: open the SSH Key item in 1Password, export its private key in
-OpenSSH format without a passphrase, and save it to an owner-only path such as
-`~/.ssh/workstation_ed25519`. Leaving the export unencrypted is required for
-unattended signing and means any process running as the local user can use the
-key. Keep 1Password as the recovery copy and do not copy the exported file into
-this repository.
-
-Derive the public key and lock the file permissions before configuration:
-
-```zsh
-chmod 0600 ~/.ssh/workstation_ed25519
-ssh-keygen -y -f ~/.ssh/workstation_ed25519 > ~/.ssh/workstation_ed25519.pub
-chmod 0644 ~/.ssh/workstation_ed25519.pub
-```
-
-Configure the exported key for commit signing and, when the same key is already
-registered for GitHub SSH authentication, for GitHub pushes:
-
-```zsh
-GIT_SIGNING_KEY="$HOME/.ssh/workstation_ed25519" \
-GIT_SSH_IDENTITY_FILE="$HOME/.ssh/workstation_ed25519" \
-  ./scripts/bootstrap/configure-git.sh --profile workstation
-```
-
-GitHub tracks authentication and signing registrations separately even when
-they contain the same public key. The key must already be present in both roles
-for SSH pushes and `Verified` commits to work. This dual-use setup is convenient,
-but revoking or rotating the local key affects both operations.
-
-The generated Git config signs directly from the unencrypted local private key.
-The dotfile install provides an owner-only signing program under
-`~/.local/libexec/dotfiles/`; Git uses it to clear `SSH_AUTH_SOCK` before invoking
-`ssh-keygen`, so ambient agents are never part of commit signing. Encrypted,
-public-key-only, and 1Password-backed signing are unsupported. The generated
-`~/.ssh/github.config` block uses the same key for `github.com` without routing
-through the 1Password agent. The tracked SSH entrypoint includes that dedicated
-file before the untouched `~/.ssh/config.local`, so local global directives and
-host-specific configuration keep their original scope. Setup does not migrate
-former marker-delimited GitHub blocks. Remove those blocks manually while
-preserving unrelated directives; any remaining `Host github.com` entry stops
-setup before it changes Git state. Setup also stops if
-`~/.ssh/github.config` already exists without the managed markers; move
-that file aside or migrate its directives to `~/.ssh/config.local` before
-rerunning. OpenSSH keeps
-file-backed `IdentityFile` values additive, so wildcard local identities may
-still appear after the exported key; the exported key remains first and
-`IdentityAgent none` prevents agent-backed keys, including 1Password keys, from
-being used for GitHub.
+Configure explicit authorship, local SSH signing, and GitHub SSH authentication
+through the developer flow in [Identity provisioning](identities.md#developer-git-and-ssh).
+Keep the private key owner-only and outside this repository.
 
 Verify:
 
@@ -303,15 +259,17 @@ self-updates from `~/.local/bin`.
 Apply dotfiles:
 
 ```zsh
+./scripts/bootstrap/apply-dotfiles.sh --profile devbox
+mise trust
+mise install
 ./scripts/bootstrap/install.sh --profile devbox
 ./scripts/secrets/configure-sops-age-identity.sh
 ./scripts/bootstrap/configure-power.sh --profile devbox
 ./scripts/bootstrap/configure-spotlight.sh
-mise trust
-mise install
 ```
 
-The developer mise config pins Node, enables the stable Corepack-managed pnpm
+The first dotfile apply makes the developer runtime pins available before the
+typed agent sync runs. The developer mise config pins Node, enables the stable Corepack-managed pnpm
 default, and installs exact shared npm and Playwright CLI versions. Vite+ stays
 repository-local. `install.sh` removes the retired global Vite+ package and
 standalone state under `~/.vite-plus`, then refreshes machine-global agent
@@ -333,16 +291,8 @@ GIT_SIGNING_KEY="$HOME/.ssh/devbox-key" \
   ./scripts/bootstrap/configure-git.sh --profile devbox --non-interactive
 ```
 
-Commit signing requires a human-provisioned, owner-only, unencrypted local SSH
-private key. Agent-backed signing is unsupported.
-
-Devbox Git config writes identity and `/opt/homebrew` Git safe-directory state
-to `~/.gitconfig.local`, not to the tracked shared config. When
-`GIT_SIGNING_KEY` is a local private key path, devbox setup also writes a
-managed `Host github.com` block to `~/.ssh/github.config` so normal
-`git@github.com:...` remotes work over SSH in headless sessions without relying
-on a GUI agent socket. Use `GIT_SSH_IDENTITY_FILE` when GitHub SSH auth should
-use a different local key path than commit signing.
+See [Developer Git and SSH](identities.md#developer-git-and-ssh) for key
+requirements, separate authentication keys, and the managed GitHub SSH block.
 
 If the devbox runs long-lived workspace or agent services, follow
 [Devbox setup](devbox.md). Provision and back up the dedicated SOPS age
@@ -372,10 +322,11 @@ Run the user-local setup as the assistant identity:
 ```zsh
 git clone https://github.com/uinaf/dotfiles.git ~/.local/src/dotfiles
 cd ~/.local/src/dotfiles
-./scripts/bootstrap/install.sh --profile assistant
-./scripts/secrets/configure-sops-age-identity.sh
+./scripts/bootstrap/apply-dotfiles.sh --profile assistant
 mise trust
 mise install
+./scripts/bootstrap/install.sh --profile assistant
+./scripts/secrets/configure-sops-age-identity.sh
 GIT_USER_NAME='Workload Name' \
 GIT_USER_EMAIL='APP_BOT_NOREPLY_EMAIL' \
   ./scripts/bootstrap/configure-git.sh --profile assistant --non-interactive
@@ -387,44 +338,22 @@ GIT_USER_EMAIL='APP_BOT_NOREPLY_EMAIL' \
 ./scripts/verify/bootstrap.sh --profile assistant
 ```
 
-Do not install Cursor Agent or configure Codex desktop defaults for an
-assistant. Start with a dedicated Unix user and a clean home. The assistant
-`configure-git.sh` flow writes only workload commit authorship; it rejects
-signing keys and GitHub SSH identity files.
-
-The assistant install step builds the pinned `gh-app-auth` execution adapter
-from a checksum-verified source archive. It uses a temporary pinned Go
-toolchain and removes the compiler, module cache, and build cache afterward;
-Go is not retained as part of the assistant profile.
-
-GitHub credentials are intentionally not selected by the assistant profile.
-The assistant can create unsigned local commits with its workload identity;
-the explicit App configurator then binds an owner-only workload key to exact
-repositories and installs one path-aware Git helper for the Unix user. Use
-`gh app-auth exec --repo github.com/OWNER/REPO -- ...` for CLI/API commands. Do
-not persist a human account or ad hoc token in `gh auth`, shell startup, or a
-process manager.
+Start assistants as dedicated Unix users with clean homes. Their Git flow
+writes unsigned workload authorship and configures exact-repository GitHub App
+access; see [Assistant GitHub App](identities.md#assistant-github-app). The
+workload repository owns additional runtimes, providers, channels, and service
+definitions.
 
 Bootstrap verification checks the managed Git base, `gh-app-auth` dispatch,
-and workload identity. It does not inventory or clean unrelated user-home
-state. Migration agents audit and remove old credentials and developer state
-separately, then run
-`./scripts/verify/assistant-git-boundary.sh` to confirm the expected assistant
-identity contract.
-
-The profile provides minimal Node, browser, media, and process supervision
-support. The owning workload installs and verifies additional language
-runtimes, OpenClaw, Hermes, providers, channels, and service definitions.
-Profile application does not remove old developer packages or credentials;
-audit those separately after the retained workload passes its runtime checks.
+and workload identity. During a legacy migration, audit unrelated credentials
+and developer state separately, then run
+`./scripts/verify/assistant-git-boundary.sh`.
 
 When an assistant runs OpenClaw as a system LaunchDaemon, install the explicit
 restart capability with `--allow-openclaw-restart` as documented in
 [Devbox setup](devbox.md#supervisor). This grants only passwordless restart of
-that user's exact gateway label; it does not grant general host administration.
-The workload wrapper must also declare OpenClaw's external-supervisor and
-external-repair policies so lifecycle commands cannot create a competing user
-LaunchAgent.
+that user's exact gateway label; the workload owns its executable wrapper and
+OpenClaw lifecycle policy.
 
 ## Updating an Existing Machine
 
@@ -434,12 +363,13 @@ Pull the repo and rerun the relevant profile:
 cd ~/projects/dotfiles
 git pull --ff-only
 ./scripts/bootstrap/brew-bundle.sh workstation
+./scripts/bootstrap/apply-dotfiles.sh --profile workstation
+mise trust
+mise install
 ./scripts/bootstrap/install.sh --profile workstation
 ./scripts/secrets/configure-sops-age-identity.sh
 ./scripts/bootstrap/configure-power.sh --profile workstation
 ./scripts/bootstrap/configure-spotlight.sh
-mise trust
-mise install
 ./scripts/verify/bootstrap.sh --profile workstation
 ```
 

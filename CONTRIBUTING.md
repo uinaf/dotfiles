@@ -1,60 +1,56 @@
 # Contributing
 
-## Scope
+## Setup
 
-This repo is a reusable public macOS bootstrap layer.
+This is a public macOS bootstrap framework. Keep changes portable and keep
+machine identity, credentials, app state, and project checkouts local.
 
-Keep changes portable. Machine identity, secrets, tokens, keys, certificates,
-Codex state, browser profiles, app caches, and project checkouts stay local.
-
-## Local Setup
-
-Install `git` and `gh` through the profile-specific first-time prerequisites in
-the [Bootstrap guide](docs/bootstrap.md), then choose the profile for this Mac:
+Install the prerequisites and clone the repository:
 
 ```zsh
+brew install git gh
 gh auth login
-
 gh repo clone uinaf/dotfiles ~/projects/dotfiles
 cd ~/projects/dotfiles
-profile=workstation # use devbox for a remote coding identity
-./scripts/bootstrap/brew-bundle.sh "$profile"
+./scripts/bootstrap/brew-bundle.sh workstation
+./scripts/bootstrap/apply-dotfiles.sh --profile workstation
+mise trust
+mise install
+./scripts/bootstrap/install.sh --profile workstation
 ```
 
-For full machine bootstrap, or for a fresh Mac that does not have `git` or
-`gh` yet, use [Bootstrap guide](docs/bootstrap.md).
+Use the [Bootstrap guide](docs/bootstrap.md) for a different profile or a Mac
+that does not yet have Homebrew, Git, or GitHub CLI.
 
-## Daily Workflow
+## Verify
 
-Before opening a pull request, run:
+Use the fast gate while editing and the full gate before committing:
 
 ```zsh
+./scripts/verify/repo.sh --skip-security
 ./scripts/verify/repo.sh
 ```
 
-Run `./scripts/verify/bootstrap.sh` only on a machine where these dotfiles are
-actively installed. It checks the live home directory.
+Live bootstrap checks inspect the active home directory. Run them only when
+the current machine should satisfy that profile.
 
-Use `./scripts/verify/repo.sh --skip-security` for a fast local loop,
-but run the full command before committing or pushing.
+## Change the Owning Surface
 
-## Brewfiles
+- Packages: `Brewfile`, `Brewfile.developer`, and `Brewfile.<profile>`.
+- Dotfiles: tracked source under `chezmoi/`.
+- Repo tasks: `.mise/tasks/`; machine runtime pins:
+  `chezmoi/private_dot_config/mise/config.toml.tmpl`.
+- Global agent setup: `scripts/agents/`; repository-local skills remain with
+  their consumer.
+- Setup behavior: `scripts/bootstrap/`; verification and audit behavior:
+  `scripts/verify/` and `scripts/audit/`.
 
-- `Brewfile` is the minimal identity-safe base.
-- `Brewfile.developer` contains the shared coding stack.
-- `Brewfile.workstation`, `Brewfile.devbox`, and `Brewfile.assistant` contain
-  role-specific software.
-
-Keep one-machine personalization local. Use a fork for durable personal
-preferences, and send a focused pull request when a preference should become
-shared repo policy.
+Read the matching guide from the [documentation map](README.md#documentation)
+before changing a contract. Keep one-machine preferences local or in a fork.
 
 ## Pull Requests
 
-Use Conventional Commits. Commit types drive the tag-only GitHub Release policy
-documented in [GitHub pipelines](docs/github-pipelines.md).
-
-Keep pull requests focused. Include the commands you ran and any skipped checks.
-If a change affects setup behavior, update [Bootstrap guide](docs/bootstrap.md),
-[Agent guide](AGENTS.md), or [Agent readiness](docs/agent-readiness.md) in the
-same change.
+Use Conventional Commits; commit types drive the tag-only release policy in
+[GitHub pipelines](docs/github-pipelines.md). Keep pull requests focused,
+include verification performed, and update the owning guide when a command,
+path, profile, or security boundary changes.

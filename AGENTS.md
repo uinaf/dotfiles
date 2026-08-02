@@ -1,170 +1,92 @@
 # AGENTS.md
 
-Guidance for agents helping with this repo.
+Guidance for agents changing this repository.
 
 ## Role
 
-This is a vendor-neutral public macOS bootstrap framework for any person,
-team, or organization. Help the user install tools, apply chezmoi-managed
-dotfiles, configure local identity, and verify a machine without turning
-private machine state into repository state.
+This is a public, vendor-neutral macOS bootstrap framework. Keep portable
+machine setup in the repository and private machine state outside it.
 
-Start with [README](README.md). Use [Bootstrap guide](docs/bootstrap.md) for
-install steps, [User profiles](docs/profiles.md) for per-user role boundaries,
-[Identity provisioning](docs/identities.md) for age, SSH, GitHub, and recovery
-boundaries,
-[Devbox setup](docs/devbox.md) for shared agent hosts, and
-[Agent readiness](docs/agent-readiness.md) for verification expectations. Use
-[Agent setup](docs/agents.md) for machine-global rules and skill sync,
-[Chezmoi source state](docs/chezmoi.md) for dotfile changes and
-[Mise tasks](docs/mise.md) for task/runtime boundaries.
+| Task | Read first |
+| --- | --- |
+| Install or update a Mac | [Bootstrap](docs/bootstrap.md) |
+| Change profile packages or role boundaries | [User profiles](docs/profiles.md) |
+| Change age, Git, SSH, GitHub, or recovery behavior | [Identity provisioning](docs/identities.md) |
+| Change shared-host services or secret consumers | [Devbox setup](docs/devbox.md) |
+| Change global agent rules or skills | [Agent setup](docs/agents.md) |
+| Change dotfile source state | [Chezmoi](docs/chezmoi.md) |
+| Change tasks or runtime pins | [Mise](docs/mise.md) |
+| Change audits or secret boundaries | [Security audits](docs/security-audits.md) |
+| Change CI or releases | [GitHub pipelines](docs/github-pipelines.md) |
 
 `CLAUDE.md` is a symlink to this file. Keep `AGENTS.md` as the only authored
-agent guide.
+repository guide.
 
 ## Hard Boundaries
 
-- Do not commit secrets, tokens, private keys, certificates, Tizen archives,
-  machine-local config, or generated env files.
-- Do not back up, copy, link, or summarize full Codex config, Browser
-  approvals, auth files, sessions, caches, worktrees, or app state.
-- Do not invent Git identities, signing keys, password-manager vault names,
-  secret-manager project IDs, service tokens, or secret item references.
-- Do not store service tokens or secret-manager machine credentials in Git,
-  shell startup, launchd plists, process-compose YAML, or dotenv files.
-- Keep examples public-safe. Avoid private machine names, vault item names, and
-  identity context.
+- Never commit secrets, tokens, private keys, certificates, machine-local
+  config, generated env files, Tizen archives, or device keys.
+- Never copy or summarize Codex auth, approvals, sessions, caches, worktrees,
+  browser profiles, app state, or secret-manager sessions into the repository.
+- Never invent identity values, signing keys, vault names, secret item
+  references, machine credentials, or service tokens.
+- Keep examples public-safe: no private hosts, users, workspaces, repositories,
+  identities, or credential coordinates.
+- Keep service tokens out of shell startup, launchd plists, process-compose
+  YAML, tracked dotenv files, and generated refresh files.
 
-Machine-local secrets belong in explicit owner-only local storage or an
-approved secret manager. Assistants use the SOPS/age and GitHub App contract in
-[Identity provisioning](docs/identities.md). Coding devboxes use the same
-SOPS/age boundary in [Devbox setup](docs/devbox.md). Do not revive workspace
-`.env` symlinks, generated secret files, or password-manager service-account
-refresh stacks.
+Use the SOPS/age and GitHub App contracts in
+[Identity provisioning](docs/identities.md). Repository-specific secrets,
+instructions, skills, and service definitions stay with their owning
+repository.
 
-## Agent Operating Checklist
+## Workflow
 
-1. Run `git status --short --branch` before editing.
-2. Identify the target profile: `workstation`, `devbox`, `assistant`, or
-   repo-only docs/scripts.
-3. Read only the relevant deep doc:
-   - workstation or first-machine setup: [Bootstrap guide](docs/bootstrap.md)
-   - user-role boundaries: [User profiles](docs/profiles.md)
-   - age, SSH, GitHub, or recovery identity: [Identity provisioning](docs/identities.md)
-   - shared agent host: [Devbox setup](docs/devbox.md)
-   - dotfile source changes: [Chezmoi source state](docs/chezmoi.md)
-   - mise task or runtime changes: [Mise tasks](docs/mise.md)
-   - audits or secret boundaries: [Security audits](docs/security-audits.md)
-   - CI and GitHub workflows: [GitHub pipelines](docs/github-pipelines.md)
-4. Keep top-level docs short; put operational detail under `docs/`.
-5. Use repo scripts and `chezmoi/` source state as the source of truth. Do not replace them with one-off
-   shell snippets unless you are diagnosing a failure.
-6. If automation starts requiring brittle app-state edits, opaque config
-   surgery, or machine-specific juggling, stop automating it. Document the
-   manual step under the relevant guide and ask the human or active agent to
-   apply it locally.
-7. Verify with the narrowest useful command, then run the final repo gate before
-   committing.
+1. Run `git status --short --branch` and preserve unrelated work.
+2. Identify the affected profile: `workstation`, `devbox`, `assistant`, or
+   repository-only tooling.
+3. Read the smallest owning guide from the table above.
+4. Change tracked sources, not generated home-directory state.
+5. Update the owning documentation when behavior, paths, or commands change.
+6. Run focused proof, then the full repository gate before committing.
 
-## Setup Flow
+Prefer repository scripts over one-off shell snippets. If automation requires
+opaque app-state edits or machine-specific credential juggling, document the
+manual step in the owning guide instead.
 
-For a human-operated Mac, follow [Workstation Mac](docs/bootstrap.md#workstation-mac).
-
-For a shared agent host, follow [Devbox Mac](docs/bootstrap.md#devbox-mac) and
-then [Devbox setup](docs/devbox.md). Devbox commit signing is expected and must
-be configured from explicit values. Headless devboxes should usually use a
-human-provisioned local SSH key file, because GUI SSH agent sockets may not
-exist in SSH sessions:
+## Verify
 
 ```zsh
-GIT_USER_NAME='Devbox Name' \
-GIT_USER_EMAIL='devbox@example.com' \
-GIT_SIGNING_KEY="$HOME/.ssh/devbox-key" \
-  ./scripts/bootstrap/configure-git.sh --profile devbox --non-interactive
+./scripts/verify/repo.sh --skip-security # local iteration
+./scripts/verify/repo.sh                 # required before commit
 ```
 
-Commit signing supports one unattended mode: an unencrypted local SSH private
-key plus the agentless signer installed by `scripts/bootstrap/install.sh`.
-
-Do not put identity-specific values in tracked files. `configure-git.sh` writes
-them to `~/.gitconfig.local`. On devboxes, use the human-provisioned local SSH
-key file for GitHub SSH auth; `configure-git.sh` writes the matching
-`~/.ssh/github.config` override when the signing key is a local path.
-Assistants use explicit workload authorship and unsigned commits. Configure
-GitHub authentication with `configure-assistant-github-app.sh` only from
-operator-supplied workload name, email, App identity, repository set, and
-owner-only private key.
-Headless assistant services use the system LaunchDaemon installer with an
-owner-controlled runtime wrapper and a unique per-user gateway port. Keep
-workload-specific secret paths and values outside this repository.
-
-## Verification
-
-Before committing repo changes:
-
-```zsh
-./scripts/verify/repo.sh
-```
-
-For fast local script loops before the final check:
-
-```zsh
-./scripts/verify/repo.sh --skip-security
-```
-
-To install the same fast gate as a local pre-push hook:
-
-```zsh
-./scripts/bootstrap/install-git-hooks.sh
-```
-
-For a live machine that should use these dotfiles:
+Run live checks only on a machine that should satisfy the selected profile:
 
 ```zsh
 ./scripts/verify/bootstrap.sh --profile workstation
 ./scripts/verify/bootstrap.sh --profile devbox
 ./scripts/verify/bootstrap.sh --profile assistant
-```
-
-For devbox users:
-
-```zsh
 ./scripts/verify/devbox-services.sh
+./scripts/audit/workstation.sh
 ./scripts/audit/devbox.sh
 ```
 
-For workstation security drift:
-
-```zsh
-./scripts/audit/workstation.sh
-```
-
-## Repo Rules
+## Repository Contracts
 
 - Use Conventional Commits.
-- Keep `Brewfile` minimal and identity-safe.
-- Put the shared coding stack in `Brewfile.developer`.
-- Put role-specific software in `Brewfile.workstation`, `Brewfile.devbox`, or
-  `Brewfile.assistant`.
-- Keep this repository standalone. Do not require or validate a workspace
-  manager. Machine-global rules and additive skill installation live under
-  `scripts/agents/`; repository-specific instructions and skills stay with
-  their owning repository.
-- Keep portable interfaces vendor-neutral. Do not add `uinaf` or another owner
-  name to installed paths, commands, config keys, template data, service labels,
-  example identities, or prose that describes the framework. Owner names are
-  allowed only for real external coordinates such as the upstream repository,
-  package tap, security contact, copyright, or a bounded legacy migration.
-- Keep workspace policy outside this repository. Workstation and devbox
-  profiles may install machine-global coding-agent rules and skills; assistant
-  profiles do not.
-- Treat Git tags and GitHub Releases as the canonical version. Do not add a
+- Keep `Brewfile` minimal and identity-safe. Shared coding tools belong in
+  `Brewfile.developer`; role-specific software belongs in
+  `Brewfile.workstation`, `Brewfile.devbox`, or `Brewfile.assistant`.
+- Edit dotfiles under `chezmoi/`, not the generated files in `$HOME`.
+- Keep machine-global coding-agent rules and additive skill selection under
+  `scripts/agents/`. Assistant profiles do not install them.
+- Keep the repository standalone. Do not require a workspace manager or a
+  companion repository.
+- Keep installed paths, commands, config keys, service labels, and portable
+  prose vendor-neutral. Owner names are allowed only for real external
+  coordinates such as this repository, a tap, or the security contact.
+- Treat Git tags and GitHub Releases as the version boundary. Do not add a
   package manifest, checked-in version file, or release bump commit.
-- Edit dotfiles in `chezmoi/`, not generated files in `$HOME`. Follow
-  [Chezmoi source state](docs/chezmoi.md).
-- Keep mise task and runtime scope split as documented in
-  [Mise tasks](docs/mise.md).
-- Update docs when scripts, profile behavior, audit behavior, or workflow names
-  change.
-- Follow the repo-doc voice: proper-case headings, sentence-case body,
-  short direct prose, no emoji, no marketing copy.
+- Use proper-case headings, sentence-case prose, short direct paragraphs, no
+  emoji, and no marketing copy.
