@@ -422,6 +422,9 @@ When an assistant runs OpenClaw as a system LaunchDaemon, install the explicit
 restart capability with `--allow-openclaw-restart` as documented in
 [Devbox setup](devbox.md#supervisor). This grants only passwordless restart of
 that user's exact gateway label; it does not grant general host administration.
+The workload wrapper must also declare OpenClaw's external-supervisor and
+external-repair policies so lifecycle commands cannot create a competing user
+LaunchAgent.
 
 ## Updating an Existing Machine
 

@@ -417,6 +417,15 @@ The installer does not retire per-user LaunchAgents. An agent or authorized
 administrator must unload and archive the old job first, then install and
 verify one replacement service per invocation so failures stay isolated.
 
+The workload wrapper for an externally supervised OpenClaw gateway must export
+both `OPENCLAW_SUPERVISOR_MODE=external` and
+`OPENCLAW_SERVICE_REPAIR_POLICY=external`. These prevent OpenClaw lifecycle and
+Doctor commands from installing or repairing a competing user LaunchAgent.
+Treat the exact `launchctl print system/<label>` result plus a required gateway
+RPC probe and configured-channel probes as runtime health; the primary service
+line in `openclaw gateway status` still describes OpenClaw's managed user
+LaunchAgent.
+
 New system jobs use the vendor-neutral `local.dotfiles.<service>.<user>` label
 namespace. Pass `--namespace org.example.dotfiles` when an organization needs
 its own stable namespace. The installer stores the resolved value in the target
