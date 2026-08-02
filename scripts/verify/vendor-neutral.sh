@@ -49,6 +49,11 @@ while IFS=: read -r file line content; do
         *github.com/uinaf/sops-vault-template*) continue ;;
       esac
       ;;
+    docs/agents.md)
+      case "$content" in
+        *github.com/uinaf/skills*) continue ;;
+      esac
+      ;;
     docs/devbox.md)
       case "$content" in
         *legacy*com.uinaf.*|*legacy*config/uinaf*) continue ;;
@@ -72,6 +77,16 @@ while IFS=: read -r file line content; do
     scripts/bootstrap/configure-git.sh|scripts/bootstrap/install-git-hooks.sh|scripts/verify/configure-git.sh)
       case "$content" in
         *uinaf*dotfiles*) continue ;;
+      esac
+      ;;
+    scripts/agents/skills.json)
+      case "$content" in
+        *'"source": "uinaf/skills"'*|*'"source": "https://cdn.uinaf.dev/skills/ui"'*) continue ;;
+      esac
+      ;;
+    scripts/agents/sync.test.ts)
+      case "$content" in
+        *'sources.includes("uinaf/agents")'*|*'sources.includes("uinaf/skills")'*) continue ;;
       esac
       ;;
   esac
