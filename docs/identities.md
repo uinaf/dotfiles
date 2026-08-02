@@ -142,17 +142,18 @@ Do not merge the credentials into one private key or paste their values into a
 note. The item is an inventory and recovery boundary; each attached credential
 keeps its own scope and rotation lifecycle.
 
-Before using a new identity for live ciphertext:
+Before using a new general SOPS age identity for live ciphertext:
 
 1. Create or select the deployment or workload's recovery item.
-2. Attach the private identity file and record the deployment name, public
-   recipient, creation date, and local path.
-3. Restore the attachment to an owner-only temporary path and run
+2. Attach the general SOPS age identity file and record the deployment name,
+   public recipient, creation date, and local path.
+3. Restore that general SOPS age identity attachment to an owner-only temporary
+   path and run
    `age-keygen -y <restored-path>`.
-4. Confirm the restored recipient exactly matches
+4. Confirm the restored general age recipient exactly matches
    `configure-sops-age-identity.sh --print-recipient`.
-5. Compare every other attachment with its live source or derive and compare
-   its public identity without exposing the private value.
+5. Validate each other applicable attachment against its own live source or
+   derive and compare its public identity without exposing the private value.
 6. Remove the temporary restored copies.
 
 Do not print or paste the private identity into shell history, logs, issues,
