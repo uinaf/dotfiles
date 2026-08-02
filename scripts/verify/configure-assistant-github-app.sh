@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
+  GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_COMMON_DIR
+
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 configurator="$repo_root/scripts/bootstrap/configure-assistant-github-app.sh"
 tmp_dir="$(mktemp -d)"
