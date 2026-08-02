@@ -1,0 +1,112 @@
+{
+  "skills": [
+    {
+      "name": "agent-dx-cli-scale",
+      "source": "jpoehnelt/skills"
+    },
+    {
+      "name": "agent-readiness",
+      "source": "uinaf/skills"
+    },
+    {
+      "name": "autoreview",
+      "source": "uinaf/skills"
+    },
+    {
+      "name": "docs",
+      "source": "uinaf/skills"
+    },
+    {
+      "name": "i-have-adhd",
+      "source": "ayghri/i-have-adhd"
+    },
+    {
+      "name": "gh-setup",
+      "source": "uinaf/skills"
+    },
+    {
+      "name": "gh-stack",
+      "source": "github/gh-stack"
+    },
+    {
+      "name": "grilling",
+      "source": "mattpocock/skills"
+    },
+    {
+      "name": "improve",
+      "source": "shadcn/improve"
+    },
+    {
+      "name": "react-ban-use-effect",
+      "source": "uinaf/skills"
+    },
+    {
+      "name": "shadcn",
+      "source": "shadcn/ui"
+    },
+    {
+      "name": "skill-audit",
+      "source": "uinaf/skills"
+    },
+    {
+      "name": "tanstack-form",
+      "source": "tanstack-skills/tanstack-skills"
+    },
+    {
+      "name": "tanstack-query",
+      "source": "tanstack-skills/tanstack-skills"
+    },
+    {
+      "name": "tanstack-start",
+      "source": "tanstack-skills/tanstack-skills"
+    },
+    {
+      "name": "ui-add-dark-mode",
+      "source": "https://cdn.uinaf.dev/skills/ui"
+    },
+    {
+      "name": "ui-brand-kit",
+      "source": "https://cdn.uinaf.dev/skills/ui"
+    },
+    {
+      "name": "ui-canonicalize-tailwind",
+      "source": "https://cdn.uinaf.dev/skills/ui"
+    },
+    {
+      "name": "ui-componentize",
+      "source": "https://cdn.uinaf.dev/skills/ui"
+    },
+    {
+      "name": "ui-dark-mode-image",
+      "source": "https://cdn.uinaf.dev/skills/ui"
+    },
+    {
+      "name": "ui-design",
+      "source": "https://cdn.uinaf.dev/skills/ui"
+    },
+    {
+      "name": "ui-ideas",
+      "source": "https://cdn.uinaf.dev/skills/ui"
+    },
+    {
+      "name": "ui-make-responsive",
+      "source": "https://cdn.uinaf.dev/skills/ui"
+    },
+    {
+      "name": "ui-markup-from-image",
+      "source": "https://cdn.uinaf.dev/skills/ui"
+    },
+    {
+      "name": "vercel-react-best-practices",
+      "source": "vercel-labs/agent-skills"
+    },
+    {
+      "name": "verify",
+      "source": "uinaf/skills"
+    },
+    {
+      "name": "vite-plus",
+      "source": "uinaf/skills"
+    }
+  ]
+}

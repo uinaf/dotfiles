@@ -64,6 +64,7 @@ need_command git
 need_command bash
 need_command chezmoi
 need_command shellcheck
+need_command node
 if [ -d .github/workflows ]; then
   need_command actionlint
 fi
@@ -99,6 +100,9 @@ section "devbox Homebrew wrapper"
 
 section "profile contracts"
 ./scripts/verify/profiles.sh
+
+section "agent sync contracts"
+node --test scripts/agents/sync.test.ts
 
 section "service labels"
 ./scripts/verify/service-labels.sh

@@ -4,6 +4,7 @@ Scripts are grouped by functionality:
 
 | Directory | Purpose |
 | --- | --- |
+| `agents/` | Sync machine-global instructions and additive skill manifests for coding profiles. |
 | `app-store/` | Mac App Store app installs/removals through `mas`. |
 | `audit/` | Check-only security and drift audits for repo, host, workstation, and devbox contexts. |
 | `bootstrap/` | Install and configure Homebrew, chezmoi dotfiles, Git, Codex, and Chrome. |
@@ -61,6 +62,7 @@ GIT_USER_NAME='Workload Name' GIT_USER_EMAIL='APP_BOT_NOREPLY_EMAIL' \
 ./scripts/bootstrap/configure-desktop.sh
 ./scripts/bootstrap/install-devbox-service-daemons.sh --user example --namespace org.example.dotfiles --print-labels
 ./scripts/bootstrap/trust-agent-worktrees.sh
+./scripts/agents/sync.sh
 ./scripts/secrets/configure-sops-age-identity.sh
 ./scripts/secrets/configure-sops-age-identity.sh --check
 ```
@@ -76,6 +78,8 @@ is not applied to other devbox users by `install.sh`.
 
 Use [User profiles](../docs/profiles.md) and the [Bootstrap guide](../docs/bootstrap.md)
 for the ordered workstation, devbox, and assistant flows.
+Use [Agent setup](../docs/agents.md) for the global instruction and skill-sync
+contract.
 
 Security audits:
 

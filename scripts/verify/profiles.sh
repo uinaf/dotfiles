@@ -146,7 +146,7 @@ done
 assistant_steps="$("$repo_root/scripts/bootstrap/install.sh" --print-steps --profile assistant)"
 assert_eq "$(printf 'apply-dotfiles\ninstall-gh-app-auth')" "$assistant_steps" "assistant install steps"
 developer_steps="$("$repo_root/scripts/bootstrap/install.sh" --print-steps --profile workstation)"
-for step in apply-dotfiles trust-agent-worktrees install-gh-extensions remove-global-vite-plus install-pnpm configure-codex; do
+for step in apply-dotfiles trust-agent-worktrees install-gh-extensions remove-global-vite-plus install-pnpm configure-codex sync-agents; do
   printf '%s\n' "$developer_steps" | grep -Fqx "$step" || fail "workstation install missed $step"
 done
 devbox_steps="$("$repo_root/scripts/bootstrap/install.sh" --print-steps --profile devbox)"
@@ -156,7 +156,7 @@ install_fixture="$tmp_root/install-fixture"
 install_log="$tmp_root/install-fixture.log"
 active_node_bin="$(dirname "$(mise which node)")"
 install_fixture_path="$install_fixture/bin:$active_node_bin:$PATH"
-mkdir -p "$install_fixture/scripts/bootstrap" "$install_fixture/scripts/lib" "$install_fixture/bin"
+mkdir -p "$install_fixture/scripts/agents" "$install_fixture/scripts/bootstrap" "$install_fixture/scripts/lib" "$install_fixture/bin"
 cp "$repo_root/scripts/bootstrap/install.sh" "$install_fixture/scripts/bootstrap/install.sh"
 cp "$repo_root/scripts/lib/profile.sh" "$install_fixture/scripts/lib/profile.sh"
 for helper in apply-dotfiles.sh install-gh-app-auth.sh trust-agent-worktrees.sh install-gh-extensions.sh configure-codex.sh; do
@@ -172,6 +172,11 @@ fi
 EOF
   chmod 0700 "$install_fixture/scripts/bootstrap/$helper"
 done
+cat > "$install_fixture/scripts/agents/sync.sh" <<'EOF'
+#!/usr/bin/env bash
+printf 'sync.sh\n' >> "${DOTFILES_INSTALL_LOG:?}"
+EOF
+chmod 0700 "$install_fixture/scripts/agents/sync.sh"
 for command_name in corepack mise npm codex; do
 cat > "$install_fixture/bin/$command_name" <<'EOF'
 #!/usr/bin/env bash
@@ -221,6 +226,7 @@ mise reshim --force
 corepack enable pnpm
 corepack install --global pnpm@11.18.0
 configure-codex.sh
+sync.sh
 EOF
 )"
 assert_eq "$expected_install_log" "$(cat "$install_log")" "devbox install execution"

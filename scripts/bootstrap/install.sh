@@ -60,6 +60,7 @@ install_steps() {
     printf 'remove-global-vite-plus\n'
     printf 'install-pnpm\n'
     printf 'configure-codex\n'
+    printf 'sync-agents\n'
   fi
 }
 
@@ -110,6 +111,9 @@ run_step() {
       else
         printf 'skipped Codex defaults; codex is not on PATH yet\n' >&2
       fi
+      ;;
+    sync-agents)
+      "$repo_root/scripts/agents/sync.sh"
       ;;
     *)
       printf 'unsupported install step: %s\n' "$1" >&2

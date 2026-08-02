@@ -38,15 +38,18 @@ The assistant mise config contains only Node. Workload repositories own
 OpenClaw, Hermes, model providers, additional language runtimes, and other
 workload-specific packages. Workstation and devbox retain the full shared
 development runtime set, including Codex CLI, Claude Code CLI, and Cursor Agent
-CLI. Zed and its managed settings belong only to the workstation profile.
+CLI. Their install flow also syncs machine-global instructions and additive
+skills from `scripts/agents/`; see [Agent setup](agents.md). Zed and its managed
+settings belong only to the workstation profile.
 
 Assistant dotfile application installs a minimal Git base with an optional
 assistant GitHub App include but no configured credentials. It skips developer
 signing, human credential helpers, outbound SSH
 configuration, Zed, and Ghostty state. It also skips developer worktree trust,
 stable Corepack-managed pnpm setup, Codex desktop defaults, and developer-only GitHub
-extensions. The assistant install step adds a pinned `gh-app-auth` execution
-adapter without provisioning credentials.
+extensions. It does not install global coding-agent instructions or development
+skills. The assistant install step adds a pinned `gh-app-auth` execution adapter
+without provisioning credentials.
 
 ## Identity Policy
 

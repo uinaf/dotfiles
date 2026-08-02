@@ -15,6 +15,7 @@ install steps, [User profiles](docs/profiles.md) for per-user role boundaries,
 boundaries,
 [Devbox setup](docs/devbox.md) for shared agent hosts, and
 [Agent readiness](docs/agent-readiness.md) for verification expectations. Use
+[Agent setup](docs/agents.md) for machine-global rules and skill sync,
 [Chezmoi source state](docs/chezmoi.md) for dotfile changes and
 [Mise tasks](docs/mise.md) for task/runtime boundaries.
 
@@ -145,15 +146,18 @@ For workstation security drift:
 - Put the shared coding stack in `Brewfile.developer`.
 - Put role-specific software in `Brewfile.workstation`, `Brewfile.devbox`, or
   `Brewfile.assistant`.
-- Keep this repository standalone. Do not require, clone, install, invoke, or
-  validate an agent framework or workspace manager.
+- Keep this repository standalone. Do not require or validate a workspace
+  manager. Machine-global rules and additive skill installation live under
+  `scripts/agents/`; repository-specific instructions and skills stay with
+  their owning repository.
 - Keep portable interfaces vendor-neutral. Do not add `uinaf` or another owner
   name to installed paths, commands, config keys, template data, service labels,
   example identities, or prose that describes the framework. Owner names are
   allowed only for real external coordinates such as the upstream repository,
   package tap, security contact, copyright, or a bounded legacy migration.
-- Keep Codex setup install-only here. Agent rules, skills, and workspace policy
-  belong to whichever independent tools the machine owner chooses.
+- Keep workspace policy outside this repository. Workstation and devbox
+  profiles may install machine-global coding-agent rules and skills; assistant
+  profiles do not.
 - Treat Git tags and GitHub Releases as the canonical version. Do not add a
   package manifest, checked-in version file, or release bump commit.
 - Edit dotfiles in `chezmoi/`, not generated files in `$HOME`. Follow

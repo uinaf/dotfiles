@@ -4,7 +4,7 @@ Reusable macOS bootstrap files for workstations, devboxes, and assistants.
 
 This repo owns the portable layer: Homebrew bundles, chezmoi-managed zsh
 startup, mise runtimes, Git and SSH defaults, Codex defaults, editor settings,
-and setup and audit scripts.
+machine-global coding-agent rules and skills, and setup and audit scripts.
 
 It is standalone. It does not require an agent framework, workspace manager,
 or any other companion repository.
@@ -75,6 +75,10 @@ devbox setup, Chrome vertical tabs, Blacksmith, and Tizen notes, read
 [Mise tasks](docs/mise.md) for the split between repo tasks and machine runtime
 pins.
 
+Workstation and devbox installs also run the additive agent sync documented in
+[Agent setup](docs/agents.md). Assistant installs skip coding-agent rules and
+development skills.
+
 | Surface | Tracked source | Local-only extension |
 | --- | --- | --- |
 | zsh | `chezmoi/dot_zshenv`, `chezmoi/dot_zprofile`, `chezmoi/dot_zshrc` | machine shell history and ad hoc local files |
@@ -84,6 +88,7 @@ pins.
 | SOPS and age | Base layer plus explicit per-user identity provisioning | private identity backup, repository recipient policy, and encrypted payloads |
 | SSH (workstation/devbox) | `chezmoi/private_dot_ssh/private_config` | `~/.ssh/github.config`, `~/.ssh/config.local`, private keys |
 | Codex | installer-managed defaults, including ChatGPT-login enforcement | auth, sessions, approvals, memory, worktrees |
+| Coding-agent rules and skills | `scripts/agents/` for workstation and devbox profiles | ignored local rule overrides and installed skill copies |
 | Terminal | developer Homebrew layer and chezmoi-managed Ghostty defaults | app state, fonts, caches |
 | Editor | workstation Homebrew layer and chezmoi-managed Zed defaults | app state, fonts, caches |
 

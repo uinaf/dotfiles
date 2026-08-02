@@ -14,7 +14,7 @@ flow to drive. Agent readiness means an agent can:
 | Dimension | Status | Evidence | Gap |
 | --- | --- | --- | --- |
 | Bootable | pass | `scripts/bootstrap/brew-bundle.sh` installs shared plus profile bundles; `scripts/bootstrap/install.sh` applies the repo-local chezmoi source state and Codex defaults. | First-time macOS still needs Command Line Tools, Homebrew, and GitHub auth. |
-| Testable | pass | `scripts/verify/repo.sh` runs shell syntax, ShellCheck, profile rendering and layer contracts, SOPS age identity provisioning contracts, vendor-neutral naming checks, the shared-host Homebrew wrapper contract, isolated Git bootstrap, Actionlint, diff hygiene, entrypoint checks, and secret scans. | Live bootstrap checks require a matching role on macOS. |
+| Testable | pass | `scripts/verify/repo.sh` runs shell syntax, ShellCheck, profile rendering and layer contracts, isolated agent-sync tests, SOPS age identity provisioning contracts, vendor-neutral naming checks, the shared-host Homebrew wrapper contract, isolated Git bootstrap, Actionlint, diff hygiene, entrypoint checks, and secret scans. | Live bootstrap checks require a matching role on macOS. |
 | Observable | pass | Verification and audit scripts print stable sectioned output; security audits also support compact `--json` summaries; CI exposes Verify and Secret scanning logs. | SARIF output is not generated yet. |
 | Verifiable | pass | `.github/workflows/verify.yml`, `.github/workflows/secrets.yml`, `scripts/verify/bootstrap.sh`, `scripts/verify/devbox-services.sh`, and audit scripts. | Host-local age identity and service checks cannot run meaningfully on GitHub-hosted CI. |
 

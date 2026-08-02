@@ -155,6 +155,9 @@ and runs the agent worktree mise trust helper. Use the matching task in
 [Mise tasks](mise.md#task-namespaces) to refresh local trust after new
 worktrees are created.
 
+It also runs the machine-global instruction and additive skill sync described
+in [Agent setup](agents.md).
+
 Remote Codex connections are also manual user config. If the machine should use
 them, ask the human to add this to `~/.codex/config.toml`:
 
@@ -311,8 +314,8 @@ mise install
 The developer mise config pins Node, enables the stable Corepack-managed pnpm
 default, and installs exact shared npm and Playwright CLI versions. Vite+ stays
 repository-local. `install.sh` removes the retired global Vite+ package and
-standalone state under `~/.vite-plus`, while
-`mise install` installs missing runtimes and CLIs.
+standalone state under `~/.vite-plus`, then refreshes machine-global agent
+instructions and skills. `mise install` installs missing runtimes and CLIs.
 
 The power step keeps plugged-in devboxes awake for agents, remote access, and
 always-on dashboards. It leaves battery settings untouched and prompts for sudo

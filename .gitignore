@@ -4,3 +4,5 @@ tizen-migration-*.tar.gz
 .DS_Store
 .zcompdump*
 home/.codex/
+scripts/agents/rules.local.md
+scripts/agents/rules.final.md
