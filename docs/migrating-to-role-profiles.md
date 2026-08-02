@@ -26,7 +26,6 @@ Review each file before copying it. The relevant path changes are:
 | `~/.config/uinaf/profile` | `~/.config/dotfiles/profile` |
 | `~/.config/uinaf/audit.env` | `~/.config/dotfiles/audit.env` |
 | `~/.config/uinaf/devbox.env` | `~/.config/dotfiles/devbox.env` |
-| `~/.config/uinaf/infisical-machine.env` | `~/.config/dotfiles/infisical-machine.env` |
 | `~/.config/uinaf/sudo-age-identity.txt` | `~/.config/dotfiles/sudo-age-identity.txt` |
 | `~/.local/libexec/uinaf/git-ssh-sign-agentless` | `~/.local/libexec/dotfiles/git-ssh-sign-agentless` |
 

@@ -81,36 +81,6 @@ done
 
 load_audit_policy
 
-section "default shell secret boundary"
-
-if [ -z "${INFISICAL_TOKEN+x}" ]; then
-  ok "current shell does not export INFISICAL_TOKEN"
-else
-  fail_check "current shell exports INFISICAL_TOKEN"
-fi
-
-login_shell="${SHELL:-}"
-if command -v dscl >/dev/null 2>&1; then
-  configured_shell="$(dscl . -read "/Users/$(id -un)" UserShell 2>/dev/null | awk '{print $2}' || true)"
-  if [ -n "$configured_shell" ]; then
-    login_shell="$configured_shell"
-  fi
-fi
-
-zsh_login_has_no_infisical_token=1
-# The login shell, not this audit, expands the probe.
-# shellcheck disable=SC2016
-if [ -x "$login_shell" ] \
-  && "$login_shell" -l -i -c 'test -z "${INFISICAL_TOKEN+x}"' </dev/null >/dev/null 2>&1; then
-  zsh_login_has_no_infisical_token=0
-fi
-
-if [ "$zsh_login_has_no_infisical_token" = "0" ]; then
-  ok "login shell does not export INFISICAL_TOKEN"
-else
-  fail_check "login shell exports INFISICAL_TOKEN"
-fi
-
 section "local config file modes"
 
 check_mode_any warn "$HOME/.gitconfig.local" 600

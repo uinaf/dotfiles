@@ -97,11 +97,7 @@ mise run audit:workstation:json
 Devbox checks:
 
 ```zsh
-./scripts/secrets/configure-infisical-devbox.sh
-./scripts/secrets/configure-infisical-devbox-sudo.sh
-<concealed-password-command> | ./scripts/secrets/infisical-devbox-sudo-seal.sh
-./scripts/secrets/infisical-devbox-run.sh -- <command>
-./scripts/secrets/infisical-devbox-sudo.sh -- <non-interactive-command>
+./scripts/secrets/configure-sops-age-identity.sh --check
 ./scripts/secrets/sops-devbox-sudo.sh -- <non-interactive-command>
 ./scripts/verify/devbox-services.sh
 mise run verify:devbox-services

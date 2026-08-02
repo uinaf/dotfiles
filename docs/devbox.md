@@ -1,574 +1,132 @@
 # Devbox Setup
 
-Devbox automation keeps always-on agent users reproducible without making their
-secrets or identities part of the public dotfiles repo.
-
-Assistant profiles reuse the Unix-user and system-service boundaries in this
-guide without inheriting the devbox coding toolchain, human Git identity, or
-Infisical requirement. Their default SOPS/age and GitHub App contract is
-[Identity provisioning](identities.md).
+Devbox automation keeps dedicated Unix users reproducible without making
+secrets or identities part of the public dotfiles repository. Assistant
+profiles reuse the same Unix-user and service boundaries without inheriting the
+coding toolchain or a human Git identity. See [Identity
+provisioning](identities.md).
 
 ## Boundaries
 
 Tracked here:
 
-- portable tools in `Brewfile` and `Brewfile.devbox`
-- shared shell, Git, SSH, mise, terminal, and Codex defaults
-- public-safe scripts and validation
-- templates and contracts for local service setup
+- portable profile packages and shared shell defaults
+- public-safe Git, SSH, SOPS, launchd, and supervisor tooling
+- profile contracts, audit scripts, and verification
 
 Local only:
 
-- Git identities, signing keys, and 1Password SSH vaults
-- Infisical workspace/project auth and service tokens
-- workspace env values and local service state
-- process-compose ports when they are identity-specific
-- Codex auth, trusted paths, sessions, and agent-rule symlinks
+- Git identities, signing keys, GitHub authorization, and browser sessions
+- private age identities and owner-only devbox config
+- workspace payloads, product env files, service state, logs, and sockets
+- Codex and Claude authentication, sessions, and trusted paths
+
+Each identity gets its own Unix user, home directory, Git identity, GitHub
+authorization, SSH keys, age identity, agent homes, workspaces, and service
+state. Grant cross-context access explicitly and temporarily.
 
 ## Secret Model
 
-Environment variables are not a secret boundary. Anything running in that
-process tree can read them.
+SOPS ciphertext belongs in a private capability-scoped vault repository. Each
+Unix identity has a dedicated age identity at the standard SOPS path, with the
+private key mode `0600` and parent directory mode `0700`. Back it up through an
+approved human recovery system before encrypting live secrets.
 
-This section documents the optional Infisical contract for coding devboxes and
-workloads that explicitly choose it. Assistants default to the SOPS contract in
-[Identity provisioning](identities.md). Humans use both 1Password and
-Infisical. 1Password remains the human/manual vault for account
-credentials, recovery material, and human SSH key material. A devbox identity
-may also receive narrowly scoped operational credentials in Infisical when the
-agent must use them unattended. Keep those credentials outside runtime env
-bundles and retrieve them only at the command boundary. Devbox agent SSH key
-material may live in Infisical under the same boundary.
+Repository access grants ciphertext access; the SOPS recipient list grants
+decryption. Both are required. Product repos should consume env vars,
+owner-only prepared files, or CI secrets instead of containing secret-manager
+clients.
 
-When an agent task needs shared env, check the relevant Infisical project/path
-first. Do not recreate workspace `.env` symlinks, devbox-env generated files,
-token caches, or 1Password service-account refresh stacks.
+Provision or verify the age identity:
 
-For services and agents:
+```bash
+./scripts/secrets/configure-sops-age-identity.sh
+./scripts/secrets/configure-sops-age-identity.sh --check
+./scripts/secrets/configure-sops-age-identity.sh --print-recipient
+```
 
-1. Create or choose the correct Infisical project and environment for the
-   runtime.
-2. Create a machine identity in the same Infisical organization and grant it
-   access to that project/path.
-3. Configure the devbox user once with
-   `./scripts/secrets/configure-infisical-devbox.sh`.
-4. Use Universal Auth to mint short-lived machine tokens at command time.
-   Do not keep a human Infisical CLI session on agent devboxes.
-5. Keep raw client secrets and access tokens out of shell startup, launchd
-   plists, process-compose YAML, tracked files, and long-lived interactive
-   shells.
-6. Run the env-consuming runtime through
-   `./scripts/secrets/infisical-devbox-run.sh -- <command>`. The runtime owns how
-   it reads Infisical and sets itself up.
-7. Keep any identity-specific Infisical project, environment, path, client ID,
-   or client secret values out of this repo.
+Use `SOPS_AGE_KEY_FILE` only when the deployment intentionally uses a
+non-default owner-only path.
 
-Infisical access tokens are short-lived. A devbox that must keep working across
-future agent shells and reboots needs the Universal Auth client credentials in
-owner-only local machine state. This is an intentional tradeoff: the
-credentials are persistent on that Unix account, but they are not shell
-exports, process-compose config, launchd config, tracked files, or generated
-runtime dotenv refresh stacks.
+## Sudo Without A Plaintext Password File
 
-One-time setup:
+An identity that needs unattended narrow sudo commands can store
+`SUDO_PASSWORD_AGE` inside its SOPS payload. The inner age ciphertext uses the
+dedicated sudo age identity, while SOPS controls access to the outer payload.
+
+Configure these owner-only paths in `~/.config/dotfiles/devbox.env`:
 
 ```sh
-./scripts/secrets/configure-infisical-devbox.sh
+SOPS_SUDO_SECRET_FILE="$HOME/projects/example/vault/secrets/identity/user-sudo.sops.json"
+SUDO_AGE_IDENTITY_FILE="$HOME/.config/dotfiles/sudo-age-identity.txt"
 ```
 
-The helper prompts locally for the Infisical domain, project ID, environment,
-Universal Auth client ID, and Universal Auth client secret. Use the client ID
-shown under the machine identity's Universal Auth method, not the machine
-identity ID shown in the identity details panel. Humans should source those
-values from their secret manager, usually 1Password or Infisical, and enter them
-locally. Do not paste them into agent chat.
+Run a fixed command directly or allow a child process to make its own narrow
+sudo calls:
 
-It writes non-secret selectors to `~/.config/dotfiles/devbox.env` and machine
-credentials to `~/.config/dotfiles/infisical-machine.env`. Both files must be mode
-`0600`. The helper refuses to continue when the Infisical CLI has an
-authenticated human `user` session and verifies the machine identity can mint a
-token before writing config. It does not persist secret paths; paths belong at
-the command boundary.
-
-Secret and verification helpers read only canonical files under
-`~/.config/dotfiles`. Existing users must complete the manual path migration in
-[Migrating to Role Profiles](migrating-to-role-profiles.md) before applying the
-new devbox profile.
-
-Routine command-boundary use gives one child command a short-lived machine
-token and the configured Infisical project selectors:
-
-```sh
-./scripts/secrets/infisical-devbox-run.sh -- <repo-owned-secret-command>
+```bash
+./scripts/secrets/sops-devbox-sudo.sh -- /bin/launchctl kickstart -k system/example.service
+./scripts/secrets/sops-devbox-sudo.sh --nested -- ./scripts/service/restart.sh
 ```
 
-The child command receives `INFISICAL_TOKEN`, `INFISICAL_DOMAIN`,
-`INFISICAL_PROJECT_ID`, and `INFISICAL_ENV`. If the caller sets
-`INFISICAL_SECRET_PATH`, the runner forwards it too. Dotfiles does not render
-app env, generate runtime dotenv files, or know another repo's secret path.
+The password exists only in the askpass process. Keep the sudoers allowlist as
+the primary authorization boundary and use the nested mode only when the child
+command itself must stay unprivileged.
 
-Repo-local setup example:
+## GitHub And SSH
 
-```sh
-INFISICAL_SECRET_PATH=/example-repo/runtime \
-  ~/projects/dotfiles/scripts/secrets/infisical-devbox-run.sh -- \
-  make secrets-setup
-```
+Human devbox users may keep their own GitHub account and SSH signing key.
+Unattended identities should use a repository-scoped GitHub App installation
+token and a separate commit identity. Git author metadata is not an
+authorization mechanism; HTTPS push and GitHub API operations use the short-
+lived App token.
 
-The target repo owns `make secrets-setup`: it may run `infisical export`, use
-`infisical run`, write an ignored `0600` local file, or avoid disk entirely.
-
-OpenClaw-shaped example:
-
-```sh
-INFISICAL_SECRET_PATH=/example-devbox/openclaw-env \
-  ~/projects/dotfiles/scripts/secrets/infisical-devbox-run.sh -- \
-  openclaw <env-render-or-run-command>
-```
-
-The real OpenClaw path and command belong in the workspace or OpenClaw docs,
-not in this public repo.
-
-For unattended elevated maintenance, store only an ASCII-armored age ciphertext
-as `SUDO_PASSWORD_AGE` in the identity's Infisical folder. Never store the
-plaintext password in Infisical. Each host keeps a dedicated age identity at
-`~/.config/dotfiles/sudo-age-identity.txt` with mode `0600`; its private value is
-recovery material and belongs as a labeled attachment in the matching
-deployment or workload identity item in the human recovery system.
-Create or verify the local identity and print its public recipient with:
-
-```sh
-./scripts/secrets/configure-infisical-devbox-sudo.sh
-```
-
-Encrypt the password to that recipient without writing plaintext to a regular
-file, import the ciphertext as `SUDO_PASSWORD_AGE`, and put the identity-specific
-folder selector in owner-only local config as `INFISICAL_SUDO_SECRET_PATH`.
-The repo-owned sealing command is:
-
-```sh
-<concealed-password-command> | ./scripts/secrets/infisical-devbox-sudo-seal.sh
-```
-
-The left side must emit only the password and must not place it in argv or shell
-history. The sealing helper performs a local decrypt/compare and refuses a
-remaining plaintext `SUDO_PASSWORD` secret.
-Then run:
-
-```sh
-./scripts/secrets/infisical-devbox-sudo.sh -- <non-interactive-command>
-```
-
-For a SOPS-backed deployment, keep the same inner `SUDO_PASSWORD_AGE`
-ciphertext in an identity-scoped SOPS payload and set its absolute path in the
-owner-only devbox config:
-
-```dotenv
-SOPS_SUDO_SECRET_FILE=/absolute/path/to/identity-sudo.sops.json
-```
-
-Run the equivalent process-boundary wrapper:
-
-```sh
-./scripts/secrets/sops-devbox-sudo.sh -- <non-interactive-command>
-```
-
-The deployment's general SOPS age identity decrypts the outer payload. The
-separate sudo age identity decrypts the password only when askpass is invoked.
-Both identities must remain owner-only and have independent recovery copies.
-
-Commands such as Homebrew must remain unprivileged but may invoke sudo for a
-narrow application-bundle ownership step. Run those through nested mode so the
-child command receives the fixed askpass boundary without running the whole
-tool as root. Run it from a terminal; remote automation must allocate a PTY so
-the child's sudo calls can reuse the authenticated ticket:
-
-```sh
-./scripts/secrets/infisical-devbox-sudo.sh --nested -- \
-  ./scripts/bootstrap/brew-devbox.sh upgrade --cask <cask>
-```
-
-The wrapper mints a short-lived machine token and writes only ciphertext to an
-owner-only temporary file. The fixed askpass helper decrypts that ciphertext on
-demand each time `sudo -k -A` requests authentication, so retries do not hang
-and the wrapper or long-running command never retains plaintext. The command
-keeps the caller's original stdin, including when authentication is cached or
-the command is covered by `NOPASSWD`. The wrapper does not export the password,
-write plaintext to a regular local file, or mix it into application env.
-Nested mode gives the unprivileged child access to that same temporary askpass
-boundary for the duration of the command, which carries the same arbitrary-root
-delegation as direct mode.
-
-Project-level identities may be able to read sibling ciphertext on Infisical
-plans without path-scoped RBAC. That is not a plaintext disclosure: each
-ciphertext is encrypted to a different host-local age identity. Prove sibling
-decryption fails. Treat write access to sibling ciphertext as a denial-of-service
-risk and keep the 1Password recovery copy current.
-
-This is intentional arbitrary-root delegation, not an approval gate or command
-allowlist. Any process running as the devbox user can read its machine identity
-config and invoke the wrapper. Use it only for dedicated, trusted agent
-accounts where compromise of that Unix identity is accepted as host-root
-compromise. Use root-owned allowlisted helpers or narrow `sudoers` rules when a
-runtime must not receive arbitrary root.
-
-Small `AGENTS.md` snippet for a repo that frequently needs runtime secrets:
-
-```md
-## Secrets
-
-On agent devboxes, use Infisical through the dotfiles runner:
-
-`INFISICAL_SECRET_PATH=/this-repo/runtime ~/projects/dotfiles/scripts/secrets/infisical-devbox-run.sh -- make secrets-setup`
-
-Do not use 1Password, workspace `.env` symlinks, or committed/generated secret
-files for agent runtime env.
-```
-
-Do not add dotfiles scripts that render another repo's secrets. If a consumer
-repo needs a better secret setup flow, add the wrapper to that repo.
-
-If setup fails with `Invalid credentials`, check that the ID came from the
-Universal Auth method. The machine identity ID in the details panel is not a
-Universal Auth client ID and cannot mint a token.
-
-## Agent SSH Key Storage
-
-Devbox agent SSH keys may be stored as Infisical secrets. This keeps the key in
-the same human-plus-agent sharing system as runtime env while avoiding
-1Password service-account plumbing in agents.
-
-Use this shape:
-
-1. Store the private key under the devbox or agent secret boundary that needs
-   it.
-2. Store the public key, fingerprint, and key type beside it.
-3. Store a base64 copy when a shell or CLI path needs a single-line value.
-4. Grant the machine identity only the project/path it needs.
-5. Retrieve the key only into the command environment or an owner-only local
-   key file, then set mode `0600`.
-
-The retrieval command shape is:
-
-```sh
-SSH_PRIVATE_KEY_B64_SECRET=EXAMPLE_SSH_PRIVATE_KEY_B64
-INFISICAL_SSH_SECRET_PATH=/example-devbox/ssh
-SSH_IDENTITY_FILE="$HOME/.ssh/example"
-
-INFISICAL_SECRET_PATH="$INFISICAL_SSH_SECRET_PATH" \
-SSH_PRIVATE_KEY_B64_SECRET="$SSH_PRIVATE_KEY_B64_SECRET" \
-  ./scripts/secrets/infisical-devbox-run.sh -- \
-  sh -c '
-    infisical secrets get "$SSH_PRIVATE_KEY_B64_SECRET" \
-      --domain "$INFISICAL_DOMAIN" \
-      --token "$INFISICAL_TOKEN" \
-      --projectId "$INFISICAL_PROJECT_ID" \
-      --env "$INFISICAL_ENV" \
-      --path "$INFISICAL_SECRET_PATH" \
-      --plain \
-      --silent
-  ' | base64 --decode > "$SSH_IDENTITY_FILE"
-
-chmod 600 "$SSH_IDENTITY_FILE"
-ssh-keygen -y -f "$SSH_IDENTITY_FILE" | ssh-keygen -lf -
-```
-
-Verify by fingerprint only. Do not print private keys, paste key values into
-chat, commit key material, or keep Infisical client secrets in shell startup,
-launchd, process-compose, tracked files, or long-lived shells.
-
-Before treating a devbox as agent-ready:
-
-1. Verify the machine identity can list or export the intended project/path.
-2. Verify `infisical login status --domain https://eu.infisical.com/api` has no
-   authenticated `user` session.
-3. Verify no default shell exports Infisical tokens or machine credentials.
-
-`./scripts/verify/devbox-services.sh` checks the Infisical CLI, owner-only
-config modes, and machine identity token minting. Set
-`INFISICAL_SECRET_PATH=/some/path` only when you want that check to also prove
-access to a specific command-boundary path. When the local config contains
-`INFISICAL_SUDO_SECRET_PATH`, the check also proves that non-empty
-`SUDO_PASSWORD_AGE`, the local mode-`0600` age identity, and the trusted age
-binary are available without printing secret material. A missing persistent
-machine identity config fails by default. Set
-`INFISICAL_MACHINE_AUTH_REQUIRED=0` in the owner-only devbox config only after
-every workflow for that user has moved to another explicit process-boundary
-secret source such as SOPS.
-
-## Secret Topology
-
-Use secret-manager projects and vaults to model capability boundaries. A
-boundary should answer "which runtime needs this secret?" rather than "which
-human knows about this project?"
-
-Use this generic split:
-
-| Context | Vault | Access |
-| --- | --- | --- |
-| Human operations | 1Password and Infisical | Humans only. |
-| Shared env | Infisical `<context>` project | Humans and approved agent identities. |
-| Devbox agents | Infisical identity scoped to the devbox user | Env and SSH key material for that devbox identity only. |
-| CI | `<context>-ci` | GitHub Actions or the relevant CI runtime only. |
-| Shared CI lane | `<lane>-ci` | Only the CI jobs for that lane. |
-
-Do not share service tokens across these boundaries. CI, devbox agents, and
-humans are different runtimes and should get different credentials even when
-they work on related projects. Store bootstrap/recovery credentials where
-humans can rotate them, not inside the same runtime scope the credential reads.
-
-## Identity Boundaries
-
-Shared devboxes may host multiple agent identities. Keep their Unix users, Git
-identity, GitHub auth, SSH keys, Codex/Claude config, trusted project paths,
-workspaces, and Infisical access separate.
-
-The goal is to avoid ambient cross-context access. A compromised package,
-agent session, or service in one identity should not automatically get another
-identity's Slack, GitHub, CI, or Infisical capabilities.
-
-If an identity needs access outside its normal context for a specific task,
-grant it explicitly and temporarily, then remove that access after the task.
-
-For GitHub, devbox repos should use SSH remotes. A human should provision the
-per-user GitHub key into an owner-only local key file during bootstrap.
+Devbox Git repositories normally use SSH remotes for human identities.
 `configure-git.sh --profile devbox` writes a `Host github.com` override in
-`~/.ssh/github.config` when the signing key is a local path. That override uses
-the local key file directly and sets `IdentityAgent none` for GitHub only.
+`~/.ssh/github.config` when the signing key is a local path.
 
 ## Local Contract
 
-Each devbox user should have a local config file outside Git:
+Optional per-user service settings live outside Git at
+`~/.config/dotfiles/devbox.env` with mode `0600`:
 
 ```sh
 DEVBOX_USER=example
-PROCESS_COMPOSE_SOCKET="/Users/example/.local/run/process-compose.sock"
-INFISICAL_DOMAIN=https://eu.infisical.com/api
-INFISICAL_PROJECT_ID=example-project-id
-INFISICAL_ENV=dev
+PROCESS_COMPOSE_SOCKET="$HOME/.local/run/process-compose.sock"
 ```
 
-The file should be mode `0600`. Persistent machine credentials live separately
-in `~/.config/dotfiles/infisical-machine.env`, also mode `0600`:
-
-```sh
-INFISICAL_CLIENT_ID=...
-INFISICAL_CLIENT_SECRET=...
-```
-
-Keep both files out of Git. Do not create repo-local workspace `.env` symlinks
-for agent runtime env.
-
-A SOPS-only devbox with no Infisical consumers may omit the project selectors
-and machine credential file, and declare that boundary in `devbox.env`:
-
-```sh
-INFISICAL_MACHINE_AUTH_REQUIRED=0
-```
-
-If a devbox identity does not run process-compose, set
-`PROCESS_COMPOSE_ENABLED=0` in its local config so verification does not
-accidentally query another user's supervisor.
+Set `PROCESS_COMPOSE_ENABLED=0` when the user runs no process-compose services.
+Do not create broad workspace env bundles or load secrets in shell startup.
 
 ## Supervisor
 
-Use process-compose as the per-user supervisor for always-on agent services
-when the identity needs it. Launchd should start process-compose;
-process-compose should own service restart policy, logs, health checks, and
-one-shot tasks.
-
-On a shared headless Mac, a user's `~/Library/LaunchAgents` jobs start only
-when that user owns a GUI login session. If another identity owns automatic
-login, migrate the required background services to root-owned system
-LaunchDaemons that use `UserName` to drop privileges back to the service
-identity:
-
-```zsh
-sudo ./scripts/bootstrap/install-devbox-service-daemons.sh --user agent-user --openclaw
-sudo ./scripts/bootstrap/install-devbox-service-daemons.sh --user agent-user --healthd
-```
-
-For a headless assistant whose workspace injects runtime secrets directly at
-the process boundary, pass its owner-controlled wrapper and a unique gateway
-port. This avoids a GUI LaunchAgent and allows multiple isolated assistants on
-one Mac without sharing a plaintext env file:
-
-```zsh
-sudo ./scripts/bootstrap/install-devbox-service-daemons.sh \
-  --user agent-user \
-  --openclaw \
-  --allow-openclaw-restart \
-  --openclaw-wrapper /absolute/path/to/runtime-wrapper.sh \
-  --openclaw-port 18790
-```
-
-The wrapper must be an absolute executable path owned by the target user. It
-receives the resolved OpenClaw executable followed by `gateway --port PORT`.
-Keep the default `18789` only when no other user on the host owns that port.
-
-`--allow-openclaw-restart` installs one root-owned sudoers policy that lets the
-selected user restart only its exact system LaunchDaemon without a password:
-
-```zsh
-sudo -n /bin/launchctl kickstart -k \
-  system/local.dotfiles.openclaw-gateway.agent-user
-```
-
-The rule does not authorize service installation, unloads, other launchd
-labels, an interactive root shell, or arbitrary root commands. As the selected
-user, include the same flag with `--check` to verify the effective exact-command
-authorization. Run that check as root to additionally verify the policy
-content, ownership, mode, and sudoers syntax. The flag can be run without
-`--openclaw` to add or verify this policy for an already-installed gateway
-without restarting the service.
-
-The installer does not retire per-user LaunchAgents. An agent or authorized
-administrator must unload and archive the old job first, then install and
-verify one replacement service per invocation so failures stay isolated.
-
-The workload wrapper for an externally supervised OpenClaw gateway must export
-both `OPENCLAW_SUPERVISOR_MODE=external` and
-`OPENCLAW_SERVICE_REPAIR_POLICY=external`. These prevent OpenClaw lifecycle and
-Doctor commands from installing or repairing a competing user LaunchAgent.
-Treat the exact `launchctl print system/<label>` result plus a required gateway
-RPC probe and configured-channel probes as runtime health; the primary service
-line in `openclaw gateway status` still describes OpenClaw's managed user
-LaunchAgent.
-
-New system jobs use the vendor-neutral `local.dotfiles.<service>.<user>` label
-namespace. Pass `--namespace org.example.dotfiles` when an organization needs
-its own stable namespace. The installer stores the resolved value in the target
-user's owner-only `~/.config/dotfiles/launchd-namespace`; later install, check,
-and live verification commands reuse it automatically and reject a conflicting
-explicit namespace. Installation records this write-ahead contract before its
-first service mutation so a partial multi-service retry cannot drift to another
-namespace. Check mode never creates it.
-
-The installer does not automatically replace a matching legacy `com.uinaf.*.<user>`
-system job. It fails before changing services when the old
-plist exists or remains loaded. Retire that job explicitly during a maintenance
-window, then rerun the installer.
-
-Healthd may run directly under launchd when it is the fleet monitor; it does
-not need an extra process-compose layer. Verify boot-independent service
-definitions without changing them (the healthd and colima functional checks
-run only when invoked as root or the target user; other callers get the
-launchd-level check plus a skip notice):
-
-```zsh
-./scripts/bootstrap/install-devbox-service-daemons.sh \
-  --check \
-  --user agent-user \
-  --process-compose \
-  --openclaw \
-  --allow-openclaw-restart \
-  --healthd
-```
-
-A user that needs only the existing `~/.local/bin/colima-ensure` boot task can
-use `--colima` instead of running a process-compose supervisor solely for that
-one-shot command. `--check --colima` asserts the Colima runtime is up, not
-merely that the boot task is loaded, so it fails after an intentional
-`colima stop`.
-
-Keep the system jobs root-owned and mode `0644`. They may name owner-only env
-files and wrappers, but must not embed secret values in the plist. The service
-processes still run as the selected Unix identity.
-
-Prefer a per-user Unix socket over a shared localhost TCP port:
+Use process-compose as the per-user supervisor for long-running agent services.
+Launchd starts process-compose; process-compose owns restart policy, health
+checks, logs, and one-shot tasks. Prefer a per-user Unix socket:
 
 ```text
 ~/.local/run/process-compose.sock
 ```
 
-Do not reuse another identity's process-compose port or socket.
-
-Do not put secrets directly into launchd plists or process-compose YAML. Use
-Infisical at the command boundary for workspace/app env.
+System LaunchDaemons must be root-owned and mode `0644`. They may reference
+owner-only files and wrappers but must never embed secret values.
 
 ## Verification
 
-Shared Homebrew mutations must run once from the owning admin identity through
-`scripts/bootstrap/brew-devbox.sh`; `brew-bundle.sh devbox` uses that wrapper
-internally. The wrapper rejects callers who do not own the Homebrew prefix.
-Its group-safe umask applies only to the Homebrew child process so package code
-remains usable by every devbox identity without weakening normal shell
-defaults. Bootstrap package verification sets `HOMEBREW_NO_AUTO_UPDATE=1` and
-does not mutate the shared checkout.
+Run each check as the intended Unix identity:
 
-Run the normal bootstrap check for each user:
-
-```zsh
+```bash
 ./scripts/verify/bootstrap.sh --profile devbox
-```
-
-Devbox Git config includes `/opt/homebrew` as a safe directory so local admin
-users can operate on the shared Homebrew prefix without Git dubious-ownership
-failures.
-
-Run the devbox-specific boundary check for each devbox user:
-
-```zsh
 ./scripts/verify/devbox-services.sh
+./scripts/audit/devbox.sh --json
 ```
 
-That check verifies process-compose, default shell auth exports, Infisical CLI
-availability, persistent machine credential file permissions, and configured
-machine identity access. It also fails if the Infisical CLI has an
-authenticated human `user` session on the devbox.
+The bootstrap gate checks the selected profile packages and shared config. The
+service gate verifies the age identity, local config, launchd boundary, and
+process-compose instance. The audit additionally checks stale secret-looking
+files, Git/GitHub identity, SSH permissions, project privacy, Tailscale health,
+and local service state.
 
-The bootstrap check runs Homebrew doctor and bundle checks as the current
-identity. Repair a reported package by reinstalling it through
-`brew-devbox.sh`; use a targeted permission repair only when Homebrew itself
-cannot run, and never recursively change permissions across the full prefix.
-
-Run the devbox security audit for each devbox user:
-
-```zsh
-./scripts/audit/devbox.sh
-```
-
-That audit is stricter than verification. It checks stale secret-looking
-backups, Git/GitHub identity, SSH key permissions, GitHub SSH auth, admin group
-drift, Tailscale health, and local service config.
-
-Treat prose audit output as sensitive. Maintained scanners can include matched
-secret material when they report a verified leak, so use `--json` for remote
-collection and summarize findings by detector type, file path, and line number.
-
-If the audit reports that direct MagicDNS works but the system resolver is not
-using Tailscale DNS, restart the Homebrew Tailscale daemon from a local admin
-session:
-
-```zsh
-sudo launchctl kickstart -k system/homebrew.mxcl.tailscale
-```
-
-Then rerun `./scripts/audit/devbox.sh`. The repaired resolver should resolve
-Tailscale short hostnames through normal system lookup, not only through direct
-queries to `100.100.100.100`.
-
-If the daemon restart does not restore resolver wiring, recreate the resolver
-files explicitly:
-
-```zsh
-sudo mkdir -p /etc/resolver
-printf 'nameserver 100.100.100.100\nsearch <tailnet>.ts.net\n' \
-  | sudo tee /etc/resolver/search.tailscale >/dev/null
-printf 'nameserver 100.100.100.100\n' \
-  | sudo tee /etc/resolver/<tailnet>.ts.net >/dev/null
-printf 'nameserver 100.100.100.100\n' \
-  | sudo tee /etc/resolver/ts.net >/dev/null
-sudo dscacheutil -flushcache
-sudo killall -HUP mDNSResponder
-```
-
-For broad OS-level posture, run `./scripts/audit/host.sh`. It uses
-Lynis as a maintained host scanner and keeps full reports out of the repo by
-default.
-
-For compliance-style OS posture, run `./scripts/audit/repo.sh` after
-generating a macOS Security Compliance Project check-only script for the host's
-macOS version. Start with check-only results and review exceptions before
-applying any remediation outside this repo. See
-[Security audits](security-audits.md) for the full audit model.
+Treat prose audit output as sensitive because scanners may include matched
+material. Prefer `--json` for remote collection and summarize findings by
+detector, path, and line number.

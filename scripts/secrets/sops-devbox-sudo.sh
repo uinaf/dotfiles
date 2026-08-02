@@ -5,10 +5,8 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 # shellcheck source=scripts/lib/config-paths.sh
 . "$repo_root/scripts/lib/config-paths.sh"
-# shellcheck source=scripts/lib/infisical.sh
-. "$repo_root/scripts/lib/infisical.sh"
-# shellcheck source=scripts/lib/infisical-sudo.sh
-. "$repo_root/scripts/lib/infisical-sudo.sh"
+# shellcheck source=scripts/lib/sudo-age.sh
+. "$repo_root/scripts/lib/sudo-age.sh"
 
 config_path="$(dotfiles_resolve_config_file "${DEVBOX_CONFIG:-}" devbox.env)"
 sudo_age_identity_file="$(dotfiles_resolve_config_file "${SUDO_AGE_IDENTITY_FILE:-}" sudo-age-identity.txt)"
@@ -68,31 +66,31 @@ consume_secret() {
   [ "$#" -gt 0 ] || fail "missing sudo command"
   [ -n "${SUDO_PASSWORD_AGE:-}" ] || fail "SOPS returned an empty sudo credential"
   [ -x /usr/bin/sudo ] || fail "missing /usr/bin/sudo"
-  [ -x "$repo_root/scripts/lib/infisical-sudo-askpass.sh" ] \
+  [ -x "$repo_root/scripts/lib/sudo-age-askpass.sh" ] \
     || fail "missing sudo askpass helper"
   [ -f "$sudo_age_identity_file" ] || fail "missing $sudo_age_identity_file"
   local identity_mode
-  identity_mode="$(infisical_file_mode "$sudo_age_identity_file")"
+  identity_mode="$(sudo_age_file_mode "$sudo_age_identity_file")"
   [ "$identity_mode" = "600" ] \
     || fail "$sudo_age_identity_file mode is $identity_mode, expected 600"
   local age_bin
-  age_bin="$(infisical_sudo_find_age)" || fail "missing age"
+  age_bin="$(sudo_age_find_age)" || fail "missing age"
   local sudo_password_ciphertext="$SUDO_PASSWORD_AGE"
   unset SUDO_PASSWORD_AGE
 
   local command_status=0
   if [ "$execution_mode" = "nested" ]; then
-    infisical_sudo_exec_nested \
+    sudo_age_exec_nested \
       /usr/bin/sudo \
-      "$repo_root/scripts/lib/infisical-sudo-askpass.sh" \
+      "$repo_root/scripts/lib/sudo-age-askpass.sh" \
       "$age_bin" \
       "$sudo_age_identity_file" \
       "$sudo_password_ciphertext" \
       "$@" || command_status=$?
   else
-    infisical_sudo_exec \
+    sudo_age_exec \
       /usr/bin/sudo \
-      "$repo_root/scripts/lib/infisical-sudo-askpass.sh" \
+      "$repo_root/scripts/lib/sudo-age-askpass.sh" \
       "$age_bin" \
       "$sudo_age_identity_file" \
       "$sudo_password_ciphertext" \
@@ -104,7 +102,7 @@ consume_secret() {
 
 if [ "${1:-}" = "--consume-secret" ]; then
   shift
-  infisical_sudo_install_cleanup_traps
+  sudo_age_install_cleanup_traps
   consume_secret "$@"
   exit $?
 fi
@@ -122,7 +120,7 @@ fi
 }
 
 [ -f "$config_path" ] || fail "missing $config_path"
-config_mode="$(infisical_file_mode "$config_path")"
+config_mode="$(sudo_age_file_mode "$config_path")"
 [ "$config_mode" = "600" ] || fail "$config_path mode is $config_mode, expected 600"
 # shellcheck disable=SC1090
 . "$config_path"

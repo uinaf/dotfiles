@@ -2,12 +2,10 @@
 set -euo pipefail
 
 config_path="${DEVBOX_CONFIG:-}"
-machine_config_path="${INFISICAL_MACHINE_CONFIG:-}"
 devbox_user="${DEVBOX_USER:-$USER}"
 process_compose_enabled="${PROCESS_COMPOSE_ENABLED:-1}"
 process_compose_port="${PROCESS_COMPOSE_PORT:-9191}"
 process_compose_socket="${PROCESS_COMPOSE_SOCKET:-}"
-infisical_domain="${INFISICAL_DOMAIN:-https://eu.infisical.com/api}"
 json_output=0
 warn_count=0
 fail_count=0
@@ -16,8 +14,6 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 # shellcheck source=scripts/lib/audit.sh
 . "$repo_root/scripts/lib/audit.sh"
-# shellcheck source=scripts/lib/infisical.sh
-. "$repo_root/scripts/lib/infisical.sh"
 
 usage() {
   cat <<'USAGE'
@@ -136,7 +132,6 @@ while [ "$#" -gt 0 ]; do
 done
 
 config_path="$(dotfiles_resolve_config_file "$config_path" devbox.env)"
-machine_config_path="$(dotfiles_resolve_config_file "$machine_config_path" infisical-machine.env)"
 
 section "local devbox config"
 
@@ -148,7 +143,6 @@ if [ -e "$config_path" ]; then
   process_compose_enabled="${PROCESS_COMPOSE_ENABLED:-$process_compose_enabled}"
   process_compose_port="${PROCESS_COMPOSE_PORT:-$process_compose_port}"
   process_compose_socket="${PROCESS_COMPOSE_SOCKET:-$process_compose_socket}"
-  infisical_domain="${INFISICAL_DOMAIN:-$infisical_domain}"
 else
   warn "missing optional $config_path; using defaults"
 fi
@@ -160,61 +154,6 @@ else
 fi
 
 load_audit_policy
-
-section "default shell secret boundary"
-
-if [ -z "${INFISICAL_TOKEN+x}" ] \
-  && [ -z "${INFISICAL_CLIENT_ID+x}" ] \
-  && [ -z "${INFISICAL_CLIENT_SECRET+x}" ]; then
-  ok "current shell does not export Infisical auth material"
-else
-  fail_check "current shell exports Infisical auth material"
-fi
-
-if [ "$json_output" -eq 1 ]; then
-  zsh_login_has_no_infisical_token="$(zsh -lic 'test -z "${INFISICAL_TOKEN+x}" && test -z "${INFISICAL_CLIENT_ID+x}" && test -z "${INFISICAL_CLIENT_SECRET+x}"' >/dev/null 2>&1; printf '%s' "$?")"
-elif zsh -lic 'test -z "${INFISICAL_TOKEN+x}" && test -z "${INFISICAL_CLIENT_ID+x}" && test -z "${INFISICAL_CLIENT_SECRET+x}"'; then
-  zsh_login_has_no_infisical_token=0
-else
-  zsh_login_has_no_infisical_token=1
-fi
-
-if [ "$zsh_login_has_no_infisical_token" = "0" ]; then
-  ok "login shell does not export Infisical auth material"
-else
-  fail_check "login shell exports Infisical auth material"
-fi
-
-section "infisical"
-
-if command -v infisical >/dev/null 2>&1; then
-  infisical_status_exit=0
-  ok "infisical CLI is installed"
-
-  infisical_capture_login_status "$infisical_domain"
-  infisical_status_json="$INFISICAL_LOGIN_STATUS_JSON"
-  infisical_status_exit="$INFISICAL_LOGIN_STATUS_EXIT"
-  if [ -z "$infisical_status_json" ] || ! infisical_status_has_sessions; then
-    fail_check "could not inspect Infisical login status"
-  elif infisical_status_has_authenticated_human_user; then
-    fail_check "Infisical CLI has an authenticated human user session"
-  elif [ "$infisical_status_exit" -eq 0 ]; then
-    ok "no authenticated Infisical human user session"
-  elif infisical_status_has_only_inactive_sessions; then
-    ok "no authenticated Infisical human user session; CLI returned nonzero for inactive session state"
-  else
-    fail_check "could not verify Infisical login status session state"
-  fi
-else
-  fail_check "infisical CLI is missing"
-fi
-
-if [ -e "$machine_config_path" ]; then
-  check_mode_any fail "$machine_config_path" 600
-  ok "Infisical machine config is owner-only"
-else
-  warn "missing optional $machine_config_path"
-fi
 
 section "process-compose boundary"
 

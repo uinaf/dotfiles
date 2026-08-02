@@ -342,12 +342,9 @@ on a GUI agent socket. Use `GIT_SSH_IDENTITY_FILE` when GitHub SSH auth should
 use a different local key path than commit signing.
 
 If the devbox runs long-lived workspace or agent services, follow
-[Devbox setup](devbox.md). The short version: run
-`./scripts/secrets/configure-infisical-devbox.sh` once with a human-supplied
-Universal Auth client ID/secret, keep human Infisical CLI sessions off agent
-devboxes, keep long-lived tokens out of default shells and process-compose YAML,
-and run routine secret-aware commands through
-`./scripts/secrets/infisical-devbox-run.sh`.
+[Devbox setup](devbox.md). Provision and back up the dedicated SOPS age
+identity, keep plaintext out of default shells and process-compose YAML, and
+let each workspace own its narrow SOPS consumers.
 
 Verify each devbox user:
 
@@ -486,9 +483,9 @@ can hang.
   `configure-git.sh --profile devbox --non-interactive` with
   `GIT_SIGNING_KEY` or `GIT_SSH_IDENTITY_FILE` pointing at the owner-only local
   private key file.
-- If shared env access is missing over SSH, check the Infisical/devbox contract
-  in [Devbox setup](devbox.md) instead of exporting service tokens in shell
-  startup.
+- If shared env access is missing over SSH, check the SOPS recipient and
+  deployment identity in [Devbox setup](devbox.md) instead of exporting service
+  tokens in shell startup.
 - If `codex` is not installed yet for a workstation or devbox user,
   `install.sh` skips Codex defaults; rerun it after installing the developer
   Homebrew layer.

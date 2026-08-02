@@ -155,7 +155,6 @@ output may include matched secret material.
 
 It checks:
 
-- default shells do not export `INFISICAL_TOKEN`
 - local Git, SSH, and Codex config files are owner-only where expected
 - Gitleaks and TruffleHog do not report leaks in shell startup, shell history,
   SSH config, common credential files, Docker config, or LaunchAgents
@@ -186,8 +185,6 @@ scanner output may include matched secret material.
 
 It checks:
 
-- default shells do not export Infisical tokens or machine credentials
-- Infisical CLI is installed
 - process-compose is isolated through the configured socket or port
 - local service config, backup files, and shell history do not contain obvious
   secret references

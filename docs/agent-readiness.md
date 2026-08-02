@@ -16,7 +16,7 @@ flow to drive. Agent readiness means an agent can:
 | Bootable | pass | `scripts/bootstrap/brew-bundle.sh` installs shared plus profile bundles; `scripts/bootstrap/install.sh` applies the repo-local chezmoi source state and Codex defaults. | First-time macOS still needs Command Line Tools, Homebrew, and GitHub auth. |
 | Testable | pass | `scripts/verify/repo.sh` runs shell syntax, ShellCheck, profile rendering and layer contracts, SOPS age identity provisioning contracts, vendor-neutral naming checks, the shared-host Homebrew wrapper contract, isolated Git bootstrap, Actionlint, diff hygiene, entrypoint checks, and secret scans. | Live bootstrap checks require a matching role on macOS. |
 | Observable | pass | Verification and audit scripts print stable sectioned output; security audits also support compact `--json` summaries; CI exposes Verify and Secret scanning logs. | SARIF output is not generated yet. |
-| Verifiable | pass | `.github/workflows/verify.yml`, `.github/workflows/secrets.yml`, `scripts/verify/bootstrap.sh`, `scripts/verify/devbox-services.sh`, and audit scripts. | Host-local Infisical auth and service checks cannot run meaningfully on GitHub-hosted CI. |
+| Verifiable | pass | `.github/workflows/verify.yml`, `.github/workflows/secrets.yml`, `scripts/verify/bootstrap.sh`, `scripts/verify/devbox-services.sh`, and audit scripts. | Host-local age identity and service checks cannot run meaningfully on GitHub-hosted CI. |
 
 Overall grade: **B for a bootstrap repo**.
 
@@ -34,7 +34,7 @@ SARIF for tools that can emit it cleanly.
 | Workstation bootstrap | `mise run verify:bootstrap:workstation` | Desktop/developer CLIs, Homebrew layers, SOPS age identity, mise, Codex defaults, and installed config exist. |
 | Devbox bootstrap | `mise run verify:bootstrap:devbox` | Shared/devbox CLIs, Homebrew doctor and bundle checks, SOPS age identity, mise, Codex defaults, and installed config pass on the live host. |
 | Assistant bootstrap | `mise run verify:bootstrap:assistant` | Minimal runtime layers, SOPS age identity, and the managed Git base plus workload commit identity match the assistant contract. |
-| Devbox service boundary | `mise run verify:devbox-services` | process-compose and Infisical CLI availability match the local devbox contract. |
+| Devbox service boundary | `mise run verify:devbox-services` | SOPS age identity, launchd, and process-compose match the local devbox contract. |
 | Devbox security drift | `mise run audit:devbox` | Secret boundaries, Git/GitHub identity, SSH key modes, admin drift, and Tailscale health are sane for that Unix user. |
 | Workstation security drift | `mise run audit:workstation` | Human shell, Git, SSH, Codex, and local secret boundaries do not show obvious drift. |
 | Host hardening audit | `mise run audit:host` | Lynis runs as a maintained broad host scanner and reports hardening index, warnings, and suggestions. |

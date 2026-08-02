@@ -88,9 +88,6 @@ grep -Fqx 'shell-integration-features = ssh-env,ssh-terminfo' "$ghostty_config" 
   fail "managed Ghostty config does not enable SSH environment and terminfo integration"
 printf 'ok managed Ghostty SSH environment and terminfo integration\n'
 
-section "Infisical sudo runner"
-./scripts/verify/infisical-devbox-sudo.sh
-
 section "SOPS age identity"
 ./scripts/verify/sops-age-identity.sh
 

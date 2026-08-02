@@ -36,8 +36,8 @@ agent guide.
 
 Machine-local secrets belong in explicit owner-only local storage or an
 approved secret manager. Assistants use the SOPS/age and GitHub App contract in
-[Identity provisioning](docs/identities.md). Coding devboxes may use the
-Infisical contract in [Devbox setup](docs/devbox.md). Do not revive workspace
+[Identity provisioning](docs/identities.md). Coding devboxes use the same
+SOPS/age boundary in [Devbox setup](docs/devbox.md). Do not revive workspace
 `.env` symlinks, generated secret files, or password-manager service-account
 refresh stacks.
 

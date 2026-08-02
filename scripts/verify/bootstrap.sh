@@ -66,7 +66,6 @@ common_cli_checks=(
   "chezmoi --version"
   "git --version"
   "mise --version"
-  "infisical --version"
   "sops --version"
 )
 
