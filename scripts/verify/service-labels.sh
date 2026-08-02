@@ -37,6 +37,28 @@ custom_with_underscore="$("$installer" --user example --namespace org.example_te
 [ "$custom_with_underscore" = "$underscore_expected" ] \
   || fail "an advertised underscore was not applied consistently"
 
+restart_rule="$(dotfiles_openclaw_restart_sudoers_rule \
+  example \
+  local.dotfiles.openclaw-gateway.example)"
+[ "$restart_rule" = \
+  'example ALL=(root) NOPASSWD: /bin/launchctl kickstart -k system/local.dotfiles.openclaw-gateway.example' ] \
+  || fail "OpenClaw restart sudoers rule is not exact"
+if dotfiles_openclaw_restart_sudoers_rule 'bad user' local.dotfiles.openclaw-gateway.example >/dev/null 2>&1; then
+  fail "OpenClaw restart sudoers rule accepted an invalid user"
+fi
+if dotfiles_openclaw_restart_sudoers_rule example 'local.dotfiles.openclaw-gateway.example *' >/dev/null 2>&1; then
+  fail "OpenClaw restart sudoers rule accepted an invalid label"
+fi
+dot_name="$(dotfiles_openclaw_restart_sudoers_name a.b 501)"
+underscore_name="$(dotfiles_openclaw_restart_sudoers_name a_b 502)"
+[ "$dot_name" = dotfiles-openclaw-restart-a_b-501 ] \
+  || fail "OpenClaw restart sudoers filename missed the readable user and UID"
+[ "$dot_name" != "$underscore_name" ] \
+  || fail "OpenClaw restart sudoers filenames can collide across distinct users"
+if dotfiles_openclaw_restart_sudoers_name example 'not-a-uid' >/dev/null 2>&1; then
+  fail "OpenClaw restart sudoers filename accepted an invalid UID"
+fi
+
 if "$installer" --user example --namespace 'invalid namespace' --print-labels >/dev/null 2>&1; then
   fail "invalid LaunchDaemon namespace was accepted"
 fi
