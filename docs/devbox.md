@@ -133,7 +133,8 @@ For unattended elevated maintenance, store only an ASCII-armored age ciphertext
 as `SUDO_PASSWORD_AGE` in the identity's Infisical folder. Never store the
 plaintext password in Infisical. Each host keeps a dedicated age identity at
 `~/.config/dotfiles/sudo-age-identity.txt` with mode `0600`; its private value is
-recovery material and may be backed up to the matching human 1Password item.
+recovery material and belongs as a labeled attachment in the matching
+deployment or workload identity item in the human recovery system.
 Create or verify the local identity and print its public recipient with:
 
 ```sh
