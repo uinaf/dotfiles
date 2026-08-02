@@ -113,7 +113,7 @@ run_step() {
       fi
       ;;
     sync-agents)
-      "$repo_root/scripts/agents/sync.sh"
+      "$repo_root/scripts/agents/sync.ts"
       ;;
     *)
       printf 'unsupported install step: %s\n' "$1" >&2

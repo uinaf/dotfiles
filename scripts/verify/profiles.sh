@@ -172,11 +172,11 @@ fi
 EOF
   chmod 0700 "$install_fixture/scripts/bootstrap/$helper"
 done
-cat > "$install_fixture/scripts/agents/sync.sh" <<'EOF'
+cat > "$install_fixture/scripts/agents/sync.ts" <<'EOF'
 #!/usr/bin/env bash
-printf 'sync.sh\n' >> "${DOTFILES_INSTALL_LOG:?}"
+printf 'sync.ts\n' >> "${DOTFILES_INSTALL_LOG:?}"
 EOF
-chmod 0700 "$install_fixture/scripts/agents/sync.sh"
+chmod 0700 "$install_fixture/scripts/agents/sync.ts"
 for command_name in corepack mise npm codex; do
 cat > "$install_fixture/bin/$command_name" <<'EOF'
 #!/usr/bin/env bash
@@ -226,7 +226,7 @@ mise reshim --force
 corepack enable pnpm
 corepack install --global pnpm@11.18.0
 configure-codex.sh
-sync.sh
+sync.ts
 EOF
 )"
 assert_eq "$expected_install_log" "$(cat "$install_log")" "devbox install execution"
