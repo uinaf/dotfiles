@@ -106,6 +106,7 @@ check_config() {
     process_compose_enabled="${PROCESS_COMPOSE_ENABLED:-$process_compose_enabled}"
     process_compose_port="${PROCESS_COMPOSE_PORT:-$process_compose_port}"
     process_compose_socket="${PROCESS_COMPOSE_SOCKET:-$process_compose_socket}"
+    machine_auth_required="${INFISICAL_MACHINE_AUTH_REQUIRED:-$machine_auth_required}"
     infisical_domain="${INFISICAL_DOMAIN:-$infisical_domain}"
     infisical_project_id="${INFISICAL_PROJECT_ID:-$infisical_project_id}"
     infisical_env="${INFISICAL_ENV:-$infisical_env}"
@@ -116,6 +117,11 @@ check_config() {
     fi
     printf 'warn missing optional %s; using defaults\n' "$config_path"
   fi
+
+  case "$machine_auth_required" in
+    0|1) ;;
+    *) fail "INFISICAL_MACHINE_AUTH_REQUIRED must be 0 or 1" ;;
+  esac
 }
 
 check_no_default_secret_exports() {

@@ -290,9 +290,11 @@ config modes, and machine identity token minting. Set
 access to a specific command-boundary path. When the local config contains
 `INFISICAL_SUDO_SECRET_PATH`, the check also proves that non-empty
 `SUDO_PASSWORD_AGE`, the local mode-`0600` age identity, and the trusted age
-binary are available without printing secret material. A missing persistent machine
-identity config fails by default. Set `INFISICAL_MACHINE_AUTH_REQUIRED=0` only
-for repo-local smoke checks on a machine that is not acting as an agent devbox.
+binary are available without printing secret material. A missing persistent
+machine identity config fails by default. Set
+`INFISICAL_MACHINE_AUTH_REQUIRED=0` in the owner-only devbox config only after
+every workflow for that user has moved to another explicit process-boundary
+secret source such as SOPS.
 
 ## Secret Topology
 
@@ -356,6 +358,13 @@ INFISICAL_CLIENT_SECRET=...
 
 Keep both files out of Git. Do not create repo-local workspace `.env` symlinks
 for agent runtime env.
+
+A SOPS-only devbox with no Infisical consumers may omit the project selectors
+and machine credential file, and declare that boundary in `devbox.env`:
+
+```sh
+INFISICAL_MACHINE_AUTH_REQUIRED=0
+```
 
 If a devbox identity does not run process-compose, set
 `PROCESS_COMPOSE_ENABLED=0` in its local config so verification does not
