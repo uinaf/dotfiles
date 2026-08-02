@@ -4,6 +4,7 @@ set -euo pipefail
 target_user=""
 install_process_compose=0
 install_openclaw=0
+allow_openclaw_restart=0
 install_healthd=0
 install_colima=0
 openclaw_wrapper=""
@@ -26,6 +27,8 @@ Usage:
 Services:
   --process-compose  Run the user's process-compose supervisor at system boot.
   --openclaw         Run the user's OpenClaw gateway at system boot.
+  --allow-openclaw-restart
+                      Let the selected user restart only its exact system job.
   --healthd          Run the user's healthd monitor at system boot.
   --colima           Run the user's colima-ensure script once at system boot.
 
@@ -61,6 +64,9 @@ while [ "$#" -gt 0 ]; do
       ;;
     --openclaw)
       install_openclaw=1
+      ;;
+    --allow-openclaw-restart)
+      allow_openclaw_restart=1
       ;;
     --openclaw-wrapper)
       [ "$#" -ge 2 ] || fail "--openclaw-wrapper requires a value"
@@ -129,6 +135,7 @@ fi
 
 [ "$(uname -s)" = "Darwin" ] || fail "this installer supports macOS only"
 [ "$install_process_compose" -eq 1 ] || [ "$install_openclaw" -eq 1 ] \
+  || [ "$allow_openclaw_restart" -eq 1 ] \
   || [ "$install_healthd" -eq 1 ] \
   || [ "$install_colima" -eq 1 ] \
   || fail "select at least one service"
@@ -170,6 +177,9 @@ healthd_label="$(dotfiles_launchd_label healthd "$target_user" "$launchd_namespa
 colima_label="$(dotfiles_launchd_label colima "$target_user" "$launchd_namespace")"
 
 launch_daemon_dir="/Library/LaunchDaemons"
+sudoers_dir="/etc/sudoers.d"
+sudoers_user_slug="${target_user//./_}"
+openclaw_restart_sudoers="$sudoers_dir/dotfiles-openclaw-restart-$sudoers_user_slug"
 healthd_config="$target_home/.config/healthd/config.toml"
 healthd_binary=""
 colima_binary=""
@@ -270,6 +280,23 @@ check_job() {
   printf 'ok %s loaded for %s\n' "$label" "$target_user"
 }
 
+check_openclaw_restart_sudoers() {
+  local expected_rule
+
+  expected_rule="$(dotfiles_openclaw_restart_sudoers_rule "$target_user" "$openclaw_label")"
+  [ -f "$openclaw_restart_sudoers" ] && [ ! -L "$openclaw_restart_sudoers" ] \
+    || fail "missing regular sudoers policy $openclaw_restart_sudoers"
+  [ "$(stat -f '%Su:%Sg:%Lp' "$openclaw_restart_sudoers")" = "root:wheel:440" ] \
+    || fail "$openclaw_restart_sudoers must be root:wheel mode 0440"
+  if [ "$(wc -l < "$openclaw_restart_sudoers" | tr -d ' ')" != 1 ] \
+    || ! grep -Fqx -- "$expected_rule" "$openclaw_restart_sudoers"; then
+    fail "$openclaw_restart_sudoers does not match the exact OpenClaw restart policy"
+  fi
+  /usr/sbin/visudo -cf "$openclaw_restart_sudoers" >/dev/null \
+    || fail "invalid sudoers policy $openclaw_restart_sudoers"
+  printf 'ok %s may restart only %s\n' "$target_user" "$openclaw_label"
+}
+
 check_healthd() {
   local forbidden_agent="${1-com.uinaf.healthd}"
   check_job "$healthd_label" "$forbidden_agent"
@@ -300,6 +327,9 @@ if [ "$check_only" -eq 1 ]; then
   if [ "$install_openclaw" -eq 1 ]; then
     check_job "$openclaw_label" ai.openclaw.gateway
   fi
+  if [ "$allow_openclaw_restart" -eq 1 ]; then
+    check_openclaw_restart_sudoers
+  fi
   if [ "$install_healthd" -eq 1 ]; then
     check_healthd
   fi
@@ -312,6 +342,8 @@ fi
 [ "$(id -u)" -eq 0 ] || fail "run this installer as root"
 command -v plutil >/dev/null || fail "missing plutil"
 command -v launchctl >/dev/null || fail "missing launchctl"
+[ "$allow_openclaw_restart" -eq 0 ] || [ -x /usr/sbin/visudo ] \
+  || fail "missing /usr/sbin/visudo"
 
 tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/dotfiles-service-daemons.XXXXXX")"
 trap 'rm -rf "$tmp_dir"' EXIT
@@ -378,6 +410,20 @@ install_job() {
   launchctl kickstart -k "system/$label"
   launchctl print "system/$label" >/dev/null
   printf 'installed %s for %s\n' "$label" "$target_user"
+}
+
+install_openclaw_restart_policy() {
+  local policy_source="$tmp_dir/openclaw-restart-sudoers"
+
+  [ -d "$sudoers_dir" ] || fail "missing $sudoers_dir"
+  dotfiles_openclaw_restart_sudoers_rule "$target_user" "$openclaw_label" > "$policy_source"
+  chmod 0440 "$policy_source"
+  /usr/sbin/visudo -cf "$policy_source" >/dev/null \
+    || fail "generated OpenClaw restart policy is invalid"
+  install -o root -g wheel -m 0440 "$policy_source" "$openclaw_restart_sudoers"
+  /usr/sbin/visudo -cf /etc/sudoers >/dev/null \
+    || fail "installed sudoers policy does not validate with /etc/sudoers"
+  check_openclaw_restart_sudoers
 }
 
 reject_legacy_system_job() {
@@ -492,6 +538,10 @@ if [ "$install_openclaw" -eq 1 ]; then
       "$openclaw_port"
   fi
   install_job "$openclaw_plist" "$openclaw_label"
+fi
+
+if [ "$allow_openclaw_restart" -eq 1 ]; then
+  install_openclaw_restart_policy
 fi
 
 if [ "$install_healthd" -eq 1 ]; then

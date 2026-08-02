@@ -387,6 +387,7 @@ one Mac without sharing a plaintext env file:
 sudo ./scripts/bootstrap/install-devbox-service-daemons.sh \
   --user agent-user \
   --openclaw \
+  --allow-openclaw-restart \
   --openclaw-wrapper /absolute/path/to/runtime-wrapper.sh \
   --openclaw-port 18790
 ```
@@ -394,6 +395,20 @@ sudo ./scripts/bootstrap/install-devbox-service-daemons.sh \
 The wrapper must be an absolute executable path owned by the target user. It
 receives the resolved OpenClaw executable followed by `gateway --port PORT`.
 Keep the default `18789` only when no other user on the host owns that port.
+
+`--allow-openclaw-restart` installs one root-owned sudoers policy that lets the
+selected user restart only its exact system LaunchDaemon without a password:
+
+```zsh
+sudo -n /bin/launchctl kickstart -k \
+  system/local.dotfiles.openclaw-gateway.agent-user
+```
+
+The rule does not authorize service installation, unloads, other launchd
+labels, an interactive root shell, or arbitrary root commands. Include the
+same flag with `--check` to verify the policy content, ownership, mode, and
+sudoers syntax. The flag can be run without `--openclaw` to add or verify this
+policy for an already-installed gateway without restarting the service.
 
 The installer does not retire per-user LaunchAgents. An agent or authorized
 administrator must unload and archive the old job first, then install and
@@ -425,6 +440,7 @@ launchd-level check plus a skip notice):
   --user agent-user \
   --process-compose \
   --openclaw \
+  --allow-openclaw-restart \
   --healthd
 ```
 

@@ -73,3 +73,22 @@ dotfiles_launchd_label() {
   namespace="$(dotfiles_resolve_launchd_namespace "$requested_namespace")" || return
   printf '%s.%s.%s\n' "$namespace" "$service" "$user"
 }
+
+dotfiles_openclaw_restart_sudoers_rule() {
+  local user="${1:-}"
+  local label="${2:-}"
+
+  case "$user" in
+    ""|*[!A-Za-z0-9._-]*)
+      return 2
+      ;;
+  esac
+  case "$label" in
+    ""|*[!A-Za-z0-9._-]*)
+      return 2
+      ;;
+  esac
+
+  printf '%s ALL=(root) NOPASSWD: /bin/launchctl kickstart -k system/%s\n' \
+    "$user" "$label"
+}

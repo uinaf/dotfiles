@@ -37,6 +37,19 @@ custom_with_underscore="$("$installer" --user example --namespace org.example_te
 [ "$custom_with_underscore" = "$underscore_expected" ] \
   || fail "an advertised underscore was not applied consistently"
 
+restart_rule="$(dotfiles_openclaw_restart_sudoers_rule \
+  example \
+  local.dotfiles.openclaw-gateway.example)"
+[ "$restart_rule" = \
+  'example ALL=(root) NOPASSWD: /bin/launchctl kickstart -k system/local.dotfiles.openclaw-gateway.example' ] \
+  || fail "OpenClaw restart sudoers rule is not exact"
+if dotfiles_openclaw_restart_sudoers_rule 'bad user' local.dotfiles.openclaw-gateway.example >/dev/null 2>&1; then
+  fail "OpenClaw restart sudoers rule accepted an invalid user"
+fi
+if dotfiles_openclaw_restart_sudoers_rule example 'local.dotfiles.openclaw-gateway.example *' >/dev/null 2>&1; then
+  fail "OpenClaw restart sudoers rule accepted an invalid label"
+fi
+
 if "$installer" --user example --namespace 'invalid namespace' --print-labels >/dev/null 2>&1; then
   fail "invalid LaunchDaemon namespace was accepted"
 fi
