@@ -40,7 +40,8 @@ workload-specific packages. Workstation and devbox retain the full shared
 development runtime set, including Codex CLI, Claude Code CLI, and Cursor Agent
 CLI. Their install flow also syncs machine-global instructions and additive
 skills from `scripts/agents/`; see [Agent setup](agents.md). Zed and its managed
-settings belong only to the workstation profile.
+settings, along with the optional Cursor desktop app, belong only to the
+workstation profile.
 
 Assistant dotfile application installs a minimal Git base and the
 `gh-app-auth` execution adapter. It leaves App credentials unconfigured and

@@ -10,9 +10,11 @@ The repo has three per-user profiles:
 
 The role contract and host/user boundary are defined in [User profiles](profiles.md).
 Cursor Agent CLI is required for workstation and devbox profiles and installed per user with
-`./scripts/bootstrap/install-cursor-agent.sh`. The desktop app is not managed by
-this repository. Devbox shells use Cursor's owner-local file credential store
-because SSH sessions cannot depend on an unlocked macOS login keychain.
+`./scripts/bootstrap/install-cursor-agent.sh`. The optional Cursor desktop app
+is workstation-only and installed with
+`./scripts/bootstrap/install-cursor-desktop.sh`. Devbox shells use Cursor's
+owner-local file credential store because SSH sessions cannot depend on an
+unlocked macOS login keychain.
 
 Run commands from the repo root unless a step says otherwise.
 
@@ -100,7 +102,14 @@ Install Homebrew dependencies:
 ```zsh
 ./scripts/bootstrap/brew-bundle.sh workstation
 ./scripts/bootstrap/install-cursor-agent.sh
+./scripts/bootstrap/install-cursor-desktop.sh
 ```
+
+The Cursor desktop installer downloads the official architecture-specific disk
+image and refuses to install it unless both the Cursor vendor signature and the
+macOS Gatekeeper assessment pass. It does not remove quarantine attributes or
+replace an existing installation. Use `--verify-only` to validate the current
+vendor download without installing it.
 
 Install workstation Mac App Store apps and remove bundled apps this setup does not
 use:

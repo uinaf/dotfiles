@@ -12,7 +12,6 @@ cask "google-drive"
 # Auth and hardware security
 cask "1password"
 cask "1password-cli"
-cask "yubico-authenticator"
 brew "ykman"
 
 # Networking
@@ -34,7 +33,6 @@ cask "codexbar"
 cask "zed"
 cask "figma"
 cask "cleanshot"
-cask "screen-studio"
 cask "tuna"
 
 # Platform development
@@ -47,9 +45,8 @@ cask "imageoptim"
 cask "the-unarchiver"
 cask "vlc"
 
-# Remote desktop and containers
+# Remote desktop
 cask "parsec"
-brew "lazydocker"
 
 # App Store automation
 brew "mas"
