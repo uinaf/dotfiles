@@ -131,6 +131,18 @@ assert_eq "$(printf 'Brewfile\nBrewfile.developer\nBrewfile.devbox')" "$devbox_f
 workstation_files="$(dotfiles_profile_brewfiles workstation)"
 assert_eq "$(printf 'Brewfile\nBrewfile.developer\nBrewfile.workstation')" "$workstation_files" "workstation Brewfile layers"
 
+for required in 'cask "codex"' 'cask "claude-code@latest"'; do
+  grep -Fqx "$required" "$repo_root/Brewfile.developer" \
+    || fail "developer layer missed $required"
+done
+grep -Fqx 'cask "zed"' "$repo_root/Brewfile.workstation" \
+  || fail "workstation layer missed Zed"
+for file in Brewfile Brewfile.developer Brewfile.devbox Brewfile.assistant; do
+  if grep -Fqx 'cask "zed"' "$repo_root/$file"; then
+    fail "$file includes workstation-only Zed"
+  fi
+done
+
 assistant_steps="$("$repo_root/scripts/bootstrap/install.sh" --print-steps --profile assistant)"
 assert_eq "$(printf 'apply-dotfiles\ninstall-gh-app-auth')" "$assistant_steps" "assistant install steps"
 developer_steps="$("$repo_root/scripts/bootstrap/install.sh" --print-steps --profile workstation)"
@@ -309,13 +321,15 @@ devbox_managed="$({
 })"
 for required_path in \
   '.config/git/allowed_signers' \
-  '.config/zed/settings.json' \
   '.gitconfig' \
   '.local/libexec/dotfiles/git-ssh-sign-agentless' \
   '.ssh/config'; do
   printf '%s\n' "$devbox_managed" | grep -Fqx "$required_path" \
     || fail "devbox profile does not manage $required_path"
 done
+if printf '%s\n' "$devbox_managed" | grep -Eq '^\.config/zed(/|$)'; then
+  fail "devbox profile manages workstation-only Zed state"
+fi
 
 assistant_home="$tmp_root/assistant-applied"
 mkdir -p "$assistant_home"

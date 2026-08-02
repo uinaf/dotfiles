@@ -84,7 +84,8 @@ pins.
 | SOPS and age | Base layer plus explicit per-user identity provisioning | private identity backup, repository recipient policy, and encrypted payloads |
 | SSH (workstation/devbox) | `chezmoi/private_dot_ssh/private_config` | `~/.ssh/github.config`, `~/.ssh/config.local`, private keys |
 | Codex | installer-managed defaults, including ChatGPT-login enforcement | auth, sessions, approvals, memory, worktrees |
-| Editors | developer Homebrew layer and chezmoi-managed Zed/Ghostty defaults | app state, fonts, caches |
+| Terminal | developer Homebrew layer and chezmoi-managed Ghostty defaults | app state, fonts, caches |
+| Editor | workstation Homebrew layer and chezmoi-managed Zed defaults | app state, fonts, caches |
 
 Assistant users receive a minimal Git base and workload authorship, but no
 signing, human GitHub login, outbound SSH, or developer desktop state. The

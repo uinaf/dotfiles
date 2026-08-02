@@ -112,12 +112,15 @@ common_config_paths=(
 
 developer_config_paths=(
   "$HOME/.config/git/allowed_signers"
-  "$HOME/.config/zed/settings.json"
-  "$HOME/.config/zed/keymap.json"
   "$HOME/.codex/config.toml"
   "$ghostty_config"
   "$HOME/.gitconfig.local"
   "$HOME/.ssh/config"
+)
+
+workstation_config_paths=(
+  "$HOME/.config/zed/settings.json"
+  "$HOME/.config/zed/keymap.json"
 )
 
 section() {
@@ -393,6 +396,16 @@ check_config_paths() {
 
   if dotfiles_profile_is_developer "$profile"; then
     for path in "${developer_config_paths[@]}"; do
+      if [ -e "$path" ]; then
+        printf 'ok %s\n' "$path"
+      else
+        fail "missing $path"
+      fi
+    done
+  fi
+
+  if [ "$profile" = "workstation" ]; then
+    for path in "${workstation_config_paths[@]}"; do
       if [ -e "$path" ]; then
         printf 'ok %s\n' "$path"
       else

@@ -37,7 +37,8 @@ the developer layer and installs only `Brewfile.assistant`.
 The assistant mise config contains only Node. Workload repositories own
 OpenClaw, Hermes, model providers, additional language runtimes, and other
 workload-specific packages. Workstation and devbox retain the full shared
-development runtime set.
+development runtime set, including Codex CLI, Claude Code CLI, and Cursor Agent
+CLI. Zed and its managed settings belong only to the workstation profile.
 
 Assistant dotfile application installs a minimal Git base with an optional
 assistant GitHub App include but no configured credentials. It skips developer

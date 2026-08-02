@@ -13,7 +13,7 @@ Infisical requirement. Their default SOPS/age and GitHub App contract is
 Tracked here:
 
 - portable tools in `Brewfile` and `Brewfile.devbox`
-- shared shell, Git, SSH, mise, editor, and Codex defaults
+- shared shell, Git, SSH, mise, terminal, and Codex defaults
 - public-safe scripts and validation
 - templates and contracts for local service setup
 
