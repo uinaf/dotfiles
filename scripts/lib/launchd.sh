@@ -92,3 +92,23 @@ dotfiles_openclaw_restart_sudoers_rule() {
   printf '%s ALL=(root) NOPASSWD: /bin/launchctl kickstart -k system/%s\n' \
     "$user" "$label"
 }
+
+dotfiles_openclaw_restart_sudoers_name() {
+  local user="${1:-}"
+  local uid="${2:-}"
+  local user_slug
+
+  case "$user" in
+    ""|*[!A-Za-z0-9._-]*)
+      return 2
+      ;;
+  esac
+  case "$uid" in
+    ""|*[!0-9]*)
+      return 2
+      ;;
+  esac
+
+  user_slug="${user//./_}"
+  printf 'dotfiles-openclaw-restart-%s-%s\n' "$user_slug" "$uid"
+}

@@ -49,6 +49,15 @@ fi
 if dotfiles_openclaw_restart_sudoers_rule example 'local.dotfiles.openclaw-gateway.example *' >/dev/null 2>&1; then
   fail "OpenClaw restart sudoers rule accepted an invalid label"
 fi
+dot_name="$(dotfiles_openclaw_restart_sudoers_name a.b 501)"
+underscore_name="$(dotfiles_openclaw_restart_sudoers_name a_b 502)"
+[ "$dot_name" = dotfiles-openclaw-restart-a_b-501 ] \
+  || fail "OpenClaw restart sudoers filename missed the readable user and UID"
+[ "$dot_name" != "$underscore_name" ] \
+  || fail "OpenClaw restart sudoers filenames can collide across distinct users"
+if dotfiles_openclaw_restart_sudoers_name example 'not-a-uid' >/dev/null 2>&1; then
+  fail "OpenClaw restart sudoers filename accepted an invalid UID"
+fi
 
 if "$installer" --user example --namespace 'invalid namespace' --print-labels >/dev/null 2>&1; then
   fail "invalid LaunchDaemon namespace was accepted"

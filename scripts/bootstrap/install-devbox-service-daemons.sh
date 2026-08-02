@@ -178,8 +178,9 @@ colima_label="$(dotfiles_launchd_label colima "$target_user" "$launchd_namespace
 
 launch_daemon_dir="/Library/LaunchDaemons"
 sudoers_dir="/etc/sudoers.d"
-sudoers_user_slug="${target_user//./_}"
-openclaw_restart_sudoers="$sudoers_dir/dotfiles-openclaw-restart-$sudoers_user_slug"
+openclaw_restart_sudoers="$sudoers_dir/$(
+  dotfiles_openclaw_restart_sudoers_name "$target_user" "$target_uid"
+)"
 healthd_config="$target_home/.config/healthd/config.toml"
 healthd_binary=""
 colima_binary=""
