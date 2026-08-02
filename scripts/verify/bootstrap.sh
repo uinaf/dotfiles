@@ -78,6 +78,7 @@ developer_cli_checks=(
   "bun --version"
   "java -version"
   "codex --version"
+  "claude --version"
   "cursor-agent --version"
   "gitcrawl --version"
   "tailscale status --peers=false"
