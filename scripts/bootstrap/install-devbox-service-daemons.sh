@@ -283,8 +283,24 @@ check_job() {
 
 check_openclaw_restart_sudoers() {
   local expected_rule
+  local allowed_command
+  local authorization_output
 
   expected_rule="$(dotfiles_openclaw_restart_sudoers_rule "$target_user" "$openclaw_label")"
+  allowed_command="${expected_rule#*NOPASSWD: }"
+  if [ "$(id -u)" -ne 0 ]; then
+    [ "$(id -u)" -eq "$target_uid" ] \
+      || fail "OpenClaw restart policy check requires root or $target_user"
+    authorization_output="$(
+      /usr/bin/sudo -n -l \
+        /bin/launchctl kickstart -k "system/$openclaw_label"
+    )" || fail "$target_user cannot restart only $openclaw_label without a password"
+    printf '%s\n' "$authorization_output" | grep -Fqx -- "$allowed_command" \
+      || fail "$target_user sudo authorization does not match the exact OpenClaw restart command"
+    printf 'ok %s may restart only %s\n' "$target_user" "$openclaw_label"
+    return
+  fi
+
   [ -f "$openclaw_restart_sudoers" ] && [ ! -L "$openclaw_restart_sudoers" ] \
     || fail "missing regular sudoers policy $openclaw_restart_sudoers"
   [ "$(stat -f '%Su:%Sg:%Lp' "$openclaw_restart_sudoers")" = "root:wheel:440" ] \
