@@ -127,18 +127,33 @@ dotfiles-owned path-aware helper avoids that ambiguity.
 
 ## Recovery
 
-Generation and recovery registration are one provisioning operation. Before
-using a new identity for live ciphertext:
+Generation and recovery registration are one provisioning operation. Keep one
+human-controlled recovery item per deployment or workload identity, not one
+password-manager item per private file. Attach independently replaceable
+credentials as separately labeled files in that item:
 
-1. Save the private identity file in an approved human-controlled recovery
-   system, such as a 1Password file attachment.
-2. Record the deployment name, public recipient, creation date, and local path
-   with the recovery item.
+- general age identity
+- sudo-specific age identity when the deployment uses unattended sudo
+- GitHub App private key when the workload uses App authentication
+- SSH private key only when the deployment initiates outbound SSH
+- account recovery material when the operator's policy permits it
+
+Do not merge the credentials into one private key or paste their values into a
+note. The item is an inventory and recovery boundary; each attached credential
+keeps its own scope and rotation lifecycle.
+
+Before using a new identity for live ciphertext:
+
+1. Create or select the deployment or workload's recovery item.
+2. Attach the private identity file and record the deployment name, public
+   recipient, creation date, and local path.
 3. Restore the attachment to an owner-only temporary path and run
    `age-keygen -y <restored-path>`.
 4. Confirm the restored recipient exactly matches
    `configure-sops-age-identity.sh --print-recipient`.
-5. Remove the temporary restored copy.
+5. Compare every other attachment with its live source or derive and compare
+   its public identity without exposing the private value.
+6. Remove the temporary restored copies.
 
 Do not print or paste the private identity into shell history, logs, issues,
 pull requests, chat, or repository files. Routine unattended workloads must
