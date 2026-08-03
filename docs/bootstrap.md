@@ -22,7 +22,8 @@ Run commands from the repo root unless a step says otherwise.
 Every profile requires a per-user SOPS age identity. Install the Homebrew
 layers first, then follow [Identity provisioning](identities.md). Identity
 generation is explicit. Back up any newly created private identity through an
-approved human recovery system before using it to protect live ciphertext.
+approved human recovery system and verify the restored recipient before using
+it to protect live ciphertext.
 
 ## First-Time Prerequisites
 

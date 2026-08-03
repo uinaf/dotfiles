@@ -111,6 +111,21 @@ Print only the safe public recipient for a registry or SOPS policy:
 ./scripts/secrets/configure-sops-age-identity.sh --print-recipient
 ```
 
+Provisioning is complete only after the private identity has a verified human
+recovery copy and the owning encrypted repository has authorized its public
+recipient:
+
+1. Generate or check the local identity with the commands above.
+2. Back up and verify the private identity using the recovery procedure below.
+3. Give only the public `age1...` recipient to the encrypted repository owner.
+4. Add that recipient to the repository's `.sops.yaml` and update the affected
+   encrypted files with `sops updatekeys`.
+5. Prove the deployment can decrypt only the payloads it should consume.
+
+Repository membership alone never grants decryption. Git access controls who
+can fetch ciphertext; the recipient policy controls which age identities can
+decrypt it.
+
 ## Assistant GitHub App
 
 Assistants use one workload-owned GitHub App instead of a human GitHub account,
@@ -163,7 +178,7 @@ verification. Do not use `gh app-auth gitconfig`; its generated URL sections
 can collapse multiple exact repositories under the same organization. The
 dotfiles-owned path-aware helper avoids that ambiguity.
 
-## Recovery
+## Back Up and Verify Recovery
 
 Generation and recovery registration are one provisioning operation. Keep one
 human-controlled recovery item per deployment or workload identity, not one

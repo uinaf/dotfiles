@@ -16,6 +16,7 @@ Tailscale, and LaunchDaemon state still requires an authorized administrator.
 | Profile | Use it for | Software layers |
 | --- | --- | --- |
 | `workstation` | Interactive human development on a laptop or desktop | Base + developer + workstation |
+| `personal` | Owner-operated Mac with the workstation baseline plus opinionated apps and preferences | Base + developer + workstation + personal |
 | `devbox` | Remote coding on an SSH-first host | Base + developer + devbox |
 | `assistant` | Unattended assistant or platform-service workloads | Base + assistant |
 
@@ -46,6 +47,10 @@ mise install
 ./scripts/bootstrap/configure-spotlight.sh
 ./scripts/verify/bootstrap.sh --profile workstation
 ```
+
+Before using the generated age identity with live ciphertext, register and
+verify its recovery copy as described in [Identity
+provisioning](docs/identities.md#back-up-and-verify-recovery).
 
 Use the [Bootstrap guide](docs/bootstrap.md) for first-machine prerequisites,
 devbox and assistant flows, optional desktop setup, updates, and
