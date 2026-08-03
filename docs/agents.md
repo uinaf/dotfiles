@@ -24,10 +24,12 @@ skill also removes its links from every agent configured by the skills CLI.
 Retired owned skills are still removed when neither supported coding agent is
 installed; only current-skill installation is skipped.
 
-When the lock is missing, sync installs the current manifest and initializes the
-lock without removing anything. Before migrating a machine that predates
-ownership tracking, seed the lock only with entries confirmed to have been
-installed by the former manifest sync.
+When the lock is missing and a supported coding agent is installed, sync
+installs the current manifest and initializes the lock without removing
+anything. With no supported agent and no lock, sync skips installation and
+ownership initialization. Before migrating a machine that predates ownership
+tracking, seed the lock only with entries confirmed to have been installed by
+the former manifest sync.
 First-party skill source lives in [`uinaf/skills`](https://github.com/uinaf/skills).
 
 Regular files and foreign symlinks at the global instruction entrypoints are
