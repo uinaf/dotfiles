@@ -21,6 +21,8 @@ ignored `scripts/agents/skills.lock.json` records the last manifest successfully
 applied by this checkout. Later syncs remove skills dropped from that lock while
 preserving globally installed skills the lock never owned. Removing an owned
 skill also removes its links from every agent configured by the skills CLI.
+Retired owned skills are still removed when neither supported coding agent is
+installed; only current-skill installation is skipped.
 
 When the lock is missing, sync installs the current manifest and initializes the
 lock without removing anything. Before migrating a machine that predates

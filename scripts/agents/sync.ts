@@ -654,27 +654,30 @@ function sync(runtime: Runtime): number {
 
   writeLine(runtime.stdout, `Using skills manifest: ${manifestPath}`);
   if (agents.length === 0) {
-    writeLine(runtime.stdout, "No supported agent installations found; skipping skill sync");
-    writeLine(runtime.stdout, "Done.");
-    return 0;
+    writeLine(runtime.stdout, "No supported agent installations found; skipping skill installation");
+  } else {
+    writeLine(runtime.stdout, `Installing skills for agents: ${agents.join(" ")}`);
+    const status = installSkills(
+      runtime,
+      skills,
+      agents,
+      runtime.env.SKILLS_CLI_VERSION || DEFAULT_SKILLS_CLI_VERSION,
+      home,
+    );
+    if (status !== 0) {
+      return status;
+    }
   }
 
-  writeLine(runtime.stdout, `Installing skills for agents: ${agents.join(" ")}`);
-  const status = installSkills(
-    runtime,
-    skills,
-    agents,
-    runtime.env.SKILLS_CLI_VERSION || DEFAULT_SKILLS_CLI_VERSION,
-    home,
-  );
-  if (status !== 0) {
-    return status;
-  }
-
+  const currentNames = new Set(skills.map((skill) => skill.name));
   if (previouslyManagedSkills === undefined) {
+    if (agents.length === 0) {
+      writeLine(runtime.stdout, "No managed skills lock found; skipping ownership initialization");
+      writeLine(runtime.stdout, "Done.");
+      return 0;
+    }
     writeLine(runtime.stdout, "Initializing managed skills lock without removing existing skills");
   } else {
-    const currentNames = new Set(skills.map((skill) => skill.name));
     const staleSkills = previouslyManagedSkills.filter((skill) => !currentNames.has(skill.name));
     const removalStatus = removeSkills(
       runtime,
@@ -687,7 +690,11 @@ function sync(runtime: Runtime): number {
     }
   }
 
-  writeSkillLock(skillLockPath, skills);
+  const managedSkills =
+    agents.length === 0 && previouslyManagedSkills !== undefined
+      ? previouslyManagedSkills.filter((skill) => currentNames.has(skill.name))
+      : skills;
+  writeSkillLock(skillLockPath, managedSkills);
 
   writeLine(runtime.stdout, "Done.");
   return 0;
