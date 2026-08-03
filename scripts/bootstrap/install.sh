@@ -54,6 +54,7 @@ install_steps() {
   if [ "$profile" = "assistant" ]; then
     printf 'install-gh-app-auth\n'
   elif dotfiles_profile_is_developer "$profile"; then
+    printf 'install-cursor-agent\n'
     printf 'trust-agent-worktrees\n'
     printf 'install-gh-extensions\n'
     printf 'remove-global-vite-plus\n'
@@ -70,6 +71,9 @@ run_step() {
       ;;
     install-gh-app-auth)
       "$repo_root/scripts/bootstrap/install-gh-app-auth.sh"
+      ;;
+    install-cursor-agent)
+      "$repo_root/scripts/bootstrap/install-cursor-agent.sh"
       ;;
     trust-agent-worktrees)
       "$repo_root/scripts/bootstrap/trust-agent-worktrees.sh"

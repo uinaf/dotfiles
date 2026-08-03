@@ -1,14 +1,5 @@
 # Minimal unattended assistant layer.
-# Workload repositories own framework and provider-specific installs.
-
-tap "f1bonacc1/tap"
-
-# Browser and media capabilities used by assistant runtimes
-cask "google-chrome"
-brew "ffmpeg"
-
-# User-level process supervision
-brew "f1bonacc1/tap/process-compose"
+# Workload repositories own framework, media, and supervision packages.
 
 # Scoped GitHub App command execution; authentication remains workload-owned
 brew "gh"

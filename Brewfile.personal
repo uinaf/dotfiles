@@ -9,8 +9,7 @@ cask "firefox"
 cask "brave-browser"
 cask "google-drive"
 
-# Auth and hardware security
-cask "1password"
+# Hardware security
 brew "ykman"
 
 # Networking
@@ -19,13 +18,10 @@ cask "proxyman"
 
 # Communication
 cask "signal"
-cask "slack"
 cask "telegram"
 cask "zoom"
 
 # Agent tools
-cask "claude"
-cask "chatgpt"
 cask "codexbar"
 
 # Design and work apps

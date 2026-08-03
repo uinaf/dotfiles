@@ -102,8 +102,6 @@ devbox_cli_checks=(
 )
 
 assistant_cli_checks=(
-  "process-compose version"
-  "ffmpeg -version"
   "gh --version"
   "GH_NO_EXTENSION_UPDATE_NOTIFIER=1 gh app-auth exec --help"
 )

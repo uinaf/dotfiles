@@ -10,7 +10,7 @@ host and they are not a security boundary by themselves.
 | `workstation` | Interactive human on a laptop or desktop | Portable development, human authentication, and local containers |
 | `personal` | Owner-operated personal laptop or desktop | Workstation capabilities plus opinionated applications and preferences |
 | `devbox` | Remote coding identity on an SSH-first host | Coding agents, Git/GitHub, SDKs, containers, and verification tools |
-| `assistant` | Unattended assistant or platform-service identity | Minimal runtimes, machine authentication, supervision, browser, and media support |
+| `assistant` | Unattended assistant or platform-service identity | Minimal runtime, machine authentication, browser, and scoped GitHub access |
 
 Choose `workstation` when another trusted system may supply or govern software.
 Choose `personal` only when this repository should own the full personal
@@ -38,15 +38,19 @@ their profile layer. Personal installs `Brewfile.workstation` followed by
 `Brewfile.personal`. Assistant skips the developer layer and installs only
 `Brewfile.assistant`.
 
-The assistant mise config contains only Node. Workload repositories own
-OpenClaw, Hermes, model providers, additional language runtimes, and other
-workload-specific packages. Personal, workstation, and devbox retain the full
-shared development runtime set, including Codex CLI, Claude Code CLI, and
-Cursor Agent CLI. Their install flow also syncs machine-global instructions
-and additive skills from `scripts/agents/`; see
+The base layer supplies Chrome to every profile. The assistant mise config
+contains only Node, and its profile layer adds only `gh`. Workload repositories
+own OpenClaw, Hermes, model providers, media tools, process supervision,
+additional language runtimes, and other workload-specific packages.
+
+Personal, workstation, and devbox retain the full shared development runtime
+set, including Codex CLI, Claude Code CLI, Cursor Agent CLI, and 1Password CLI.
+Their install flow also syncs machine-global instructions and additive skills
+from `scripts/agents/`; see
 [Agent setup](agents.md). Zed and its managed settings belong only to personal.
-The separately verified Cursor desktop installer is available to either
-interactive profile.
+The workstation layer supplies 1Password, Slack, Claude Desktop, and ChatGPT to
+both interactive profiles. The separately verified Cursor desktop installer is
+available to either interactive profile.
 
 Assistant dotfile application installs a minimal Git base and the
 `gh-app-auth` execution adapter. It leaves App credentials unconfigured and

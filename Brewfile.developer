@@ -6,9 +6,9 @@ tap "teamookla/speedtest"
 
 # Terminal, browser, and coding agents
 cask "ghostty"
-cask "google-chrome"
 cask "codex"
 cask "claude-code@latest"
+cask "1password-cli"
 
 # Development CLI
 brew "gh"

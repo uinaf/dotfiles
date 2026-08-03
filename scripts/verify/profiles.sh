@@ -146,6 +146,29 @@ for required in 'cask "codex"' 'cask "claude-code@latest"'; do
     fi
   done
 done
+grep -Fqx 'cask "google-chrome"' "$repo_root/Brewfile" \
+  || fail "base layer missed Google Chrome"
+grep -Fqx 'cask "1password-cli"' "$repo_root/Brewfile.developer" \
+  || fail "developer layer missed 1Password CLI"
+for required in 'cask "1password"' 'cask "slack"' 'cask "claude"' 'cask "chatgpt"'; do
+  grep -Fqx "$required" "$repo_root/Brewfile.workstation" \
+    || fail "workstation layer missed shared human desktop app $required"
+done
+for file in Brewfile.developer Brewfile.workstation Brewfile.personal Brewfile.devbox Brewfile.assistant; do
+  if grep -Fqx 'cask "google-chrome"' "$repo_root/$file"; then
+    fail "$file duplicates base Google Chrome"
+  fi
+done
+for file in Brewfile.workstation Brewfile.personal Brewfile.devbox Brewfile.assistant; do
+  if grep -Fqx 'cask "1password-cli"' "$repo_root/$file"; then
+    fail "$file duplicates developer 1Password CLI"
+  fi
+done
+for removed in 'brew "ffmpeg"' 'brew "f1bonacc1/tap/process-compose"'; do
+  if grep -Fqx "$removed" "$repo_root/Brewfile.assistant"; then
+    fail "assistant layer retained workload-owned dependency $removed"
+  fi
+done
 grep -Fqx 'cask "zed"' "$repo_root/Brewfile.personal" \
   || fail "personal layer missed Zed"
 for file in Brewfile Brewfile.developer Brewfile.workstation Brewfile.devbox Brewfile.assistant; do
@@ -157,7 +180,7 @@ done
 assistant_steps="$("$repo_root/scripts/bootstrap/install.sh" --print-steps --profile assistant)"
 assert_eq "$(printf 'apply-dotfiles\ninstall-gh-app-auth')" "$assistant_steps" "assistant install steps"
 developer_steps="$("$repo_root/scripts/bootstrap/install.sh" --print-steps --profile workstation)"
-for step in apply-dotfiles trust-agent-worktrees install-gh-extensions remove-global-vite-plus install-pnpm configure-codex sync-agents; do
+for step in apply-dotfiles install-cursor-agent trust-agent-worktrees install-gh-extensions remove-global-vite-plus install-pnpm configure-codex sync-agents; do
   printf '%s\n' "$developer_steps" | grep -Fqx "$step" || fail "workstation install missed $step"
 done
 devbox_steps="$("$repo_root/scripts/bootstrap/install.sh" --print-steps --profile devbox)"
@@ -172,7 +195,7 @@ install_fixture_path="$install_fixture/bin:$active_node_bin:$PATH"
 mkdir -p "$install_fixture/scripts/agents" "$install_fixture/scripts/bootstrap" "$install_fixture/scripts/lib" "$install_fixture/bin"
 cp "$repo_root/scripts/bootstrap/install.sh" "$install_fixture/scripts/bootstrap/install.sh"
 cp "$repo_root/scripts/lib/profile.sh" "$install_fixture/scripts/lib/profile.sh"
-for helper in apply-dotfiles.sh install-gh-app-auth.sh trust-agent-worktrees.sh install-gh-extensions.sh configure-codex.sh; do
+for helper in apply-dotfiles.sh install-gh-app-auth.sh install-cursor-agent.sh trust-agent-worktrees.sh install-gh-extensions.sh configure-codex.sh; do
 cat > "$install_fixture/scripts/bootstrap/$helper" <<'EOF'
 #!/usr/bin/env bash
 printf '%s' "$(basename "$0")" >> "${DOTFILES_INSTALL_LOG:?}"
@@ -229,6 +252,7 @@ HOME="$install_devbox_home" \
   "$install_fixture/scripts/bootstrap/install.sh" --profile devbox
 expected_install_log="$(cat <<EOF
 apply-dotfiles.sh --profile devbox
+install-cursor-agent.sh
 trust-agent-worktrees.sh
 install-gh-extensions.sh
 mise uninstall --all --yes npm:vite-plus

@@ -11,8 +11,8 @@ The repo has four per-user profiles:
 
 The role contract and host/user boundary are defined in [User profiles](profiles.md).
 Cursor Agent CLI is required for personal, workstation, and devbox profiles
-and installed per user with `./scripts/bootstrap/install-cursor-agent.sh`.
-The optional Cursor desktop app is available to both interactive profiles and installed with
+and installed by `./scripts/bootstrap/install.sh`. The optional Cursor desktop
+app is available to both interactive profiles and installed with
 `./scripts/bootstrap/install-cursor-desktop.sh`. Devbox shells use Cursor's
 owner-local file credential store because SSH sessions cannot depend on an
 unlocked macOS login keychain.
@@ -107,7 +107,6 @@ Install Homebrew dependencies:
 ```zsh
 profile=workstation # use personal for the opinionated layer
 ./scripts/bootstrap/brew-bundle.sh "$profile"
-./scripts/bootstrap/install-cursor-agent.sh
 ```
 
 For externally supplied Brewfile entries, configure the local validation
@@ -259,7 +258,6 @@ Install shared plus devbox Homebrew dependencies:
 
 ```zsh
 ./scripts/bootstrap/brew-bundle.sh devbox
-./scripts/bootstrap/install-cursor-agent.sh
 ./scripts/bootstrap/install-blacksmith.sh
 ```
 
