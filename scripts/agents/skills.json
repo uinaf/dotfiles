@@ -37,6 +37,10 @@
       "source": "shadcn/improve"
     },
     {
+      "name": "planning",
+      "source": "uinaf/skills"
+    },
+    {
       "name": "react-ban-use-effect",
       "source": "uinaf/skills"
     },
