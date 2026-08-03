@@ -424,6 +424,32 @@ test("removes only skills dropped from the previous managed lock", () => {
   );
 });
 
+test("removes stale managed skills when no supported agent is installed", () => {
+  const { repoDir, home } = createFixture();
+  const retiredSkill = { name: "retired-managed", source: "fixture/retired" };
+  writeFileSync(
+    skillLockPath(repoDir),
+    JSON.stringify({ version: 1, skills: [...fixtureSkills, retiredSkill] }, null, 2),
+  );
+  const retiredDirectory = join(home, ".agents", "skills", retiredSkill.name);
+  const unownedDirectory = join(home, ".agents", "skills", "manual-skill");
+  mkdirSync(retiredDirectory, { recursive: true });
+  mkdirSync(unownedDirectory, { recursive: true });
+  const runtime = new FixtureRuntime(repoDir, home);
+  runtime.installedCommands.clear();
+
+  assert.equal(main([], runtime), 0);
+  assert.deepEqual(installedSkillNames(runtime), []);
+  assert.deepEqual(removedSkillNames(runtime), [retiredSkill.name]);
+  assert.equal(existsSync(retiredDirectory), false);
+  assert.equal(existsSync(unownedDirectory), true);
+  assert.deepEqual(
+    JSON.parse(readFileSync(skillLockPath(repoDir), "utf8")),
+    { version: 1, skills: fixtureSkills },
+  );
+  assert.match(runtime.stdout.value, /skipping skill installation/);
+});
+
 test("does not prune or advance ownership when installation fails", () => {
   const { repoDir, home } = createFixture();
   const retiredSkill = { name: "retired-managed", source: "fixture/retired" };
