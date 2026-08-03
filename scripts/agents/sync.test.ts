@@ -29,6 +29,7 @@ type FixtureOptions = {
   failures?: ReadonlyMap<string, FixtureFailure>;
   gitDir?: string;
   head?: string;
+  removalFailures?: ReadonlyMap<string, FixtureFailure>;
   trackedChanges?: string;
   upstream?: string;
 };
@@ -60,11 +61,13 @@ class FixtureRuntime implements Runtime {
   readonly head: string;
   readonly home: string;
   readonly repoDir: string;
+  readonly removalFailures: ReadonlyMap<string, FixtureFailure>;
   readonly trackedChanges: string;
   readonly upstream: string;
 
   constructor(repoDir: string, home: string, options: FixtureOptions = {}) {
     this.repoDir = repoDir;
+    this.removalFailures = options.removalFailures ?? new Map();
     this.branch = options.branch ?? "main";
     this.commonDir = options.commonDir ?? ".git";
     this.falseSuccesses = options.falseSuccesses ?? new Set();
@@ -111,7 +114,7 @@ class FixtureRuntime implements Runtime {
     if (command === "git" && args.includes("pull")) {
       return { status: 0, stdout: "", stderr: "" };
     }
-    if (command === "pnpm" && args[0] === "dlx") {
+    if (command === "pnpm" && args[0] === "dlx" && args[2] === "add") {
       const skillFlag = args.indexOf("-s");
       const skill = skillFlag >= 0 ? args[skillFlag + 1] : undefined;
       if (skill === undefined) {
@@ -128,12 +131,33 @@ class FixtureRuntime implements Runtime {
       }
       return { status: 0, stdout: "", stderr: "" };
     }
+    if (command === "pnpm" && args[0] === "dlx" && args[2] === "remove") {
+      const skillFlag = args.indexOf("-s");
+      const skill = skillFlag >= 0 ? args[skillFlag + 1] : undefined;
+      if (skill === undefined) {
+        throw new Error("skills remover call must include -s <name>");
+      }
+      const diagnostic = this.removalFailures.get(skill);
+      if (diagnostic !== undefined) {
+        return { status: 1, stdout: diagnostic.stdout, stderr: diagnostic.stderr };
+      }
+      rmSync(join(this.home, ".agents", "skills", skill), { force: true, recursive: true });
+      return { status: 0, stdout: "", stderr: "" };
+    }
 
     return { status: 99, stdout: "", stderr: `Unexpected command: ${command}` };
   }
 }
 
 const temporaryDirectories: string[] = [];
+
+const fixtureSkills = [
+  { name: "ok-before", source: "fixture/before" },
+  { name: "fails-first", source: "fixture/failure-first" },
+  { name: "ok-middle", source: "fixture/middle" },
+  { name: "fails-second", source: "fixture/failure-second" },
+  { name: "ok-after", source: "fixture/after" },
+];
 
 afterEach(() => {
   for (const path of temporaryDirectories.splice(0)) {
@@ -154,17 +178,15 @@ function createFixture(): { repoDir: string; home: string } {
     join(repoDir, "scripts", "agents", "skills.json"),
     JSON.stringify(
       {
-        skills: [
-          { name: "ok-before", source: "fixture/before" },
-          { name: "fails-first", source: "fixture/failure-first" },
-          { name: "ok-middle", source: "fixture/middle" },
-          { name: "fails-second", source: "fixture/failure-second" },
-          { name: "ok-after", source: "fixture/after" },
-        ],
+        skills: fixtureSkills,
       },
       null,
       2,
     ),
+  );
+  writeFileSync(
+    join(repoDir, "scripts", "agents", "skills.lock.json"),
+    JSON.stringify({ version: 1, skills: fixtureSkills }, null, 2),
   );
 
   return { repoDir, home };
@@ -172,7 +194,7 @@ function createFixture(): { repoDir: string; home: string } {
 
 function installedSkillNames(runtime: FixtureRuntime): string[] {
   return runtime.calls
-    .filter((call) => call.command === "pnpm" && call.args[0] === "dlx")
+    .filter((call) => call.command === "pnpm" && call.args[0] === "dlx" && call.args[2] === "add")
     .map((call) => {
       const skillFlag = call.args.indexOf("-s");
       const skill = skillFlag >= 0 ? call.args[skillFlag + 1] : undefined;
@@ -181,6 +203,25 @@ function installedSkillNames(runtime: FixtureRuntime): string[] {
       }
       return skill;
     });
+}
+
+function removedSkillNames(runtime: FixtureRuntime): string[] {
+  return runtime.calls
+    .filter(
+      (call) => call.command === "pnpm" && call.args[0] === "dlx" && call.args[2] === "remove",
+    )
+    .map((call) => {
+      const skillFlag = call.args.indexOf("-s");
+      const skill = skillFlag >= 0 ? call.args[skillFlag + 1] : undefined;
+      if (skill === undefined) {
+        throw new Error("recorded skills remover call must include -s <name>");
+      }
+      return skill;
+    });
+}
+
+function skillLockPath(repoDir: string): string {
+  return join(repoDir, "scripts", "agents", "skills.lock.json");
 }
 
 function finalRulesPath(repoDir: string): string {
@@ -331,6 +372,102 @@ test("completes a successful sync and preserves rules links", () => {
   const finalRules = join(repoDir, "scripts", "agents", "rules", "final.md");
   assert.equal(readlinkSync(join(home, ".claude", "CLAUDE.md")), finalRules);
   assert.equal(readlinkSync(join(home, ".codex", "AGENTS.md")), finalRules);
+});
+
+test("initializes a missing ownership lock without removing unowned skills", () => {
+  const { repoDir, home } = createFixture();
+  rmSync(skillLockPath(repoDir));
+  const unownedSkill = join(home, ".agents", "skills", "manual-skill");
+  mkdirSync(unownedSkill, { recursive: true });
+  writeFileSync(join(unownedSkill, "SKILL.md"), "manual skill\n");
+  const runtime = new FixtureRuntime(repoDir, home);
+
+  assert.equal(main([], runtime), 0);
+  assert.deepEqual(removedSkillNames(runtime), []);
+  assert.equal(existsSync(unownedSkill), true);
+  assert.deepEqual(
+    JSON.parse(readFileSync(skillLockPath(repoDir), "utf8")),
+    { version: 1, skills: fixtureSkills },
+  );
+  assert.match(runtime.stdout.value, /Initializing managed skills lock without removing existing skills/);
+});
+
+test("removes only skills dropped from the previous managed lock", () => {
+  const { repoDir, home } = createFixture();
+  const retiredSkill = { name: "retired-managed", source: "fixture/retired" };
+  writeFileSync(
+    skillLockPath(repoDir),
+    JSON.stringify({ version: 1, skills: [...fixtureSkills, retiredSkill] }, null, 2),
+  );
+  const retiredDirectory = join(home, ".agents", "skills", retiredSkill.name);
+  const unownedDirectory = join(home, ".agents", "skills", "manual-skill");
+  mkdirSync(retiredDirectory, { recursive: true });
+  mkdirSync(unownedDirectory, { recursive: true });
+  const runtime = new FixtureRuntime(repoDir, home);
+
+  assert.equal(main([], runtime), 0);
+  assert.deepEqual(removedSkillNames(runtime), [retiredSkill.name]);
+  assert.equal(existsSync(retiredDirectory), false);
+  assert.equal(existsSync(unownedDirectory), true);
+  assert.deepEqual(
+    JSON.parse(readFileSync(skillLockPath(repoDir), "utf8")),
+    { version: 1, skills: fixtureSkills },
+  );
+});
+
+test("does not prune or advance ownership when installation fails", () => {
+  const { repoDir, home } = createFixture();
+  const retiredSkill = { name: "retired-managed", source: "fixture/retired" };
+  const previousLock = { version: 1, skills: [...fixtureSkills, retiredSkill] };
+  writeFileSync(skillLockPath(repoDir), JSON.stringify(previousLock, null, 2));
+  const retiredDirectory = join(home, ".agents", "skills", retiredSkill.name);
+  mkdirSync(retiredDirectory, { recursive: true });
+  const runtime = new FixtureRuntime(repoDir, home, {
+    failures: new Map([["fails-first", { stdout: "", stderr: "install failed" }]]),
+  });
+
+  assert.equal(main([], runtime), 1);
+  assert.deepEqual(removedSkillNames(runtime), []);
+  assert.equal(existsSync(retiredDirectory), true);
+  assert.deepEqual(JSON.parse(readFileSync(skillLockPath(repoDir), "utf8")), previousLock);
+});
+
+test("does not advance ownership when a managed removal fails", () => {
+  const { repoDir, home } = createFixture();
+  const retiredSkill = { name: "retired-managed", source: "fixture/retired" };
+  const previousLock = { version: 1, skills: [...fixtureSkills, retiredSkill] };
+  writeFileSync(skillLockPath(repoDir), JSON.stringify(previousLock, null, 2));
+  const retiredDirectory = join(home, ".agents", "skills", retiredSkill.name);
+  mkdirSync(retiredDirectory, { recursive: true });
+  const runtime = new FixtureRuntime(repoDir, home, {
+    removalFailures: new Map([
+      [retiredSkill.name, { stdout: "", stderr: "remove failed" }],
+    ]),
+  });
+
+  assert.equal(main([], runtime), 1);
+  assert.deepEqual(removedSkillNames(runtime), [retiredSkill.name]);
+  assert.equal(existsSync(retiredDirectory), true);
+  assert.deepEqual(JSON.parse(readFileSync(skillLockPath(repoDir), "utf8")), previousLock);
+  assert.match(runtime.stderr.value, /Managed skill removal failed for 1 skill/);
+});
+
+test("rejects unsafe ownership lock names before changing global state", () => {
+  const { repoDir, home } = createFixture();
+  writeFileSync(
+    skillLockPath(repoDir),
+    JSON.stringify({ version: 1, skills: [{ name: "../manual-skill", source: "fixture/unsafe" }] }),
+  );
+  const manualDirectory = join(home, ".agents", "manual-skill");
+  mkdirSync(manualDirectory, { recursive: true });
+  const runtime = new FixtureRuntime(repoDir, home);
+
+  assert.equal(main([], runtime), 1);
+  assert.match(runtime.stderr.value, /Invalid managed skills lock/);
+  assert.equal(installedSkillNames(runtime).length, 0);
+  assert.equal(removedSkillNames(runtime).length, 0);
+  assert.equal(existsSync(finalRulesPath(repoDir)), false);
+  assert.equal(existsSync(manualDirectory), true);
 });
 
 test("includes ignored local overrides in generated rules", () => {

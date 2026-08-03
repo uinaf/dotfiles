@@ -16,8 +16,15 @@ The equivalent direct entrypoint is `./scripts/agents/sync.ts`.
 
 The sync fast-forwards the clean dotfiles checkout, generates
 `scripts/agents/rules/final.md`, links it to installed Codex and Claude Code
-entrypoints, and additively installs every entry in
-`scripts/agents/skills.json`. It does not remove skills outside the manifest.
+entrypoints, and installs every entry in `scripts/agents/skills.json`. The
+ignored `scripts/agents/skills.lock.json` records the last manifest successfully
+applied by this checkout. Later syncs remove skills dropped from that lock while
+preserving globally installed skills the lock never owned.
+
+When the lock is missing, sync installs the current manifest and initializes the
+lock without removing anything. Before migrating a machine that predates
+ownership tracking, seed the lock only with entries confirmed to have been
+installed by the former manifest sync.
 First-party skill source lives in [`uinaf/skills`](https://github.com/uinaf/skills).
 
 Regular files and foreign symlinks at the global instruction entrypoints are
@@ -30,7 +37,8 @@ rejected before global state changes.
 | `scripts/agents/rules/base.md` | Tracked global rules. |
 | `scripts/agents/rules/local.md` | Ignored optional machine overrides. |
 | `scripts/agents/rules/final.md` | Ignored generated rules linked into installed agents. |
-| `scripts/agents/skills.json` | Tracked additive skill selection. |
+| `scripts/agents/skills.json` | Tracked desired managed skill selection. |
+| `scripts/agents/skills.lock.json` | Ignored machine-local ownership ledger for safe removal. |
 | `scripts/agents/sync.ts` | Executable sync entrypoint. |
 
 ## Local Rules
