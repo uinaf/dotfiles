@@ -6,5 +6,6 @@ tizen-migration-*.tar.gz
 home/.codex/
 scripts/agents/rules/local.md
 scripts/agents/rules/final.md
+scripts/agents/skills.lock.json
 scripts/agents/rules.local.md
 scripts/agents/rules.final.md

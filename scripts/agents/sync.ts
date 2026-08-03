@@ -34,6 +34,11 @@ type SkillFailure = {
   summary: string;
 };
 
+type SkillLock = {
+  version: 1;
+  skills: Skill[];
+};
+
 type CommandResult = {
   status: number;
   stdout: string;
@@ -210,7 +215,7 @@ function isSkill(value: unknown): value is Skill {
     value !== null &&
     "name" in value &&
     typeof value.name === "string" &&
-    value.name.length > 0 &&
+    /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(value.name) &&
     "source" in value &&
     typeof value.source === "string" &&
     value.source.length > 0
@@ -236,7 +241,60 @@ function readSkills(manifestPath: string): Skill[] {
     throw new Error(`Invalid skills manifest at ${manifestPath}: expected non-empty name/source strings`);
   }
 
+  const names = parsed.skills.map((skill) => skill.name);
+  if (new Set(names).size !== names.length) {
+    throw new Error(`Invalid skills manifest at ${manifestPath}: skill names must be unique`);
+  }
+
   return parsed.skills;
+}
+
+function readSkillLock(lockPath: string): Skill[] | undefined {
+  if (!existsSync(lockPath)) {
+    return undefined;
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(readFileSync(lockPath, "utf8"));
+  } catch (error) {
+    throw new Error(`Invalid managed skills lock at ${lockPath}: ${errorMessage(error)}`);
+  }
+
+  if (
+    typeof parsed !== "object" ||
+    parsed === null ||
+    !("version" in parsed) ||
+    parsed.version !== 1 ||
+    !("skills" in parsed) ||
+    !Array.isArray(parsed.skills) ||
+    !parsed.skills.every(isSkill)
+  ) {
+    throw new Error(
+      `Invalid managed skills lock at ${lockPath}: expected version 1 and safe name/source entries`,
+    );
+  }
+
+  const names = parsed.skills.map((skill) => skill.name);
+  if (new Set(names).size !== names.length) {
+    throw new Error(`Invalid managed skills lock at ${lockPath}: skill names must be unique`);
+  }
+
+  return parsed.skills;
+}
+
+function writeSkillLock(lockPath: string, skills: readonly Skill[]): void {
+  mkdirSync(dirname(lockPath), { recursive: true });
+  const temporaryDirectory = mkdtempSync(join(dirname(lockPath), ".skills-lock-"));
+  const temporaryLock = join(temporaryDirectory, "skills.lock.json");
+  const lock: SkillLock = { version: 1, skills: [...skills] };
+
+  try {
+    writeFileSync(temporaryLock, `${JSON.stringify(lock, null, 2)}\n`, { mode: 0o600 });
+    renameSync(temporaryLock, lockPath);
+  } finally {
+    rmSync(temporaryDirectory, { force: true, recursive: true });
+  }
 }
 
 function replaceSymlinkAtomically(target: string, destination: string): void {
@@ -486,6 +544,68 @@ function installSkills(
   return 1;
 }
 
+function removeSkills(
+  runtime: Runtime,
+  skills: readonly Skill[],
+  agents: readonly Agent[],
+  cliVersion: string,
+  home: string,
+): number {
+  const failures: SkillFailure[] = [];
+
+  for (const skill of skills) {
+    writeLine(runtime.stdout, `Removing stale managed skill: ${skill.name}`);
+    const result = runtime.run(
+      "pnpm",
+      [
+        "dlx",
+        `skills@${cliVersion}`,
+        "remove",
+        "-g",
+        "-y",
+        "-a",
+        ...agents,
+        "-s",
+        skill.name,
+      ],
+      { stdout: "capture", stderr: "capture" },
+    );
+
+    if (result.status !== 0) {
+      failures.push({
+        diagnostic: sanitizeDiagnostic(`${result.stdout}\n${result.stderr}`),
+        summary: `${skill.name} (exit ${result.status})`,
+      });
+      continue;
+    }
+
+    const skillDirectory = join(home, ".agents", "skills", skill.name);
+    if (existsSync(skillDirectory)) {
+      failures.push({
+        diagnostic: `remover reported success but ${skillDirectory} still exists`,
+        summary: `${skill.name} (invalid removal result)`,
+      });
+    }
+  }
+
+  if (failures.length === 0) {
+    return 0;
+  }
+
+  const noun = failures.length === 1 ? "skill" : "skills";
+  writeLine(runtime.stderr, `Managed skill removal failed for ${failures.length} ${noun}:`);
+  for (const failure of failures) {
+    writeLine(runtime.stderr, `  - ${failure.summary}`);
+    for (const line of failure.diagnostic.split("\n")) {
+      if (line.length > 0) {
+        writeLine(runtime.stderr, `    ${line}`);
+      }
+    }
+  }
+  writeLine(runtime.stderr, "Fix the reported removal failures, then rerun sync.");
+  return 1;
+}
+
 function sync(runtime: Runtime): number {
   const scriptDir = dirname(fileURLToPath(import.meta.url));
   const repoResult = runtime.run("git", ["-C", scriptDir, "rev-parse", "--show-toplevel"], {
@@ -515,6 +635,8 @@ function sync(runtime: Runtime): number {
 
   const manifestPath = join(repoDir, "scripts", "agents", "skills.json");
   const skills = existsSync(manifestPath) ? readSkills(manifestPath) : undefined;
+  const skillLockPath = join(repoDir, "scripts", "agents", "skills.lock.json");
+  const previouslyManagedSkills = skills === undefined ? undefined : readSkillLock(skillLockPath);
   const agentsDir = join(repoDir, "scripts", "agents");
   const finalRules = join(agentsDir, "rules", "final.md");
   const previousFinalRules = join(agentsDir, "rules.final.md");
@@ -552,6 +674,25 @@ function sync(runtime: Runtime): number {
   if (status !== 0) {
     return status;
   }
+
+  if (previouslyManagedSkills === undefined) {
+    writeLine(runtime.stdout, "Initializing managed skills lock without removing existing skills");
+  } else {
+    const currentNames = new Set(skills.map((skill) => skill.name));
+    const staleSkills = previouslyManagedSkills.filter((skill) => !currentNames.has(skill.name));
+    const removalStatus = removeSkills(
+      runtime,
+      staleSkills,
+      agents,
+      runtime.env.SKILLS_CLI_VERSION || DEFAULT_SKILLS_CLI_VERSION,
+      home,
+    );
+    if (removalStatus !== 0) {
+      return removalStatus;
+    }
+  }
+
+  writeSkillLock(skillLockPath, skills);
 
   writeLine(runtime.stdout, "Done.");
   return 0;
