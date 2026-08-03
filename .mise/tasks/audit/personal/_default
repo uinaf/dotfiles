@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#MISE description="Compatibility alias for the workstation audit"
+#MISE description="Run the live personal workstation audit"
 set -euo pipefail
 
 ./scripts/audit/personal.sh

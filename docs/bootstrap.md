@@ -2,16 +2,17 @@
 
 Use this guide when installing or refreshing a Mac from this repository.
 
-The repo has three per-user profiles:
+The repo has four per-user profiles:
 
-- `workstation` for a human-operated Mac.
+- `workstation` for a portable human-operated development Mac.
+- `personal` for an opinionated personal Mac extending workstation.
 - `devbox` for a remote coding identity on an SSH-first host.
 - `assistant` for an unattended assistant or platform-service identity.
 
 The role contract and host/user boundary are defined in [User profiles](profiles.md).
-Cursor Agent CLI is required for workstation and devbox profiles and installed per user with
-`./scripts/bootstrap/install-cursor-agent.sh`. The optional Cursor desktop app
-is workstation-only and installed with
+Cursor Agent CLI is required for personal, workstation, and devbox profiles
+and installed per user with `./scripts/bootstrap/install-cursor-agent.sh`.
+The optional Cursor desktop app is available to both interactive profiles and installed with
 `./scripts/bootstrap/install-cursor-desktop.sh`. Devbox shells use Cursor's
 owner-local file credential store because SSH sessions cannot depend on an
 unlocked macOS login keychain.
@@ -95,13 +96,26 @@ Do not run identity, signing-key, or secret setup from guessed values just
 because the repo was fetched this way. Keep using the selected
 profile steps below.
 
-## Workstation Mac
+## Human Workstation Macs
+
+Use `workstation` for the portable developer baseline or when another trusted
+system owns selected software. Use `personal` when this repository should
+also own the opinionated desktop applications and preferences.
 
 Install Homebrew dependencies:
 
 ```zsh
-./scripts/bootstrap/brew-bundle.sh workstation
+profile=workstation # use personal for the opinionated layer
+./scripts/bootstrap/brew-bundle.sh "$profile"
 ./scripts/bootstrap/install-cursor-agent.sh
+```
+
+For externally supplied Brewfile entries, configure the local validation
+contract in [User profiles](profiles.md#externally-managed-homebrew-capabilities).
+
+Install the optional Cursor desktop app when wanted:
+
+```zsh
 ./scripts/bootstrap/install-cursor-desktop.sh
 ```
 
@@ -111,8 +125,8 @@ macOS Gatekeeper assessment pass. It does not remove quarantine attributes or
 replace an existing installation. Use `--verify-only` to validate the current
 vendor download without installing it.
 
-Install workstation Mac App Store apps and remove bundled apps this setup does not
-use:
+On `personal` only, install Mac App Store apps and remove bundled apps this
+setup does not use:
 
 ```zsh
 ./scripts/app-store/personal.sh
@@ -139,9 +153,9 @@ entry on the remote host when possible and fall back to `xterm-256color` when
 installation is unavailable. See [Ghostty SSH
 integration](https://ghostty.org/docs/features/ssh).
 
-The ChatGPT desktop app includes Codex. Its Codex appearance is manual app
-state, not repo-managed config. After installing ChatGPT, open its Codex
-settings and set:
+The personal profile's ChatGPT desktop app includes Codex. Its Codex appearance
+is manual app state, not repo-managed config. After installing ChatGPT, open
+its Codex settings and set:
 
 - code font: `Berkeley Mono Variable`
 - UI font size: `14 px`
@@ -176,13 +190,14 @@ remote_connections = true
 Apply dotfiles and configure local state:
 
 ```zsh
-./scripts/bootstrap/apply-dotfiles.sh --profile workstation
+profile=workstation # use personal for the opinionated layer
+./scripts/bootstrap/apply-dotfiles.sh --profile "$profile"
 mise trust
 mise install
-./scripts/bootstrap/install.sh --profile workstation
+./scripts/bootstrap/install.sh --profile "$profile"
 ./scripts/secrets/configure-sops-age-identity.sh
-./scripts/bootstrap/configure-git.sh --profile workstation
-./scripts/bootstrap/configure-power.sh --profile workstation
+./scripts/bootstrap/configure-git.sh --profile "$profile"
+./scripts/bootstrap/configure-power.sh --profile "$profile"
 ./scripts/bootstrap/configure-spotlight.sh
 ```
 
@@ -197,7 +212,7 @@ and standalone state under `~/.vite-plus`;
 `mise install` remains required for a fresh runtime or CLI version change.
 
 The dotfile step applies the repo-local chezmoi source state from `chezmoi/`.
-Preview it with `./scripts/bootstrap/apply-dotfiles.sh --profile workstation --dry-run --verbose`
+Preview it with `./scripts/bootstrap/apply-dotfiles.sh --profile "$profile" --dry-run --verbose`
 when changing source-state files. The power step disables system, display, and
 disk sleep only while the Mac is plugged in. Battery settings stay under macOS
 defaults so laptops still sleep normally when unplugged. It prompts for sudo;
@@ -221,7 +236,7 @@ Keep the private key owner-only and outside this repository.
 Verify:
 
 ```zsh
-./scripts/verify/bootstrap.sh --profile workstation
+./scripts/verify/bootstrap.sh --profile "$profile"
 ./scripts/audit/host.sh
 ./scripts/audit/workstation.sh
 ```
@@ -371,18 +386,21 @@ Pull the repo and rerun the relevant profile:
 ```zsh
 cd ~/projects/dotfiles
 git pull --ff-only
-./scripts/bootstrap/brew-bundle.sh workstation
-./scripts/bootstrap/apply-dotfiles.sh --profile workstation
+profile=workstation # use personal for the opinionated layer
+./scripts/bootstrap/brew-bundle.sh "$profile"
+./scripts/bootstrap/apply-dotfiles.sh --profile "$profile"
 mise trust
 mise install
-./scripts/bootstrap/install.sh --profile workstation
+./scripts/bootstrap/install.sh --profile "$profile"
 ./scripts/secrets/configure-sops-age-identity.sh
-./scripts/bootstrap/configure-power.sh --profile workstation
+./scripts/bootstrap/configure-power.sh --profile "$profile"
 ./scripts/bootstrap/configure-spotlight.sh
-./scripts/verify/bootstrap.sh --profile workstation
+./scripts/verify/bootstrap.sh --profile "$profile"
 ```
 
 Use the target Unix user's `devbox` or `assistant` role instead when appropriate.
+Existing personal machines whose stored marker is `workstation` should set
+`profile=personal` once to adopt the new personal layer.
 
 ## React Native
 

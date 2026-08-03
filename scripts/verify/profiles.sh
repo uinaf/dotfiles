@@ -38,7 +38,7 @@ render_target() {
     cat "$home/$target"
 }
 
-assert_eq workstation "$(dotfiles_normalize_profile personal)" "personal compatibility alias"
+assert_eq personal "$(dotfiles_normalize_profile personal)" "personal profile"
 assert_eq workstation "$(dotfiles_normalize_profile workstation)" "workstation profile"
 assert_eq devbox "$(dotfiles_normalize_profile devbox)" "devbox profile"
 assert_eq assistant "$(dotfiles_normalize_profile assistant)" "assistant profile"
@@ -130,16 +130,20 @@ devbox_files="$(dotfiles_profile_brewfiles devbox)"
 assert_eq "$(printf 'Brewfile\nBrewfile.developer\nBrewfile.devbox')" "$devbox_files" "devbox Brewfile layers"
 workstation_files="$(dotfiles_profile_brewfiles workstation)"
 assert_eq "$(printf 'Brewfile\nBrewfile.developer\nBrewfile.workstation')" "$workstation_files" "workstation Brewfile layers"
+personal_files="$(dotfiles_profile_brewfiles personal)"
+assert_eq "$(printf 'Brewfile\nBrewfile.developer\nBrewfile.workstation\nBrewfile.personal')" "$personal_files" "personal Brewfile layers"
 
 for required in 'cask "codex"' 'cask "claude-code@latest"'; do
-  grep -Fqx "$required" "$repo_root/Brewfile.developer" \
-    || fail "developer layer missed $required"
+  grep -Fqx "$required" "$repo_root/Brewfile.workstation" \
+    || fail "workstation layer missed $required"
+  grep -Fqx "$required" "$repo_root/Brewfile.devbox" \
+    || fail "devbox layer missed $required"
 done
-grep -Fqx 'cask "zed"' "$repo_root/Brewfile.workstation" \
-  || fail "workstation layer missed Zed"
-for file in Brewfile Brewfile.developer Brewfile.devbox Brewfile.assistant; do
+grep -Fqx 'cask "zed"' "$repo_root/Brewfile.personal" \
+  || fail "personal layer missed Zed"
+for file in Brewfile Brewfile.developer Brewfile.workstation Brewfile.devbox Brewfile.assistant; do
   if grep -Fqx 'cask "zed"' "$repo_root/$file"; then
-    fail "$file includes workstation-only Zed"
+    fail "$file includes personal-only Zed"
   fi
 done
 
@@ -151,6 +155,8 @@ for step in apply-dotfiles trust-agent-worktrees install-gh-extensions remove-gl
 done
 devbox_steps="$("$repo_root/scripts/bootstrap/install.sh" --print-steps --profile devbox)"
 assert_eq "$developer_steps" "$devbox_steps" "devbox developer install steps"
+personal_steps="$("$repo_root/scripts/bootstrap/install.sh" --print-steps --profile personal)"
+assert_eq "$developer_steps" "$personal_steps" "personal developer install steps"
 
 install_fixture="$tmp_root/install-fixture"
 install_log="$tmp_root/install-fixture.log"
@@ -280,8 +286,11 @@ done
 
 devbox_mise="$(render_target devbox .config/mise/config.toml)"
 assert_eq "$workstation_mise" "$devbox_mise" "devbox developer mise config"
+personal_mise="$(render_target personal .config/mise/config.toml)"
+assert_eq "$workstation_mise" "$personal_mise" "personal developer mise config"
 
 assert_eq assistant "$(render_target assistant .config/dotfiles/profile)" "rendered assistant profile"
+assert_eq personal "$(render_target personal .config/dotfiles/profile)" "rendered personal profile"
 
 assistant_managed="$({
   data='{"dotfilesProfile":"assistant"}'
@@ -308,7 +317,6 @@ workstation_managed="$({
 })"
 for required_path in \
   '.config/git/allowed_signers' \
-  '.config/zed/settings.json' \
   '.gitconfig' \
   '.local/libexec/dotfiles/git-ssh-sign-agentless' \
   '.ssh/config' \
@@ -316,6 +324,20 @@ for required_path in \
   printf '%s\n' "$workstation_managed" | grep -Fqx "$required_path" \
     || fail "workstation profile does not manage $required_path"
 done
+if printf '%s\n' "$workstation_managed" | grep -Eq '^\.config/zed(/|$)'; then
+  fail "workstation profile manages personal-only Zed state"
+fi
+
+personal_managed="$({
+  data='{"dotfilesProfile":"personal"}'
+  chezmoi \
+    --source "$repo_root/chezmoi" \
+    --destination "$tmp_root/personal" \
+    --override-data "$data" \
+    managed --path-style relative
+})"
+printf '%s\n' "$personal_managed" | grep -Fqx '.config/zed/settings.json' \
+  || fail "personal profile does not manage Zed settings"
 
 devbox_managed="$({
   data='{"dotfilesProfile":"devbox"}'
@@ -334,7 +356,7 @@ for required_path in \
     || fail "devbox profile does not manage $required_path"
 done
 if printf '%s\n' "$devbox_managed" | grep -Eq '^\.config/zed(/|$)'; then
-  fail "devbox profile manages workstation-only Zed state"
+  fail "devbox profile manages personal-only Zed state"
 fi
 
 assistant_home="$tmp_root/assistant-applied"
@@ -389,4 +411,4 @@ GIT_USER_EMAIL='example-workload@users.noreply.github.com' \
   "$repo_root/scripts/bootstrap/configure-git.sh" --profile assistant --non-interactive >/dev/null
 HOME="$identity_home" "$repo_root/scripts/verify/assistant-git-boundary.sh" >/dev/null
 
-printf 'ok profile aliases, layers, applied dotfiles, and workload Git identity\n'
+printf 'ok profile layers, applied dotfiles, and workload Git identity\n'

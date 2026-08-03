@@ -10,6 +10,8 @@ tap "uinaf/tap"
 cask "gcloud-cli"
 
 # Agent and devbox CLIs
+cask "codex"
+cask "claude-code@latest"
 brew "tmux"
 brew "tailscale"
 brew "yt-dlp"

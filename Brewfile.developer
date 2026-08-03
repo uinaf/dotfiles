@@ -4,12 +4,6 @@
 tap "f1bonacc1/tap"
 tap "teamookla/speedtest"
 
-# Terminal, browser, and coding agents
-cask "ghostty"
-cask "google-chrome"
-cask "codex"
-cask "claude-code@latest"
-
 # Development CLI
 brew "gh"
 brew "git-crypt"

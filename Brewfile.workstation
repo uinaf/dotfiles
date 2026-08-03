@@ -1,56 +1,11 @@
-# Human-operated workstation Homebrew layer.
+# Portable human-workstation Homebrew layer.
 # Run through brew-bundle.sh so base and developer layers install first.
 
-# Taps
-tap "openclaw/tap"
+# Terminal, browser, and coding agents
+cask "ghostty"
+cask "google-chrome"
+cask "codex"
+cask "claude-code@latest"
 
-# Browsers and sync
-cask "firefox"
-cask "brave-browser"
-cask "google-drive"
-
-# Auth and hardware security
-cask "1password"
+# Human authentication
 cask "1password-cli"
-brew "ykman"
-
-# Networking
-cask "tailscale-app"
-cask "proxyman"
-
-# Communication
-cask "signal"
-cask "slack"
-cask "telegram"
-cask "zoom"
-
-# Agent tools
-cask "claude"
-cask "chatgpt"
-cask "codexbar"
-
-# Design and work apps
-cask "zed"
-cask "figma"
-cask "cleanshot"
-cask "tuna"
-
-# Platform development
-cask "android-studio"
-cask "raspberry-pi-imager"
-brew "watchman"
-
-# Media utilities
-cask "imageoptim"
-cask "the-unarchiver"
-cask "vlc"
-
-# Remote desktop
-cask "parsec"
-
-# App Store automation
-brew "mas"
-
-# Project tools
-brew "openclaw/tap/gitcrawl"
-brew "openclaw/tap/crabbox"
