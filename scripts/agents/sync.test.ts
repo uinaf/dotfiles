@@ -132,10 +132,9 @@ class FixtureRuntime implements Runtime {
       return { status: 0, stdout: "", stderr: "" };
     }
     if (command === "pnpm" && args[0] === "dlx" && args[2] === "remove") {
-      const skillFlag = args.indexOf("-s");
-      const skill = skillFlag >= 0 ? args[skillFlag + 1] : undefined;
+      const skill = args[3];
       if (skill === undefined) {
-        throw new Error("skills remover call must include -s <name>");
+        throw new Error("skills remover call must include a skill name");
       }
       const diagnostic = this.removalFailures.get(skill);
       if (diagnostic !== undefined) {
@@ -211,10 +210,9 @@ function removedSkillNames(runtime: FixtureRuntime): string[] {
       (call) => call.command === "pnpm" && call.args[0] === "dlx" && call.args[2] === "remove",
     )
     .map((call) => {
-      const skillFlag = call.args.indexOf("-s");
-      const skill = skillFlag >= 0 ? call.args[skillFlag + 1] : undefined;
+      const skill = call.args[3];
       if (skill === undefined) {
-        throw new Error("recorded skills remover call must include -s <name>");
+        throw new Error("recorded skills remover call must include a skill name");
       }
       return skill;
     });
@@ -407,6 +405,17 @@ test("removes only skills dropped from the previous managed lock", () => {
 
   assert.equal(main([], runtime), 0);
   assert.deepEqual(removedSkillNames(runtime), [retiredSkill.name]);
+  const removalCall = runtime.calls.find(
+    (call) => call.command === "pnpm" && call.args[2] === "remove",
+  );
+  assert.deepEqual(removalCall?.args, [
+    "dlx",
+    "skills@test-version",
+    "remove",
+    retiredSkill.name,
+    "-g",
+    "-y",
+  ]);
   assert.equal(existsSync(retiredDirectory), false);
   assert.equal(existsSync(unownedDirectory), true);
   assert.deepEqual(

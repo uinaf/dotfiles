@@ -547,7 +547,6 @@ function installSkills(
 function removeSkills(
   runtime: Runtime,
   skills: readonly Skill[],
-  agents: readonly Agent[],
   cliVersion: string,
   home: string,
 ): number {
@@ -561,12 +560,9 @@ function removeSkills(
         "dlx",
         `skills@${cliVersion}`,
         "remove",
+        skill.name,
         "-g",
         "-y",
-        "-a",
-        ...agents,
-        "-s",
-        skill.name,
       ],
       { stdout: "capture", stderr: "capture" },
     );
@@ -683,7 +679,6 @@ function sync(runtime: Runtime): number {
     const removalStatus = removeSkills(
       runtime,
       staleSkills,
-      agents,
       runtime.env.SKILLS_CLI_VERSION || DEFAULT_SKILLS_CLI_VERSION,
       home,
     );

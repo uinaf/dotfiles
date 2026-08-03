@@ -19,7 +19,8 @@ The sync fast-forwards the clean dotfiles checkout, generates
 entrypoints, and installs every entry in `scripts/agents/skills.json`. The
 ignored `scripts/agents/skills.lock.json` records the last manifest successfully
 applied by this checkout. Later syncs remove skills dropped from that lock while
-preserving globally installed skills the lock never owned.
+preserving globally installed skills the lock never owned. Removing an owned
+skill also removes its links from every agent configured by the skills CLI.
 
 When the lock is missing, sync installs the current manifest and initializes the
 lock without removing anything. Before migrating a machine that predates
