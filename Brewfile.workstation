@@ -1,11 +1,5 @@
 # Portable human-workstation Homebrew layer.
 # Run through brew-bundle.sh so base and developer layers install first.
 
-# Terminal, browser, and coding agents
-cask "ghostty"
-cask "google-chrome"
-cask "codex"
-cask "claude-code@latest"
-
 # Human authentication
 cask "1password-cli"

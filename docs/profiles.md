@@ -41,10 +41,9 @@ their profile layer. Personal installs `Brewfile.workstation` followed by
 The assistant mise config contains only Node. Workload repositories own
 OpenClaw, Hermes, model providers, additional language runtimes, and other
 workload-specific packages. Personal, workstation, and devbox retain the full
-shared development runtime set, including Cursor Agent CLI. Workstation and
-personal install Codex CLI and Claude Code CLI in the workstation layer; devbox
-installs them in its own layer. Their install flow also syncs machine-global
-instructions and additive skills from `scripts/agents/`; see
+shared development runtime set, including Codex CLI, Claude Code CLI, and
+Cursor Agent CLI. Their install flow also syncs machine-global instructions
+and additive skills from `scripts/agents/`; see
 [Agent setup](agents.md). Zed and its managed settings belong only to personal.
 The separately verified Cursor desktop installer is available to either
 interactive profile.

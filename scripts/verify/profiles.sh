@@ -132,12 +132,19 @@ workstation_files="$(dotfiles_profile_brewfiles workstation)"
 assert_eq "$(printf 'Brewfile\nBrewfile.developer\nBrewfile.workstation')" "$workstation_files" "workstation Brewfile layers"
 personal_files="$(dotfiles_profile_brewfiles personal)"
 assert_eq "$(printf 'Brewfile\nBrewfile.developer\nBrewfile.workstation\nBrewfile.personal')" "$personal_files" "personal Brewfile layers"
+if unsupported_files="$(dotfiles_profile_brewfiles unsupported 2>/dev/null)"; then
+  fail "unsupported profile resolved Brewfile layers"
+fi
+[ -z "$unsupported_files" ] || fail "unsupported profile emitted partial Brewfile layers"
 
 for required in 'cask "codex"' 'cask "claude-code@latest"'; do
-  grep -Fqx "$required" "$repo_root/Brewfile.workstation" \
-    || fail "workstation layer missed $required"
-  grep -Fqx "$required" "$repo_root/Brewfile.devbox" \
-    || fail "devbox layer missed $required"
+  grep -Fqx "$required" "$repo_root/Brewfile.developer" \
+    || fail "developer layer missed $required"
+  for file in Brewfile.workstation Brewfile.personal Brewfile.devbox; do
+    if grep -Fqx "$required" "$repo_root/$file"; then
+      fail "$file duplicates shared developer dependency $required"
+    fi
+  done
 done
 grep -Fqx 'cask "zed"' "$repo_root/Brewfile.personal" \
   || fail "personal layer missed Zed"

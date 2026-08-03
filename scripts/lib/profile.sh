@@ -107,17 +107,27 @@ dotfiles_profile_uses_shared_brew() {
 dotfiles_profile_brewfiles() {
   local profile="$1"
 
-  printf 'Brewfile\n'
-  if dotfiles_profile_is_developer "$profile"; then
-    printf 'Brewfile.developer\n'
-  fi
   case "$profile" in
+    personal|workstation|devbox|assistant) ;;
+    *) return 2 ;;
+  esac
+  printf 'Brewfile\n'
+  case "$profile" in
+    assistant)
+      printf 'Brewfile.assistant\n'
+      ;;
+    devbox)
+      printf 'Brewfile.developer\n'
+      printf 'Brewfile.devbox\n'
+      ;;
+    workstation)
+      printf 'Brewfile.developer\n'
+      printf 'Brewfile.workstation\n'
+      ;;
     personal)
+      printf 'Brewfile.developer\n'
       printf 'Brewfile.workstation\n'
       printf 'Brewfile.personal\n'
-      ;;
-    *)
-      printf 'Brewfile.%s\n' "$profile"
       ;;
   esac
 }
