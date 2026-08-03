@@ -71,6 +71,7 @@ tracked.
 Run Homebrew changes from the authorized host administrator:
 
 ```zsh
+./scripts/bootstrap/brew-bundle.sh personal
 ./scripts/bootstrap/brew-bundle.sh workstation
 ./scripts/bootstrap/brew-bundle.sh devbox
 ./scripts/bootstrap/brew-bundle.sh assistant
@@ -88,8 +89,8 @@ mise install
 ./scripts/verify/bootstrap.sh --profile "$profile"
 ```
 
-Use `profile=personal` for the opinionated personal layer. The remaining
-steps are identical.
+Use `profile=personal` for the opinionated personal layer. The remaining steps
+are identical.
 
 Configure the appropriate human or workload Git identity separately:
 
@@ -123,7 +124,8 @@ brew|git|command|/usr/bin/git|--version
 cask|google-chrome|bundle|/Applications/Google Chrome.app|com.google.Chrome|TEAM_IDENTIFIER
 ```
 
-The `command` validator requires an absolute executable path and runs up to
+The `command` validator requires an absolute executable path owned by the
+current user or root and not writable by group or other users. It runs up to
 three literal arguments. Use it when a safe version or health probe can prove
 that endpoint policy permits execution. The `bundle` validator requires an
 absolute nonsymlinked app bundle, exact bundle identifier, exact signing team,

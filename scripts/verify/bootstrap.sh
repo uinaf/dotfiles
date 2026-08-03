@@ -374,7 +374,8 @@ check_brew_bundle() {
   local file
 
   section "brew bundle checks"
-  dotfiles_homebrew_configure_external_capabilities "$repo_root" "$profile"
+  dotfiles_homebrew_configure_external_capabilities "$repo_root" "$profile" ||
+    fail "external Homebrew capability validation failed"
   while IFS= read -r file; do
     dotfiles_homebrew_bundle_check "$repo_root/$file" \
       || fail "missing Homebrew dependencies from $file"

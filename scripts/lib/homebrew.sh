@@ -50,13 +50,6 @@ dotfiles_homebrew_external_file_mode() {
   esac
 }
 
-dotfiles_homebrew_external_file_uid() {
-  case "$(uname -s)" in
-    Darwin) stat -f '%u' "$1" ;;
-    *) stat -c '%u' "$1" ;;
-  esac
-}
-
 dotfiles_homebrew_validate_external_file() {
   local config_file="$1"
   local mode
@@ -65,7 +58,7 @@ dotfiles_homebrew_validate_external_file() {
     dotfiles_homebrew_fail_external "$config_file must be a readable regular file"
     return 1
   fi
-  if [ "$(dotfiles_homebrew_external_file_uid "$config_file")" != "$(id -u)" ]; then
+  if [ "$(dotfiles_homebrew_path_uid "$config_file")" != "$(id -u)" ]; then
     dotfiles_homebrew_fail_external "$config_file must be owned by the current user"
     return 1
   fi
@@ -100,6 +93,8 @@ dotfiles_homebrew_validate_external_command() {
   local package_type="$1"
   local package_name="$2"
   local target="$3"
+  local owner_uid
+  local mode
   shift 3
 
   case "$target" in
@@ -113,10 +108,32 @@ dotfiles_homebrew_validate_external_command() {
     dotfiles_homebrew_fail_external "$package_type $package_name command is not executable: $target"
     return 1
   fi
+  owner_uid="$(dotfiles_homebrew_path_uid "$target")" || {
+    dotfiles_homebrew_fail_external "cannot read ownership for $target"
+    return 1
+  }
+  if [ "$owner_uid" != "$(id -u)" ] && [ "$owner_uid" != 0 ]; then
+    dotfiles_homebrew_fail_external "$target must be owned by the current user or root"
+    return 1
+  fi
+  mode="$(dotfiles_homebrew_external_file_mode "$target")" || {
+    dotfiles_homebrew_fail_external "cannot read permissions for $target"
+    return 1
+  }
+  case "$mode" in
+    *[2367][0-7]|*[0-7][2367])
+      dotfiles_homebrew_fail_external "$target must not be group or world writable"
+      return 1
+      ;;
+  esac
   if ! "$target" "$@"; then
     dotfiles_homebrew_fail_external "$package_type $package_name command check failed: $target"
     return 1
   fi
+}
+
+dotfiles_homebrew_codesign() {
+  /usr/bin/codesign "$@"
 }
 
 dotfiles_homebrew_validate_external_bundle() {
@@ -155,11 +172,11 @@ dotfiles_homebrew_validate_external_bundle() {
     dotfiles_homebrew_fail_external "$package_name bundle identifier is $actual_bundle_id; expected $expected_bundle_id"
     return 1
   fi
-  if ! codesign --verify --deep --strict "$target"; then
+  if ! dotfiles_homebrew_codesign --verify --deep --strict "$target"; then
     dotfiles_homebrew_fail_external "$package_name bundle signature verification failed"
     return 1
   fi
-  if ! actual_team_id="$(codesign -dv --verbose=4 "$target" 2>&1 | awk -F= '$1 == "TeamIdentifier" { print $2; exit }')"; then
+  if ! actual_team_id="$(dotfiles_homebrew_codesign -dv --verbose=4 "$target" 2>&1 | awk -F= '$1 == "TeamIdentifier" { print $2; exit }')"; then
     dotfiles_homebrew_fail_external "$package_name signing team is unreadable"
     return 1
   fi

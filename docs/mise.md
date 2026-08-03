@@ -74,6 +74,7 @@ mise run audit:mscp
 Live host checks:
 
 ```zsh
+mise run verify:bootstrap:personal
 mise run verify:bootstrap:workstation
 mise run verify:bootstrap:devbox
 mise run verify:bootstrap:assistant
@@ -88,8 +89,6 @@ mise run audit:devbox:json
 
 Use repo checks for ordinary PR work. Use live host checks only on a machine
 that should actually satisfy that profile or audit boundary.
-The `personal` task names apply and verify the personal profile.
-
 Bootstrap helpers:
 
 ```zsh

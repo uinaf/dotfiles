@@ -30,6 +30,15 @@ printf 'brew|git|command|%s|--version\ncask|google-chrome|command|%s|--version\n
   "$tmp_dir/bin/managed-tool" "$tmp_dir/bin/managed-tool" >"$external_file"
 chmod 600 "$external_file"
 
+chmod 777 "$tmp_dir/bin/managed-tool"
+if (
+  MANAGED_TOOL_LOG="$managed_log" DOTFILES_EXTERNAL_HOMEBREW_FILE="$external_file" \
+    dotfiles_homebrew_configure_external_capabilities "$repo_root" workstation >/dev/null 2>&1
+); then
+  fail "group- or world-writable external command was accepted"
+fi
+chmod 755 "$tmp_dir/bin/managed-tool"
+
 (
   unset HOMEBREW_BUNDLE_BREW_SKIP HOMEBREW_BUNDLE_CASK_SKIP
   MANAGED_TOOL_LOG="$managed_log" \
@@ -98,30 +107,59 @@ EOF
 cat >"$tmp_dir/bin/codesign" <<'EOF'
 #!/usr/bin/env bash
 if [ "${1:-}" = "--verify" ]; then
-  exit 0
+  exit "${MANAGED_CODESIGN_VERIFY_EXIT:-0}"
 fi
 printf 'TeamIdentifier=MANAGEDTEAM\n' >&2
 EOF
 chmod 755 "$tmp_dir/bin/codesign"
+dotfiles_homebrew_codesign() {
+  "$tmp_dir/bin/codesign" "$@"
+}
 printf 'cask|google-chrome|bundle|%s|com.example.ManagedBrowser|MANAGEDTEAM\n' "$app_path" >"$external_file"
 (
   unset HOMEBREW_BUNDLE_CASK_SKIP
-  PATH="$tmp_dir/bin:$PATH" DOTFILES_EXTERNAL_HOMEBREW_FILE="$external_file" \
+  DOTFILES_EXTERNAL_HOMEBREW_FILE="$external_file" \
     dotfiles_homebrew_configure_external_capabilities "$repo_root" workstation >/dev/null
   [ "$HOMEBREW_BUNDLE_CASK_SKIP" = google-chrome ] || fail "validated bundle was not skipped"
 )
 
 printf 'cask|google-chrome|bundle|%s|com.example.ManagedBrowser|WRONGTEAM\n' "$app_path" >"$external_file"
 if (
-  PATH="$tmp_dir/bin:$PATH" DOTFILES_EXTERNAL_HOMEBREW_FILE="$external_file" \
+  DOTFILES_EXTERNAL_HOMEBREW_FILE="$external_file" \
     dotfiles_homebrew_configure_external_capabilities "$repo_root" workstation >/dev/null 2>&1
 ); then
   fail "bundle with the wrong signing team was accepted"
 fi
 
+printf 'cask|google-chrome|bundle|%s|com.example.WrongBrowser|MANAGEDTEAM\n' "$app_path" >"$external_file"
+if (
+  DOTFILES_EXTERNAL_HOMEBREW_FILE="$external_file" \
+    dotfiles_homebrew_configure_external_capabilities "$repo_root" workstation >/dev/null 2>&1
+); then
+  fail "bundle with the wrong identifier was accepted"
+fi
+
+symlinked_app="$tmp_dir/Symlinked Browser.app"
+ln -s "$app_path" "$symlinked_app"
+printf 'cask|google-chrome|bundle|%s|com.example.ManagedBrowser|MANAGEDTEAM\n' "$symlinked_app" >"$external_file"
+if (
+  DOTFILES_EXTERNAL_HOMEBREW_FILE="$external_file" \
+    dotfiles_homebrew_configure_external_capabilities "$repo_root" workstation >/dev/null 2>&1
+); then
+  fail "symlinked external bundle was accepted"
+fi
+
+printf 'cask|google-chrome|bundle|%s|com.example.ManagedBrowser|MANAGEDTEAM\n' "$app_path" >"$external_file"
+if (
+  MANAGED_CODESIGN_VERIFY_EXIT=1 DOTFILES_EXTERNAL_HOMEBREW_FILE="$external_file" \
+    dotfiles_homebrew_configure_external_capabilities "$repo_root" workstation >/dev/null 2>&1
+); then
+  fail "bundle with a failed signature check was accepted"
+fi
+
 printf 'cask|google-chrome|bundle|%s|com.example.ManagedBrowser|not set\n' "$app_path" >"$external_file"
 if (
-  PATH="$tmp_dir/bin:$PATH" DOTFILES_EXTERNAL_HOMEBREW_FILE="$external_file" \
+  DOTFILES_EXTERNAL_HOMEBREW_FILE="$external_file" \
     dotfiles_homebrew_configure_external_capabilities "$repo_root" workstation >/dev/null 2>&1
 ); then
   fail "bundle without a concrete signing team was accepted"
