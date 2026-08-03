@@ -10,3 +10,6 @@ brew "mise"
 brew "direnv"
 brew "btop"
 brew "ripgrep"
+
+# Shared browser capability
+cask "google-chrome"

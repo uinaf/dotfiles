@@ -1,4 +1,4 @@
-# Shared development layer for workstation and devbox users.
+# Shared development layer for personal, workstation, and devbox users.
 
 # Taps
 tap "f1bonacc1/tap"
@@ -6,9 +6,9 @@ tap "teamookla/speedtest"
 
 # Terminal, browser, and coding agents
 cask "ghostty"
-cask "google-chrome"
 cask "codex"
 cask "claude-code@latest"
+cask "1password-cli"
 
 # Development CLI
 brew "gh"

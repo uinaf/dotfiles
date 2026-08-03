@@ -11,8 +11,7 @@ print_steps=0
 usage() {
   cat <<'USAGE'
 Usage:
-  scripts/bootstrap/install.sh --profile workstation|devbox|assistant
-  scripts/bootstrap/install.sh --profile personal   # compatibility alias
+  scripts/bootstrap/install.sh --profile personal|workstation|devbox|assistant
   scripts/bootstrap/install.sh --print-steps --profile PROFILE
 
 Applies per-user dotfiles and runs only the setup steps owned by the selected
@@ -46,7 +45,7 @@ while [ "$#" -gt 0 ]; do
 done
 
 if ! profile="$(dotfiles_resolve_profile "$profile")"; then
-  printf 'a supported profile is required: workstation, devbox, or assistant\n' >&2
+  printf 'a supported profile is required: personal, workstation, devbox, or assistant\n' >&2
   exit 2
 fi
 
@@ -55,6 +54,7 @@ install_steps() {
   if [ "$profile" = "assistant" ]; then
     printf 'install-gh-app-auth\n'
   elif dotfiles_profile_is_developer "$profile"; then
+    printf 'install-cursor-agent\n'
     printf 'trust-agent-worktrees\n'
     printf 'install-gh-extensions\n'
     printf 'remove-global-vite-plus\n'
@@ -71,6 +71,9 @@ run_step() {
       ;;
     install-gh-app-auth)
       "$repo_root/scripts/bootstrap/install-gh-app-auth.sh"
+      ;;
+    install-cursor-agent)
+      "$repo_root/scripts/bootstrap/install-cursor-agent.sh"
       ;;
     trust-agent-worktrees)
       "$repo_root/scripts/bootstrap/trust-agent-worktrees.sh"

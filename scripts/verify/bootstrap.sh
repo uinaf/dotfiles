@@ -14,11 +14,11 @@ ghostty_config="$HOME/Library/Application Support/com.mitchellh.ghostty/config"
 usage() {
   cat <<'USAGE'
 Usage:
-  scripts/verify/bootstrap.sh [--profile workstation|devbox|assistant] [--desktop]
+  scripts/verify/bootstrap.sh [--profile personal|workstation|devbox|assistant] [--desktop]
 
 Checks the live per-user bootstrap for the selected profile. An existing
-~/.config/dotfiles/profile is used when --profile is omitted. The legacy personal
-name maps to workstation. --desktop is valid only with devbox.
+~/.config/dotfiles/profile is used when --profile is omitted. --desktop is
+valid only with devbox.
 USAGE
 }
 
@@ -79,13 +79,15 @@ developer_cli_checks=(
   "codex --version"
   "claude --version"
   "cursor-agent --version"
-  "gitcrawl --version"
-  "tailscale status --peers=false"
 )
 
-workstation_cli_checks=(
+human_workstation_cli_checks=(
   "op --version"
-  "blacksmith --version"
+)
+
+personal_cli_checks=(
+  "gitcrawl --version"
+  "tailscale status --peers=false"
 )
 
 devbox_cli_checks=(
@@ -95,11 +97,11 @@ devbox_cli_checks=(
   "qpdf --version"
   "qrencode --version"
   "xcodes version"
+  "gitcrawl --version"
+  "tailscale status --peers=false"
 )
 
 assistant_cli_checks=(
-  "process-compose version"
-  "ffmpeg -version"
   "gh --version"
   "GH_NO_EXTENSION_UPDATE_NOTIFIER=1 gh app-auth exec --help"
 )
@@ -118,7 +120,7 @@ developer_config_paths=(
   "$HOME/.ssh/config"
 )
 
-workstation_config_paths=(
+personal_config_paths=(
   "$HOME/.config/zed/settings.json"
   "$HOME/.config/zed/keymap.json"
 )
@@ -345,10 +347,15 @@ check_cli_tools() {
   fi
 
   case "$profile" in
-    workstation)
-      for check in "${workstation_cli_checks[@]}"; do
+    personal|workstation)
+      for check in "${human_workstation_cli_checks[@]}"; do
         run_zsh_check "$check"
       done
+      if [ "$profile" = personal ]; then
+        for check in "${personal_cli_checks[@]}"; do
+          run_zsh_check "$check"
+        done
+      fi
       ;;
     devbox)
       for check in "${devbox_cli_checks[@]}"; do
@@ -367,6 +374,8 @@ check_brew_bundle() {
   local file
 
   section "brew bundle checks"
+  dotfiles_homebrew_configure_external_capabilities "$repo_root" "$profile" ||
+    fail "external Homebrew capability validation failed"
   while IFS= read -r file; do
     dotfiles_homebrew_bundle_check "$repo_root/$file" \
       || fail "missing Homebrew dependencies from $file"
@@ -404,8 +413,8 @@ check_config_paths() {
     done
   fi
 
-  if [ "$profile" = "workstation" ]; then
-    for path in "${workstation_config_paths[@]}"; do
+  if [ "$profile" = "personal" ]; then
+    for path in "${personal_config_paths[@]}"; do
       if [ -e "$path" ]; then
         printf 'ok %s\n' "$path"
       else

@@ -20,7 +20,7 @@ Runs repository-level verification for dotfiles changes:
   - repo secret scan through scripts/audit/repo.sh --skip-mscp
 
 This checks the repository, not the live machine bootstrap. Use
-scripts/verify/bootstrap.sh for live workstation/devbox/assistant checks.
+scripts/verify/bootstrap.sh for live personal/workstation/devbox/assistant checks.
 USAGE
 }
 
@@ -97,6 +97,9 @@ section "SOPS sudo runner"
 
 section "devbox Homebrew wrapper"
 ./scripts/verify/brew-devbox.sh
+
+section "external Homebrew capabilities"
+./scripts/verify/external-homebrew.sh
 
 section "profile contracts"
 ./scripts/verify/profiles.sh

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#MISE description="Compatibility alias for the workstation audit JSON summary"
+#MISE description="Run the live personal workstation audit as JSON"
 set -euo pipefail
 
 ./scripts/audit/personal.sh --json

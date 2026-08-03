@@ -38,7 +38,7 @@ render_target() {
     cat "$home/$target"
 }
 
-assert_eq workstation "$(dotfiles_normalize_profile personal)" "personal compatibility alias"
+assert_eq personal "$(dotfiles_normalize_profile personal)" "personal profile"
 assert_eq workstation "$(dotfiles_normalize_profile workstation)" "workstation profile"
 assert_eq devbox "$(dotfiles_normalize_profile devbox)" "devbox profile"
 assert_eq assistant "$(dotfiles_normalize_profile assistant)" "assistant profile"
@@ -130,27 +130,63 @@ devbox_files="$(dotfiles_profile_brewfiles devbox)"
 assert_eq "$(printf 'Brewfile\nBrewfile.developer\nBrewfile.devbox')" "$devbox_files" "devbox Brewfile layers"
 workstation_files="$(dotfiles_profile_brewfiles workstation)"
 assert_eq "$(printf 'Brewfile\nBrewfile.developer\nBrewfile.workstation')" "$workstation_files" "workstation Brewfile layers"
+personal_files="$(dotfiles_profile_brewfiles personal)"
+assert_eq "$(printf 'Brewfile\nBrewfile.developer\nBrewfile.workstation\nBrewfile.personal')" "$personal_files" "personal Brewfile layers"
+if unsupported_files="$(dotfiles_profile_brewfiles unsupported 2>/dev/null)"; then
+  fail "unsupported profile resolved Brewfile layers"
+fi
+[ -z "$unsupported_files" ] || fail "unsupported profile emitted partial Brewfile layers"
 
 for required in 'cask "codex"' 'cask "claude-code@latest"'; do
   grep -Fqx "$required" "$repo_root/Brewfile.developer" \
     || fail "developer layer missed $required"
+  for file in Brewfile.workstation Brewfile.personal Brewfile.devbox; do
+    if grep -Fqx "$required" "$repo_root/$file"; then
+      fail "$file duplicates shared developer dependency $required"
+    fi
+  done
 done
-grep -Fqx 'cask "zed"' "$repo_root/Brewfile.workstation" \
-  || fail "workstation layer missed Zed"
-for file in Brewfile Brewfile.developer Brewfile.devbox Brewfile.assistant; do
+grep -Fqx 'cask "google-chrome"' "$repo_root/Brewfile" \
+  || fail "base layer missed Google Chrome"
+grep -Fqx 'cask "1password-cli"' "$repo_root/Brewfile.developer" \
+  || fail "developer layer missed 1Password CLI"
+for required in 'cask "1password"' 'cask "slack"' 'cask "claude"' 'cask "chatgpt"'; do
+  grep -Fqx "$required" "$repo_root/Brewfile.workstation" \
+    || fail "workstation layer missed shared human desktop app $required"
+done
+for file in Brewfile.developer Brewfile.workstation Brewfile.personal Brewfile.devbox Brewfile.assistant; do
+  if grep -Fqx 'cask "google-chrome"' "$repo_root/$file"; then
+    fail "$file duplicates base Google Chrome"
+  fi
+done
+for file in Brewfile.workstation Brewfile.personal Brewfile.devbox Brewfile.assistant; do
+  if grep -Fqx 'cask "1password-cli"' "$repo_root/$file"; then
+    fail "$file duplicates developer 1Password CLI"
+  fi
+done
+for removed in 'brew "ffmpeg"' 'brew "f1bonacc1/tap/process-compose"'; do
+  if grep -Fqx "$removed" "$repo_root/Brewfile.assistant"; then
+    fail "assistant layer retained workload-owned dependency $removed"
+  fi
+done
+grep -Fqx 'cask "zed"' "$repo_root/Brewfile.personal" \
+  || fail "personal layer missed Zed"
+for file in Brewfile Brewfile.developer Brewfile.workstation Brewfile.devbox Brewfile.assistant; do
   if grep -Fqx 'cask "zed"' "$repo_root/$file"; then
-    fail "$file includes workstation-only Zed"
+    fail "$file includes personal-only Zed"
   fi
 done
 
 assistant_steps="$("$repo_root/scripts/bootstrap/install.sh" --print-steps --profile assistant)"
 assert_eq "$(printf 'apply-dotfiles\ninstall-gh-app-auth')" "$assistant_steps" "assistant install steps"
 developer_steps="$("$repo_root/scripts/bootstrap/install.sh" --print-steps --profile workstation)"
-for step in apply-dotfiles trust-agent-worktrees install-gh-extensions remove-global-vite-plus install-pnpm configure-codex sync-agents; do
+for step in apply-dotfiles install-cursor-agent trust-agent-worktrees install-gh-extensions remove-global-vite-plus install-pnpm configure-codex sync-agents; do
   printf '%s\n' "$developer_steps" | grep -Fqx "$step" || fail "workstation install missed $step"
 done
 devbox_steps="$("$repo_root/scripts/bootstrap/install.sh" --print-steps --profile devbox)"
 assert_eq "$developer_steps" "$devbox_steps" "devbox developer install steps"
+personal_steps="$("$repo_root/scripts/bootstrap/install.sh" --print-steps --profile personal)"
+assert_eq "$developer_steps" "$personal_steps" "personal developer install steps"
 
 install_fixture="$tmp_root/install-fixture"
 install_log="$tmp_root/install-fixture.log"
@@ -159,7 +195,7 @@ install_fixture_path="$install_fixture/bin:$active_node_bin:$PATH"
 mkdir -p "$install_fixture/scripts/agents" "$install_fixture/scripts/bootstrap" "$install_fixture/scripts/lib" "$install_fixture/bin"
 cp "$repo_root/scripts/bootstrap/install.sh" "$install_fixture/scripts/bootstrap/install.sh"
 cp "$repo_root/scripts/lib/profile.sh" "$install_fixture/scripts/lib/profile.sh"
-for helper in apply-dotfiles.sh install-gh-app-auth.sh trust-agent-worktrees.sh install-gh-extensions.sh configure-codex.sh; do
+for helper in apply-dotfiles.sh install-gh-app-auth.sh install-cursor-agent.sh trust-agent-worktrees.sh install-gh-extensions.sh configure-codex.sh; do
 cat > "$install_fixture/scripts/bootstrap/$helper" <<'EOF'
 #!/usr/bin/env bash
 printf '%s' "$(basename "$0")" >> "${DOTFILES_INSTALL_LOG:?}"
@@ -216,6 +252,7 @@ HOME="$install_devbox_home" \
   "$install_fixture/scripts/bootstrap/install.sh" --profile devbox
 expected_install_log="$(cat <<EOF
 apply-dotfiles.sh --profile devbox
+install-cursor-agent.sh
 trust-agent-worktrees.sh
 install-gh-extensions.sh
 mise uninstall --all --yes npm:vite-plus
@@ -280,8 +317,11 @@ done
 
 devbox_mise="$(render_target devbox .config/mise/config.toml)"
 assert_eq "$workstation_mise" "$devbox_mise" "devbox developer mise config"
+personal_mise="$(render_target personal .config/mise/config.toml)"
+assert_eq "$workstation_mise" "$personal_mise" "personal developer mise config"
 
 assert_eq assistant "$(render_target assistant .config/dotfiles/profile)" "rendered assistant profile"
+assert_eq personal "$(render_target personal .config/dotfiles/profile)" "rendered personal profile"
 
 assistant_managed="$({
   data='{"dotfilesProfile":"assistant"}'
@@ -308,7 +348,6 @@ workstation_managed="$({
 })"
 for required_path in \
   '.config/git/allowed_signers' \
-  '.config/zed/settings.json' \
   '.gitconfig' \
   '.local/libexec/dotfiles/git-ssh-sign-agentless' \
   '.ssh/config' \
@@ -316,6 +355,20 @@ for required_path in \
   printf '%s\n' "$workstation_managed" | grep -Fqx "$required_path" \
     || fail "workstation profile does not manage $required_path"
 done
+if printf '%s\n' "$workstation_managed" | grep -Eq '^\.config/zed(/|$)'; then
+  fail "workstation profile manages personal-only Zed state"
+fi
+
+personal_managed="$({
+  data='{"dotfilesProfile":"personal"}'
+  chezmoi \
+    --source "$repo_root/chezmoi" \
+    --destination "$tmp_root/personal" \
+    --override-data "$data" \
+    managed --path-style relative
+})"
+printf '%s\n' "$personal_managed" | grep -Fqx '.config/zed/settings.json' \
+  || fail "personal profile does not manage Zed settings"
 
 devbox_managed="$({
   data='{"dotfilesProfile":"devbox"}'
@@ -334,7 +387,7 @@ for required_path in \
     || fail "devbox profile does not manage $required_path"
 done
 if printf '%s\n' "$devbox_managed" | grep -Eq '^\.config/zed(/|$)'; then
-  fail "devbox profile manages workstation-only Zed state"
+  fail "devbox profile manages personal-only Zed state"
 fi
 
 assistant_home="$tmp_root/assistant-applied"
@@ -389,4 +442,4 @@ GIT_USER_EMAIL='example-workload@users.noreply.github.com' \
   "$repo_root/scripts/bootstrap/configure-git.sh" --profile assistant --non-interactive >/dev/null
 HOME="$identity_home" "$repo_root/scripts/verify/assistant-git-boundary.sh" >/dev/null
 
-printf 'ok profile aliases, layers, applied dotfiles, and workload Git identity\n'
+printf 'ok profile layers, applied dotfiles, and workload Git identity\n'

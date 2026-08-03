@@ -8,6 +8,8 @@ print_files=0
 
 # shellcheck source=scripts/lib/profile.sh
 . "$repo_root/scripts/lib/profile.sh"
+# shellcheck source=scripts/lib/homebrew.sh
+. "$repo_root/scripts/lib/homebrew.sh"
 
 usage() {
   cat <<'USAGE'
@@ -15,14 +17,16 @@ Usage:
   scripts/bootstrap/brew-bundle.sh workstation
   scripts/bootstrap/brew-bundle.sh devbox
   scripts/bootstrap/brew-bundle.sh assistant
-  scripts/bootstrap/brew-bundle.sh personal              # compatibility alias
+  scripts/bootstrap/brew-bundle.sh personal
   scripts/bootstrap/brew-bundle.sh --shared-only workstation
   scripts/bootstrap/brew-bundle.sh --shared-only devbox
   scripts/bootstrap/brew-bundle.sh --shared-only assistant
   scripts/bootstrap/brew-bundle.sh --print-files PROFILE
 
-Installs the minimal base first, the developer layer for workstation/devbox,
-then the selected profile layer. --shared-only installs only the base.
+Installs the minimal base first, the developer layer for personal/workstation/devbox,
+then the selected profile layers. --shared-only installs only the base.
+An owner-controlled external-homebrew file can validate and skip entries
+supplied by another trusted installer.
 Devbox and assistant host changes use the group-safe Homebrew wrapper.
 USAGE
 }
@@ -103,6 +107,8 @@ if ! command -v brew >/dev/null 2>&1; then
   printf 'brew is required before running this script\n' >&2
   exit 1
 fi
+
+dotfiles_homebrew_configure_external_capabilities "$repo_root" "$profile"
 
 run_bundle() {
   local file="$1"
