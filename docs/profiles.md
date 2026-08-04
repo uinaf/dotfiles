@@ -47,8 +47,9 @@ workload-specific packages.
 
 Personal, workstation, and devbox retain the full shared development runtime
 set, including Codex CLI, Claude Code CLI, Cursor Agent CLI, and 1Password CLI.
-Their install flow also syncs machine-global instructions and additive skills
-from `scripts/agents/`; see
+The same developer layer installs the autoreview CLI from `uinaf/tap`. Their
+install flow also syncs machine-global instructions and additive skills from
+`scripts/agents/`; see
 [Agent setup](agents.md). Zed and its managed settings belong only to personal.
 The workstation layer supplies 1Password, Slack, Claude Desktop, and ChatGPT to
 both interactive profiles. The separately verified Cursor desktop installer is

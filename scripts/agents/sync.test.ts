@@ -646,7 +646,7 @@ test("rejects an invalid manifest before changing generated or global rules", ()
   assert.equal(installedSkillNames(runtime).length, 0);
 });
 
-test("uses the renamed first-party skill source", () => {
+test("uses the current first-party skill sources", () => {
   const scriptDir = dirname(fileURLToPath(import.meta.url));
   const manifest: unknown = JSON.parse(
     readFileSync(join(scriptDir, "skills.json"), "utf8"),
@@ -659,20 +659,23 @@ test("uses the renamed first-party skill source", () => {
       Array.isArray(manifest.skills),
   );
 
-  const sources = manifest.skills.map((skill: unknown) => {
-      assert.ok(
-        typeof skill === "object" &&
-          skill !== null &&
-          "name" in skill &&
-          typeof skill.name === "string" &&
-          "source" in skill &&
-          typeof skill.source === "string",
-      );
-      return skill.source;
-    });
+  const skills = manifest.skills.map((skill: unknown) => {
+    assert.ok(
+      typeof skill === "object" &&
+        skill !== null &&
+        "name" in skill &&
+        typeof skill.name === "string" &&
+        "source" in skill &&
+        typeof skill.source === "string",
+    );
+    return { name: skill.name, source: skill.source };
+  });
+  const sources = skills.map((skill) => skill.source);
+  const sourceByName = new Map(skills.map((skill) => [skill.name, skill.source]));
 
   assert.equal(sources.includes("uinaf/agents"), false);
   assert.equal(sources.includes("uinaf/skills"), true);
+  assert.equal(sourceByName.get("autoreview"), "uinaf/autoreview");
 });
 
 test("the executable TypeScript entrypoint runs the CLI", () => {

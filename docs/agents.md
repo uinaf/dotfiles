@@ -30,7 +30,10 @@ anything. With no supported agent and no lock, sync skips installation and
 ownership initialization. Before migrating a machine that predates ownership
 tracking, seed the lock only with entries confirmed to have been installed by
 the former manifest sync.
-First-party skill source lives in [`uinaf/skills`](https://github.com/uinaf/skills).
+Shared first-party skills live in [`uinaf/skills`](https://github.com/uinaf/skills).
+The autoreview skill ships with
+[`uinaf/autoreview`](https://github.com/uinaf/autoreview) and invokes the CLI
+installed by the developer Homebrew layer.
 
 Regular files and foreign symlinks at the global instruction entrypoints are
 rejected before global state changes.

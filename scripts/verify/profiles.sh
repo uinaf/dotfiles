@@ -140,7 +140,7 @@ if unsupported_files="$(dotfiles_profile_brewfiles unsupported 2>/dev/null)"; th
 fi
 [ -z "$unsupported_files" ] || fail "unsupported profile emitted partial Brewfile layers"
 
-for required in 'cask "codex"' 'cask "claude-code@latest"'; do
+for required in 'cask "codex"' 'cask "claude-code@latest"' 'cask "uinaf/tap/autoreview"'; do
   grep -Fqx "$required" "$repo_root/Brewfile.developer" \
     || fail "developer layer missed $required"
   for file in Brewfile.workstation Brewfile.personal Brewfile.devbox; do
@@ -148,6 +148,13 @@ for required in 'cask "codex"' 'cask "claude-code@latest"'; do
       fail "$file duplicates shared developer dependency $required"
     fi
   done
+done
+grep -Fqx 'tap "uinaf/tap"' "$repo_root/Brewfile.developer" \
+  || fail "developer layer missed the shared autoreview tap"
+for file in Brewfile.workstation Brewfile.personal Brewfile.devbox; do
+  if grep -Fqx 'tap "uinaf/tap"' "$repo_root/$file"; then
+    fail "$file duplicates the shared developer autoreview tap"
+  fi
 done
 if grep -Fqx 'cask "google-chrome"' "$repo_root/Brewfile"; then
   fail "base layer exposed Google Chrome to service users"

@@ -39,7 +39,7 @@ while IFS=: read -r file line content; do
         *"Do not add \`uinaf\` or another owner"*) continue ;;
       esac
       ;;
-    Brewfile.devbox|CONTRIBUTING.md|LICENSE|README.md|SECURITY.md|docs/bootstrap.md)
+    Brewfile.developer|Brewfile.devbox|CONTRIBUTING.md|LICENSE|README.md|SECURITY.md|docs/bootstrap.md|docs/profiles.md)
       case "$content" in
         *uinaf/dotfiles*|*uinaf/tap*|*github.com/uinaf/sops-vault-template*|*dev@uinaf.dev*|*'Copyright (c) 2026 uinaf'*) continue ;;
       esac
@@ -51,7 +51,7 @@ while IFS=: read -r file line content; do
       ;;
     docs/agents.md)
       case "$content" in
-        *github.com/uinaf/skills*) continue ;;
+        *github.com/uinaf/skills*|*github.com/uinaf/autoreview*) continue ;;
       esac
       ;;
     docs/devbox.md)
@@ -81,12 +81,17 @@ while IFS=: read -r file line content; do
       ;;
     scripts/agents/skills.json)
       case "$content" in
-        *'"source": "uinaf/skills"'*|*'"source": "https://cdn.uinaf.dev/skills/ui"'*) continue ;;
+        *'"source": "uinaf/skills"'*|*'"source": "uinaf/autoreview"'*|*'"source": "https://cdn.uinaf.dev/skills/ui"'*) continue ;;
       esac
       ;;
     scripts/agents/sync.test.ts)
       case "$content" in
-        *'sources.includes("uinaf/agents")'*|*'sources.includes("uinaf/skills")'*) continue ;;
+        *'sources.includes("uinaf/agents")'*|*'sources.includes("uinaf/skills")'*|*'sourceByName.get("autoreview"), "uinaf/autoreview"'*) continue ;;
+      esac
+      ;;
+    scripts/verify/profiles.sh)
+      case "$content" in
+        *'uinaf/tap'*) continue ;;
       esac
       ;;
   esac

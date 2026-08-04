@@ -10,7 +10,7 @@
     },
     {
       "name": "autoreview",
-      "source": "uinaf/skills"
+      "source": "uinaf/autoreview"
     },
     {
       "name": "docs",

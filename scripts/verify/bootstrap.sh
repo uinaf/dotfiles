@@ -79,6 +79,7 @@ developer_cli_checks=(
   "codex --version"
   "claude --version"
   "cursor-agent --version"
+  "autoreview --version"
 )
 
 human_workstation_cli_checks=(
