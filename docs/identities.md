@@ -69,9 +69,10 @@ the deployment uses.
 The configurator writes authorship and signing state to `~/.gitconfig.local`.
 When SSH authentication is configured, it writes a managed
 `~/.ssh/github.config` block that selects the local key and disables ambient
-agent identities for `github.com`. Preserve unrelated directives in
-`~/.ssh/config.local`. Move aside an unmanaged `~/.ssh/github.config` or any
-other `Host github.com` block before running the configurator.
+agent identities and key additions for `github.com`. Preserve unrelated
+directives in `~/.ssh/config.local`. Move aside an unmanaged
+`~/.ssh/github.config` or any other `Host github.com` block before running the
+configurator.
 
 ## SOPS Age Identity
 

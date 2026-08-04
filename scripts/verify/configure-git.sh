@@ -155,6 +155,7 @@ cmp -s "$tmp_root/personal.config.before" "$personal_home/.ssh/config.local" || 
 
 effective_github="$(ssh -F "$personal_home/.ssh/config" -G github.com 2>/dev/null)"
 [ "$(printf '%s\n' "$effective_github" | awk '$1 == "identityagent" { print $2; exit }')" = none ] || fail "GitHub still uses an SSH agent"
+[ "$(printf '%s\n' "$effective_github" | awk '$1 == "addkeystoagent" { print $2; exit }')" = false ] || fail "GitHub still adds keys to an SSH agent"
 [ "$(printf '%s\n' "$effective_github" | awk '$1 == "identityfile" { print $2; exit }')" = "$personal_home/.ssh/signing" ] || fail "GitHub does not prioritize the configured identity"
 [ "$(printf '%s\n' "$effective_github" | awk '$1 == "identityfile" && $2 == "/tmp/preexisting-identity" { print $2; exit }')" = /tmp/preexisting-identity ] || fail "local wildcard identity behavior changed unexpectedly"
 

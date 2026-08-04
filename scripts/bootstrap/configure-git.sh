@@ -238,6 +238,7 @@ Host github.com
   IdentityFile $identity_file
   IdentitiesOnly yes
   IdentityAgent none
+  AddKeysToAgent no
 # dotfiles: github-ssh end
 EOF
 
