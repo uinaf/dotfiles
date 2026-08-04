@@ -1,7 +1,7 @@
 {{ if ne .dotfilesProfile "personal" }}
 .config/zed
 {{ end }}
-{{ if eq .dotfilesProfile "assistant" }}
+{{ if or (eq .dotfilesProfile "assistant") (eq .dotfilesProfile "service") }}
 .codex
 .config/1Password/ssh
 .config/git

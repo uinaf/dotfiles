@@ -14,7 +14,7 @@ ghostty_config="$HOME/Library/Application Support/com.mitchellh.ghostty/config"
 usage() {
   cat <<'USAGE'
 Usage:
-  scripts/verify/bootstrap.sh [--profile personal|workstation|devbox|assistant] [--desktop]
+  scripts/verify/bootstrap.sh [--profile personal|workstation|devbox|assistant|service] [--desktop]
 
 Checks the live per-user bootstrap for the selected profile. An existing
 ~/.config/dotfiles/profile is used when --profile is omitted. --desktop is
@@ -32,7 +32,7 @@ while [ "$#" -gt 0 ]; do
       fi
       profile="$1"
       ;;
-    personal|workstation|devbox|assistant)
+    personal|workstation|devbox|assistant|service)
       profile="$1"
       ;;
     --desktop)
@@ -197,6 +197,10 @@ check_runtime_versions() {
   local npm_prefix
   local npm_global_root
   local npm_exec_node
+
+  if [ "$profile" = "service" ]; then
+    return
+  fi
 
   check_exact_version "Node" "v24.18.0" "node --version"
   check_mise_tool_owner "Node" "node" "node"
@@ -429,13 +433,13 @@ check_config_paths() {
   fi
 }
 
-check_assistant_git_boundary() {
-  if [ "$profile" != "assistant" ]; then
+check_workload_git_boundary() {
+  if ! dotfiles_profile_is_workload "$profile"; then
     return
   fi
 
-  section "assistant workload Git boundary"
-  "$repo_root/scripts/verify/assistant-git-boundary.sh"
+  section "$profile workload Git boundary"
+  "$repo_root/scripts/verify/workload-git-boundary.sh" --profile "$profile"
 }
 
 check_sops_age_identity() {
@@ -459,7 +463,7 @@ if dotfiles_profile_is_developer "$profile"; then
   check_codex_config
   check_spotlight_indexing
 fi
-check_assistant_git_boundary
+check_workload_git_boundary
 check_desktop_baseline
 
 printf '\nbootstrap verification ok (%s)\n' "$profile"

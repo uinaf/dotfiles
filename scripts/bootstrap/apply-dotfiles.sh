@@ -18,7 +18,7 @@ Usage:
   scripts/bootstrap/apply-dotfiles.sh [--profile PROFILE] [--dry-run] [--verbose]
 
 Applies the repo-local chezmoi source state for personal, workstation, devbox,
-or assistant to $HOME. When --profile is omitted, the stored profile is used,
+assistant, or service to $HOME. When --profile is omitted, the stored profile is used,
 followed by DOTFILES_PROFILE for first-time setup.
 USAGE
 }
@@ -148,7 +148,7 @@ remove_obsolete_link_suffix() {
 command -v chezmoi >/dev/null 2>&1 || fail "chezmoi is required; run scripts/bootstrap/brew-bundle.sh for the selected profile first"
 
 if ! profile="$(dotfiles_resolve_profile "$profile")"; then
-  printf 'a supported profile is required: personal, workstation, devbox, or assistant\n' >&2
+  printf 'a supported profile is required: personal, workstation, devbox, assistant, or service\n' >&2
   exit 2
 fi
 override_data="$(printf '{"dotfilesProfile":"%s"}' "$profile")"

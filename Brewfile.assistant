@@ -1,5 +1,8 @@
 # Minimal unattended assistant layer.
 # Workload repositories own framework, media, and supervision packages.
 
+# Browser automation
+cask "google-chrome"
+
 # Scoped GitHub App command execution; authentication remains workload-owned
 brew "gh"

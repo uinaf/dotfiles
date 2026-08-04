@@ -23,9 +23,9 @@ should land as owner-only local config.
 
 The personal profile manages Zed settings. Personal, workstation, and devbox
 profiles share GitHub authentication, outbound SSH, signing-helper,
-allowed-signers, and Ghostty sources. The assistant profile renders a minimal
-Git base with a local workload-identity include and excludes those developer
-surfaces.
+allowed-signers, and Ghostty sources. Assistant and service profiles render a
+minimal Git base with a local workload-identity include and exclude those
+developer surfaces; only assistant includes the optional GitHub App helper.
 
 Use attributes deliberately:
 

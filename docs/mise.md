@@ -78,6 +78,7 @@ mise run verify:bootstrap:personal
 mise run verify:bootstrap:workstation
 mise run verify:bootstrap:devbox
 mise run verify:bootstrap:assistant
+mise run verify:bootstrap:service
 mise run verify:devbox-services
 mise run audit:host
 mise run audit:host:json
@@ -126,7 +127,8 @@ default, removes the retired Vite+ package from both the mise npm backend and
 every installed mise Node version, removes standalone state under
 `~/.vite-plus`, and force-rebuilds mise shims so retired commands are pruned. A
 fresh Node install gets the same pnpm state from the Node postinstall hook.
-The assistant profile intentionally contains only Node. Additional language
-runtimes belong to the workload that requires them.
+The assistant profile intentionally contains only Node. The service profile
+declares no language runtime. Additional runtimes belong to the workload that
+requires them.
 `scripts/verify/bootstrap.sh` checks the commands and versions required by the
 selected profile.

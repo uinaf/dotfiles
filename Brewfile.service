@@ -1,0 +1,2 @@
+# Minimal non-persona service layer.
+# Workload repositories own runtimes, containers, supervision, and authentication.

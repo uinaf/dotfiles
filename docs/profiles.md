@@ -10,7 +10,8 @@ host and they are not a security boundary by themselves.
 | `workstation` | Interactive human on a laptop or desktop | Portable development, human authentication, and local containers |
 | `personal` | Owner-operated personal laptop or desktop | Workstation capabilities plus opinionated applications and preferences |
 | `devbox` | Remote coding identity on an SSH-first host | Coding agents, Git/GitHub, SDKs, containers, and verification tools |
-| `assistant` | Unattended assistant or platform-service identity | Minimal runtime, machine authentication, browser, and scoped GitHub access |
+| `assistant` | Unattended persona or agent identity | Minimal agent runtime, browser, and scoped GitHub App access |
+| `service` | Non-persona managed workload identity | Identity-safe bootstrap tools; workload-owned runtime, authentication, and supervision |
 
 Choose `workstation` when another trusted system may supply or govern software.
 Choose `personal` only when this repository should own the full personal
@@ -36,12 +37,13 @@ All profiles install the minimal `Brewfile` base. Personal, workstation, and
 devbox also install `Brewfile.developer`. Workstation and devbox then install
 their profile layer. Personal installs `Brewfile.workstation` followed by
 `Brewfile.personal`. Assistant skips the developer layer and installs only
-`Brewfile.assistant`.
+`Brewfile.assistant`. Service installs only the base and `Brewfile.service`.
 
-The base layer supplies Chrome to every profile. The assistant mise config
-contains only Node, and its profile layer adds only `gh`. Workload repositories
-own OpenClaw, Hermes, model providers, media tools, process supervision,
-additional language runtimes, and other workload-specific packages.
+The assistant mise config contains only Node, and its profile layer adds Chrome
+and `gh`. The service profile declares neither browser nor language runtime.
+Workload repositories own OpenClaw, Hermes, model providers, media tools,
+containers, process supervision, language runtimes, and other
+workload-specific packages.
 
 Personal, workstation, and devbox retain the full shared development runtime
 set, including Codex CLI, Claude Code CLI, Cursor Agent CLI, and 1Password CLI.
@@ -53,9 +55,10 @@ both interactive profiles. The separately verified Cursor desktop installer is
 available to either interactive profile.
 
 Assistant dotfile application installs a minimal Git base and the
-`gh-app-auth` execution adapter. It leaves App credentials unconfigured and
-omits developer signing, human credential helpers, outbound SSH defaults,
-desktop settings, global coding-agent instructions, and development skills.
+`gh-app-auth` execution adapter. Service dotfile application installs only the
+minimal Git base. Both omit developer signing, human credential helpers,
+outbound SSH defaults, desktop settings, global coding-agent instructions, and
+development skills. Service authentication remains entirely workload-owned.
 
 ## Identity Policy
 
@@ -63,8 +66,9 @@ desktop settings, global coding-agent instructions, and development skills.
 SSH, GitHub App, recovery, and deployment lifecycle. Workstation and devbox
 users configure explicit human authorship and local signing. Assistants
 configure unsigned workload authorship and use a workload-owned GitHub App for
-repository access. Identity values remain operator input and are never
-tracked.
+repository access. Services configure unsigned workload authorship but receive
+authentication only from their owning workload. Identity values remain
+operator input and are never tracked.
 
 ## Apply a Profile
 
@@ -75,6 +79,7 @@ Run Homebrew changes from the authorized host administrator:
 ./scripts/bootstrap/brew-bundle.sh workstation
 ./scripts/bootstrap/brew-bundle.sh devbox
 ./scripts/bootstrap/brew-bundle.sh assistant
+./scripts/bootstrap/brew-bundle.sh service
 ```
 
 Then run the per-user setup as the target Unix user:
@@ -107,6 +112,9 @@ GIT_USER_EMAIL='APP_BOT_NOREPLY_EMAIL' \
   --installation-id INSTALLATION_ID \
   --repo github.com/example/workspace \
   --repo github.com/example/vault
+GIT_USER_NAME='Service Name' \
+GIT_USER_EMAIL='service@example.invalid' \
+  ./scripts/bootstrap/configure-git.sh --profile service --non-interactive
 ```
 
 ## Externally Managed Homebrew Capabilities

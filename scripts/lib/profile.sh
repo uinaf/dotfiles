@@ -2,7 +2,7 @@
 
 dotfiles_normalize_profile() {
   case "${1:-}" in
-    personal|workstation|devbox|assistant)
+    personal|workstation|devbox|assistant|service)
       printf '%s\n' "$1"
       ;;
     *)
@@ -90,9 +90,23 @@ dotfiles_profile_is_developer() {
   esac
 }
 
+dotfiles_profile_is_workload() {
+  case "$1" in
+    assistant|service)
+      return 0
+      ;;
+    personal|workstation|devbox)
+      return 1
+      ;;
+    *)
+      return 2
+      ;;
+  esac
+}
+
 dotfiles_profile_uses_shared_brew() {
   case "$1" in
-    devbox|assistant)
+    devbox|assistant|service)
       return 0
       ;;
     personal|workstation)
@@ -108,13 +122,16 @@ dotfiles_profile_brewfiles() {
   local profile="$1"
 
   case "$profile" in
-    personal|workstation|devbox|assistant) ;;
+    personal|workstation|devbox|assistant|service) ;;
     *) return 2 ;;
   esac
   printf 'Brewfile\n'
   case "$profile" in
     assistant)
       printf 'Brewfile.assistant\n'
+      ;;
+    service)
+      printf 'Brewfile.service\n'
       ;;
     devbox)
       printf 'Brewfile.developer\n'

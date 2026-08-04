@@ -5,6 +5,7 @@ tap "f1bonacc1/tap"
 tap "teamookla/speedtest"
 
 # Terminal, browser, and coding agents
+cask "google-chrome"
 cask "ghostty"
 cask "codex"
 cask "claude-code@latest"

@@ -1,10 +1,11 @@
 # Devbox Setup
 
 Devbox automation keeps dedicated Unix users reproducible without making
-secrets or identities part of the public dotfiles repository. Assistant
-profiles reuse the same Unix-user and service boundaries without inheriting the
-coding toolchain or a human Git identity. See [Identity
-provisioning](identities.md).
+secrets or identities part of the public dotfiles repository. Assistant and
+service profiles reuse the same Unix-user and service boundaries without
+inheriting the coding toolchain or a human Git identity. Services remain
+non-persona workloads and do not inherit assistant runtime or authentication.
+See [Identity provisioning](identities.md).
 
 ## Boundaries
 

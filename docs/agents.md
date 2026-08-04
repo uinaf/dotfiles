@@ -1,8 +1,8 @@
 # Agent Setup
 
 The workstation and devbox profiles install machine-global instructions and
-skills from `scripts/agents/`. The assistant profile does not install coding
-agents, global instructions, or development skills.
+skills from `scripts/agents/`. Assistant and service profiles do not install
+coding agents, global instructions, or development skills.
 
 ## Sync
 

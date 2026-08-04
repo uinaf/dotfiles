@@ -1,7 +1,7 @@
 [core]
 	ignorecase = false
 
-{{ if ne .dotfilesProfile "assistant" -}}
+{{ if and (ne .dotfilesProfile "assistant") (ne .dotfilesProfile "service") -}}
 [gpg]
 	format = ssh
 

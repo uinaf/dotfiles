@@ -8,7 +8,8 @@ and migrate each Unix user before applying the new profile.
 
 1. Back up the user's dotfiles, Git configuration, SSH configuration, and
    LaunchAgent/LaunchDaemon definitions.
-2. Choose exactly one canonical role: `workstation`, `devbox`, or `assistant`.
+2. Choose exactly one canonical role: `personal`, `workstation`, `devbox`,
+   `assistant`, or `service`.
 3. Inventory old state under `~/.config/uinaf`,
    `~/.local/libexec/uinaf`, `~/Library/LaunchAgents`, and
    `/Library/LaunchDaemons`.
@@ -85,6 +86,15 @@ GIT_USER_EMAIL='APP_BOT_NOREPLY_EMAIL' \
   --repo github.com/example/workspace
 ```
 
+For `service`, configure unsigned workload authorship without installing an
+assistant GitHub App or human credential helper:
+
+```sh
+GIT_USER_NAME='Service Name' \
+GIT_USER_EMAIL='service@example.invalid' \
+  ./scripts/bootstrap/configure-git.sh --profile service --non-interactive
+```
+
 ## Devbox Services
 
 The default service namespace is now
@@ -112,6 +122,12 @@ For an assistant, also run:
 
 ```sh
 ./scripts/verify/assistant-git-boundary.sh
+```
+
+For a service, run:
+
+```sh
+./scripts/verify/workload-git-boundary.sh --profile service
 ```
 
 Verify the workload and its channels end to end before deleting archived

@@ -1,7 +1,7 @@
 # uinaf/dotfiles
 
 A vendor-neutral macOS bootstrap framework for workstations, remote coding
-users, and unattended assistants.
+users, unattended assistants, and managed service identities.
 
 The repository manages Homebrew layers, chezmoi source state, mise runtimes,
 Git and SSH defaults, coding-agent setup, and verification scripts. Installed
@@ -18,7 +18,8 @@ Tailscale, and LaunchDaemon state still requires an authorized administrator.
 | `workstation` | Interactive human development on a laptop or desktop | Base + developer + workstation |
 | `personal` | Owner-operated Mac with the workstation baseline plus opinionated apps and preferences | Base + developer + workstation + personal |
 | `devbox` | Remote coding on an SSH-first host | Base + developer + devbox |
-| `assistant` | Unattended assistant or platform-service workloads | Base + assistant |
+| `assistant` | Unattended persona or agent workload | Base + assistant |
+| `service` | Non-persona managed platform workload | Base + service |
 
 Read [User profiles](docs/profiles.md) before configuring multiple users on one
 Mac. Existing installations that still use the former owner-specific layout
@@ -53,7 +54,7 @@ verify its recovery copy as described in [Identity
 provisioning](docs/identities.md#back-up-and-verify-recovery).
 
 Use the [Bootstrap guide](docs/bootstrap.md) for first-machine prerequisites,
-devbox and assistant flows, optional desktop setup, updates, and
+devbox, assistant, and service flows, optional desktop setup, updates, and
 troubleshooting.
 
 ## Managed Surfaces

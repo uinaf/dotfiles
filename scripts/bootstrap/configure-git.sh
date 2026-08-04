@@ -17,10 +17,11 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 usage() {
   cat <<EOF
-usage: $0 [--profile personal|workstation|devbox|assistant] [--non-interactive]
+usage: $0 [--profile personal|workstation|devbox|assistant|service] [--non-interactive]
 
-Personal and workstation profiles configure human identity. Assistant profiles write
-an explicit workload commit identity without signing or SSH authentication.
+Personal, workstation, and devbox profiles configure human identity. Assistant
+and service profiles write an explicit workload commit identity without signing
+or SSH authentication.
 
 Writes:
   ~/.gitconfig.local
@@ -255,7 +256,7 @@ if [ -z "$profile" ]; then
       printf '%s\n' 'stored or environment profile is invalid' >&2
       exit 2
     fi
-    profile="$(prompt 'Profile (personal/workstation/devbox/assistant)' workstation)"
+    profile="$(prompt 'Profile (personal/workstation/devbox/assistant/service)' workstation)"
   fi
 fi
 
@@ -268,20 +269,20 @@ case "$profile" in
   devbox)
     sign_commits="${sign_commits:-true}"
     ;;
-  assistant)
+  assistant|service)
     sign_commits="${sign_commits:-false}"
     ;;
   personal|workstation)
     ;;
 esac
 
-if [ "$profile" = "assistant" ]; then
+if dotfiles_profile_is_workload "$profile"; then
   if [ "$sign_commits" != "false" ] || [ -n "$signing_key" ]; then
-    printf 'assistant workload commits do not use a persisted signing key\n' >&2
+    printf '%s workload commits do not use a persisted signing key\n' "$profile" >&2
     exit 2
   fi
   if [ -n "$git_ssh_identity_file" ]; then
-    printf 'assistant GitHub authentication uses an installation token over HTTPS, not an SSH identity file\n' >&2
+    printf '%s workload authentication does not use a persisted SSH identity file\n' "$profile" >&2
     exit 2
   fi
   default_name=""
@@ -373,7 +374,7 @@ fi
     printf '\n[safe]\n'
     printf '\tdirectory = /opt/homebrew\n'
   fi
-  if [ "$profile" = "assistant" ]; then
+  if dotfiles_profile_is_workload "$profile"; then
     printf '\n[dotfiles]\n'
     printf '\tidentity = workload\n'
   fi

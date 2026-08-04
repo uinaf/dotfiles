@@ -42,6 +42,7 @@ assert_eq personal "$(dotfiles_normalize_profile personal)" "personal profile"
 assert_eq workstation "$(dotfiles_normalize_profile workstation)" "workstation profile"
 assert_eq devbox "$(dotfiles_normalize_profile devbox)" "devbox profile"
 assert_eq assistant "$(dotfiles_normalize_profile assistant)" "assistant profile"
+assert_eq service "$(dotfiles_normalize_profile service)" "service profile"
 if dotfiles_normalize_profile unsupported >/dev/null 2>&1; then
   fail "unsupported profile was accepted"
 fi
@@ -126,6 +127,8 @@ assert_eq assistant "$(sed -n '1p' "$task_home/.config/dotfiles/profile")" \
 
 assistant_files="$(dotfiles_profile_brewfiles assistant)"
 assert_eq "$(printf 'Brewfile\nBrewfile.assistant')" "$assistant_files" "assistant Brewfile layers"
+service_files="$(dotfiles_profile_brewfiles service)"
+assert_eq "$(printf 'Brewfile\nBrewfile.service')" "$service_files" "service Brewfile layers"
 devbox_files="$(dotfiles_profile_brewfiles devbox)"
 assert_eq "$(printf 'Brewfile\nBrewfile.developer\nBrewfile.devbox')" "$devbox_files" "devbox Brewfile layers"
 workstation_files="$(dotfiles_profile_brewfiles workstation)"
@@ -146,20 +149,23 @@ for required in 'cask "codex"' 'cask "claude-code@latest"'; do
     fi
   done
 done
-grep -Fqx 'cask "google-chrome"' "$repo_root/Brewfile" \
-  || fail "base layer missed Google Chrome"
+if grep -Fqx 'cask "google-chrome"' "$repo_root/Brewfile"; then
+  fail "base layer exposed Google Chrome to service users"
+fi
+for file in Brewfile.developer Brewfile.assistant; do
+  grep -Fqx 'cask "google-chrome"' "$repo_root/$file" \
+    || fail "$file missed Google Chrome"
+done
+if grep -Fqx 'cask "google-chrome"' "$repo_root/Brewfile.service"; then
+  fail "service layer included browser software"
+fi
 grep -Fqx 'cask "1password-cli"' "$repo_root/Brewfile.developer" \
   || fail "developer layer missed 1Password CLI"
 for required in 'cask "1password"' 'cask "slack"' 'cask "claude"' 'cask "chatgpt"'; do
   grep -Fqx "$required" "$repo_root/Brewfile.workstation" \
     || fail "workstation layer missed shared human desktop app $required"
 done
-for file in Brewfile.developer Brewfile.workstation Brewfile.personal Brewfile.devbox Brewfile.assistant; do
-  if grep -Fqx 'cask "google-chrome"' "$repo_root/$file"; then
-    fail "$file duplicates base Google Chrome"
-  fi
-done
-for file in Brewfile.workstation Brewfile.personal Brewfile.devbox Brewfile.assistant; do
+for file in Brewfile.workstation Brewfile.personal Brewfile.devbox Brewfile.assistant Brewfile.service; do
   if grep -Fqx 'cask "1password-cli"' "$repo_root/$file"; then
     fail "$file duplicates developer 1Password CLI"
   fi
@@ -171,7 +177,7 @@ for removed in 'brew "ffmpeg"' 'brew "f1bonacc1/tap/process-compose"'; do
 done
 grep -Fqx 'cask "zed"' "$repo_root/Brewfile.personal" \
   || fail "personal layer missed Zed"
-for file in Brewfile Brewfile.developer Brewfile.workstation Brewfile.devbox Brewfile.assistant; do
+for file in Brewfile Brewfile.developer Brewfile.workstation Brewfile.devbox Brewfile.assistant Brewfile.service; do
   if grep -Fqx 'cask "zed"' "$repo_root/$file"; then
     fail "$file includes personal-only Zed"
   fi
@@ -179,6 +185,8 @@ done
 
 assistant_steps="$("$repo_root/scripts/bootstrap/install.sh" --print-steps --profile assistant)"
 assert_eq "$(printf 'apply-dotfiles\ninstall-gh-app-auth')" "$assistant_steps" "assistant install steps"
+service_steps="$("$repo_root/scripts/bootstrap/install.sh" --print-steps --profile service)"
+assert_eq "apply-dotfiles" "$service_steps" "service install steps"
 developer_steps="$("$repo_root/scripts/bootstrap/install.sh" --print-steps --profile workstation)"
 for step in apply-dotfiles install-cursor-agent trust-agent-worktrees install-gh-extensions remove-global-vite-plus install-pnpm configure-codex sync-agents; do
   printf '%s\n' "$developer_steps" | grep -Fqx "$step" || fail "workstation install missed $step"
@@ -236,6 +244,14 @@ HOME="$tmp_root/install-assistant-home" \
   "$install_fixture/scripts/bootstrap/install.sh" --profile assistant
 assert_eq "$(printf 'apply-dotfiles.sh --profile assistant\ninstall-gh-app-auth.sh')" "$(cat "$install_log")" \
   "assistant install execution"
+
+: > "$install_log"
+PATH="$install_fixture_path" \
+DOTFILES_INSTALL_LOG="$install_log" \
+HOME="$tmp_root/install-service-home" \
+  "$install_fixture/scripts/bootstrap/install.sh" --profile service
+assert_eq "apply-dotfiles.sh --profile service" "$(cat "$install_log")" \
+  "service install execution"
 
 : > "$install_log"
 install_devbox_home="$tmp_root/install-devbox-home"
@@ -305,6 +321,13 @@ for rejected in 'python =' 'uv =' 'bun =' 'java =' 'go =' 'playwright' 'vite-plu
   fi
 done
 
+service_mise="$(render_target service .config/mise/config.toml)"
+for rejected in 'node =' 'python =' 'uv =' 'bun =' 'java =' 'go =' 'playwright' 'trusted_config_paths' 'pnpm@'; do
+  if printf '%s\n' "$service_mise" | grep -Fq "$rejected"; then
+    fail "service mise config included runtime or developer setting $rejected"
+  fi
+done
+
 workstation_mise="$(render_target workstation .config/mise/config.toml)"
 for expected in 'bun = "1.3.10"' 'java = "temurin-21"' 'go = "1.26.2"' 'trusted_config_paths'; do
   printf '%s\n' "$workstation_mise" | grep -Fq "$expected" || fail "workstation mise config missed $expected"
@@ -321,6 +344,7 @@ personal_mise="$(render_target personal .config/mise/config.toml)"
 assert_eq "$workstation_mise" "$personal_mise" "personal developer mise config"
 
 assert_eq assistant "$(render_target assistant .config/dotfiles/profile)" "rendered assistant profile"
+assert_eq service "$(render_target service .config/dotfiles/profile)" "rendered service profile"
 assert_eq personal "$(render_target personal .config/dotfiles/profile)" "rendered personal profile"
 
 assistant_managed="$({
@@ -336,6 +360,21 @@ printf '%s\n' "$assistant_managed" | grep -Fqx '.gitconfig' \
   || fail "assistant profile does not manage .gitconfig"
 if printf '%s\n' "$assistant_managed" | grep -Eq '^(\.codex|\.config/1Password/ssh|\.config/git|\.config/zed|\.local/libexec/dotfiles/git-ssh-sign-agentless|\.ssh|Library/Application Support/com.mitchellh.ghostty)(/|$)'; then
   fail "assistant profile manages developer or identity state"
+fi
+
+service_managed="$({
+  data='{"dotfilesProfile":"service"}'
+  chezmoi \
+    --source "$repo_root/chezmoi" \
+    --destination "$tmp_root/service" \
+    --override-data "$data" \
+    managed --path-style relative
+})"
+printf '%s\n' "$service_managed" | grep -Fqx '.config/dotfiles/profile' || fail "service profile marker is unmanaged"
+printf '%s\n' "$service_managed" | grep -Fqx '.gitconfig' \
+  || fail "service profile does not manage .gitconfig"
+if printf '%s\n' "$service_managed" | grep -Eq '^(\.codex|\.config/1Password/ssh|\.config/git|\.config/zed|\.local/libexec/dotfiles/git-ssh-sign-agentless|\.ssh|Library/Application Support/com.mitchellh.ghostty)(/|$)'; then
+  fail "service profile manages developer or identity state"
 fi
 
 workstation_managed="$({
@@ -441,5 +480,18 @@ GIT_USER_NAME='Example Workload' \
 GIT_USER_EMAIL='example-workload@users.noreply.github.com' \
   "$repo_root/scripts/bootstrap/configure-git.sh" --profile assistant --non-interactive >/dev/null
 HOME="$identity_home" "$repo_root/scripts/verify/assistant-git-boundary.sh" >/dev/null
+
+service_home="$tmp_root/service-git-boundary"
+mkdir -p "$service_home"
+HOME="$service_home" "$repo_root/scripts/bootstrap/apply-dotfiles.sh" --profile service >/dev/null
+HOME="$service_home" \
+GIT_USER_NAME='Example Service' \
+GIT_USER_EMAIL='example-service@example.invalid' \
+  "$repo_root/scripts/bootstrap/configure-git.sh" --profile service --non-interactive >/dev/null
+HOME="$service_home" "$repo_root/scripts/verify/workload-git-boundary.sh" --profile service >/dev/null
+service_gitconfig="$(cat "$service_home/.gitconfig")"
+if printf '%s\n' "$service_gitconfig" | grep -Fq 'github-app.gitconfig'; then
+  fail "service Git base included assistant GitHub App authentication"
+fi
 
 printf 'ok profile layers, applied dotfiles, and workload Git identity\n'

@@ -20,20 +20,24 @@ provider credentials must remain independently replaceable.
 
 ## Capability Policy
 
-| Capability | Workstation | Devbox | Assistant |
-| --- | --- | --- | --- |
-| Age identity | required | required | required |
-| SSH private identity | required | required | only for required outbound SSH |
-| GitHub App | optional | optional | preferred for repository access |
-| Human GitHub login | expected | allowed unless App-based | forbidden |
-| Git signing identity | required | required | disabled |
-| Git authorship metadata | required | required | required |
-| Provider credentials | identity-scoped | identity-scoped | identity-scoped |
+| Capability | Workstation | Devbox | Assistant | Service |
+| --- | --- | --- | --- | --- |
+| Age identity | required | required | required | required |
+| SSH private identity | required | required | only for required outbound SSH | workload-owned only |
+| GitHub App | optional | optional | preferred for repository access | workload-owned only |
+| Human GitHub login | expected | allowed unless App-based | forbidden | forbidden |
+| Git signing identity | required | required | disabled | disabled |
+| Git authorship metadata | required | required | required | required |
+| Provider credentials | identity-scoped | identity-scoped | identity-scoped | workload-scoped |
 
 Inbound SSH does not require the workload to own a private SSH key. Put an
 administrator's public key in the target user's `authorized_keys`. Provision a
 private SSH identity for an assistant only when the assistant must initiate an
 SSH connection.
+
+Service profiles do not install outbound SSH or GitHub authentication defaults.
+The owning workload must provision and verify any required machine capability
+without adding a human session or assistant credential to the service user.
 
 ## Developer Git and SSH
 
@@ -73,6 +77,20 @@ agent identities and key additions for `github.com`. Preserve unrelated
 directives in `~/.ssh/config.local`. Move aside an unmanaged
 `~/.ssh/github.config` or any other `Host github.com` block before running the
 configurator.
+
+## Workload Git Authorship
+
+Assistant and service profiles write unsigned workload authorship to
+`~/.gitconfig.local`. This metadata is not authentication. Assistant repository
+access may use the scoped GitHub App flow below; service authentication belongs
+to the owning workload and is absent by default.
+
+```sh
+GIT_USER_NAME='Workload Name' \
+GIT_USER_EMAIL='workload@example.invalid' \
+  ./scripts/bootstrap/configure-git.sh --profile service --non-interactive
+./scripts/verify/workload-git-boundary.sh --profile service
+```
 
 ## SOPS Age Identity
 

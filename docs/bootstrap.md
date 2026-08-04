@@ -2,12 +2,13 @@
 
 Use this guide when installing or refreshing a Mac from this repository.
 
-The repo has four per-user profiles:
+The repo has five per-user profiles:
 
 - `workstation` for a portable human-operated development Mac.
 - `personal` for an opinionated personal Mac extending workstation.
 - `devbox` for a remote coding identity on an SSH-first host.
-- `assistant` for an unattended assistant or platform-service identity.
+- `assistant` for an unattended persona or agent identity.
+- `service` for a non-persona managed workload identity.
 
 The role contract and host/user boundary are defined in [User profiles](profiles.md).
 Cursor Agent CLI is required for personal, workstation, and devbox profiles
@@ -378,6 +379,36 @@ restart capability with `--allow-openclaw-restart` as documented in
 that user's exact gateway label; the workload owns its executable wrapper and
 OpenClaw lifecycle policy.
 
+## Service User
+
+A service is a minimal non-persona, non-admin Unix identity. It does not
+inherit assistant browser, Node, GitHub App, or coding-agent setup. An
+authorized host administrator installs its Homebrew layers once:
+
+```zsh
+./scripts/bootstrap/brew-bundle.sh service
+```
+
+Run the user-local setup as the service identity:
+
+```zsh
+git clone https://github.com/uinaf/dotfiles.git ~/projects/dotfiles
+cd ~/projects/dotfiles
+./scripts/bootstrap/apply-dotfiles.sh --profile service
+mise trust
+./scripts/bootstrap/install.sh --profile service
+./scripts/secrets/configure-sops-age-identity.sh
+GIT_USER_NAME='Service Name' \
+GIT_USER_EMAIL='service@example.invalid' \
+  ./scripts/bootstrap/configure-git.sh --profile service --non-interactive
+./scripts/verify/bootstrap.sh --profile service
+```
+
+The workload repository owns service authentication, runtimes, containers,
+supervision, health checks, backups, and recovery. Keep playground workloads
+containerized and bounded there instead of expanding the service profile into
+a remote coding or host-administrator role.
+
 ## Updating an Existing Machine
 
 Pull the repo and rerun the relevant profile:
@@ -397,7 +428,8 @@ mise install
 ./scripts/verify/bootstrap.sh --profile "$profile"
 ```
 
-Use the target Unix user's `devbox` or `assistant` role instead when appropriate.
+Use the target Unix user's `devbox`, `assistant`, or `service` role instead when
+appropriate.
 Existing personal machines whose stored marker is `workstation` should set
 `profile=personal` once to adopt the new personal layer.
 
