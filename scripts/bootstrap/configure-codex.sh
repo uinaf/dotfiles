@@ -46,9 +46,12 @@ enable_known_feature() {
   fi
 }
 
-set_top_level "model" '"gpt-5.6-sol"'
-set_top_level "model_reasoning_effort" '"high"'
+# Hard requirement: ChatGPT subscription login, not API-key billing.
 set_top_level "forced_login_method" '"chatgpt"'
+
+# Soft first-boot defaults; users may change these afterward.
+set_top_level "model" '"gpt-5.6-sol"'
+set_top_level "model_reasoning_effort" '"medium"'
 
 if ! command -v codex >/dev/null 2>&1; then
   printf 'missing required command: codex\n' >&2
@@ -58,4 +61,4 @@ fi
 enable_known_feature "goals"
 enable_known_feature "memories"
 
-printf 'configured Codex defaults in %s\n' "$config_path"
+printf 'configured Codex ChatGPT login default in %s\n' "$config_path"

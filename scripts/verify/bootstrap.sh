@@ -270,17 +270,15 @@ check_codex_config() {
   local config="$HOME/.codex/config.toml"
 
   section "codex config"
+  # Only enforce ChatGPT-subscription login. Model, reasoning effort, and
+  # feature toggles are personal preference and may drift.
   awk '
-    BEGIN { ok_model = ok_reasoning = ok_login = ok_goals = ok_memories = 0; in_top = 1; in_features = 0 }
-    /^[[:space:]]*\[/ { in_top = 0; in_features = ($0 == "[features]") }
-    in_top && $0 == "model = \"gpt-5.6-sol\"" { ok_model = 1 }
-    in_top && $0 == "model_reasoning_effort = \"high\"" { ok_reasoning = 1 }
+    BEGIN { ok_login = 0; in_top = 1 }
+    /^[[:space:]]*\[/ { in_top = 0 }
     in_top && $0 == "forced_login_method = \"chatgpt\"" { ok_login = 1 }
-    in_features && $0 == "goals = true" { ok_goals = 1 }
-    in_features && $0 == "memories = true" { ok_memories = 1 }
-    END { exit !(ok_model && ok_reasoning && ok_login && ok_goals && ok_memories) }
-  ' "$config" || fail "Codex defaults are not configured in $config"
-  printf 'ok Codex model/login/features defaults\n'
+    END { exit !ok_login }
+  ' "$config" || fail "Codex forced_login_method is not chatgpt in $config"
+  printf 'ok Codex forced_login_method=chatgpt\n'
 }
 
 check_spotlight_indexing() {
