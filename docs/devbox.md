@@ -94,35 +94,18 @@ Optional per-user service settings live outside Git at
 
 ```sh
 DEVBOX_USER=example
-PROCESS_COMPOSE_SOCKET="$HOME/.local/run/process-compose.sock"
 ```
 
-Set `PROCESS_COMPOSE_ENABLED=0` when the user runs no process-compose services.
 Do not create broad workspace env bundles or load secrets in shell startup.
 
-## Supervisor
-
-Use process-compose as the per-user supervisor when one user owns several
-long-running services. Launchd starts process-compose; process-compose owns
-restart policy, health checks, logs, and one-shot tasks. Prefer a per-user Unix
-socket:
-
-```text
-~/.local/run/process-compose.sock
-```
+## System Services
 
 Install selected boot services from an authorized administrator account. The
 installer creates root-owned system LaunchDaemons that drop privileges to the
 target user:
 
-```zsh
-sudo ./scripts/bootstrap/install-devbox-service-daemons.sh \
-  --user example \
-  --process-compose
-```
-
-For an OpenClaw workload that runs directly under launchd, pass its
-user-owned executable wrapper and unique gateway port:
+For an OpenClaw workload, pass its user-owned executable wrapper and unique
+gateway port:
 
 ```zsh
 sudo ./scripts/bootstrap/install-devbox-service-daemons.sh \
@@ -155,10 +138,9 @@ Run each check as the intended Unix identity:
 ```
 
 The bootstrap gate checks the selected profile packages and shared config. The
-service gate verifies the age identity, local config, launchd boundary, and
-process-compose instance. The audit additionally checks stale secret-looking
-files, Git/GitHub identity, SSH permissions, project privacy, Tailscale health,
-and local service state.
+service gate verifies the age identity, local config, and launchd boundary. The
+audit additionally checks stale secret-looking files, Git/GitHub identity, SSH
+permissions, project privacy, Tailscale health, and local service state.
 
 Treat prose audit output as sensitive because scanners may include matched
 material. Prefer `--json` for remote collection and summarize findings by

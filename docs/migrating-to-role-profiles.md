@@ -100,10 +100,9 @@ GIT_USER_EMAIL='service@example.invalid' \
 The default service namespace is now
 `local.dotfiles.<service>.<unix-user>`. Before installing a replacement, an
 authorized host administrator must unload and archive any matching old
-`com.uinaf.*` system job and the former per-user `com.uinaf.process-compose`,
-`ai.openclaw.gateway`, or `com.uinaf.healthd` LaunchAgent. The installer stops
-when one of those jobs is still loaded or its plist is still active; it does
-not retire it automatically.
+`com.uinaf.*` system job and the former per-user `ai.openclaw.gateway` or
+`com.uinaf.healthd` LaunchAgent. The installer stops when one of those jobs is
+still loaded or its plist is still active; it does not retire it automatically.
 
 After the old job is retired, install one replacement service at a time using
 the commands in [Devbox Setup](devbox.md).

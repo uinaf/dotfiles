@@ -34,7 +34,7 @@ profile.
 | Devbox | `mise run verify:bootstrap:devbox` | Developer package layers, age identity, mise tools, Codex ChatGPT login default, and managed config exist. |
 | Assistant | `mise run verify:bootstrap:assistant` | Minimal package layers, age identity, managed Git base, and workload authorship match the assistant contract. |
 | Service | `mise run verify:bootstrap:service` | Identity-safe package layers, age identity, minimal Git base, and unsigned workload authorship match the service contract. |
-| Devbox services | `mise run verify:devbox-services` | Launchd, process-compose, age, and local service configuration match the shared-host contract. |
+| Devbox services | `mise run verify:devbox-services` | Launchd, age, and local service configuration match the shared-host contract. |
 | Workstation drift | `mise run audit:workstation` | Human Git, SSH, Codex, secret, permission, and local-state boundaries are visible. |
 | Devbox drift | `mise run audit:devbox` | Agent-user identity, service, secret, project-permission, and Tailscale boundaries are visible. |
 | Host hardening | `mise run audit:host` | Lynis reports the current host hardening index, warnings, and suggestions. |

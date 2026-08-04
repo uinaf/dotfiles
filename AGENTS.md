@@ -32,8 +32,8 @@ repository guide.
   references, machine credentials, or service tokens.
 - Keep examples public-safe: no private hosts, users, workspaces, repositories,
   identities, or credential coordinates.
-- Keep service tokens out of shell startup, launchd plists, process-compose
-  YAML, tracked dotenv files, and generated refresh files.
+- Keep service tokens out of shell startup, launchd plists, supervisor configs,
+  tracked dotenv files, and generated refresh files.
 
 Use the SOPS/age and GitHub App contracts in
 [Identity provisioning](docs/identities.md). Repository-specific secrets,

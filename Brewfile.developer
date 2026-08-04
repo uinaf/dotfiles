@@ -40,6 +40,3 @@ brew "teamookla/speedtest/speedtest"
 brew "gitleaks"
 brew "lynis"
 brew "trufflehog"
-
-# Process supervision
-brew "f1bonacc1/tap/process-compose"

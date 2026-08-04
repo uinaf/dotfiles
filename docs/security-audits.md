@@ -24,7 +24,7 @@ Use separate checks for separate risk surfaces:
 | Functional bootstrap | `scripts/verify/bootstrap.sh`, `scripts/verify/devbox-services.sh` | Confirm tools, the per-user SOPS age identity, and expected services work. |
 
 Do not treat one layer as a substitute for another. For example, a clean
-Gitleaks run does not prove launchd or process-compose state is safe.
+Gitleaks run does not prove launchd state is safe.
 
 ## Repository Secret Scanning
 
@@ -185,13 +185,11 @@ scanner output may include matched secret material.
 
 It checks:
 
-- process-compose is isolated through the configured socket or port
 - local service config, backup files, and shell history do not contain obvious
   secret references
 - Gitleaks and TruffleHog do not report leaks in shell startup backups, Git
-  config backups, SSH config backups, process-compose backups, workspace
-  env backups, common credential files, Docker config, LaunchAgents, or
-  managed LaunchDaemons
+  config backups, SSH config backups, workspace env backups, common credential
+  files, Docker config, LaunchAgents, or managed LaunchDaemons
 - application credential, device, identity, and plugin-runtime stores are
   excluded from the default local secret scan when they are known runtime
   stores; backups and rollback files are scanned because they are common

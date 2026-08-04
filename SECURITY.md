@@ -17,8 +17,8 @@ long-lived credentials through the SOPS/age model in
 intended consumer boundary.
 
 Keep service tokens and private identity material out of shell startup,
-launchd plists, process-compose YAML, tracked dotenv files, and generated
-runtime env files. Private age identities stay owner-only; unattended
+launchd plists, supervisor configs, tracked dotenv files, and generated runtime
+env files. Private age identities stay owner-only; unattended
 workloads do not receive human secret-manager sessions.
 
 ## Audit

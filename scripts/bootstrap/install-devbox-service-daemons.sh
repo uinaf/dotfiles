@@ -2,7 +2,6 @@
 set -euo pipefail
 
 target_user=""
-install_process_compose=0
 install_openclaw=0
 allow_openclaw_restart=0
 install_healthd=0
@@ -25,7 +24,6 @@ Usage:
   scripts/bootstrap/install-devbox-service-daemons.sh --user <name> [services]
 
 Services:
-  --process-compose  Run the user's process-compose supervisor at system boot.
   --openclaw         Run the user's OpenClaw gateway at system boot.
   --allow-openclaw-restart
                       Let the selected user restart only its exact system job.
@@ -58,9 +56,6 @@ while [ "$#" -gt 0 ]; do
       [ "$#" -ge 2 ] || fail "--user requires a value"
       target_user="$2"
       shift
-      ;;
-    --process-compose)
-      install_process_compose=1
       ;;
     --openclaw)
       install_openclaw=1
@@ -125,17 +120,15 @@ if [ "$print_labels" -eq 1 ]; then
   elif ! launchd_namespace="$(dotfiles_resolve_launchd_namespace "$launchd_namespace")"; then
     fail "LaunchDaemon namespace must contain dot-separated letters, numbers, hyphens, or underscores"
   fi
-  process_label="$(dotfiles_launchd_label process-compose "$target_user" "$launchd_namespace")"
   openclaw_label="$(dotfiles_launchd_label openclaw-gateway "$target_user" "$launchd_namespace")"
   healthd_label="$(dotfiles_launchd_label healthd "$target_user" "$launchd_namespace")"
   colima_label="$(dotfiles_launchd_label colima "$target_user" "$launchd_namespace")"
-  printf '%s\n%s\n%s\n%s\n' "$process_label" "$openclaw_label" "$healthd_label" "$colima_label"
+  printf '%s\n%s\n%s\n' "$openclaw_label" "$healthd_label" "$colima_label"
   exit 0
 fi
 
 [ "$(uname -s)" = "Darwin" ] || fail "this installer supports macOS only"
-[ "$install_process_compose" -eq 1 ] || [ "$install_openclaw" -eq 1 ] \
-  || [ "$allow_openclaw_restart" -eq 1 ] \
+[ "$install_openclaw" -eq 1 ] || [ "$allow_openclaw_restart" -eq 1 ] \
   || [ "$install_healthd" -eq 1 ] \
   || [ "$install_colima" -eq 1 ] \
   || fail "select at least one service"
@@ -171,7 +164,6 @@ else
   fi
   fail "LaunchDaemon namespace must contain dot-separated letters, numbers, hyphens, or underscores"
 fi
-process_label="$(dotfiles_launchd_label process-compose "$target_user" "$launchd_namespace")"
 openclaw_label="$(dotfiles_launchd_label openclaw-gateway "$target_user" "$launchd_namespace")"
 healthd_label="$(dotfiles_launchd_label healthd "$target_user" "$launchd_namespace")"
 colima_label="$(dotfiles_launchd_label colima "$target_user" "$launchd_namespace")"
@@ -338,9 +330,6 @@ check_colima() {
 }
 
 if [ "$check_only" -eq 1 ]; then
-  if [ "$install_process_compose" -eq 1 ]; then
-    check_job "$process_label" com.uinaf.process-compose
-  fi
   if [ "$install_openclaw" -eq 1 ]; then
     check_job "$openclaw_label" ai.openclaw.gateway
   fi
@@ -463,14 +452,10 @@ reject_user_agent() {
   fi
 }
 
-process_start="$target_home/.local/bin/process-compose-start.sh"
 env_wrapper="$target_home/.openclaw/service-env/ai.openclaw.gateway-env-wrapper.sh"
 env_file="$target_home/.openclaw/service-env/ai.openclaw.gateway.env"
 gateway_wrapper="$target_home/.local/bin/openclaw-gateway-mise-wrapper"
 openclaw_binary=""
-if [ "$install_process_compose" -eq 1 ]; then
-  [ -x "$process_start" ] || fail "missing executable $process_start"
-fi
 if [ "$install_openclaw" -eq 1 ]; then
   if [ -n "$openclaw_wrapper" ]; then
     validate_openclaw_wrapper "$openclaw_wrapper"
@@ -487,10 +472,6 @@ if [ "$install_healthd" -eq 1 ]; then
     || fail "invalid healthd config: $healthd_config"
 fi
 
-if [ "$install_process_compose" -eq 1 ]; then
-  reject_legacy_system_job "com.uinaf.process-compose.$target_user"
-  reject_user_agent com.uinaf.process-compose
-fi
 if [ "$install_openclaw" -eq 1 ]; then
   reject_legacy_system_job "com.uinaf.openclaw-gateway.$target_user"
   reject_user_agent ai.openclaw.gateway
@@ -509,20 +490,6 @@ namespace_tmp="$(run_as_target mktemp "$launchd_namespace_dir/.launchd-namespace
 printf '%s\n' "$launchd_namespace" | run_as_target tee "$namespace_tmp" >/dev/null
 run_as_target chmod 0600 "$namespace_tmp"
 run_as_target mv -f "$namespace_tmp" "$launchd_namespace_file"
-
-if [ "$install_process_compose" -eq 1 ]; then
-  install -d -o "$target_user" -g "$target_group" -m 0700 "$target_home/.local/run"
-  install -d -o "$target_user" -g "$target_group" -m 0750 "$target_home/.local/log/process-compose"
-  process_plist="$tmp_dir/$process_label.plist"
-  create_plist \
-    "$process_plist" \
-    "$process_label" \
-    "$target_home" \
-    "$target_home/.local/log/process-compose/stdout.log" \
-    "$target_home/.local/log/process-compose/stderr.log" \
-    "$process_start"
-  install_job "$process_plist" "$process_label"
-fi
 
 if [ "$install_openclaw" -eq 1 ]; then
   install -d -o "$target_user" -g "$target_group" -m 0750 "$target_home/Library/Logs/openclaw"

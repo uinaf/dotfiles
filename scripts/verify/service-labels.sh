@@ -13,7 +13,6 @@ fail() {
 }
 
 expected="$(printf '%s\n' \
-  local.dotfiles.process-compose.example \
   local.dotfiles.openclaw-gateway.example \
   local.dotfiles.healthd.example \
   local.dotfiles.colima.example)"
@@ -21,7 +20,6 @@ actual="$(DOTFILES_LAUNCHD_NAMESPACE='' "$installer" --user example --print-labe
 [ "$actual" = "$expected" ] || fail "default LaunchDaemon labels are not vendor-neutral"
 
 custom_expected="$(printf '%s\n' \
-  org.example.dotfiles.process-compose.example \
   org.example.dotfiles.openclaw-gateway.example \
   org.example.dotfiles.healthd.example \
   org.example.dotfiles.colima.example)"
@@ -29,7 +27,6 @@ custom="$("$installer" --user example --namespace org.example.dotfiles --print-l
 [ "$custom" = "$custom_expected" ] || fail "custom LaunchDaemon namespace was not applied consistently"
 
 underscore_expected="$(printf '%s\n' \
-  org.example_team.dotfiles.process-compose.example \
   org.example_team.dotfiles.openclaw-gateway.example \
   org.example_team.dotfiles.healthd.example \
   org.example_team.dotfiles.colima.example)"
@@ -99,10 +96,10 @@ if dotfiles_launchd_label '' example >/dev/null 2>&1; then
   fail "LaunchDaemon label accepted a missing service"
 fi
 
-if "$installer" --user example --process-compose --openclaw-port 18790 >/dev/null 2>&1; then
+if "$installer" --user example --healthd --openclaw-port 18790 >/dev/null 2>&1; then
   fail "OpenClaw port was accepted without --openclaw"
 fi
-if "$installer" --user example --process-compose --openclaw-wrapper /tmp/wrapper >/dev/null 2>&1; then
+if "$installer" --user example --healthd --openclaw-wrapper /tmp/wrapper >/dev/null 2>&1; then
   fail "OpenClaw wrapper was accepted without --openclaw"
 fi
 if "$installer" --user example --openclaw --openclaw-port 99999999999999999999 >/dev/null 2>&1; then

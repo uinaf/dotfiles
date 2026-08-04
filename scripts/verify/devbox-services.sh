@@ -10,17 +10,14 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 config_path="$(dotfiles_resolve_config_file "${DEVBOX_CONFIG:-}" devbox.env)"
 devbox_user="${DEVBOX_USER:-$USER}"
-process_compose_enabled="${PROCESS_COMPOSE_ENABLED:-1}"
-process_compose_port="${PROCESS_COMPOSE_PORT:-9191}"
-process_compose_socket="${PROCESS_COMPOSE_SOCKET:-}"
 
 usage() {
   cat <<'USAGE'
 Usage:
   scripts/verify/devbox-services.sh
 
-Checks the local devbox config, SOPS age identity, managed system LaunchDaemons,
-and process-compose supervisor for the current Unix user.
+Checks the local devbox config, SOPS age identity, and managed system
+LaunchDaemons for the current Unix user.
 USAGE
 }
 
@@ -45,17 +42,10 @@ check_config() {
     # shellcheck disable=SC1090
     . "$config_path"
     devbox_user="${DEVBOX_USER:-$devbox_user}"
-    process_compose_enabled="${PROCESS_COMPOSE_ENABLED:-$process_compose_enabled}"
-    process_compose_port="${PROCESS_COMPOSE_PORT:-$process_compose_port}"
-    process_compose_socket="${PROCESS_COMPOSE_SOCKET:-$process_compose_socket}"
     printf 'ok %s mode 600\n' "$config_path"
   else
     printf 'ok optional %s is absent; using defaults\n' "$config_path"
   fi
-  case "$process_compose_enabled" in
-    0|1) ;;
-    *) fail "PROCESS_COMPOSE_ENABLED must be 0 or 1" ;;
-  esac
 }
 
 check_sops_identity() {
@@ -98,24 +88,6 @@ check_launchd_daemons() {
   [ "$found" -eq 1 ] || printf 'ok no managed healthd/colima system daemons on this machine\n'
 }
 
-check_process_compose() {
-  printf '\n## process-compose\n'
-  if [ "$process_compose_enabled" = 0 ]; then
-    printf 'ok process-compose check disabled for this devbox user\n'
-    return
-  fi
-  command -v process-compose >/dev/null || fail "missing process-compose"
-  if [ -n "$process_compose_socket" ]; then
-    process-compose --use-uds --unix-socket "$process_compose_socket" process list >/dev/null 2>&1 \
-      || fail "process-compose is not responding on socket $process_compose_socket"
-    printf 'ok process-compose responds on socket %s\n' "$process_compose_socket"
-  else
-    process-compose --port "$process_compose_port" process list >/dev/null 2>&1 \
-      || fail "process-compose is not responding on port $process_compose_port"
-    printf 'ok process-compose responds on port %s\n' "$process_compose_port"
-  fi
-}
-
 case "${1:-}" in
   "") ;;
   -h|--help) usage; exit 0 ;;
@@ -125,6 +97,5 @@ esac
 check_config
 check_sops_identity
 check_launchd_daemons
-check_process_compose
 
 printf '\ndevbox verification ok\n'

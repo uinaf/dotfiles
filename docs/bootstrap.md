@@ -320,7 +320,7 @@ requirements, separate authentication keys, and the managed GitHub SSH block.
 
 If the devbox runs long-lived workspace or agent services, follow
 [Devbox setup](devbox.md). Provision and back up the dedicated SOPS age
-identity, keep plaintext out of default shells and process-compose YAML, and
+identity, keep plaintext out of default shells and service configuration, and
 let each workspace own its narrow SOPS consumers.
 
 Verify each devbox user:

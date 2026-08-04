@@ -177,11 +177,9 @@ for file in Brewfile.workstation Brewfile.personal Brewfile.devbox Brewfile.assi
     fail "$file duplicates developer 1Password CLI"
   fi
 done
-for removed in 'brew "ffmpeg"' 'brew "f1bonacc1/tap/process-compose"'; do
-  if grep -Fqx "$removed" "$repo_root/Brewfile.assistant"; then
-    fail "assistant layer retained workload-owned dependency $removed"
-  fi
-done
+if grep -Fqx 'brew "ffmpeg"' "$repo_root/Brewfile.assistant"; then
+  fail 'assistant layer retained workload-owned dependency brew "ffmpeg"'
+fi
 grep -Fqx 'cask "zed"' "$repo_root/Brewfile.personal" \
   || fail "personal layer missed Zed"
 for file in Brewfile Brewfile.developer Brewfile.workstation Brewfile.devbox Brewfile.assistant Brewfile.service; do

@@ -3,9 +3,6 @@ set -euo pipefail
 
 config_path="${DEVBOX_CONFIG:-}"
 devbox_user="${DEVBOX_USER:-$USER}"
-process_compose_enabled="${PROCESS_COMPOSE_ENABLED:-1}"
-process_compose_port="${PROCESS_COMPOSE_PORT:-9191}"
-process_compose_socket="${PROCESS_COMPOSE_SOCKET:-}"
 json_output=0
 warn_count=0
 fail_count=0
@@ -27,8 +24,8 @@ Options:
   --json                        print a machine-readable summary instead of prose
   -h, --help
 
-The script checks secret boundaries, process-compose isolation, Git/GitHub
-identity state, SSH key permissions, and common stale secret backup locations.
+The script checks secret boundaries, Git/GitHub identity state, SSH key
+permissions, and common stale secret backup locations.
 Treat prose scanner output as sensitive because maintained scanners can include
 matched secret material when they detect a leak. Use --json for compact remote
 collection.
@@ -57,7 +54,6 @@ print_json_summary() {
 emit_devbox_secret_scan_paths() {
   emit_home_dotfiles
   emit_path_if_exists "$HOME/.aws"
-  emit_path_if_exists "$HOME/.config/process-compose"
   emit_path_if_exists "$HOME/.docker"
   emit_path_if_exists "$HOME/.bash_sessions"
   emit_path_if_exists "$HOME/.zsh_sessions"
@@ -140,9 +136,6 @@ if [ -e "$config_path" ]; then
   # shellcheck disable=SC1090
   . "$config_path"
   devbox_user="${DEVBOX_USER:-$devbox_user}"
-  process_compose_enabled="${PROCESS_COMPOSE_ENABLED:-$process_compose_enabled}"
-  process_compose_port="${PROCESS_COMPOSE_PORT:-$process_compose_port}"
-  process_compose_socket="${PROCESS_COMPOSE_SOCKET:-$process_compose_socket}"
 else
   warn "missing optional $config_path; using defaults"
 fi
@@ -154,27 +147,6 @@ else
 fi
 
 load_audit_policy
-
-section "process-compose boundary"
-
-if [ "$process_compose_enabled" = "0" ]; then
-  ok "process-compose check disabled"
-elif ! command -v process-compose >/dev/null 2>&1; then
-  fail_check "process-compose is missing"
-elif [ -n "$process_compose_socket" ]; then
-  if process-compose --use-uds --unix-socket "$process_compose_socket" process list >/dev/null 2>&1; then
-    ok "process-compose responds on socket $process_compose_socket"
-  else
-    fail_check "process-compose is not responding on socket $process_compose_socket"
-  fi
-else
-  warn "using process-compose TCP port; prefer PROCESS_COMPOSE_SOCKET"
-  if process-compose --port "$process_compose_port" process list >/dev/null 2>&1; then
-    ok "process-compose responds on port $process_compose_port"
-  else
-    fail_check "process-compose is not responding on port $process_compose_port"
-  fi
-fi
 
 section "local config secret scan"
 
