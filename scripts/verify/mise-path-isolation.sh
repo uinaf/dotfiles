@@ -33,6 +33,8 @@ warn_flag="${HOME}/.fake-mise-doctor-warn"
   printf 'mise_activate_path=%s\n' "${__MISE_ZSH_ACTIVATE_PATH:-}"
 } >"$probe_log"
 
+fail_flag="${HOME}/.fake-mise-doctor-fail"
+
 case "$*" in
   *'mise doctor'*)
     if [ -f "$warn_flag" ]; then
@@ -42,6 +44,9 @@ case "$*" in
 1. mise tool paths are not first in PATH. These paths take precedence:
      /opt/homebrew/sbin
 WARN
+      if [ -f "$fail_flag" ]; then
+        exit 1
+      fi
     else
       printf 'activated: yes\n1 warning found:\n\n1. unrelated warning\n'
     fi
@@ -150,14 +155,17 @@ check_mise_doctor() {
   local label="$1"
   local shell_flags="$2"
   local output
+  local probe_status
 
-  if ! output="$(
+  set +e
+  output="$(
     PATH="$caller_mise_path" \
       dotfiles_run_clean_zsh "$shell_flags" 'mise doctor' 2>&1
-  )"; then
-    printf 'FAILED: mise doctor probe exited non-zero (%s)\n' "$label" >&2
-    return 1
-  fi
+  )"
+  probe_status=$?
+  set -e
+  printf '%s\n' "$output"
+
   if grep -q 'tool paths are not first in PATH' <<< "$output"; then
     printf '\n## PATH (%s)\n' "$label" >&2
     # shellcheck disable=SC2016 # zsh code evaluated by the probe shell
@@ -166,11 +174,16 @@ check_mise_doctor() {
     printf 'FAILED: mise tool paths are not first in PATH (%s)\n' "$label" >&2
     return 1
   fi
+  if [ "$probe_status" -ne 0 ]; then
+    printf 'FAILED: mise doctor probe exited non-zero (%s)\n' "$label" >&2
+    return 1
+  fi
   return 0
 }
 
 : >"$probe_log"
 : >"$tmp_dir/home/.fake-mise-doctor-warn"
+rm -f "$tmp_dir/home/.fake-mise-doctor-fail"
 set +e
 warn_output="$(
   HOME="$tmp_dir/home" \
@@ -186,7 +199,26 @@ printf '%s\n' "$warn_output" | grep -Fq '## PATH (login interactive)' \
   || fail "misordered target shell did not print its effective PATH"
 
 : >"$probe_log"
-rm -f "$tmp_dir/home/.fake-mise-doctor-warn"
+: >"$tmp_dir/home/.fake-mise-doctor-warn"
+: >"$tmp_dir/home/.fake-mise-doctor-fail"
+set +e
+fail_output="$(
+  HOME="$tmp_dir/home" \
+    DOTFILES_ZSH_BIN="$tmp_dir/bin/zsh" \
+    check_mise_doctor "login interactive" -lic 2>&1
+)"
+fail_status=$?
+set -e
+[ "$fail_status" -ne 0 ] || fail "non-zero misordered probe was accepted"
+printf '%s\n' "$fail_output" | grep -Fq 'FAILED: mise tool paths are not first in PATH (login interactive)' \
+  || fail "non-zero misordered probe did not keep the PATH-ordering diagnostic"
+printf '%s\n' "$fail_output" | grep -Fq '## PATH (login interactive)' \
+  || fail "non-zero misordered probe did not print its effective PATH"
+printf '%s\n' "$fail_output" | grep -Fq 'FAILED: mise doctor probe exited non-zero' \
+  && fail "PATH-ordering failure was replaced by the generic non-zero message"
+
+: >"$probe_log"
+rm -f "$tmp_dir/home/.fake-mise-doctor-warn" "$tmp_dir/home/.fake-mise-doctor-fail"
 HOME="$tmp_dir/home" \
   DOTFILES_ZSH_BIN="$tmp_dir/bin/zsh" \
   check_mise_doctor "interactive" -ic >/dev/null \
