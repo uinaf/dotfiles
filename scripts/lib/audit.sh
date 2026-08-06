@@ -96,32 +96,49 @@ human_bytes() {
   fi
 }
 
-# Read SQLite page stats without modifying the database.
+# True when path begins with the SQLite database header magic.
+is_sqlite_database_file() {
+  local path="$1"
+  local magic
+
+  [ -r "$path" ] || return 1
+  magic="$(dd if="$path" bs=1 count=15 2>/dev/null || true)"
+  [ "$magic" = "SQLite format 3" ]
+}
+
+# Read SQLite page stats from the 100-byte DB header without opening the
+# database engine. Works for WAL-mode files and never creates -wal/-shm.
 # Prints: page_size page_count freelist_count
-# Returns non-zero when sqlite3 is missing or the file is unreadable/invalid.
 sqlite_page_stats() {
   local path="$1"
-  local output
 
-  command -v sqlite3 >/dev/null 2>&1 || return 1
   [ -r "$path" ] || return 1
+  command -v python3 >/dev/null 2>&1 || return 1
 
-  output="$(
-    sqlite3 -readonly "file:${path}?mode=ro" \
-      'PRAGMA page_size;
-PRAGMA page_count;
-PRAGMA freelist_count;' 2>/dev/null
-  )" || return 1
+  python3 - "$path" <<'PY'
+import struct
+import sys
+from pathlib import Path
 
-  # Expect exactly three integer lines.
-  printf '%s\n' "$output" | awk '
-    BEGIN { count = 0 }
-    /^[0-9]+$/ { values[++count] = $0 }
-    END {
-      if (count != 3) exit 1
-      print values[1], values[2], values[3]
-    }
-  '
+path = Path(sys.argv[1])
+try:
+    header = path.read_bytes()[:100]
+except OSError:
+    raise SystemExit(1)
+
+if len(header) < 100 or header[:16] != b"SQLite format 3\x00":
+    raise SystemExit(1)
+
+page_size = struct.unpack(">H", header[16:18])[0]
+if page_size == 1:
+    page_size = 65536
+if page_size < 512 or (page_size & (page_size - 1)) != 0:
+    raise SystemExit(1)
+
+page_count = struct.unpack(">I", header[28:32])[0]
+freelist_count = struct.unpack(">I", header[36:40])[0]
+print(page_size, page_count, freelist_count)
+PY
 }
 
 # Check a Codex/log SQLite database against live-data thresholds, with a
@@ -178,12 +195,16 @@ check_sqlite_log_size() {
     return
   fi
 
+  if [ "$live_bytes" -ge "$warn_bytes" ]; then
+    warn "$path live data is larger than $(human_bytes "$warn_bytes") ($summary)"
+  fi
   if [ "$reclaimable_bytes" -ge "$reclaim_warn_bytes" ] \
     || [ "$freelist_ratio" -ge "$freelist_warn_ratio" ]; then
     warn "$path has high reclaimable SQLite space ($summary)"
-  elif [ "$live_bytes" -ge "$warn_bytes" ]; then
-    warn "$path live data is larger than $(human_bytes "$warn_bytes") ($summary)"
-  else
+  fi
+  if [ "$live_bytes" -lt "$warn_bytes" ] \
+    && [ "$reclaimable_bytes" -lt "$reclaim_warn_bytes" ] \
+    && [ "$freelist_ratio" -lt "$freelist_warn_ratio" ]; then
     ok "$path size is healthy ($summary)"
   fi
 }
@@ -194,12 +215,10 @@ check_codex_log_file_size() {
   local warn_bytes="${CODEX_LOG_WARN_BYTES:-209715200}"
   local physical_bytes
 
-  case "$path" in
-    *.sqlite|*.sqlite3|*.db)
-      check_sqlite_log_size "$path"
-      return
-      ;;
-  esac
+  if is_sqlite_database_file "$path"; then
+    check_sqlite_log_size "$path"
+    return
+  fi
 
   # WAL and other non-database companions keep physical-size checks.
   physical_bytes="$(size_of "$path" 2>/dev/null || printf 0)"

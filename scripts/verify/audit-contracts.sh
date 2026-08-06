@@ -93,11 +93,12 @@ grep -Fq 'secret_scan_finding_count' "$repo_root/scripts/audit/devbox.sh" \
 grep -Fq 'secret_scan_rules_json_or_empty_object' "$repo_root/scripts/audit/devbox.sh" \
   || fail "devbox JSON summary missing brace-safe rules helper"
 
-if command -v sqlite3 >/dev/null 2>&1; then
+if command -v sqlite3 >/dev/null 2>&1 && command -v python3 >/dev/null 2>&1; then
   sqlite_fixture="$tmp_root/sqlite-logs"
   mkdir -p "$sqlite_fixture"
   sparse_db="$sqlite_fixture/logs_sparse.sqlite"
   heavy_db="$sqlite_fixture/logs_heavy.sqlite"
+  wal_mode_db="$sqlite_fixture/logs_wal.sqlite"
   junk_db="$sqlite_fixture/logs_junk.sqlite"
   wal_file="$sqlite_fixture/logs_sparse.sqlite-wal"
 
@@ -114,10 +115,23 @@ CREATE TABLE t(x BLOB);
 WITH RECURSIVE c(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM c WHERE n < 400)
 INSERT INTO t SELECT randomblob(3000) FROM c;
 SQL
+  sqlite3 "$wal_mode_db" <<'SQL' >/dev/null
+PRAGMA journal_mode=WAL;
+PRAGMA page_size=4096;
+CREATE TABLE t(x BLOB);
+WITH RECURSIVE c(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM c WHERE n < 400)
+INSERT INTO t SELECT randomblob(3000) FROM c;
+DELETE FROM t;
+SQL
+  # Remove sidecar files so the probe must work from the DB header alone,
+  # without an engine open / shm recovery path.
+  rm -f "${wal_mode_db}-wal" "${wal_mode_db}-shm"
   printf 'not a sqlite database\n' >"$junk_db"
   printf 'wal-bytes\n' >"$wal_file"
   sparse_cksum_before="$(cksum "$sparse_db")"
+  wal_cksum_before="$(cksum "$wal_mode_db")"
 
+  sparse_log="$sqlite_fixture/sparse.log"
   json_output=0
   warn_count=0
   fail_count=0
@@ -125,37 +139,62 @@ SQL
     CODEX_LOG_WARN_BYTES=200000 \
     CODEX_LOG_RECLAIM_WARN_BYTES=200000 \
     CODEX_LOG_FREELIST_WARN_RATIO=40 \
-    check_codex_log_file_size "$sparse_db" >/dev/null 2>&1
+    check_codex_log_file_size "$sparse_db" >"$sparse_log" 2>&1
   [ "$fail_count" -eq 0 ] || fail "sparse SQLite log failed instead of warning"
-  [ "$warn_count" -ge 1 ] || fail "sparse SQLite log did not warn about reclaimable space"
+  grep -Fq 'high reclaimable SQLite space' "$sparse_log" \
+    || fail "sparse SQLite log did not warn about reclaimable space"
   [ "$(cksum "$sparse_db")" = "$sparse_cksum_before" ] \
     || fail "SQLite page-stat probe modified the sparse database"
 
+  heavy_log="$sqlite_fixture/heavy.log"
   warn_count=0
   fail_count=0
   CODEX_LOG_FAIL_BYTES=100000 \
     CODEX_LOG_WARN_BYTES=50000 \
     CODEX_LOG_RECLAIM_WARN_BYTES=1000000000 \
     CODEX_LOG_FREELIST_WARN_RATIO=100 \
-    check_codex_log_file_size "$heavy_db" >/dev/null 2>&1
+    check_codex_log_file_size "$heavy_db" >"$heavy_log" 2>&1
   [ "$fail_count" -ge 1 ] || fail "heavy SQLite live data did not fail"
+  grep -Fq 'live data is larger than' "$heavy_log" \
+    || fail "heavy SQLite log did not fail on live data"
 
+  wal_log="$sqlite_fixture/wal.log"
+  warn_count=0
+  fail_count=0
+  CODEX_LOG_FAIL_BYTES=1000000 \
+    CODEX_LOG_WARN_BYTES=200000 \
+    CODEX_LOG_RECLAIM_WARN_BYTES=200000 \
+    CODEX_LOG_FREELIST_WARN_RATIO=40 \
+    check_codex_log_file_size "$wal_mode_db" >"$wal_log" 2>&1
+  [ "$fail_count" -eq 0 ] || fail "WAL-mode SQLite log failed instead of warning"
+  grep -Fq 'high reclaimable SQLite space' "$wal_log" \
+    || fail "WAL-mode SQLite log did not use header-based reclaimable accounting"
+  grep -Fq 'SQLite stats unavailable' "$wal_log" \
+    && fail "WAL-mode SQLite log fell back to physical size"
+  [ "$(cksum "$wal_mode_db")" = "$wal_cksum_before" ] \
+    || fail "SQLite page-stat probe modified the WAL-mode database"
+
+  junk_log="$sqlite_fixture/junk.log"
   warn_count=0
   fail_count=0
   CODEX_LOG_FAIL_BYTES=10 \
     CODEX_LOG_WARN_BYTES=5 \
-    check_codex_log_file_size "$junk_db" >/dev/null 2>&1
-  [ "$fail_count" -ge 1 ] || fail "invalid SQLite input did not fall back to physical fail"
+    check_codex_log_file_size "$junk_db" >"$junk_log" 2>&1
+  [ "$fail_count" -ge 1 ] || fail "invalid non-SQLite input did not use physical fail"
+  grep -Fq 'is larger than' "$junk_log" \
+    || fail "invalid non-SQLite input did not report physical-size failure"
   [ "$(cat "$junk_db")" = "not a sqlite database" ] \
-    || fail "invalid SQLite probe modified the input file"
+    || fail "invalid non-SQLite probe modified the input file"
 
+  wal_sidecar_log="$sqlite_fixture/wal-sidecar.log"
   warn_count=0
   fail_count=0
   CODEX_LOG_FAIL_BYTES=1000000 \
     CODEX_LOG_WARN_BYTES=5 \
-    check_codex_log_file_size "$wal_file" >/dev/null 2>&1
+    check_codex_log_file_size "$wal_file" >"$wal_sidecar_log" 2>&1
   [ "$fail_count" -eq 0 ] || fail "WAL physical-size check failed unexpectedly"
-  [ "$warn_count" -ge 1 ] || fail "WAL physical-size check did not warn"
+  grep -Fq 'is larger than' "$wal_sidecar_log" \
+    || fail "WAL physical-size check did not warn"
 fi
 
 if ! command -v gitleaks >/dev/null 2>&1 \
