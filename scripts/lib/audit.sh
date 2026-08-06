@@ -339,8 +339,12 @@ scan_files_for_secrets() {
   report_path="$report_dir/gitleaks-report.json"
   : >"$report_path"
   chmod 600 "$report_path"
-  # RETURN keeps caller EXIT traps intact when this library is sourced.
-  trap 'rm -rf "$scan_root" "$report_dir"' RETURN
+  cleanup_secret_scan_tmp() {
+    trap - RETURN
+    rm -rf "${scan_root:-}" "${report_dir:-}"
+  }
+  # Clear the RETURN trap inside cleanup so it does not linger in the caller.
+  trap cleanup_secret_scan_tmp RETURN
 
   while IFS= read -r path; do
     [ -n "$path" ] || continue
@@ -366,6 +370,7 @@ scan_files_for_secrets() {
 
   if [ "$linked_count" -eq 0 ]; then
     warn "no readable local config files found for gitleaks secret scan"
+    cleanup_secret_scan_tmp
     return
   fi
 
@@ -441,6 +446,8 @@ scan_files_for_secrets() {
   else
     fail_check "trufflehog local config scan failed"
   fi
+
+  cleanup_secret_scan_tmp
 }
 
 scan_files_with_gitleaks() {

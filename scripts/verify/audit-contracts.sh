@@ -54,6 +54,13 @@ printf '%s\n' "$personal_task_json" | grep -Fq '"audit":"personal-security"' \
 grep -Fqx './scripts/audit/personal.sh' "$repo_root/.mise/tasks/audit/personal/_default" \
   || fail "personal default task bypassed the personal audit wrapper"
 
+command -v gitleaks >/dev/null 2>&1 \
+  || fail "gitleaks required for audit contract secret-scan tests"
+command -v python3 >/dev/null 2>&1 \
+  || fail "python3 required for audit contract secret-scan tests"
+command -v trufflehog >/dev/null 2>&1 \
+  || fail "trufflehog required for audit contract secret-scan tests"
+
 secret_fixture="$tmp_root/secret-home"
 mkdir -p "$secret_fixture"
 cat >"$secret_fixture/id_rsa" <<'EOF'
@@ -113,36 +120,49 @@ if printf '%s\n' "$secret_scan_rules_json" | grep -Eq 'BEGIN|MIIEowIBAAKCAQEA|Ma
   fail "json rule aggregates included secret material"
 fi
 
-# shellcheck disable=SC3043
-eval "$(sed -n '/^print_json_summary()/,/^}/p' "$repo_root/scripts/audit/workstation.sh")"
-workstation_summary="$(
-  fail_count=1
-  warn_count=0
-  secret_scan_count=2
-  secret_scan_finding_count=2
-  secret_scan_rules_json='{"private-key":2}'
-  print_json_summary
-)"
-printf '%s' "$workstation_summary" | python3 -c '
+for summary_script in \
+  "$repo_root/scripts/audit/workstation.sh" \
+  "$repo_root/scripts/audit/devbox.sh"; do
+  unset -f print_json_summary 2>/dev/null || true
+  # shellcheck disable=SC3043
+  eval "$(sed -n '/^print_json_summary()/,/^}/p' "$summary_script")"
+  summary_name="$(basename "$(dirname "$summary_script")")/$(basename "$summary_script")"
+  populated_summary="$(
+    fail_count=1
+    warn_count=0
+    secret_scan_count=2
+    secret_scan_finding_count=2
+    secret_scan_rules_json='{"private-key":2}'
+    # Used by the extracted devbox print_json_summary.
+    export USER=fixture
+    export devbox_user=fixture
+    print_json_summary
+  )"
+  printf '%s' "$populated_summary" | python3 -c '
 import json, sys
 data = json.load(sys.stdin)
 assert data["secret_scan_finding_count"] == 2
 assert data["secret_scan_rules"]["private-key"] == 2
-' || fail "workstation --json summary is not valid JSON with rule aggregates"
-empty_summary="$(
-  fail_count=0
-  warn_count=0
-  secret_scan_count=0
-  secret_scan_finding_count=0
-  secret_scan_rules_json=
-  print_json_summary
-)"
-printf '%s' "$empty_summary" | python3 -c '
+' || fail "$summary_name --json summary is not valid JSON with rule aggregates"
+  empty_summary="$(
+    fail_count=0
+    warn_count=0
+    secret_scan_count=0
+    secret_scan_finding_count=0
+    secret_scan_rules_json=
+    export USER=fixture
+    export devbox_user=fixture
+    print_json_summary
+  )"
+  printf '%s' "$empty_summary" | python3 -c '
 import json, sys
 data = json.load(sys.stdin)
 assert data["secret_scan_rules"] == {}
 assert data["secret_scan_finding_count"] == 0
-' || fail "workstation --json summary default rules object is invalid"
+' || fail "$summary_name --json summary default rules object is invalid"
+done
+
+before_scan_dirs="$(find "${TMPDIR:-/tmp}" -maxdepth 1 \( -name 'dotfiles-secret-scan.*' -o -name 'dotfiles-secret-report.*' \) 2>/dev/null | wc -l | tr -d ' ')"
 
 broken_gitleaks_bin="$tmp_root/broken-bin"
 mkdir -p "$broken_gitleaks_bin"
@@ -186,5 +206,9 @@ printf '%s\n' "$clean_output" | grep -Fq 'gitleaks found no leaks' \
 if printf '%s\n' "$clean_output" | grep -Fq 'finding rule='; then
   fail "clean fixture emitted finding locators"
 fi
+
+after_scan_dirs="$(find "${TMPDIR:-/tmp}" -maxdepth 1 \( -name 'dotfiles-secret-scan.*' -o -name 'dotfiles-secret-report.*' \) 2>/dev/null | wc -l | tr -d ' ')"
+[ "$after_scan_dirs" -le "$before_scan_dirs" ] \
+  || fail "secret-scan temporary directories were left behind"
 
 printf 'ok audit output privacy and recursive SSH private-key classification\n'
