@@ -31,6 +31,7 @@ type FixtureOptions = {
   head?: string;
   removalFailures?: ReadonlyMap<string, FixtureFailure>;
   trackedChanges?: string;
+  updateFailure?: FixtureFailure;
   upstream?: string;
 };
 
@@ -63,6 +64,7 @@ class FixtureRuntime implements Runtime {
   readonly repoDir: string;
   readonly removalFailures: ReadonlyMap<string, FixtureFailure>;
   readonly trackedChanges: string;
+  readonly updateFailure: FixtureFailure | undefined;
   readonly upstream: string;
 
   constructor(repoDir: string, home: string, options: FixtureOptions = {}) {
@@ -76,6 +78,7 @@ class FixtureRuntime implements Runtime {
     this.head = options.head ?? "same-head";
     this.home = home;
     this.trackedChanges = options.trackedChanges ?? "";
+    this.updateFailure = options.updateFailure;
     this.upstream = options.upstream ?? this.head;
     this.env = { HOME: home, SKILLS_CLI_VERSION: "test-version" };
   }
@@ -141,6 +144,16 @@ class FixtureRuntime implements Runtime {
         return { status: 1, stdout: diagnostic.stdout, stderr: diagnostic.stderr };
       }
       rmSync(join(this.home, ".agents", "skills", skill), { force: true, recursive: true });
+      return { status: 0, stdout: "", stderr: "" };
+    }
+    if (command === "pnpm" && args[0] === "dlx" && args[2] === "update") {
+      if (this.updateFailure !== undefined) {
+        return {
+          status: 1,
+          stdout: this.updateFailure.stdout,
+          stderr: this.updateFailure.stderr,
+        };
+      }
       return { status: 0, stdout: "", stderr: "" };
     }
 
@@ -216,6 +229,12 @@ function removedSkillNames(runtime: FixtureRuntime): string[] {
       }
       return skill;
     });
+}
+
+function updateCalls(runtime: FixtureRuntime): CommandCall[] {
+  return runtime.calls.filter(
+    (call) => call.command === "pnpm" && call.args[0] === "dlx" && call.args[2] === "update",
+  );
 }
 
 function skillLockPath(repoDir: string): string {
@@ -646,6 +665,77 @@ test("rejects an invalid manifest before changing generated or global rules", ()
   assert.equal(installedSkillNames(runtime).length, 0);
 });
 
+test("rejects unknown sync arguments without changing state", () => {
+  const { repoDir, home } = createFixture();
+  const runtime = new FixtureRuntime(repoDir, home);
+
+  assert.equal(main(["--refresh"], runtime), 2);
+  assert.match(runtime.stderr.value, /Usage: \.\/scripts\/agents\/sync\.ts \[--update\]/);
+  assert.match(runtime.stderr.value, /Unknown argument: --refresh/);
+  assert.equal(runtime.calls.length, 0);
+  assert.equal(existsSync(finalRulesPath(repoDir)), false);
+});
+
+test("prints help without syncing", () => {
+  const { repoDir, home } = createFixture();
+  const runtime = new FixtureRuntime(repoDir, home);
+
+  assert.equal(main(["--help"], runtime), 0);
+  assert.match(runtime.stdout.value, /Usage: \.\/scripts\/agents\/sync\.ts \[--update\]/);
+  assert.equal(runtime.calls.length, 0);
+  assert.equal(existsSync(finalRulesPath(repoDir)), false);
+});
+
+test("does not run the global updater unless --update is passed", () => {
+  const { repoDir, home } = createFixture();
+  const runtime = new FixtureRuntime(repoDir, home);
+
+  assert.equal(main([], runtime), 0);
+  assert.equal(updateCalls(runtime).length, 0);
+  assert.match(runtime.stdout.value, /Done\./);
+});
+
+test("runs skills update -g after a successful sync when --update is passed", () => {
+  const { repoDir, home } = createFixture();
+  const runtime = new FixtureRuntime(repoDir, home);
+
+  assert.equal(main(["--update"], runtime), 0);
+  assert.deepEqual(updateCalls(runtime).map((call) => call.args), [
+    ["dlx", "skills@test-version", "update", "-g", "-y"],
+  ]);
+  assert.match(runtime.stdout.value, /Updating globally installed skills\.\.\./);
+  assert.match(runtime.stdout.value, /Done\./);
+  assert.equal(installedSkillNames(runtime).length, fixtureSkills.length);
+});
+
+test("reports updater failure after the managed sync already completed", () => {
+  const { repoDir, home } = createFixture();
+  const runtime = new FixtureRuntime(repoDir, home, {
+    updateFailure: { stdout: "", stderr: "rate limited" },
+  });
+
+  assert.equal(main(["--update"], runtime), 1);
+  assert.equal(updateCalls(runtime).length, 1);
+  assert.deepEqual(JSON.parse(readFileSync(skillLockPath(repoDir), "utf8")), {
+    version: 1,
+    skills: fixtureSkills,
+  });
+  assert.match(runtime.stderr.value, /Global skill update failed \(exit 1\)/);
+  assert.match(runtime.stderr.value, /Manifest sync already completed/);
+  assert.doesNotMatch(runtime.stdout.value, /Done\./);
+});
+
+test("skips the updater when managed skill installation fails", () => {
+  const { repoDir, home } = createFixture();
+  const runtime = new FixtureRuntime(repoDir, home, {
+    failures: new Map([["fails-first", { stdout: "", stderr: "boom" }]]),
+  });
+
+  assert.equal(main(["--update"], runtime), 1);
+  assert.equal(updateCalls(runtime).length, 0);
+  assert.match(runtime.stderr.value, /Skill installation failed for 1 skill/);
+});
+
 test("uses the current first-party skill sources", () => {
   const scriptDir = dirname(fileURLToPath(import.meta.url));
   const manifest: unknown = JSON.parse(
@@ -683,5 +773,6 @@ test("the executable TypeScript entrypoint runs the CLI", () => {
   const result = spawnSync(scriptPath, ["unexpected"], { encoding: "utf8" });
 
   assert.equal(result.status, 2);
-  assert.match(result.stderr, /Usage: \.\/scripts\/agents\/sync\.ts/);
+  assert.match(result.stderr, /Usage: \.\/scripts\/agents\/sync\.ts \[--update\]/);
+  assert.match(result.stderr, /Unknown argument: unexpected/);
 });

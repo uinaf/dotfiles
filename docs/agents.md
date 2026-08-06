@@ -10,6 +10,7 @@ Run the profile-owned sync from the primary dotfiles checkout on `main`:
 
 ```zsh
 mise run agents:sync
+mise run agents:sync -- --update
 ```
 
 The equivalent direct entrypoint is `./scripts/agents/sync.ts`.
@@ -23,6 +24,11 @@ preserving globally installed skills the lock never owned. Removing an owned
 skill also removes its links from every agent configured by the skills CLI.
 Retired owned skills are still removed when neither supported coding agent is
 installed; only current-skill installation is skipped.
+
+Pass `--update` to run `skills update -g` after a successful manifest sync.
+That refreshes every globally installed skill, including extras the lock never
+owned. Manifest install failures skip the updater; an updater failure still
+leaves the completed manifest sync in place.
 
 When the lock is missing and a supported coding agent is installed, sync
 installs the current manifest and initializes the lock without removing

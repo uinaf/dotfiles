@@ -94,11 +94,13 @@ Bootstrap helpers:
 
 ```zsh
 mise run agents:sync
+mise run agents:sync -- --update
 mise run bootstrap:trust-agent-worktrees
 ```
 
 `agents:sync` refreshes the personal/workstation/devbox global instructions and
-additive skills described in [Agent setup](agents.md).
+additive skills described in [Agent setup](agents.md). Pass `--update` after
+`--` to also refresh every globally installed skill with `skills update -g`.
 
 Workstation and devbox configs trust Codex and Claude generated worktree roots:
 `~/.codex/worktrees` and `~/.claude/worktrees`. The helper also refreshes trust

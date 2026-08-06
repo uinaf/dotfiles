@@ -542,6 +542,25 @@ function installSkills(
   return 1;
 }
 
+function updateGlobalSkills(runtime: Runtime, cliVersion: string): number {
+  writeLine(runtime.stdout, "Updating globally installed skills...");
+  const result = runtime.run(
+    "pnpm",
+    ["dlx", `skills@${cliVersion}`, "update", "-g", "-y"],
+    { stdout: "inherit", stderr: "inherit" },
+  );
+
+  if (result.status === 0) {
+    return 0;
+  }
+
+  writeLine(
+    runtime.stderr,
+    `Global skill update failed (exit ${result.status}). Manifest sync already completed; fix the updater and rerun with --update.`,
+  );
+  return 1;
+}
+
 function removeSkills(
   runtime: Runtime,
   skills: readonly Skill[],
@@ -600,7 +619,47 @@ function removeSkills(
   return 1;
 }
 
-function sync(runtime: Runtime): number {
+type SyncOptions = {
+  update: boolean;
+};
+
+type ParsedArgs =
+  | { kind: "run"; options: SyncOptions }
+  | { kind: "help" }
+  | { kind: "error"; message: string };
+
+const USAGE = "Usage: ./scripts/agents/sync.ts [--update]";
+
+export function parseArgs(args: readonly string[]): ParsedArgs {
+  let update = false;
+
+  for (const arg of args) {
+    if (arg === "--update") {
+      update = true;
+      continue;
+    }
+    if (arg === "--help" || arg === "-h") {
+      return { kind: "help" };
+    }
+    return { kind: "error", message: `${USAGE}\nUnknown argument: ${arg}` };
+  }
+
+  return { kind: "run", options: { update } };
+}
+
+function finishSync(runtime: Runtime, options: SyncOptions, cliVersion: string): number {
+  if (options.update) {
+    const status = updateGlobalSkills(runtime, cliVersion);
+    if (status !== 0) {
+      return status;
+    }
+  }
+
+  writeLine(runtime.stdout, "Done.");
+  return 0;
+}
+
+function sync(runtime: Runtime, options: SyncOptions): number {
   const scriptDir = dirname(fileURLToPath(import.meta.url));
   const repoResult = runtime.run("git", ["-C", scriptDir, "rev-parse", "--show-toplevel"], {
     stdout: "capture",
@@ -619,6 +678,8 @@ function sync(runtime: Runtime): number {
   if (!home) {
     throw new Error("HOME is required to link agent rules");
   }
+
+  const cliVersion = runtime.env.SKILLS_CLI_VERSION || DEFAULT_SKILLS_CLI_VERSION;
 
   writeLine(runtime.stdout, `Pulling latest in ${repoDir}...`);
   requireSuccess(
@@ -646,8 +707,7 @@ function sync(runtime: Runtime): number {
 
   if (skills === undefined) {
     writeLine(runtime.stdout, `No skills manifest found at ${manifestPath}`);
-    writeLine(runtime.stdout, "Done.");
-    return 0;
+    return finishSync(runtime, options, cliVersion);
   }
 
   writeLine(runtime.stdout, `Using skills manifest: ${manifestPath}`);
@@ -655,13 +715,7 @@ function sync(runtime: Runtime): number {
     writeLine(runtime.stdout, "No supported agent installations found; skipping skill installation");
   } else {
     writeLine(runtime.stdout, `Installing skills for agents: ${agents.join(" ")}`);
-    const status = installSkills(
-      runtime,
-      skills,
-      agents,
-      runtime.env.SKILLS_CLI_VERSION || DEFAULT_SKILLS_CLI_VERSION,
-      home,
-    );
+    const status = installSkills(runtime, skills, agents, cliVersion, home);
     if (status !== 0) {
       return status;
     }
@@ -671,18 +725,12 @@ function sync(runtime: Runtime): number {
   if (previouslyManagedSkills === undefined) {
     if (agents.length === 0) {
       writeLine(runtime.stdout, "No managed skills lock found; skipping ownership initialization");
-      writeLine(runtime.stdout, "Done.");
-      return 0;
+      return finishSync(runtime, options, cliVersion);
     }
     writeLine(runtime.stdout, "Initializing managed skills lock without removing existing skills");
   } else {
     const staleSkills = previouslyManagedSkills.filter((skill) => !currentNames.has(skill.name));
-    const removalStatus = removeSkills(
-      runtime,
-      staleSkills,
-      runtime.env.SKILLS_CLI_VERSION || DEFAULT_SKILLS_CLI_VERSION,
-      home,
-    );
+    const removalStatus = removeSkills(runtime, staleSkills, cliVersion, home);
     if (removalStatus !== 0) {
       return removalStatus;
     }
@@ -694,18 +742,22 @@ function sync(runtime: Runtime): number {
       : skills;
   writeSkillLock(skillLockPath, managedSkills);
 
-  writeLine(runtime.stdout, "Done.");
-  return 0;
+  return finishSync(runtime, options, cliVersion);
 }
 
 export function main(args: readonly string[], runtime: Runtime = createRuntime()): number {
-  if (args.length > 0) {
-    writeLine(runtime.stderr, "Usage: ./scripts/agents/sync.ts");
+  const parsed = parseArgs(args);
+  if (parsed.kind === "help") {
+    writeLine(runtime.stdout, USAGE);
+    return 0;
+  }
+  if (parsed.kind === "error") {
+    writeLine(runtime.stderr, parsed.message);
     return 2;
   }
 
   try {
-    return sync(runtime);
+    return sync(runtime, parsed.options);
   } catch (error) {
     writeLine(runtime.stderr, `Sync failed: ${errorMessage(error)}`);
     return 1;

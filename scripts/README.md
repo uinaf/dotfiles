@@ -44,11 +44,12 @@ and [User profiles](../docs/profiles.md) for role boundaries.
 
 ```zsh
 mise run agents:sync
+mise run agents:sync -- --update
 ```
 
 The direct entrypoint is `./scripts/agents/sync.ts`. See
-[Agent setup](../docs/agents.md) for sources, generated output, and local
-overrides.
+[Agent setup](../docs/agents.md) for sources, generated output, local
+overrides, and the optional `--update` global skill refresh.
 
 ## Live Audits
 
