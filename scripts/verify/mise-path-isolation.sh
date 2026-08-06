@@ -58,27 +58,32 @@ probe_log="$tmp_dir/home/.probe.log"
 : >"$probe_log"
 rm -f "$tmp_dir/home/.fake-mise-doctor-warn"
 
-# Inherited mise session + fat PATH must not reach the probe.
+# shellcheck disable=SC2016 # literal bootstrap source needles
+grep -Fq 'dotfiles_run_clean_zsh "$shell_flags" '\''mise doctor'\''' \
+  "$repo_root/scripts/verify/bootstrap.sh" \
+  || fail "bootstrap check_mise_doctor must probe via dotfiles_run_clean_zsh"
+# shellcheck disable=SC2016 # literal bootstrap source needles
+grep -Fq 'dotfiles_run_clean_zsh "$shell_flags" '\''print -l' \
+  "$repo_root/scripts/verify/bootstrap.sh" \
+  || fail "bootstrap PATH dump must use dotfiles_run_clean_zsh"
+# shellcheck disable=SC2016 # literal bootstrap source needles
+if grep -nE '(^|[^_[:alnum:]])zsh "\$shell_flags"' "$repo_root/scripts/verify/bootstrap.sh" \
+  | grep -E 'mise doctor|print -l' >/dev/null; then
+  fail "bootstrap still probes mise PATH ordering with bare zsh"
+fi
+
+# Inherited mise session + fat PATH must not reach the probe. Scope the poisoned
+# PATH to probe invocations so the rest of the fixture keeps the real PATH.
+caller_mise_path="/Users/fixture/.local/share/mise/installs/node/24.18.0/bin:/opt/homebrew/bin:/usr/bin:/bin"
 export MISE_SHELL=zsh
 export __MISE_SESSION=session-token
 export __MISE_ORIG_PATH="/opt/homebrew/bin:/usr/bin:/bin"
 export __MISE_ZSH_ACTIVATE_PATH="/Users/fixture/.local/share/mise/installs/node/24.18.0/bin:/opt/homebrew/bin"
-export PATH="/Users/fixture/.local/share/mise/installs/node/24.18.0/bin:/opt/homebrew/bin:/usr/bin:/bin"
 
 HOME="$tmp_dir/home" \
   DOTFILES_ZSH_BIN="$tmp_dir/bin/zsh" \
+  PATH="$caller_mise_path" \
   dotfiles_run_clean_zsh -lic 'mise doctor' >/dev/null
-
-grep -Fq 'dotfiles_run_clean_zsh "$shell_flags" '\''mise doctor'\''' \
-  "$repo_root/scripts/verify/bootstrap.sh" \
-  || fail "bootstrap check_mise_doctor must probe via dotfiles_run_clean_zsh"
-grep -Fq 'dotfiles_run_clean_zsh "$shell_flags" '\''print -l' \
-  "$repo_root/scripts/verify/bootstrap.sh" \
-  || fail "bootstrap PATH dump must use dotfiles_run_clean_zsh"
-if grep -nE '[[:space:]]zsh "\$shell_flags"' "$repo_root/scripts/verify/bootstrap.sh" \
-  | grep -E 'mise doctor|print -l' >/dev/null; then
-  fail "bootstrap still probes mise PATH ordering with bare zsh"
-fi
 
 grep -Fxq "flags=-lic mise doctor" "$probe_log" || fail "clean zsh probe did not keep shell flags"
 grep -Fxq "mise_shell=" "$probe_log" || fail "clean zsh probe leaked MISE_SHELL"
@@ -105,10 +110,15 @@ check_mise_doctor() {
   local shell_flags="$2"
   local output
 
-  output="$(dotfiles_run_clean_zsh "$shell_flags" 'mise doctor' 2>&1)"
+  output="$(
+    PATH="$caller_mise_path" \
+      dotfiles_run_clean_zsh "$shell_flags" 'mise doctor' 2>&1
+  )"
   if grep -q 'tool paths are not first in PATH' <<< "$output"; then
     printf '\n## PATH (%s)\n' "$label" >&2
-    dotfiles_run_clean_zsh "$shell_flags" 'print -l ${(s/:/)PATH} | nl -ba | sed -n "1,60p"' >&2
+    # shellcheck disable=SC2016 # zsh code evaluated by the probe shell
+    PATH="$caller_mise_path" \
+      dotfiles_run_clean_zsh "$shell_flags" 'print -l ${(s/:/)PATH} | nl -ba | sed -n "1,60p"' >&2
     printf 'FAILED: mise tool paths are not first in PATH (%s)\n' "$label" >&2
     return 1
   fi
