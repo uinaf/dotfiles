@@ -4,7 +4,6 @@ set -euo pipefail
 target_user=""
 install_openclaw=0
 allow_openclaw_restart=0
-install_healthd=0
 install_colima=0
 openclaw_wrapper=""
 openclaw_port=18789
@@ -27,7 +26,6 @@ Services:
   --openclaw         Run the user's OpenClaw gateway at system boot.
   --allow-openclaw-restart
                       Let the selected user restart only its exact system job.
-  --healthd          Run the user's healthd monitor at system boot.
   --colima           Run the user's colima-ensure script once at system boot.
 
 Options:
@@ -75,9 +73,6 @@ while [ "$#" -gt 0 ]; do
       openclaw_port_set=1
       shift
       ;;
-    --healthd)
-      install_healthd=1
-      ;;
     --colima)
       install_colima=1
       ;;
@@ -121,15 +116,13 @@ if [ "$print_labels" -eq 1 ]; then
     fail "LaunchDaemon namespace must contain dot-separated letters, numbers, hyphens, or underscores"
   fi
   openclaw_label="$(dotfiles_launchd_label openclaw-gateway "$target_user" "$launchd_namespace")"
-  healthd_label="$(dotfiles_launchd_label healthd "$target_user" "$launchd_namespace")"
   colima_label="$(dotfiles_launchd_label colima "$target_user" "$launchd_namespace")"
-  printf '%s\n%s\n%s\n' "$openclaw_label" "$healthd_label" "$colima_label"
+  printf '%s\n%s\n' "$openclaw_label" "$colima_label"
   exit 0
 fi
 
 [ "$(uname -s)" = "Darwin" ] || fail "this installer supports macOS only"
 [ "$install_openclaw" -eq 1 ] || [ "$allow_openclaw_restart" -eq 1 ] \
-  || [ "$install_healthd" -eq 1 ] \
   || [ "$install_colima" -eq 1 ] \
   || fail "select at least one service"
 if [ "$install_openclaw" -ne 1 ] \
@@ -165,7 +158,6 @@ else
   fail "LaunchDaemon namespace must contain dot-separated letters, numbers, hyphens, or underscores"
 fi
 openclaw_label="$(dotfiles_launchd_label openclaw-gateway "$target_user" "$launchd_namespace")"
-healthd_label="$(dotfiles_launchd_label healthd "$target_user" "$launchd_namespace")"
 colima_label="$(dotfiles_launchd_label colima "$target_user" "$launchd_namespace")"
 
 launch_daemon_dir="/Library/LaunchDaemons"
@@ -173,8 +165,6 @@ sudoers_dir="/etc/sudoers.d"
 openclaw_restart_sudoers="$sudoers_dir/$(
   dotfiles_openclaw_restart_sudoers_name "$target_user" "$target_uid"
 )"
-healthd_config="$target_home/.config/healthd/config.toml"
-healthd_binary=""
 colima_binary=""
 colima_start="$target_home/.local/bin/colima-ensure"
 
@@ -246,12 +236,6 @@ needs_target_files() {
   [ "$check_only" -eq 0 ] || can_run_as_target
 }
 
-if [ "$install_healthd" -eq 1 ] && needs_target_files; then
-  healthd_binary="$(find_executable healthd 2>/dev/null || true)"
-  [ -n "$healthd_binary" ] || fail "missing healthd binary"
-  [ -f "$healthd_config" ] || fail "missing $healthd_config"
-fi
-
 if [ "$install_colima" -eq 1 ] && needs_target_files; then
   colima_binary="$(find_executable colima 2>/dev/null || true)"
   [ -n "$colima_binary" ] || fail "missing colima binary"
@@ -306,17 +290,6 @@ check_openclaw_restart_sudoers() {
   printf 'ok %s may restart only %s\n' "$target_user" "$openclaw_label"
 }
 
-check_healthd() {
-  local forbidden_agent="${1-com.uinaf.healthd}"
-  check_job "$healthd_label" "$forbidden_agent"
-  if can_run_as_target; then
-    run_as_target "$healthd_binary" check --config "$healthd_config" --json >/dev/null \
-      || fail "$healthd_label check failed"
-  else
-    printf 'skipped %s functional check (requires root or %s)\n' "$healthd_label" "$target_user"
-  fi
-}
-
 check_colima() {
   local status_output
   check_job "$colima_label"
@@ -335,9 +308,6 @@ if [ "$check_only" -eq 1 ]; then
   fi
   if [ "$allow_openclaw_restart" -eq 1 ]; then
     check_openclaw_restart_sudoers
-  fi
-  if [ "$install_healthd" -eq 1 ]; then
-    check_healthd
   fi
   if [ "$install_colima" -eq 1 ]; then
     check_colima
@@ -467,18 +437,9 @@ if [ "$install_openclaw" -eq 1 ]; then
     [ -x "$gateway_wrapper" ] || fail "missing executable $gateway_wrapper"
   fi
 fi
-if [ "$install_healthd" -eq 1 ]; then
-  run_as_target "$healthd_binary" validate --config "$healthd_config" >/dev/null \
-    || fail "invalid healthd config: $healthd_config"
-fi
-
 if [ "$install_openclaw" -eq 1 ]; then
   reject_legacy_system_job "com.uinaf.openclaw-gateway.$target_user"
   reject_user_agent ai.openclaw.gateway
-fi
-if [ "$install_healthd" -eq 1 ]; then
-  reject_legacy_system_job "com.uinaf.healthd.$target_user"
-  reject_user_agent com.uinaf.healthd
 fi
 if [ "$install_colima" -eq 1 ]; then
   reject_legacy_system_job "com.uinaf.colima.$target_user"
@@ -526,23 +487,6 @@ fi
 
 if [ "$allow_openclaw_restart" -eq 1 ]; then
   install_openclaw_restart_policy
-fi
-
-if [ "$install_healthd" -eq 1 ]; then
-  install -d -o "$target_user" -g "$target_group" -m 0750 "$target_home/Library/Logs/healthd"
-  healthd_plist="$tmp_dir/$healthd_label.plist"
-  create_plist \
-    "$healthd_plist" \
-    "$healthd_label" \
-    "$target_home" \
-    "$target_home/Library/Logs/healthd/daemon.log" \
-    "$target_home/Library/Logs/healthd/daemon-error.log" \
-    "$healthd_binary" \
-    run \
-    --config \
-    "$healthd_config"
-  install_job "$healthd_plist" "$healthd_label"
-  check_healthd
 fi
 
 if [ "$install_colima" -eq 1 ]; then

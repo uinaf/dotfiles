@@ -118,7 +118,7 @@ sudo ./scripts/bootstrap/install-devbox-service-daemons.sh \
 
 `--allow-openclaw-restart` grants that user passwordless restart of only its
 exact OpenClaw system job. It does not grant general launchctl or sudo access.
-Use `--healthd` or `--colima` only when that target user owns those services.
+Use `--colima` only when that target user owns the service.
 Use `--check` with the selected service flags for a non-mutating contract
 check.
 

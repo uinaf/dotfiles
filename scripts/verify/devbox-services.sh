@@ -72,9 +72,7 @@ check_launchd_daemons() {
   fi
 
   for plist in \
-    "/Library/LaunchDaemons/$namespace.healthd.$devbox_user.plist" \
     "/Library/LaunchDaemons/$namespace.colima.$devbox_user.plist" \
-    "/Library/LaunchDaemons/com.uinaf.healthd.$devbox_user.plist" \
     "/Library/LaunchDaemons/com.uinaf.colima.$devbox_user.plist"; do
     [ -e "$plist" ] || continue
     found=1
@@ -85,7 +83,7 @@ check_launchd_daemons() {
     printf 'ok %s loaded\n' "$label"
   done
 
-  [ "$found" -eq 1 ] || printf 'ok no managed healthd/colima system daemons on this machine\n'
+  [ "$found" -eq 1 ] || printf 'ok no managed Colima system daemons on this machine\n'
 }
 
 case "${1:-}" in
