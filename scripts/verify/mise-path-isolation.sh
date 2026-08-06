@@ -251,9 +251,9 @@ shim_dir="$tmp_dir/shim-bin"
 mkdir -p "$shim_dir"
 ln -s "$tmp_dir/bin/zsh" "$shim_dir/zsh"
 resolved="$(
+  unset DOTFILES_ZSH_BIN
   PATH="$shim_dir:/usr/bin:/bin" \
     SHELL="$tmp_dir/bin/zsh" \
-    DOTFILES_ZSH_BIN= \
     dotfiles_probe_zsh_bin
 )"
 [ "$resolved" = "$tmp_dir/bin/zsh" ] \
