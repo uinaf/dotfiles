@@ -69,11 +69,24 @@ HOME="$tmp_dir/home" \
   DOTFILES_ZSH_BIN="$tmp_dir/bin/zsh" \
   dotfiles_run_clean_zsh -lic 'mise doctor' >/dev/null
 
+grep -Fq 'dotfiles_run_clean_zsh "$shell_flags" '\''mise doctor'\''' \
+  "$repo_root/scripts/verify/bootstrap.sh" \
+  || fail "bootstrap check_mise_doctor must probe via dotfiles_run_clean_zsh"
+grep -Fq 'dotfiles_run_clean_zsh "$shell_flags" '\''print -l' \
+  "$repo_root/scripts/verify/bootstrap.sh" \
+  || fail "bootstrap PATH dump must use dotfiles_run_clean_zsh"
+if grep -nE '[[:space:]]zsh "\$shell_flags"' "$repo_root/scripts/verify/bootstrap.sh" \
+  | grep -E 'mise doctor|print -l' >/dev/null; then
+  fail "bootstrap still probes mise PATH ordering with bare zsh"
+fi
+
 grep -Fxq "flags=-lic mise doctor" "$probe_log" || fail "clean zsh probe did not keep shell flags"
 grep -Fxq "mise_shell=" "$probe_log" || fail "clean zsh probe leaked MISE_SHELL"
 grep -Fxq "mise_session=" "$probe_log" || fail "clean zsh probe leaked __MISE_SESSION"
 grep -Fxq "mise_orig_path=" "$probe_log" || fail "clean zsh probe leaked __MISE_ORIG_PATH"
 grep -Fxq "mise_activate_path=" "$probe_log" || fail "clean zsh probe leaked __MISE_ZSH_ACTIVATE_PATH"
+grep -q '/Users/fixture/.local/share/mise' "$probe_log" \
+  && fail "clean zsh probe leaked the caller mise PATH"
 grep -Fxq "path=$(dotfiles_clean_login_path)" "$probe_log" \
   || fail "clean zsh probe did not replace the caller PATH"
 
