@@ -20,11 +20,14 @@ unlocked macOS login keychain.
 
 Run commands from the repo root unless a step says otherwise.
 
-Every profile requires a per-user SOPS age identity. Install the Homebrew
-layers first, then follow [Identity provisioning](identities.md). Identity
-generation is explicit. Back up any newly created private identity through an
-approved human recovery system and verify the restored recipient before using
-it to protect live ciphertext.
+Keep the SOPS and age CLIs in the portable Homebrew baseline. Require a
+per-user SOPS age identity only for profiles and workflows that decrypt
+encrypted material (`devbox`, `assistant`, `service`, and any vault or sudo
+consumer). Portable `workstation` and `personal` boots can pass readiness
+without an identity; decryption stays fail-closed until one is provisioned.
+When you do create an identity, follow [Identity provisioning](identities.md),
+back it up through an approved human recovery system, and verify the restored
+recipient before protecting live ciphertext.
 
 ## First-Time Prerequisites
 
@@ -196,7 +199,8 @@ profile=workstation # use personal for the opinionated layer
 mise trust
 mise install
 ./scripts/bootstrap/install.sh --profile "$profile"
-./scripts/secrets/configure-sops-age-identity.sh
+# Optional until this machine decrypts vault or other SOPS material:
+# ./scripts/secrets/configure-sops-age-identity.sh
 ./scripts/bootstrap/configure-git.sh --profile "$profile"
 ./scripts/bootstrap/configure-power.sh --profile "$profile"
 ./scripts/bootstrap/configure-spotlight.sh
@@ -422,14 +426,15 @@ profile=workstation # use personal for the opinionated layer
 mise trust
 mise install
 ./scripts/bootstrap/install.sh --profile "$profile"
-./scripts/secrets/configure-sops-age-identity.sh
+# Required for secret-consuming profiles (devbox/assistant/service):
+# ./scripts/secrets/configure-sops-age-identity.sh
 ./scripts/bootstrap/configure-power.sh --profile "$profile"
 ./scripts/bootstrap/configure-spotlight.sh
 ./scripts/verify/bootstrap.sh --profile "$profile"
 ```
 
 Use the target Unix user's `devbox`, `assistant`, or `service` role instead when
-appropriate.
+appropriate, and keep the age-identity step for those profiles.
 Existing personal machines whose stored marker is `workstation` should set
 `profile=personal` once to adopt the new personal layer.
 

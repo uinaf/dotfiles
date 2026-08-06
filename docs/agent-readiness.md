@@ -30,7 +30,7 @@ profile.
 
 | Surface | Command | Proves |
 | --- | --- | --- |
-| Workstation | `mise run verify:bootstrap:workstation` | Required package layers, age identity, mise tools, Codex ChatGPT login default, and managed config exist. |
+| Workstation | `mise run verify:bootstrap:workstation` | Required package layers, SOPS/age CLIs, mise tools, Codex ChatGPT login default, and managed config exist. Age identity is optional until secrets are consumed. |
 | Devbox | `mise run verify:bootstrap:devbox` | Developer package layers, age identity, mise tools, Codex ChatGPT login default, and managed config exist. |
 | Assistant | `mise run verify:bootstrap:assistant` | Minimal package layers, age identity, managed Git base, and workload authorship match the assistant contract. |
 | Service | `mise run verify:bootstrap:service` | Identity-safe package layers, age identity, minimal Git base, and unsigned workload authorship match the service contract. |

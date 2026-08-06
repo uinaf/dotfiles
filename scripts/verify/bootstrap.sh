@@ -462,6 +462,10 @@ check_workload_git_boundary() {
 
 check_sops_age_identity() {
   section "SOPS age identity"
+  if ! dotfiles_profile_requires_sops_identity "$profile"; then
+    printf 'ok not required for profile %s (SOPS CLI remains available)\n' "$profile"
+    return
+  fi
   "$repo_root/scripts/secrets/configure-sops-age-identity.sh" --check \
     || fail "SOPS age identity"
 }

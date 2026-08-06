@@ -47,6 +47,21 @@ if dotfiles_normalize_profile unsupported >/dev/null 2>&1; then
   fail "unsupported profile was accepted"
 fi
 
+if ! dotfiles_profile_requires_sops_identity devbox \
+  || ! dotfiles_profile_requires_sops_identity assistant \
+  || ! dotfiles_profile_requires_sops_identity service; then
+  fail "secret-consuming profiles must require a SOPS age identity"
+fi
+if dotfiles_profile_requires_sops_identity workstation \
+  || dotfiles_profile_requires_sops_identity personal; then
+  fail "portable profiles must not require a SOPS age identity"
+fi
+if dotfiles_profile_requires_sops_identity unsupported >/dev/null 2>&1; then
+  fail "unsupported profile was accepted by SOPS identity helper"
+elif [ "$?" -ne 2 ]; then
+  fail "unsupported profile did not return status 2 from SOPS identity helper"
+fi
+
 profile_home="$tmp_root/profile-resolution"
 mkdir -p "$profile_home/.config/dotfiles"
 printf ' \tassistant\r\n' > "$profile_home/.config/dotfiles/profile"

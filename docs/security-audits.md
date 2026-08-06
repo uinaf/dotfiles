@@ -25,7 +25,7 @@ Use separate checks for separate risk surfaces:
 | macOS compliance baseline | macOS Security Compliance Project through `scripts/audit/repo.sh` | Check host security settings against a generated baseline. |
 | Workstation drift | `scripts/audit/workstation.sh` | Check human workstation secret boundaries, identity state, and local stale files. |
 | Devbox drift | `scripts/audit/devbox.sh` | Check agent-machine secret boundaries, identity state, and local stale files. |
-| Functional bootstrap | `scripts/verify/bootstrap.sh`, `scripts/verify/devbox-services.sh` | Confirm tools, the per-user SOPS age identity, and expected services work. |
+| Functional bootstrap | `scripts/verify/bootstrap.sh`, `scripts/verify/devbox-services.sh` | Confirm tools, the SOPS age identity when the profile consumes secrets, and expected services work. |
 
 Do not treat one layer as a substitute for another. For example, a clean
 Gitleaks run does not prove launchd state is safe.
