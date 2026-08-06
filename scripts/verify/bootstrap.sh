@@ -249,6 +249,9 @@ check_mise_doctor() {
   local output
 
   section "mise doctor ($label)"
+  # Resolve the probe shell before capturing stdout/stderr so a missing zsh
+  # diagnostic is not swallowed by command substitution + set -e.
+  dotfiles_probe_zsh_bin >/dev/null
   # Probe the target shell startup, not an already-activated caller session.
   output="$(dotfiles_run_clean_zsh "$shell_flags" 'mise doctor' 2>&1)"
   printf '%s\n' "$output"

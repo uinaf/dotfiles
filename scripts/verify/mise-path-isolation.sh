@@ -61,6 +61,11 @@ probe_log="$tmp_dir/home/.probe.log"
 : >"$probe_log"
 rm -f "$tmp_dir/home/.fake-mise-doctor-warn"
 
+bash -n "$repo_root/scripts/verify/bootstrap.sh" \
+  || fail "bootstrap.sh does not parse"
+bash -n "$repo_root/scripts/lib/shell-probe.sh" \
+  || fail "shell-probe.sh does not parse"
+
 check_mise_doctor_body="$(
   awk '
     /^check_mise_doctor\(\)/ { in_fn = 1 }
@@ -71,14 +76,16 @@ check_mise_doctor_body="$(
 [ -n "$check_mise_doctor_body" ] || fail "could not extract check_mise_doctor from bootstrap.sh"
 printf '%s\n' "$check_mise_doctor_body" | grep -Fq 'dotfiles_run_clean_zsh' \
   || fail "bootstrap check_mise_doctor must probe via dotfiles_run_clean_zsh"
+printf '%s\n' "$check_mise_doctor_body" | grep -Fq 'dotfiles_probe_zsh_bin' \
+  || fail "bootstrap check_mise_doctor must resolve zsh before capturing probe output"
 printf '%s\n' "$check_mise_doctor_body" | grep -Fq 'mise doctor' \
   || fail "bootstrap check_mise_doctor must run mise doctor"
 printf '%s\n' "$check_mise_doctor_body" | grep -Fq 'print -l' \
   || fail "bootstrap check_mise_doctor must dump PATH on failure"
 if printf '%s\n' "$check_mise_doctor_body" \
   | grep -vE '^[[:space:]]*#' \
-  | grep -nE '(^|[^_[:alnum:]])(/bin/|/usr/|/opt/)?zsh([[:space:]"'\'']|$)' \
-  | grep -Ev 'dotfiles_run_clean_zsh|dotfiles_probe_zsh' >/dev/null; then
+  | sed 's/dotfiles_run_clean_zsh//g; s/dotfiles_probe_zsh_bin//g; s/dotfiles_probe_zsh//g' \
+  | grep -nE '(^|[^_[:alnum:]])(/bin/|/usr/|/opt/)?zsh([[:space:]"'\'']|$)' >/dev/null; then
   fail "bootstrap check_mise_doctor still invokes bare zsh"
 fi
 
@@ -119,6 +126,9 @@ case "$observed_path" in
   *) fail "clean zsh probe seed PATH missing expected Homebrew/system prefix: $observed_path" ;;
 esac
 
+# Behavioral twin of scripts/verify/bootstrap.sh:check_mise_doctor for the fake
+# zsh fixture. Keep detection/failure text aligned with the production function;
+# the source guards above pin the production wiring.
 check_mise_doctor() {
   local label="$1"
   local shell_flags="$2"

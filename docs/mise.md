@@ -136,4 +136,7 @@ requires them.
 selected profile. Its `mise doctor` PATH-ordering probes run through a clean
 login/interactive zsh that does not inherit an already-activated caller mise
 session or PATH, so a healthy workstation is not rejected only because the
-verifier itself started inside mise.
+verifier itself started inside mise. Login probes (`-lic`) still rebuild PATH
+through normal login startup; interactive-only probes (`-ic`) start from a
+minimal Homebrew/system seed and then apply interactive startup files, so they
+intentionally do not reproduce a parent login shell's ambient PATH.
