@@ -87,8 +87,18 @@ grep -Fxq "mise_orig_path=" "$probe_log" || fail "clean zsh probe leaked __MISE_
 grep -Fxq "mise_activate_path=" "$probe_log" || fail "clean zsh probe leaked __MISE_ZSH_ACTIVATE_PATH"
 grep -q '/Users/fixture/.local/share/mise' "$probe_log" \
   && fail "clean zsh probe leaked the caller mise PATH"
-grep -Fxq "path=$(dotfiles_clean_login_path)" "$probe_log" \
-  || fail "clean zsh probe did not replace the caller PATH"
+observed_path="$(sed -n 's/^path=//p' "$probe_log" | head -n 1)"
+[ -n "$observed_path" ] || fail "clean zsh probe did not record PATH"
+case "$observed_path" in
+  *:/usr/bin:/bin:/usr/sbin:/sbin) ;;
+  *) fail "clean zsh probe seed PATH missing system suffix: $observed_path" ;;
+esac
+case "$observed_path" in
+  /opt/homebrew/bin:/opt/homebrew/sbin:*|/usr/local/bin:/usr/local/sbin:*|/usr/bin:/bin:/usr/sbin:/sbin) ;;
+  *) fail "clean zsh probe seed PATH missing expected Homebrew/system prefix: $observed_path" ;;
+esac
+[ "$observed_path" = "$(dotfiles_clean_login_path)" ] \
+  || fail "clean zsh probe PATH drifted from dotfiles_clean_login_path"
 
 check_mise_doctor() {
   local label="$1"

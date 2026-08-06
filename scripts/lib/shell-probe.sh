@@ -24,12 +24,20 @@ dotfiles_clean_login_path() {
 dotfiles_run_clean_zsh() {
   local flags="$1"
   shift
-  local zsh_bin="${DOTFILES_ZSH_BIN:-/bin/zsh}"
+  # Resolve zsh in the caller before env -i so Homebrew zsh (different etcdir /
+  # path_helper behavior) is used when that is the workstation shell.
+  local zsh_bin="${DOTFILES_ZSH_BIN:-}"
+  if [ -z "$zsh_bin" ]; then
+    zsh_bin="$(command -v zsh 2>/dev/null || true)"
+  fi
+  if [ -z "$zsh_bin" ] || [ ! -x "$zsh_bin" ]; then
+    zsh_bin="/bin/zsh"
+  fi
   local -a env_args=(
     HOME="$HOME"
     USER="${USER:-$(id -un)}"
     LOGNAME="${LOGNAME:-$(id -un)}"
-    SHELL="${SHELL:-/bin/zsh}"
+    SHELL="${SHELL:-$zsh_bin}"
     TMPDIR="${TMPDIR:-/tmp}"
     TERM="${TERM:-dumb}"
     LANG="${LANG:-C}"
