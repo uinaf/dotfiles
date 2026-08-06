@@ -133,4 +133,10 @@ The assistant profile intentionally contains only Node. The service profile
 declares no language runtime. Additional runtimes belong to the workload that
 requires them.
 `scripts/verify/bootstrap.sh` checks the commands and versions required by the
-selected profile.
+selected profile. Its `mise doctor` PATH-ordering probes run through a clean
+login/interactive zsh that does not inherit an already-activated caller mise
+session or PATH, so a healthy workstation is not rejected only because the
+verifier itself started inside mise. Login probes (`-lic`) still rebuild PATH
+through normal login startup; interactive-only probes (`-ic`) start from a
+minimal Homebrew/system seed and then apply interactive startup files, so they
+intentionally do not reproduce a parent login shell's ambient PATH.
