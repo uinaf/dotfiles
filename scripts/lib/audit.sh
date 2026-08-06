@@ -9,6 +9,8 @@ audit_lib_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 : "${warn_count:=0}"
 : "${fail_count:=0}"
 : "${secret_scan_count:=0}"
+: "${secret_scan_finding_count:=0}"
+: "${secret_scan_rules_json:={}}"
 
 section() {
   [ "$json_output" -eq 1 ] && return
@@ -165,13 +167,106 @@ scan_file_for_secret_pattern() {
   fi
 }
 
+# Read a gitleaks JSON report and emit only safe locator fields.
+# Prints "rule<TAB>relative-path" lines to stdout. Never prints Match/Secret.
+emit_gitleaks_finding_locators() {
+  local scan_root="$1"
+  local report_path="$2"
+
+  command -v python3 >/dev/null 2>&1 || return 1
+  python3 - "$scan_root" "$report_path" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+scan_root = Path(sys.argv[1])
+report_path = Path(sys.argv[2])
+raw = report_path.read_text(encoding="utf-8") if report_path.is_file() else "[]"
+try:
+    findings = json.loads(raw or "[]")
+except json.JSONDecodeError:
+    findings = []
+
+if not isinstance(findings, list):
+    findings = []
+
+
+def root_prefixes(root):
+    prefixes = []
+    for candidate in (root, root.resolve()):
+        text = str(candidate).rstrip("/")
+        prefixes.append(text)
+        if text.startswith("/private/"):
+            prefixes.append(text[len("/private") :])
+        elif text.startswith("/var/"):
+            prefixes.append("/private" + text)
+    # Preserve order while deduplicating.
+    seen = set()
+    ordered = []
+    for prefix in prefixes:
+        if prefix not in seen:
+            seen.add(prefix)
+            ordered.append(prefix)
+    return ordered
+
+
+def staged_relative(locator):
+    if not locator:
+        return "unknown"
+    for prefix in root_prefixes(scan_root):
+        marker = prefix + "/"
+        if locator.startswith(marker):
+            relative = locator[len(marker) :]
+            if relative and not relative.startswith("/") and ".." not in Path(relative).parts:
+                return relative
+    return "unknown"
+
+
+for finding in findings:
+    rule = str(finding.get("RuleID") or "unknown")
+    # With --follow-symlinks, File is the target; SymlinkFile is the staged path.
+    locator = str(finding.get("SymlinkFile") or finding.get("File") or "")
+    print(f"{rule}\t{staged_relative(locator)}")
+PY
+}
+
+gitleaks_rule_counts_json() {
+  local report_path="$1"
+
+  command -v python3 >/dev/null 2>&1 || {
+    printf '%s\n' '{}'
+    return 1
+  }
+  python3 - "$report_path" <<'PY'
+import json
+import sys
+from collections import Counter
+from pathlib import Path
+
+raw = Path(sys.argv[1]).read_text(encoding="utf-8") if Path(sys.argv[1]).is_file() else "[]"
+try:
+    findings = json.loads(raw or "[]")
+except json.JSONDecodeError:
+    findings = []
+if not isinstance(findings, list):
+    findings = []
+counts = Counter(str(item.get("RuleID") or "unknown") for item in findings)
+print(json.dumps(dict(sorted(counts.items())), separators=(",", ":")))
+PY
+}
+
 scan_files_for_secrets() {
   local scan_root
+  local report_path
   local path
   local rel_path
   local link_path
   local linked_count=0
   local trufflehog_status
+  local gitleaks_status=0
+  local finding_count=0
+  local rule
+  local staged_path
 
   if ! command -v gitleaks >/dev/null 2>&1; then
     fail_check "gitleaks is missing for local secret scan"
@@ -183,8 +278,18 @@ scan_files_for_secrets() {
     return
   fi
 
+  if ! command -v python3 >/dev/null 2>&1; then
+    fail_check "python3 is missing for sanitized secret-scan diagnostics"
+    return
+  fi
+
   scan_root="$(mktemp -d "${TMPDIR:-/tmp}/dotfiles-secret-scan.XXXXXX")"
   chmod 700 "$scan_root"
+  report_path="$scan_root/gitleaks-report.json"
+  : >"$report_path"
+  chmod 600 "$report_path"
+  # RETURN keeps caller EXIT traps intact when this library is sourced.
+  trap 'rm -rf "$scan_root"' RETURN
 
   while IFS= read -r path; do
     [ -n "$path" ] || continue
@@ -210,19 +315,49 @@ scan_files_for_secrets() {
 
   if [ "$linked_count" -eq 0 ]; then
     warn "no readable local config files found for gitleaks secret scan"
-    rm -rf "$scan_root"
     return
   fi
 
-  if [ "$json_output" -eq 1 ]; then
-    if gitleaks dir --follow-symlinks --redact --no-banner --log-level error "$scan_root" >/dev/null 2>&1; then
-      ok "gitleaks found no leaks in $linked_count local config files"
-    else
-      fail_check "gitleaks reported possible leaks in local config files"
-    fi
-  elif gitleaks dir --follow-symlinks --redact --no-banner "$scan_root"; then
+  # Collect findings into an owner-only report. Never stream raw scanner output
+  # that can include matched secret material.
+  if ! gitleaks dir \
+    --follow-symlinks \
+    --redact \
+    --no-banner \
+    --log-level error \
+    --report-format json \
+    --report-path "$report_path" \
+    "$scan_root" >/dev/null 2>&1; then
+    gitleaks_status=$?
+  fi
+  chmod 600 "$report_path" 2>/dev/null || true
+
+  secret_scan_rules_json="$(gitleaks_rule_counts_json "$report_path")"
+  finding_count="$(
+    python3 - "$report_path" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+raw = Path(sys.argv[1]).read_text(encoding="utf-8") if Path(sys.argv[1]).is_file() else "[]"
+try:
+    findings = json.loads(raw or "[]")
+except json.JSONDecodeError:
+    findings = []
+print(len(findings) if isinstance(findings, list) else 0)
+PY
+  )"
+  secret_scan_finding_count=$((secret_scan_finding_count + finding_count))
+
+  if [ "$finding_count" -eq 0 ] && [ "$gitleaks_status" -eq 0 ]; then
     ok "gitleaks found no leaks in $linked_count local config files"
   else
+    if [ "$json_output" -eq 0 ]; then
+      while IFS=$'\t' read -r rule staged_path; do
+        [ -n "$rule" ] || continue
+        printf 'finding rule=%s path=%s\n' "$rule" "$staged_path" >&2
+      done < <(emit_gitleaks_finding_locators "$scan_root" "$report_path")
+    fi
     fail_check "gitleaks reported possible leaks in local config files"
   fi
 
@@ -256,8 +391,6 @@ scan_files_for_secrets() {
   else
     fail_check "trufflehog local config scan failed"
   fi
-
-  rm -rf "$scan_root"
 }
 
 scan_files_with_gitleaks() {

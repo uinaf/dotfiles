@@ -7,6 +7,8 @@ json_output=0
 warn_count=0
 fail_count=0
 secret_scan_count=0
+secret_scan_finding_count=0
+secret_scan_rules_json='{}'
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 # shellcheck source=scripts/lib/audit.sh
@@ -25,10 +27,10 @@ Options:
   -h, --help
 
 The script checks secret boundaries, Git/GitHub identity state, SSH key
-permissions, and common stale secret backup locations.
-Treat prose scanner output as sensitive because maintained scanners can include
-matched secret material when they detect a leak. Use --json for compact remote
-collection.
+permissions, and common stale secret backup locations. Local Gitleaks prose
+output is sanitized to rule ID and staged relative path; --json adds aggregate
+finding counts by rule. Other scanners may still emit matched material in prose,
+so prefer --json for remote collection.
 USAGE
 }
 
@@ -48,7 +50,9 @@ print_json_summary() {
   json_string "$USER"
   printf ',"devbox_user":'
   json_string "$devbox_user"
-  printf ',"secret_scan_count":%s}\n' "$secret_scan_count"
+  printf ',"secret_scan_count":%s' "$secret_scan_count"
+  printf ',"secret_scan_finding_count":%s' "$secret_scan_finding_count"
+  printf ',"secret_scan_rules":%s}\n' "${secret_scan_rules_json:-{}}"
 }
 
 emit_devbox_secret_scan_paths() {

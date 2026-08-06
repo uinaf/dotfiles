@@ -16,6 +16,8 @@ export json_output=1
 export warn_count=0
 export fail_count=0
 export secret_scan_count=0
+export secret_scan_finding_count=0
+export secret_scan_rules_json='{}'
 
 # shellcheck source=scripts/lib/audit.sh
 . "$repo_root/scripts/lib/audit.sh"
@@ -51,5 +53,89 @@ printf '%s\n' "$personal_task_json" | grep -Fq '"audit":"personal-security"' \
 
 grep -Fqx './scripts/audit/personal.sh' "$repo_root/.mise/tasks/audit/personal/_default" \
   || fail "personal default task bypassed the personal audit wrapper"
+
+secret_fixture="$tmp_root/secret-home"
+mkdir -p "$secret_fixture"
+cat >"$secret_fixture/id_rsa" <<'EOF'
+-----BEGIN RSA PRIVATE KEY-----
+MIIEowIBAAKCAQEA0Z3VS5JJcds3xfn/ygWyF6PZGBlewn0LqYSdzaWQmJeJrQHL
+-----END RSA PRIVATE KEY-----
+EOF
+cat >"$secret_fixture/id_ed25519" <<'EOF'
+-----BEGIN OPENSSH PRIVATE KEY-----
+b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
+-----END OPENSSH PRIVATE KEY-----
+EOF
+chmod 600 "$secret_fixture/id_rsa" "$secret_fixture/id_ed25519"
+
+prose_log="$tmp_root/prose-secret-scan.log"
+json_output=0
+warn_count=0
+fail_count=0
+secret_scan_count=0
+secret_scan_finding_count=0
+secret_scan_rules_json='{}'
+# Avoid command substitution: scan_files_for_secrets mutates counters in-process.
+set +e
+HOME="$secret_fixture" \
+  scan_files_for_secrets < <(printf '%s\n' "$secret_fixture/id_rsa" "$secret_fixture/id_ed25519") \
+  >"$prose_log" 2>&1
+set -e
+prose_output="$(cat "$prose_log")"
+[ "$fail_count" -ge 1 ] || fail "fixture with leaks did not fail the local secret scan"
+printf '%s\n' "$prose_output" | grep -Eq 'finding rule=private-key path=home/id_' \
+  || fail "prose mode did not emit sanitized rule/path locators"
+# Gitleaks prose used to stream Finding/Secret blocks; those must stay gone.
+if printf '%s\n' "$prose_output" | grep -Eq '^Finding:|^Secret:|^Fingerprint:'; then
+  fail "prose mode still streamed raw gitleaks finding blocks"
+fi
+finding_lines="$(printf '%s\n' "$prose_output" | grep '^finding rule=' || true)"
+if printf '%s\n' "$finding_lines" | grep -Eq 'BEGIN (RSA|OPENSSH) PRIVATE KEY|MIIEowIBAAKCAQEA|b3BlbnNzaC1rZXktdjE'; then
+  fail "sanitized finding lines leaked secret material"
+fi
+[ "$secret_scan_finding_count" -ge 1 ] || fail "finding count was not recorded"
+printf '%s\n' "$secret_scan_rules_json" | grep -Fq '"private-key"' \
+  || fail "rule aggregates omitted private-key"
+
+json_output=1
+warn_count=0
+fail_count=0
+secret_scan_count=0
+secret_scan_finding_count=0
+secret_scan_rules_json='{}'
+HOME="$secret_fixture" \
+  scan_files_for_secrets < <(printf '%s\n' "$secret_fixture/id_rsa") >/dev/null 2>&1 || true
+[ "$fail_count" -ge 1 ] || fail "json mode did not fail when gitleaks found leaks"
+[ "$secret_scan_finding_count" -ge 1 ] || fail "json mode did not count findings"
+printf '%s\n' "$secret_scan_rules_json" | grep -Fq '"private-key"' \
+  || fail "json mode omitted rule aggregates"
+if printf '%s\n' "$secret_scan_rules_json" | grep -Eq 'BEGIN|MIIEowIBAAKCAQEA|Match|Secret'; then
+  fail "json rule aggregates included secret material"
+fi
+
+clean_fixture="$tmp_root/clean-home"
+clean_log="$tmp_root/clean-secret-scan.log"
+mkdir -p "$clean_fixture"
+printf 'export EDITOR=vim\n' >"$clean_fixture/.zshrc"
+chmod 644 "$clean_fixture/.zshrc"
+json_output=0
+warn_count=0
+fail_count=0
+secret_scan_count=0
+secret_scan_finding_count=0
+secret_scan_rules_json='{}'
+set +e
+HOME="$clean_fixture" \
+  scan_files_for_secrets < <(printf '%s\n' "$clean_fixture/.zshrc") \
+  >"$clean_log" 2>&1
+set -e
+clean_output="$(cat "$clean_log")"
+[ "$fail_count" -eq 0 ] || fail "clean fixture failed the local secret scan"
+[ "$secret_scan_finding_count" -eq 0 ] || fail "clean fixture recorded findings"
+printf '%s\n' "$clean_output" | grep -Fq 'gitleaks found no leaks' \
+  || fail "clean fixture did not report a quiet gitleaks pass"
+if printf '%s\n' "$clean_output" | grep -Fq 'finding rule='; then
+  fail "clean fixture emitted finding locators"
+fi
 
 printf 'ok audit output privacy and recursive SSH private-key classification\n'
