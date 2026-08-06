@@ -70,6 +70,8 @@ bash -n "$repo_root/scripts/verify/bootstrap.sh" \
   || fail "bootstrap.sh does not parse"
 bash -n "$repo_root/scripts/lib/shell-probe.sh" \
   || fail "shell-probe.sh does not parse"
+grep -Fq 'command -p id -un' "$repo_root/scripts/lib/shell-probe.sh" \
+  || fail "shell-probe must resolve id via command -p, not ambient PATH"
 
 check_mise_doctor_body="$(
   awk '

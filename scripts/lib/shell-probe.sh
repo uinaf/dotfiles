@@ -69,10 +69,14 @@ dotfiles_run_clean_zsh() {
   shift
   local zsh_bin
   zsh_bin="$(dotfiles_probe_zsh_bin)" || return 1
+  # Resolve id via the system default PATH, not the caller's (possibly
+  # mise-broken) PATH, before env -i replaces the environment.
+  local probe_user
+  probe_user="${USER:-$(command -p id -un)}"
   local -a env_args=(
     HOME="$HOME"
-    USER="${USER:-$(id -un)}"
-    LOGNAME="${LOGNAME:-$(id -un)}"
+    USER="$probe_user"
+    LOGNAME="${LOGNAME:-$probe_user}"
     SHELL="$zsh_bin"
     TMPDIR="${TMPDIR:-/tmp}"
     PATH="$(dotfiles_clean_login_path)"

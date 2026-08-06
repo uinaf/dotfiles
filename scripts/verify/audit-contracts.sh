@@ -24,13 +24,14 @@ export secret_scan_rules_json=
 
 printf 'ssh-ed25519 fixture authorized\n' > "$HOME/.ssh/authorized_keys"
 chmod 0644 "$HOME/.ssh/authorized_keys"
-printf '\n-----BEGIN OPENSSH PRIVATE KEY-----\n' > "$HOME/.ssh/nested/id_ed25519"
+# Assemble markers from fragments so the tracked script is not itself a key match.
+printf -- '\n-----BEGIN %s PRIVATE KEY-----\n' OPENSSH > "$HOME/.ssh/nested/id_ed25519"
 chmod 0644 "$HOME/.ssh/nested/id_ed25519"
 check_ssh_private_key_modes
 [ "$fail_count" -eq 1 ] || fail "nested private key mode was not rejected exactly once"
 
 fail_count=0
-printf '%s\n' '---- BEGIN SSH2 ENCRYPTED PRIVATE KEY ----' > "$HOME/.ssh/nested/id_ssh2"
+printf '%s%s\n' '---- BEGIN SSH2 ENCRYPTED PRIVATE ' 'KEY ----' > "$HOME/.ssh/nested/id_ssh2"
 printf '%s\n' 'PuTTY-User-Key-File-3: ssh-ed25519' > "$HOME/.ssh/nested/id_putty"
 chmod 0600 "$HOME/.ssh/nested/id_ed25519" "$HOME/.ssh/nested/id_ssh2" "$HOME/.ssh/nested/id_putty"
 check_ssh_private_key_modes
@@ -266,24 +267,57 @@ PY
     || fail "WAL physical-size check did not warn"
 fi
 
+# Secret-scan cleanup must restore caller traps, not wipe them.
+grep -Fq 'secret_scan_prev_exit' "$repo_root/scripts/lib/audit.sh" \
+  || fail "secret scan cleanup must save the caller EXIT trap"
+grep -Fq 'gitleaks local config scan failed' "$repo_root/scripts/lib/audit.sh" \
+  || fail "no-python gitleaks fallback must distinguish tool failures from leaks"
+# Status 1 (findings) and >1 (error) must be separate branches in the fallback.
+awk '
+  /have_python/ { in_fallback = 0 }
+  /else$/ { maybe = 1; next }
+  maybe && /gitleaks_status/ { in_fallback = 1; maybe = 0 }
+  !maybe { maybe = 0 }
+  in_fallback && /gitleaks_status" -eq 1/ { found_leaks = 1 }
+  in_fallback && /local config scan failed/ { found_fail = 1 }
+  END { exit (found_leaks && found_fail) ? 0 : 1 }
+' "$repo_root/scripts/lib/audit.sh" \
+  || fail "no-python gitleaks fallback must treat status 1 as leaks and >1 as scan failure"
+
 if ! command -v gitleaks >/dev/null 2>&1 \
   || ! command -v trufflehog >/dev/null 2>&1; then
   printf 'ok audit output privacy and recursive SSH private-key classification\n'
   exit 0
 fi
 
+# Live proof: caller EXIT trap survives scan_files_for_secrets cleanup.
+trap_probe_marker="$tmp_root/caller-exit-trap-marker"
+rm -f "$trap_probe_marker"
+trap 'printf restored >"$trap_probe_marker"' EXIT
+set +e
+scan_files_for_secrets </dev/null >/dev/null 2>&1
+set -e
+trap_probe_state="$(trap -p EXIT || true)"
+printf '%s\n' "$trap_probe_state" | grep -Fq 'trap_probe_marker' \
+  || fail "secret scan cleanup wiped the caller EXIT trap"
+# Restore this script's real EXIT cleanup.
+trap 'rm -rf "$tmp_root"' EXIT
+rm -f "$trap_probe_marker"
+
 secret_fixture="$tmp_root/secret-home"
 mkdir -p "$secret_fixture"
-cat >"$secret_fixture/id_rsa" <<'EOF'
------BEGIN RSA PRIVATE KEY-----
-MIIEowIBAAKCAQEA0Z3VS5JJcds3xfn/ygWyF6PZGBlewn0LqYSdzaWQmJeJrQHL
------END RSA PRIVATE KEY-----
-EOF
-cat >"$secret_fixture/id_ed25519" <<'EOF'
------BEGIN OPENSSH PRIVATE KEY-----
-b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
------END OPENSSH PRIVATE KEY-----
-EOF
+# Build PEM/OpenSSH-shaped fixtures at runtime so gitleaks does not match this
+# script as a repository secret. Bodies are non-functional placeholders.
+{
+  printf -- '-----BEGIN %s PRIVATE KEY-----\n' RSA
+  printf '%s\n' 'MIIEowIBAAKCAQEA0Z3VS5JJcds3xfn/ygWyF6PZGBlewn0LqYSdzaWQmJeJrQHL'
+  printf -- '-----END %s PRIVATE KEY-----\n' RSA
+} >"$secret_fixture/id_rsa"
+{
+  printf -- '-----BEGIN %s PRIVATE KEY-----\n' OPENSSH
+  printf '%s\n' 'b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW'
+  printf -- '-----END %s PRIVATE KEY-----\n' OPENSSH
+} >"$secret_fixture/id_ed25519"
 chmod 600 "$secret_fixture/id_rsa" "$secret_fixture/id_ed25519"
 
 prose_log="$tmp_root/prose-secret-scan.log"
