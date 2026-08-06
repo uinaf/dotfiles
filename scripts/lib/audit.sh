@@ -70,6 +70,193 @@ size_of() {
   stat -f '%z' "$1"
 }
 
+human_bytes() {
+  local bytes="${1:-0}"
+  local units=(B KB MB GB TB)
+  local unit=0
+  local whole
+  local frac
+
+  if ! [[ "$bytes" =~ ^[0-9]+$ ]]; then
+    printf '%s\n' "$bytes"
+    return
+  fi
+
+  while [ "$bytes" -ge 1024 ] && [ "$unit" -lt 4 ]; do
+    whole=$((bytes / 1024))
+    frac=$(((bytes % 1024) * 10 / 1024))
+    bytes=$whole
+    unit=$((unit + 1))
+  done
+
+  if [ "$unit" -eq 0 ] || [ "$frac" -eq 0 ]; then
+    printf '%s%s\n' "$bytes" "${units[$unit]}"
+  else
+    printf '%s.%s%s\n' "$bytes" "$frac" "${units[$unit]}"
+  fi
+}
+
+# True when path begins with the SQLite database header magic.
+is_sqlite_database_file() {
+  local path="$1"
+  local magic
+
+  [ -r "$path" ] || return 1
+  magic="$(dd if="$path" bs=1 count=15 2>/dev/null || true)"
+  [ "$magic" = "SQLite format 3" ]
+}
+
+# Read SQLite page stats from the 100-byte DB header without opening the
+# database engine. Works for WAL-mode files and never creates -wal/-shm.
+# Prints: page_size page_count freelist_count
+sqlite_page_stats() {
+  local path="$1"
+
+  [ -r "$path" ] || return 1
+  command -v python3 >/dev/null 2>&1 || return 1
+
+  python3 - "$path" <<'PY'
+import struct
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+try:
+    with path.open("rb") as handle:
+        header = handle.read(100)
+        file_size = path.stat().st_size
+except OSError:
+    raise SystemExit(1)
+
+if len(header) < 100 or header[:16] != b"SQLite format 3\x00":
+    raise SystemExit(1)
+
+page_size = struct.unpack(">H", header[16:18])[0]
+if page_size == 1:
+    page_size = 65536
+if page_size < 512 or (page_size & (page_size - 1)) != 0:
+    raise SystemExit(1)
+
+change_counter = struct.unpack(">I", header[24:28])[0]
+page_count = struct.unpack(">I", header[28:32])[0]
+freelist_count = struct.unpack(">I", header[36:40])[0]
+valid_for = struct.unpack(">I", header[92:96])[0]
+sqlite_version_number = struct.unpack(">I", header[96:100])[0]
+
+# The in-header page count is only authoritative when these match.
+if change_counter != valid_for or sqlite_version_number < 3007000:
+    raise SystemExit(1)
+if page_count == 0:
+    raise SystemExit(1)
+# Freelist larger than the database is corrupt; do not invent live_bytes=0.
+if freelist_count > page_count:
+    raise SystemExit(1)
+
+expected_size = page_count * page_size
+# Reject when the file is shorter than the accounted pages, or has more than
+# one trailing page of unaccounted bytes.
+if expected_size > file_size or file_size > expected_size + page_size:
+    raise SystemExit(1)
+
+print(page_size, page_count, freelist_count)
+PY
+}
+
+# Check a Codex/log SQLite database against live-data thresholds, with a
+# physical-size fallback when page stats are unavailable.
+# Override thresholds via CODEX_LOG_*_BYTES / CODEX_LOG_FREELIST_WARN_RATIO.
+check_sqlite_log_size() {
+  local path="$1"
+  local fail_bytes="${CODEX_LOG_FAIL_BYTES:-524288000}"
+  local warn_bytes="${CODEX_LOG_WARN_BYTES:-209715200}"
+  local reclaim_warn_bytes="${CODEX_LOG_RECLAIM_WARN_BYTES:-209715200}"
+  local freelist_warn_ratio="${CODEX_LOG_FREELIST_WARN_RATIO:-50}"
+  local reclaim_floor_bytes="${CODEX_LOG_RECLAIM_FLOOR_BYTES:-52428800}"
+  local physical_bytes
+  local stats
+  local page_size
+  local page_count
+  local freelist_count
+  local live_pages
+  local live_bytes
+  local reclaimable_bytes
+  local freelist_ratio=0
+  local high_reclaimable=0
+  local summary
+
+  physical_bytes="$(size_of "$path" 2>/dev/null || printf 0)"
+  if ! [[ "$physical_bytes" =~ ^[0-9]+$ ]]; then
+    physical_bytes=0
+  fi
+
+  if ! stats="$(sqlite_page_stats "$path")"; then
+    if [ "$physical_bytes" -ge "$fail_bytes" ]; then
+      fail_check "$path is larger than $(human_bytes "$fail_bytes") (physical size; SQLite stats unavailable)"
+    elif [ "$physical_bytes" -ge "$warn_bytes" ]; then
+      warn "$path is larger than $(human_bytes "$warn_bytes") (physical size; SQLite stats unavailable)"
+    else
+      ok "$path size is under $(human_bytes "$warn_bytes") (physical size; SQLite stats unavailable)"
+    fi
+    return
+  fi
+
+  read -r page_size page_count freelist_count <<< "$stats"
+  live_pages=$((page_count - freelist_count))
+  live_bytes=$((live_pages * page_size))
+  reclaimable_bytes=$((freelist_count * page_size))
+  if [ "$page_count" -gt 0 ]; then
+    freelist_ratio=$((freelist_count * 100 / page_count))
+  fi
+
+  summary="physical=$(human_bytes "$physical_bytes") live=$(human_bytes "$live_bytes") reclaimable=$(human_bytes "$reclaimable_bytes") freelist=${freelist_ratio}%"
+
+  if [ "$live_bytes" -ge "$fail_bytes" ]; then
+    fail_check "$path live data is larger than $(human_bytes "$fail_bytes") ($summary)"
+    return
+  fi
+
+  if [ "$live_bytes" -ge "$warn_bytes" ]; then
+    warn "$path live data is larger than $(human_bytes "$warn_bytes") ($summary)"
+  fi
+  if [ "$reclaimable_bytes" -ge "$reclaim_warn_bytes" ] \
+    || {
+      [ "$freelist_ratio" -ge "$freelist_warn_ratio" ] \
+        && [ "$reclaimable_bytes" -ge "$reclaim_floor_bytes" ]
+    }; then
+    high_reclaimable=1
+    warn "$path has high reclaimable SQLite space ($summary)"
+  fi
+  if [ "$live_bytes" -lt "$warn_bytes" ] && [ "$high_reclaimable" -eq 0 ]; then
+    ok "$path size is healthy ($summary)"
+  fi
+}
+
+check_codex_log_file_size() {
+  local path="$1"
+  local fail_bytes="${CODEX_LOG_FAIL_BYTES:-524288000}"
+  local warn_bytes="${CODEX_LOG_WARN_BYTES:-209715200}"
+  local physical_bytes
+
+  if is_sqlite_database_file "$path"; then
+    check_sqlite_log_size "$path"
+    return
+  fi
+
+  # WAL and other non-database companions keep physical-size checks.
+  physical_bytes="$(size_of "$path" 2>/dev/null || printf 0)"
+  if ! [[ "$physical_bytes" =~ ^[0-9]+$ ]]; then
+    physical_bytes=0
+  fi
+
+  if [ "$physical_bytes" -ge "$fail_bytes" ]; then
+    fail_check "$path is larger than $(human_bytes "$fail_bytes")"
+  elif [ "$physical_bytes" -ge "$warn_bytes" ]; then
+    warn "$path is larger than $(human_bytes "$warn_bytes")"
+  else
+    ok "$path size is under $(human_bytes "$warn_bytes")"
+  fi
+}
+
 check_mode_any() {
   local missing_severity="$1"
   local path="$2"

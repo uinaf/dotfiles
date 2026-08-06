@@ -167,8 +167,12 @@ It checks:
 - broad GitHub CLI token scopes are checked against the central local audit
   policy
 - SSH private key files are not group/world-readable
-- Codex log databases are surfaced when they grow beyond local privacy and disk
-  budget thresholds
+- Codex log databases are surfaced when live SQLite data grows beyond local
+  privacy and disk budget thresholds; reclaimable freelist space warns instead
+  of failing when the physical file is large but live data is modest. Live and
+  reclaimable sizes are derived from the SQLite database header (no engine open
+  / no VACUUM); if header stats are unavailable the check falls back to
+  physical file size
 - Tailscale CLI status works when installed
 
 Warnings are normal when a workstation intentionally keeps optional services or
