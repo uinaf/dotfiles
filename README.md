@@ -42,15 +42,16 @@ cd ~/projects/dotfiles
 mise trust
 mise install
 ./scripts/bootstrap/install.sh --profile workstation
-./scripts/secrets/configure-sops-age-identity.sh
+# Optional until this machine decrypts vault or other SOPS material:
+# ./scripts/secrets/configure-sops-age-identity.sh
 ./scripts/bootstrap/configure-git.sh --profile workstation
 ./scripts/bootstrap/configure-power.sh --profile workstation
 ./scripts/bootstrap/configure-spotlight.sh
 ./scripts/verify/bootstrap.sh --profile workstation
 ```
 
-Before using the generated age identity with live ciphertext, register and
-verify its recovery copy as described in [Identity
+When you do provision an age identity for live ciphertext, register and verify
+its recovery copy as described in [Identity
 provisioning](docs/identities.md#back-up-and-verify-recovery).
 
 Use the [Bootstrap guide](docs/bootstrap.md) for first-machine prerequisites,

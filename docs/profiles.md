@@ -91,12 +91,14 @@ profile=workstation
 mise trust
 mise install
 ./scripts/bootstrap/install.sh --profile "$profile"
-./scripts/secrets/configure-sops-age-identity.sh
+# Optional until this machine decrypts vault or other SOPS material:
+# ./scripts/secrets/configure-sops-age-identity.sh
 ./scripts/verify/bootstrap.sh --profile "$profile"
 ```
 
 Use `profile=personal` for the opinionated personal layer. The remaining steps
-are identical.
+are identical. Secret-consuming profiles (`devbox`, `assistant`, `service`)
+still require the age-identity step before bootstrap verification.
 
 Configure the appropriate human or workload Git identity separately:
 

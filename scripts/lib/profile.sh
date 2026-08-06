@@ -118,6 +118,23 @@ dotfiles_profile_uses_shared_brew() {
   esac
 }
 
+# Shared-host and workload profiles consume encrypted material (vault, sudo,
+# services). Portable workstation/personal boots keep the SOPS CLI without a
+# private age identity until a secret-consuming workflow is enabled.
+dotfiles_profile_requires_sops_identity() {
+  case "$1" in
+    devbox|assistant|service)
+      return 0
+      ;;
+    personal|workstation)
+      return 1
+      ;;
+    *)
+      return 2
+      ;;
+  esac
+}
+
 dotfiles_profile_brewfiles() {
   local profile="$1"
 

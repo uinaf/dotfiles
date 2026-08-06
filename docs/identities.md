@@ -22,7 +22,7 @@ provider credentials must remain independently replaceable.
 
 | Capability | Workstation | Devbox | Assistant | Service |
 | --- | --- | --- | --- | --- |
-| Age identity | required | required | required | required |
+| Age identity | optional until secrets are consumed | required | required | required |
 | SSH private identity | required | required | only for required outbound SSH | workload-owned only |
 | GitHub App | optional | optional | preferred for repository access | workload-owned only |
 | Human GitHub login | expected | allowed unless App-based | forbidden | forbidden |
@@ -95,11 +95,15 @@ GIT_USER_EMAIL='workload@example.invalid' \
 ## SOPS Age Identity
 
 Age calls the private decryption key an **identity** and its derived public
-encryption address a **recipient**. Every managed Unix user gets one general
-SOPS age identity. Keep sudo-specific age identities separate because they
-protect a different capability and have a different rotation lifecycle.
+encryption address a **recipient**. Secret-consuming deployments
+(`devbox`, `assistant`, `service`, vault/sudo consumers) require one general
+SOPS age identity per managed Unix user. Portable workstation and personal
+profiles keep the SOPS CLI without an identity until they decrypt encrypted
+material. Keep sudo-specific age identities separate because they protect a
+different capability and have a different rotation lifecycle.
 
-Install the selected profile's Homebrew layers, then provision the identity:
+Install the selected profile's Homebrew layers, then provision the identity
+when the deployment will decrypt secrets:
 
 ```sh
 ./scripts/secrets/configure-sops-age-identity.sh
