@@ -50,6 +50,30 @@ chmod 755 "$tmp_dir/bin/brew"
 fake_prefix="$tmp_dir/prefix"
 mkdir "$fake_prefix"
 
+# Repository fixtures must never read the caller's per-user external-homebrew
+# declarations or ambient Homebrew Bundle skip variables.
+isolated_external="$tmp_dir/external-homebrew.empty"
+: >"$isolated_external"
+chmod 600 "$isolated_external"
+
+run_brew_bundle() {
+  local log_file="$1"
+  shift
+
+  (
+    unset HOMEBREW_BUNDLE_BREW_SKIP \
+      HOMEBREW_BUNDLE_CASK_SKIP \
+      HOMEBREW_BUNDLE_TAP_SKIP \
+      HOMEBREW_BUNDLE_MAS_SKIP
+    umask 0077
+    PATH="$tmp_dir/bin:$PATH" \
+      FAKE_BREW_LOG="$log_file" \
+      FAKE_BREW_PREFIX="$fake_prefix" \
+      DOTFILES_EXTERNAL_HOMEBREW_FILE="$isolated_external" \
+      "$repo_root/scripts/bootstrap/brew-bundle.sh" "$@" >/dev/null
+  )
+}
+
 direct_log="$tmp_dir/direct.log"
 : >"$direct_log"
 mkdir "$tmp_dir/output"
@@ -100,13 +124,7 @@ fi
 
 bundle_log="$tmp_dir/bundle.log"
 : >"$bundle_log"
-(
-  umask 0077
-  PATH="$tmp_dir/bin:$PATH" \
-    FAKE_BREW_LOG="$bundle_log" \
-    FAKE_BREW_PREFIX="$fake_prefix" \
-    "$repo_root/scripts/bootstrap/brew-bundle.sh" devbox >/dev/null
-)
+run_brew_bundle "$bundle_log" devbox
 
 [ "$(grep -c '^umask=0002$' "$bundle_log")" -eq 3 ] || fail "devbox bundle bypassed the shared umask"
 [ "$(grep -c '^arg=bundle$' "$bundle_log")" -eq 3 ] || fail "devbox bundle did not run all profile layers"
@@ -116,13 +134,7 @@ grep -Fqx "arg=$repo_root/Brewfile.devbox" "$bundle_log" || fail "devbox Brewfil
 
 assistant_log="$tmp_dir/assistant.log"
 : >"$assistant_log"
-(
-  umask 0077
-  PATH="$tmp_dir/bin:$PATH" \
-    FAKE_BREW_LOG="$assistant_log" \
-    FAKE_BREW_PREFIX="$fake_prefix" \
-    "$repo_root/scripts/bootstrap/brew-bundle.sh" assistant >/dev/null
-)
+run_brew_bundle "$assistant_log" assistant
 [ "$(grep -c '^umask=0002$' "$assistant_log")" -eq 2 ] || fail "assistant bundle bypassed the shared umask"
 [ "$(grep -c '^arg=bundle$' "$assistant_log")" -eq 2 ] || fail "assistant bundle did not run base and assistant layers"
 grep -Fqx "arg=$repo_root/Brewfile" "$assistant_log" || fail "assistant bundle missed the base Brewfile"
@@ -133,13 +145,7 @@ fi
 
 service_log="$tmp_dir/service.log"
 : >"$service_log"
-(
-  umask 0077
-  PATH="$tmp_dir/bin:$PATH" \
-    FAKE_BREW_LOG="$service_log" \
-    FAKE_BREW_PREFIX="$fake_prefix" \
-    "$repo_root/scripts/bootstrap/brew-bundle.sh" service >/dev/null
-)
+run_brew_bundle "$service_log" service
 [ "$(grep -c '^umask=0002$' "$service_log")" -eq 2 ] || fail "service bundle bypassed the shared umask"
 [ "$(grep -c '^arg=bundle$' "$service_log")" -eq 2 ] || fail "service bundle did not run base and service layers"
 grep -Fqx "arg=$repo_root/Brewfile" "$service_log" || fail "service bundle missed the base Brewfile"
@@ -150,16 +156,34 @@ fi
 
 shared_log="$tmp_dir/shared.log"
 : >"$shared_log"
-(
-  umask 0077
-  PATH="$tmp_dir/bin:$PATH" \
-    FAKE_BREW_LOG="$shared_log" \
-    FAKE_BREW_PREFIX="$fake_prefix" \
-    "$repo_root/scripts/bootstrap/brew-bundle.sh" --shared-only devbox >/dev/null
-)
+run_brew_bundle "$shared_log" --shared-only devbox
 [ "$(grep -c '^umask=0002$' "$shared_log")" -eq 1 ] || fail "devbox shared-only bundle bypassed the shared umask"
 [ "$(grep -c '^arg=bundle$' "$shared_log")" -eq 1 ] || fail "devbox shared-only bundle did not run exactly once"
 grep -Fqx "arg=$repo_root/Brewfile" "$shared_log" || fail "devbox shared-only bundle missed the shared Brewfile"
+
+# A valid workstation-only ambient declaration must not affect the isolated
+# repository fixture for a different profile.
+host_home="$tmp_dir/host-home"
+mkdir -p "$host_home/.config/dotfiles"
+printf 'cask|1password|command|/usr/bin/true\n' >"$host_home/.config/dotfiles/external-homebrew"
+chmod 600 "$host_home/.config/dotfiles/external-homebrew"
+set +e
+ambient_output="$(
+  HOME="$host_home" PATH="$tmp_dir/bin:$PATH" \
+    FAKE_BREW_LOG="$tmp_dir/ambient.log" \
+    FAKE_BREW_PREFIX="$fake_prefix" \
+    "$repo_root/scripts/bootstrap/brew-bundle.sh" devbox 2>&1
+)"
+ambient_status=$?
+set -e
+[ "$ambient_status" -ne 0 ] || fail "ambient workstation capability did not fail the unisolated path"
+printf '%s\n' "$ambient_output" | grep -Fq 'cask 1password is not declared by profile devbox' \
+  || fail "ambient workstation capability failure was not profile-specific"
+
+: >"$tmp_dir/isolated-ambient.log"
+HOME="$host_home" run_brew_bundle "$tmp_dir/isolated-ambient.log" devbox
+[ "$(grep -c '^arg=bundle$' "$tmp_dir/isolated-ambient.log")" -eq 3 ] \
+  || fail "isolated fixture still read ambient workstation Homebrew capabilities"
 
 set +e
 "$repo_root/scripts/bootstrap/brew-bundle.sh" --shared-only >/dev/null 2>&1

@@ -16,6 +16,18 @@ fail() {
   exit 1
 }
 
+# Keep this fixture independent of the caller's Homebrew Bundle skip state and
+# any per-user external-homebrew declarations under $HOME.
+unset HOMEBREW_BUNDLE_BREW_SKIP \
+  HOMEBREW_BUNDLE_CASK_SKIP \
+  HOMEBREW_BUNDLE_TAP_SKIP \
+  HOMEBREW_BUNDLE_MAS_SKIP
+mkdir -p "$tmp_dir/host-home/.config/dotfiles"
+printf 'cask|1password|command|/usr/bin/true\n' >"$tmp_dir/host-home/.config/dotfiles/external-homebrew"
+chmod 600 "$tmp_dir/host-home/.config/dotfiles/external-homebrew"
+HOME="$tmp_dir/host-home"
+export HOME
+
 cat >"$tmp_dir/bin/managed-tool" <<'EOF'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >>"$MANAGED_TOOL_LOG"
