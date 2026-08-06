@@ -12,14 +12,23 @@
 
 dotfiles_clean_login_path() {
   local path="/usr/bin:/bin:/usr/sbin:/sbin"
+  local prefix
 
   # Include every present Homebrew-style prefix. Prefer Apple Silicon first so
-  # it wins when both exist, matching typical workstation layout.
+  # it wins when both exist, matching typical workstation layout. Honor an
+  # explicit HOMEBREW_PREFIX for relocated installs.
   if [ -d /usr/local/bin ]; then
     path="/usr/local/bin:/usr/local/sbin:${path}"
   fi
   if [ -d /opt/homebrew/bin ]; then
     path="/opt/homebrew/bin:/opt/homebrew/sbin:${path}"
+  fi
+  prefix="${HOMEBREW_PREFIX:-}"
+  if [ -n "$prefix" ] && [ -d "$prefix/bin" ]; then
+    case ":$path:" in
+      *:"$prefix/bin":*) ;;
+      *) path="$prefix/bin:$prefix/sbin:${path}" ;;
+    esac
   fi
   printf '%s\n' "$path"
 }
@@ -63,7 +72,7 @@ dotfiles_run_clean_zsh() {
     HOME="$HOME"
     USER="${USER:-$(id -un)}"
     LOGNAME="${LOGNAME:-$(id -un)}"
-    SHELL="${SHELL:-$zsh_bin}"
+    SHELL="$zsh_bin"
     TMPDIR="${TMPDIR:-/tmp}"
     PATH="$(dotfiles_clean_login_path)"
   )

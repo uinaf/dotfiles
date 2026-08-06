@@ -264,7 +264,8 @@ check_mise_doctor() {
   if grep -q 'tool paths are not first in PATH' <<< "$output"; then
     printf '\n## PATH (%s)\n' "$label" >&2
     # shellcheck disable=SC2016 # zsh code evaluated by the probe shell
-    dotfiles_run_clean_zsh "$shell_flags" 'print -l ${(s/:/)PATH} | nl -ba | sed -n "1,60p"' >&2
+    dotfiles_run_clean_zsh "$shell_flags" 'print -l ${(s/:/)PATH} | nl -ba | sed -n "1,60p"' >&2 \
+      || true
     printf 'FAILED: mise tool paths are not first in PATH (%s)\n' "$label" >&2
     exit 1
   fi

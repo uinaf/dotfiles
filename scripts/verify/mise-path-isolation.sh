@@ -87,6 +87,28 @@ printf '%s\n' "$check_mise_doctor_body" | grep -Fq 'mise doctor' \
   || fail "bootstrap check_mise_doctor must run mise doctor"
 printf '%s\n' "$check_mise_doctor_body" | grep -Fq 'print -l' \
   || fail "bootstrap check_mise_doctor must dump PATH on failure"
+printf '%s\n' "$check_mise_doctor_body" | grep -Fq 'tool paths are not first in PATH' \
+  || fail "bootstrap check_mise_doctor must detect PATH-ordering failures"
+printf '%s\n' "$check_mise_doctor_body" | grep -Fq 'FAILED: mise tool paths are not first in PATH' \
+  || fail "bootstrap check_mise_doctor must emit the PATH-ordering failure text"
+printf '%s\n' "$check_mise_doctor_body" | grep -Fq 'FAILED: mise doctor probe exited non-zero' \
+  || fail "bootstrap check_mise_doctor must emit the non-zero probe failure text"
+ordering_line="$(
+  printf '%s\n' "$check_mise_doctor_body" \
+    | grep -nF 'tool paths are not first in PATH' \
+    | head -n 1 \
+    | cut -d: -f1
+)"
+nonzero_line="$(
+  printf '%s\n' "$check_mise_doctor_body" \
+    | grep -nF 'FAILED: mise doctor probe exited non-zero' \
+    | head -n 1 \
+    | cut -d: -f1
+)"
+[ -n "$ordering_line" ] && [ -n "$nonzero_line" ] \
+  || fail "bootstrap check_mise_doctor must compare PATH ordering before generic non-zero exits"
+[ "$ordering_line" -lt "$nonzero_line" ] \
+  || fail "bootstrap check_mise_doctor must prefer PATH-ordering diagnostics over generic non-zero exits"
 if printf '%s\n' "$check_mise_doctor_body" \
   | grep -vE '^[[:space:]]*#' \
   | sed 's/dotfiles_run_clean_zsh//g; s/dotfiles_probe_zsh_bin//g; s/dotfiles_probe_zsh//g' \
@@ -170,7 +192,8 @@ check_mise_doctor() {
     printf '\n## PATH (%s)\n' "$label" >&2
     # shellcheck disable=SC2016 # zsh code evaluated by the probe shell
     PATH="$caller_mise_path" \
-      dotfiles_run_clean_zsh "$shell_flags" 'print -l ${(s/:/)PATH} | nl -ba | sed -n "1,60p"' >&2
+      dotfiles_run_clean_zsh "$shell_flags" 'print -l ${(s/:/)PATH} | nl -ba | sed -n "1,60p"' >&2 \
+      || true
     printf 'FAILED: mise tool paths are not first in PATH (%s)\n' "$label" >&2
     return 1
   fi
