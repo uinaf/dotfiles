@@ -4,12 +4,15 @@ Security audits in this repo are check-only by default. They make drift visible
 without applying remediation.
 
 Treat local audit stdout and saved logs as sensitive. Workstation and devbox
-local Gitleaks scans write an owner-only temporary report and print only
-sanitized locators in prose mode (`rule` and staged relative `path`). Compact
-`--json` mode exposes aggregate finding counts by rule ID and never includes
-matched secret material. Other maintained scanners can still include matched
-material in their own prose output; use `--json` for remote collection, and do
-not paste raw scanner output into issues, pull requests, or chat.
+local Gitleaks scans write an owner-only temporary report (outside the staged
+scan tree) and print only sanitized locators in prose mode (`rule` and staged
+relative `path`). Compact `--json` mode exposes aggregate finding counts by
+rule ID and never includes matched secret material. Sanitized locators and rule
+aggregates require `python3`; without it the scan still fails closed on a
+non-zero Gitleaks status but omits locators. Other maintained scanners can
+still include matched material in their own prose output; use `--json` for
+remote collection, and do not paste raw scanner output into issues, pull
+requests, or chat.
 
 ## Audit Layers
 

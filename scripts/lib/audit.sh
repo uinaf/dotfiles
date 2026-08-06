@@ -10,7 +10,9 @@ audit_lib_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 : "${fail_count:=0}"
 : "${secret_scan_count:=0}"
 : "${secret_scan_finding_count:=0}"
-: "${secret_scan_rules_json:={}}"
+# Keep this empty by default. Do not use `${var:-{}}` — bash treats the closing
+# brace of `{}` as the end of the parameter expansion.
+: "${secret_scan_rules_json:=}"
 
 section() {
   [ "$json_output" -eq 1 ] && return
@@ -230,17 +232,57 @@ for finding in findings:
 PY
 }
 
-gitleaks_rule_counts_json() {
+merge_secret_scan_rule_counts() {
+  local existing_json="$1"
+  local report_path="$2"
+
+  command -v python3 >/dev/null 2>&1 || {
+    if [ -n "$existing_json" ]; then
+      printf '%s\n' "$existing_json"
+    else
+      printf '%s\n' '{}'
+    fi
+    return 1
+  }
+  python3 - "$existing_json" "$report_path" <<'PY'
+import json
+import sys
+from collections import Counter
+from pathlib import Path
+
+existing_raw = sys.argv[1] or "{}"
+report_path = Path(sys.argv[2])
+try:
+    existing = json.loads(existing_raw)
+except json.JSONDecodeError:
+    existing = {}
+if not isinstance(existing, dict):
+    existing = {}
+
+raw = report_path.read_text(encoding="utf-8") if report_path.is_file() else "[]"
+try:
+    findings = json.loads(raw or "[]")
+except json.JSONDecodeError:
+    findings = []
+if not isinstance(findings, list):
+    findings = []
+
+counts = Counter({str(key): int(value) for key, value in existing.items()})
+counts.update(str(item.get("RuleID") or "unknown") for item in findings)
+print(json.dumps(dict(sorted(counts.items())), separators=(",", ":")))
+PY
+}
+
+count_gitleaks_findings() {
   local report_path="$1"
 
   command -v python3 >/dev/null 2>&1 || {
-    printf '%s\n' '{}'
+    printf '0\n'
     return 1
   }
   python3 - "$report_path" <<'PY'
 import json
 import sys
-from collections import Counter
 from pathlib import Path
 
 raw = Path(sys.argv[1]).read_text(encoding="utf-8") if Path(sys.argv[1]).is_file() else "[]"
@@ -248,15 +290,21 @@ try:
     findings = json.loads(raw or "[]")
 except json.JSONDecodeError:
     findings = []
-if not isinstance(findings, list):
-    findings = []
-counts = Counter(str(item.get("RuleID") or "unknown") for item in findings)
-print(json.dumps(dict(sorted(counts.items())), separators=(",", ":")))
+print(len(findings) if isinstance(findings, list) else 0)
 PY
+}
+
+secret_scan_rules_json_or_empty_object() {
+  if [ -n "${secret_scan_rules_json:-}" ]; then
+    printf '%s\n' "$secret_scan_rules_json"
+  else
+    printf '%s\n' '{}'
+  fi
 }
 
 scan_files_for_secrets() {
   local scan_root
+  local report_dir
   local report_path
   local path
   local rel_path
@@ -267,6 +315,7 @@ scan_files_for_secrets() {
   local finding_count=0
   local rule
   local staged_path
+  local have_python=0
 
   if ! command -v gitleaks >/dev/null 2>&1; then
     fail_check "gitleaks is missing for local secret scan"
@@ -278,18 +327,20 @@ scan_files_for_secrets() {
     return
   fi
 
-  if ! command -v python3 >/dev/null 2>&1; then
-    fail_check "python3 is missing for sanitized secret-scan diagnostics"
-    return
+  if command -v python3 >/dev/null 2>&1; then
+    have_python=1
+  else
+    warn "python3 is missing; gitleaks locators and rule aggregates are unavailable"
   fi
 
   scan_root="$(mktemp -d "${TMPDIR:-/tmp}/dotfiles-secret-scan.XXXXXX")"
-  chmod 700 "$scan_root"
-  report_path="$scan_root/gitleaks-report.json"
+  report_dir="$(mktemp -d "${TMPDIR:-/tmp}/dotfiles-secret-report.XXXXXX")"
+  chmod 700 "$scan_root" "$report_dir"
+  report_path="$report_dir/gitleaks-report.json"
   : >"$report_path"
   chmod 600 "$report_path"
   # RETURN keeps caller EXIT traps intact when this library is sourced.
-  trap 'rm -rf "$scan_root"' RETURN
+  trap 'rm -rf "$scan_root" "$report_dir"' RETURN
 
   while IFS= read -r path; do
     [ -n "$path" ] || continue
@@ -318,47 +369,46 @@ scan_files_for_secrets() {
     return
   fi
 
-  # Collect findings into an owner-only report. Never stream raw scanner output
-  # that can include matched secret material.
-  if ! gitleaks dir \
+  # Collect findings into an owner-only report outside the staged scan tree.
+  # Never stream raw scanner output that can include matched secret material.
+  gitleaks dir \
     --follow-symlinks \
     --redact \
     --no-banner \
     --log-level error \
     --report-format json \
     --report-path "$report_path" \
-    "$scan_root" >/dev/null 2>&1; then
-    gitleaks_status=$?
-  fi
+    "$scan_root" >/dev/null 2>&1 || gitleaks_status=$?
   chmod 600 "$report_path" 2>/dev/null || true
 
-  secret_scan_rules_json="$(gitleaks_rule_counts_json "$report_path")"
-  finding_count="$(
-    python3 - "$report_path" <<'PY'
-import json
-import sys
-from pathlib import Path
+  if [ "$have_python" -eq 1 ]; then
+    secret_scan_rules_json="$(
+      merge_secret_scan_rule_counts "$(secret_scan_rules_json_or_empty_object)" "$report_path"
+    )"
+    finding_count="$(count_gitleaks_findings "$report_path")"
+    secret_scan_finding_count=$((secret_scan_finding_count + finding_count))
+  fi
 
-raw = Path(sys.argv[1]).read_text(encoding="utf-8") if Path(sys.argv[1]).is_file() else "[]"
-try:
-    findings = json.loads(raw or "[]")
-except json.JSONDecodeError:
-    findings = []
-print(len(findings) if isinstance(findings, list) else 0)
-PY
-  )"
-  secret_scan_finding_count=$((secret_scan_finding_count + finding_count))
-
-  if [ "$finding_count" -eq 0 ] && [ "$gitleaks_status" -eq 0 ]; then
-    ok "gitleaks found no leaks in $linked_count local config files"
-  else
-    if [ "$json_output" -eq 0 ]; then
-      while IFS=$'\t' read -r rule staged_path; do
-        [ -n "$rule" ] || continue
-        printf 'finding rule=%s path=%s\n' "$rule" "$staged_path" >&2
-      done < <(emit_gitleaks_finding_locators "$scan_root" "$report_path")
+  if [ "$have_python" -eq 1 ]; then
+    if [ "$finding_count" -eq 0 ] && [ "$gitleaks_status" -eq 0 ]; then
+      ok "gitleaks found no leaks in $linked_count local config files"
+    elif [ "$finding_count" -gt 0 ]; then
+      if [ "$json_output" -eq 0 ]; then
+        while IFS=$'\t' read -r rule staged_path; do
+          [ -n "$rule" ] || continue
+          printf 'finding rule=%s path=%s\n' "$rule" "$staged_path" >&2
+        done < <(emit_gitleaks_finding_locators "$scan_root" "$report_path")
+      fi
+      fail_check "gitleaks reported possible leaks in local config files"
+    else
+      fail_check "gitleaks local config scan failed"
     fi
-    fail_check "gitleaks reported possible leaks in local config files"
+  else
+    if [ "$gitleaks_status" -eq 0 ]; then
+      ok "gitleaks found no leaks in $linked_count local config files"
+    else
+      fail_check "gitleaks reported possible leaks in local config files"
+    fi
   fi
 
   trufflehog_status=0

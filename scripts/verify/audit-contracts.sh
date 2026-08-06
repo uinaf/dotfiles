@@ -17,7 +17,7 @@ export warn_count=0
 export fail_count=0
 export secret_scan_count=0
 export secret_scan_finding_count=0
-export secret_scan_rules_json='{}'
+export secret_scan_rules_json=
 
 # shellcheck source=scripts/lib/audit.sh
 . "$repo_root/scripts/lib/audit.sh"
@@ -74,7 +74,7 @@ warn_count=0
 fail_count=0
 secret_scan_count=0
 secret_scan_finding_count=0
-secret_scan_rules_json='{}'
+secret_scan_rules_json=
 # Avoid command substitution: scan_files_for_secrets mutates counters in-process.
 set +e
 HOME="$secret_fixture" \
@@ -102,7 +102,7 @@ warn_count=0
 fail_count=0
 secret_scan_count=0
 secret_scan_finding_count=0
-secret_scan_rules_json='{}'
+secret_scan_rules_json=
 HOME="$secret_fixture" \
   scan_files_for_secrets < <(printf '%s\n' "$secret_fixture/id_rsa") >/dev/null 2>&1 || true
 [ "$fail_count" -ge 1 ] || fail "json mode did not fail when gitleaks found leaks"
@@ -112,6 +112,55 @@ printf '%s\n' "$secret_scan_rules_json" | grep -Fq '"private-key"' \
 if printf '%s\n' "$secret_scan_rules_json" | grep -Eq 'BEGIN|MIIEowIBAAKCAQEA|Match|Secret'; then
   fail "json rule aggregates included secret material"
 fi
+
+# shellcheck disable=SC3043
+eval "$(sed -n '/^print_json_summary()/,/^}/p' "$repo_root/scripts/audit/workstation.sh")"
+workstation_summary="$(
+  fail_count=1
+  warn_count=0
+  secret_scan_count=2
+  secret_scan_finding_count=2
+  secret_scan_rules_json='{"private-key":2}'
+  print_json_summary
+)"
+printf '%s' "$workstation_summary" | python3 -c '
+import json, sys
+data = json.load(sys.stdin)
+assert data["secret_scan_finding_count"] == 2
+assert data["secret_scan_rules"]["private-key"] == 2
+' || fail "workstation --json summary is not valid JSON with rule aggregates"
+empty_summary="$(
+  fail_count=0
+  warn_count=0
+  secret_scan_count=0
+  secret_scan_finding_count=0
+  secret_scan_rules_json=
+  print_json_summary
+)"
+printf '%s' "$empty_summary" | python3 -c '
+import json, sys
+data = json.load(sys.stdin)
+assert data["secret_scan_rules"] == {}
+assert data["secret_scan_finding_count"] == 0
+' || fail "workstation --json summary default rules object is invalid"
+
+broken_gitleaks_bin="$tmp_root/broken-bin"
+mkdir -p "$broken_gitleaks_bin"
+cat >"$broken_gitleaks_bin/gitleaks" <<'EOF'
+#!/usr/bin/env bash
+exit 42
+EOF
+chmod 755 "$broken_gitleaks_bin/gitleaks"
+json_output=0
+warn_count=0
+fail_count=0
+secret_scan_count=0
+secret_scan_finding_count=0
+secret_scan_rules_json=
+PATH="$broken_gitleaks_bin:$PATH" \
+  HOME="$secret_fixture" \
+  scan_files_for_secrets < <(printf '%s\n' "$secret_fixture/id_rsa") >/dev/null 2>&1 || true
+[ "$fail_count" -ge 1 ] || fail "gitleaks scanner failure was reported as clean"
 
 clean_fixture="$tmp_root/clean-home"
 clean_log="$tmp_root/clean-secret-scan.log"
@@ -123,7 +172,7 @@ warn_count=0
 fail_count=0
 secret_scan_count=0
 secret_scan_finding_count=0
-secret_scan_rules_json='{}'
+secret_scan_rules_json=
 set +e
 HOME="$clean_fixture" \
   scan_files_for_secrets < <(printf '%s\n' "$clean_fixture/.zshrc") \

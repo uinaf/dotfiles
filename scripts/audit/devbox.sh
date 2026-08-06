@@ -8,7 +8,7 @@ warn_count=0
 fail_count=0
 secret_scan_count=0
 secret_scan_finding_count=0
-secret_scan_rules_json='{}'
+secret_scan_rules_json=
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 # shellcheck source=scripts/lib/audit.sh
@@ -52,7 +52,7 @@ print_json_summary() {
   json_string "$devbox_user"
   printf ',"secret_scan_count":%s' "$secret_scan_count"
   printf ',"secret_scan_finding_count":%s' "$secret_scan_finding_count"
-  printf ',"secret_scan_rules":%s}\n' "${secret_scan_rules_json:-{}}"
+  printf ',"secret_scan_rules":%s}\n' "$(secret_scan_rules_json_or_empty_object)"
 }
 
 emit_devbox_secret_scan_paths() {

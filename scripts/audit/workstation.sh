@@ -6,7 +6,7 @@ warn_count=0
 fail_count=0
 secret_scan_count=0
 secret_scan_finding_count=0
-secret_scan_rules_json='{}'
+secret_scan_rules_json=
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 # shellcheck source=scripts/lib/audit.sh
@@ -46,7 +46,7 @@ print_json_summary() {
   printf ',"failed":%s,"warnings":%s' "$fail_count" "$warn_count"
   printf ',"secret_scan_count":%s' "$secret_scan_count"
   printf ',"secret_scan_finding_count":%s' "$secret_scan_finding_count"
-  printf ',"secret_scan_rules":%s' "${secret_scan_rules_json:-{}}"
+  printf ',"secret_scan_rules":%s' "$(secret_scan_rules_json_or_empty_object)"
   printf '}\n'
 }
 
