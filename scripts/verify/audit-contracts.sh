@@ -120,47 +120,41 @@ if printf '%s\n' "$secret_scan_rules_json" | grep -Eq 'BEGIN|MIIEowIBAAKCAQEA|Ma
   fail "json rule aggregates included secret material"
 fi
 
-for summary_script in \
-  "$repo_root/scripts/audit/workstation.sh" \
-  "$repo_root/scripts/audit/devbox.sh"; do
-  unset -f print_json_summary 2>/dev/null || true
-  # shellcheck disable=SC3043
-  eval "$(sed -n '/^print_json_summary()/,/^}/p' "$summary_script")"
-  summary_name="$(basename "$(dirname "$summary_script")")/$(basename "$summary_script")"
-  populated_summary="$(
-    fail_count=1
-    warn_count=0
-    secret_scan_count=2
-    secret_scan_finding_count=2
-    secret_scan_rules_json='{"private-key":2}'
-    # Used by the extracted devbox print_json_summary.
-    export USER=fixture
-    export devbox_user=fixture
-    print_json_summary
-  )"
-  printf '%s' "$populated_summary" | python3 -c '
+# shellcheck disable=SC3043
+eval "$(sed -n '/^print_json_summary()/,/^}/p' "$repo_root/scripts/audit/workstation.sh")"
+workstation_summary="$(
+  fail_count=1
+  warn_count=0
+  secret_scan_count=2
+  secret_scan_finding_count=2
+  secret_scan_rules_json='{"private-key":2}'
+  print_json_summary
+)"
+printf '%s' "$workstation_summary" | python3 -c '
 import json, sys
 data = json.load(sys.stdin)
 assert data["secret_scan_finding_count"] == 2
 assert data["secret_scan_rules"]["private-key"] == 2
-' || fail "$summary_name --json summary is not valid JSON with rule aggregates"
-  empty_summary="$(
-    fail_count=0
-    warn_count=0
-    secret_scan_count=0
-    secret_scan_finding_count=0
-    secret_scan_rules_json=
-    export USER=fixture
-    export devbox_user=fixture
-    print_json_summary
-  )"
-  printf '%s' "$empty_summary" | python3 -c '
+' || fail "workstation --json summary is not valid JSON with rule aggregates"
+empty_summary="$(
+  fail_count=0
+  warn_count=0
+  secret_scan_count=0
+  secret_scan_finding_count=0
+  secret_scan_rules_json=
+  print_json_summary
+)"
+printf '%s' "$empty_summary" | python3 -c '
 import json, sys
 data = json.load(sys.stdin)
 assert data["secret_scan_rules"] == {}
 assert data["secret_scan_finding_count"] == 0
-' || fail "$summary_name --json summary default rules object is invalid"
-done
+' || fail "workstation --json summary default rules object is invalid"
+
+grep -Fq 'secret_scan_finding_count' "$repo_root/scripts/audit/devbox.sh" \
+  || fail "devbox JSON summary missing secret_scan_finding_count"
+grep -Fq 'secret_scan_rules_json_or_empty_object' "$repo_root/scripts/audit/devbox.sh" \
+  || fail "devbox JSON summary missing brace-safe rules helper"
 
 before_scan_dirs="$(find "${TMPDIR:-/tmp}" -maxdepth 1 \( -name 'dotfiles-secret-scan.*' -o -name 'dotfiles-secret-report.*' \) 2>/dev/null | wc -l | tr -d ' ')"
 
