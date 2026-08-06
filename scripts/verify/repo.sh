@@ -101,6 +101,9 @@ section "devbox Homebrew wrapper"
 section "external Homebrew capabilities"
 ./scripts/verify/external-homebrew.sh
 
+section "mise PATH probe isolation"
+./scripts/verify/mise-path-isolation.sh
+
 section "profile contracts"
 ./scripts/verify/profiles.sh
 

@@ -10,6 +10,8 @@ ghostty_config="$HOME/Library/Application Support/com.mitchellh.ghostty/config"
 . "$repo_root/scripts/lib/profile.sh"
 # shellcheck source=scripts/lib/homebrew.sh
 . "$repo_root/scripts/lib/homebrew.sh"
+# shellcheck source=scripts/lib/shell-probe.sh
+. "$repo_root/scripts/lib/shell-probe.sh"
 
 usage() {
   cat <<'USAGE'
@@ -247,12 +249,13 @@ check_mise_doctor() {
   local output
 
   section "mise doctor ($label)"
-  output="$(zsh "$shell_flags" 'mise doctor' 2>&1)"
+  # Probe the target shell startup, not an already-activated caller session.
+  output="$(dotfiles_run_clean_zsh "$shell_flags" 'mise doctor' 2>&1)"
   printf '%s\n' "$output"
 
   if grep -q 'tool paths are not first in PATH' <<< "$output"; then
     printf '\n## PATH (%s)\n' "$label" >&2
-    zsh "$shell_flags" 'print -l ${(s/:/)PATH} | nl -ba | sed -n "1,60p"' >&2
+    dotfiles_run_clean_zsh "$shell_flags" 'print -l ${(s/:/)PATH} | nl -ba | sed -n "1,60p"' >&2
     printf 'FAILED: mise tool paths are not first in PATH (%s)\n' "$label" >&2
     exit 1
   fi
