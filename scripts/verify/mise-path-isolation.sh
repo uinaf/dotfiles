@@ -122,9 +122,26 @@ case "$observed_path" in
   *) fail "clean zsh probe seed PATH missing system suffix: $observed_path" ;;
 esac
 case "$observed_path" in
-  /opt/homebrew/bin:/opt/homebrew/sbin:*|/usr/local/bin:/usr/local/sbin:*|/usr/bin:/bin:/usr/sbin:/sbin) ;;
-  *) fail "clean zsh probe seed PATH missing expected Homebrew/system prefix: $observed_path" ;;
+  /usr/bin:/bin:/usr/sbin:/sbin) ;;
+  *)
+    case "$observed_path" in
+      /opt/homebrew/bin:/opt/homebrew/sbin:*|/usr/local/bin:/usr/local/sbin:*) ;;
+      *) fail "clean zsh probe seed PATH missing expected Homebrew/system prefix: $observed_path" ;;
+    esac
+    ;;
 esac
+if [ -d /opt/homebrew/bin ]; then
+  case "$observed_path" in
+    /opt/homebrew/bin:/opt/homebrew/sbin:*) ;;
+    *) fail "clean zsh probe seed PATH missing /opt/homebrew when present: $observed_path" ;;
+  esac
+fi
+if [ -d /usr/local/bin ]; then
+  case "$observed_path" in
+    *:/usr/local/bin:/usr/local/sbin:*|/usr/local/bin:/usr/local/sbin:*) ;;
+    *) fail "clean zsh probe seed PATH missing /usr/local when present: $observed_path" ;;
+  esac
+fi
 
 # Behavioral twin of scripts/verify/bootstrap.sh:check_mise_doctor for the fake
 # zsh fixture. Keep detection/failure text aligned with the production function;
@@ -134,10 +151,13 @@ check_mise_doctor() {
   local shell_flags="$2"
   local output
 
-  output="$(
+  if ! output="$(
     PATH="$caller_mise_path" \
       dotfiles_run_clean_zsh "$shell_flags" 'mise doctor' 2>&1
-  )"
+  )"; then
+    printf 'FAILED: mise doctor probe exited non-zero (%s)\n' "$label" >&2
+    return 1
+  fi
   if grep -q 'tool paths are not first in PATH' <<< "$output"; then
     printf '\n## PATH (%s)\n' "$label" >&2
     # shellcheck disable=SC2016 # zsh code evaluated by the probe shell

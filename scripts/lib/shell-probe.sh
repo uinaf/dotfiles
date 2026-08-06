@@ -13,10 +13,13 @@
 dotfiles_clean_login_path() {
   local path="/usr/bin:/bin:/usr/sbin:/sbin"
 
+  # Include every present Homebrew-style prefix. Prefer Apple Silicon first so
+  # it wins when both exist, matching typical workstation layout.
+  if [ -d /usr/local/bin ]; then
+    path="/usr/local/bin:/usr/local/sbin:${path}"
+  fi
   if [ -d /opt/homebrew/bin ]; then
     path="/opt/homebrew/bin:/opt/homebrew/sbin:${path}"
-  elif [ -d /usr/local/bin ]; then
-    path="/usr/local/bin:/usr/local/sbin:${path}"
   fi
   printf '%s\n' "$path"
 }

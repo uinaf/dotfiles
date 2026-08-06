@@ -253,7 +253,11 @@ check_mise_doctor() {
   # diagnostic is not swallowed by command substitution + set -e.
   dotfiles_probe_zsh_bin >/dev/null
   # Probe the target shell startup, not an already-activated caller session.
-  output="$(dotfiles_run_clean_zsh "$shell_flags" 'mise doctor' 2>&1)"
+  if ! output="$(dotfiles_run_clean_zsh "$shell_flags" 'mise doctor' 2>&1)"; then
+    printf '%s\n' "$output"
+    printf 'FAILED: mise doctor probe exited non-zero (%s)\n' "$label" >&2
+    exit 1
+  fi
   printf '%s\n' "$output"
 
   if grep -q 'tool paths are not first in PATH' <<< "$output"; then
