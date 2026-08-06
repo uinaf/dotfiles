@@ -106,7 +106,10 @@ else
   bad_freelist_db="$sqlite_fixture/logs_bad_freelist.sqlite"
   wal_file="$sqlite_fixture/logs_sparse.sqlite-wal"
 
+  # auto_vacuum=NONE keeps deleted pages on the freelist. FULL would shrink the
+  # file and make reclaimable-space fixtures flaky across SQLite builds.
   sqlite3 "$sparse_db" <<'SQL'
+PRAGMA auto_vacuum=NONE;
 PRAGMA page_size=4096;
 CREATE TABLE t(x BLOB);
 WITH RECURSIVE c(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM c WHERE n < 400)
@@ -114,12 +117,14 @@ INSERT INTO t SELECT randomblob(3000) FROM c;
 DELETE FROM t;
 SQL
   sqlite3 "$heavy_db" <<'SQL'
+PRAGMA auto_vacuum=NONE;
 PRAGMA page_size=4096;
 CREATE TABLE t(x BLOB);
 WITH RECURSIVE c(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM c WHERE n < 400)
 INSERT INTO t SELECT randomblob(3000) FROM c;
 SQL
   sqlite3 "$wal_mode_db" <<'SQL' >/dev/null
+PRAGMA auto_vacuum=NONE;
 PRAGMA journal_mode=WAL;
 PRAGMA page_size=4096;
 CREATE TABLE t(x BLOB);
