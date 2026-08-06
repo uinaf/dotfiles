@@ -57,9 +57,12 @@ if dotfiles_profile_requires_sops_identity workstation \
   fail "portable profiles must not require a SOPS age identity"
 fi
 if dotfiles_profile_requires_sops_identity unsupported >/dev/null 2>&1; then
-  fail "unsupported profile was accepted by SOPS identity helper"
-elif [ "$?" -ne 2 ]; then
-  fail "unsupported profile did not return status 2 from SOPS identity helper"
+  sops_identity_status=0
+else
+  sops_identity_status=$?
+fi
+if [ "$sops_identity_status" -ne 2 ]; then
+  fail "unsupported profile must return status 2 from SOPS identity helper (got $sops_identity_status)"
 fi
 
 profile_home="$tmp_root/profile-resolution"

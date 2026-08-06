@@ -426,8 +426,8 @@ profile=workstation # use personal for the opinionated layer
 mise trust
 mise install
 ./scripts/bootstrap/install.sh --profile "$profile"
-# Required for secret-consuming profiles (devbox/assistant/service):
-# ./scripts/secrets/configure-sops-age-identity.sh
+# Optional for workstation/personal; required for devbox/assistant/service:
+./scripts/secrets/configure-sops-age-identity.sh
 ./scripts/bootstrap/configure-power.sh --profile "$profile"
 ./scripts/bootstrap/configure-spotlight.sh
 ./scripts/verify/bootstrap.sh --profile "$profile"

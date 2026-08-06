@@ -461,13 +461,27 @@ check_workload_git_boundary() {
 }
 
 check_sops_age_identity() {
+  local requirement
+
   section "SOPS age identity"
-  if ! dotfiles_profile_requires_sops_identity "$profile"; then
-    printf 'ok not required for profile %s (SOPS CLI remains available)\n' "$profile"
-    return
+  # Profile is already normalized; still handle the helper's tri-state explicitly.
+  if dotfiles_profile_requires_sops_identity "$profile"; then
+    requirement=0
+  else
+    requirement=$?
   fi
-  "$repo_root/scripts/secrets/configure-sops-age-identity.sh" --check \
-    || fail "SOPS age identity"
+  case "$requirement" in
+    0)
+      "$repo_root/scripts/secrets/configure-sops-age-identity.sh" --check \
+        || fail "SOPS age identity"
+      ;;
+    1)
+      printf 'ok not required for profile %s (SOPS CLI remains available)\n' "$profile"
+      ;;
+    *)
+      fail "unsupported profile for SOPS age identity: $profile"
+      ;;
+  esac
 }
 
 check_mise
