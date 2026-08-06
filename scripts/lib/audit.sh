@@ -503,6 +503,7 @@ scan_files_for_secrets() {
   local rule
   local staged_path
   local have_python=0
+  local secret_scan_prev_return
 
   if ! command -v gitleaks >/dev/null 2>&1; then
     fail_check "gitleaks is missing for local secret scan"
@@ -526,12 +527,18 @@ scan_files_for_secrets() {
   report_path="$report_dir/gitleaks-report.json"
   : >"$report_path"
   chmod 600 "$report_path"
+  # Only RETURN is trapped so caller EXIT/INT/TERM handlers stay untouched.
+  # Explicit cleanup calls cover normal paths; RETURN covers early returns.
+  secret_scan_prev_return="$(trap -p RETURN)"
   cleanup_secret_scan_tmp() {
-    trap - RETURN EXIT INT TERM
     rm -rf "${scan_root:-}" "${report_dir:-}"
+    if [ -n "${secret_scan_prev_return:-}" ]; then
+      eval "$secret_scan_prev_return"
+    else
+      trap - RETURN
+    fi
   }
-  # Clear traps inside cleanup so they do not linger in the caller.
-  trap cleanup_secret_scan_tmp RETURN EXIT INT TERM
+  trap cleanup_secret_scan_tmp RETURN
 
   while IFS= read -r path; do
     [ -n "$path" ] || continue
@@ -604,10 +611,13 @@ scan_files_for_secrets() {
       fail_check "gitleaks local config scan failed"
     fi
   else
+    # Without python, status is the only signal: 1 = findings, >1 = tool error.
     if [ "$gitleaks_status" -eq 0 ]; then
       ok "gitleaks found no leaks in $linked_count local config files"
-    else
+    elif [ "$gitleaks_status" -eq 1 ]; then
       fail_check "gitleaks reported possible leaks in local config files"
+    else
+      fail_check "gitleaks local config scan failed"
     fi
   fi
 

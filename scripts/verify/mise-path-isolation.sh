@@ -24,6 +24,8 @@ warn_flag="${HOME}/.fake-mise-doctor-warn"
 {
   printf 'flags=%s\n' "$*"
   printf 'path=%s\n' "${PATH:-}"
+  printf 'user=%s\n' "${USER:-}"
+  printf 'logname=%s\n' "${LOGNAME:-}"
   printf 'zdotdir=%s\n' "${ZDOTDIR:-}"
   printf 'xdg_config=%s\n' "${XDG_CONFIG_HOME:-}"
   printf 'mise_config=%s\n' "${MISE_CONFIG_DIR:-}"
@@ -70,6 +72,32 @@ bash -n "$repo_root/scripts/verify/bootstrap.sh" \
   || fail "bootstrap.sh does not parse"
 bash -n "$repo_root/scripts/lib/shell-probe.sh" \
   || fail "shell-probe.sh does not parse"
+grep -Fq 'command -p id -un' "$repo_root/scripts/lib/shell-probe.sh" \
+  || fail "shell-probe must resolve id via command -p, not ambient PATH"
+
+# Ambient PATH must not break USER/LOGNAME defaults when those vars are unset.
+expected_user="$(command -p id -un)"
+mkdir -p "$tmp_dir/bad-bin"
+cat >"$tmp_dir/bad-bin/id" <<'EOF'
+#!/usr/bin/env bash
+printf 'poisoned-id\n'
+exit 1
+EOF
+chmod 755 "$tmp_dir/bad-bin/id"
+: >"$probe_log"
+(
+  unset USER LOGNAME
+  export HOME="$tmp_dir/home"
+  export DOTFILES_ZSH_BIN="$tmp_dir/bin/zsh"
+  export PATH="$tmp_dir/bad-bin:/usr/bin:/bin"
+  dotfiles_run_clean_zsh -lic 'mise doctor' >/dev/null
+)
+grep -Fxq "user=$expected_user" "$probe_log" \
+  || fail "clean zsh probe did not resolve USER via command -p id when USER was unset"
+grep -Fxq "logname=$expected_user" "$probe_log" \
+  || fail "clean zsh probe did not resolve LOGNAME via command -p id when LOGNAME was unset"
+grep -Fxq 'user=poisoned-id' "$probe_log" \
+  && fail "clean zsh probe used ambient PATH id for USER"
 
 check_mise_doctor_body="$(
   awk '
