@@ -243,6 +243,8 @@ check_runtime_versions() {
   printf 'ok npm prefix, global root, and child Node stay inside mise Node\n'
 }
 
+# Behavior and failure text are mirrored in scripts/verify/mise-path-isolation.sh.
+# Keep the PATH-ordering branch ahead of the generic non-zero probe failure.
 check_mise_doctor() {
   local label="$1"
   local shell_flags="$2"
@@ -254,10 +256,11 @@ check_mise_doctor() {
   # diagnostic is not swallowed by command substitution + set -e.
   dotfiles_probe_zsh_bin >/dev/null
   # Probe the target shell startup, not an already-activated caller session.
-  set +e
-  output="$(dotfiles_run_clean_zsh "$shell_flags" 'mise doctor' 2>&1)"
-  probe_status=$?
-  set -e
+  if output="$(dotfiles_run_clean_zsh "$shell_flags" 'mise doctor' 2>&1)"; then
+    probe_status=0
+  else
+    probe_status=$?
+  fi
   printf '%s\n' "$output"
 
   # Prefer the PATH-ordering diagnostic even when mise doctor exits non-zero.

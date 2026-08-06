@@ -24,6 +24,7 @@ dotfiles_clean_login_path() {
     path="/opt/homebrew/bin:/opt/homebrew/sbin:${path}"
   fi
   prefix="${HOMEBREW_PREFIX:-}"
+  prefix="${prefix%/}"
   if [ -n "$prefix" ] && [ -d "$prefix/bin" ]; then
     case ":$path:" in
       *:"$prefix/bin":*) ;;
@@ -82,6 +83,7 @@ dotfiles_run_clean_zsh() {
   [ -n "${TERM:-}" ] && env_args+=("TERM=$TERM")
   [ -n "${LANG:-}" ] && env_args+=("LANG=$LANG")
   [ -n "${LC_ALL:-}" ] && env_args+=("LC_ALL=$LC_ALL")
+  [ -n "${HOMEBREW_PREFIX:-}" ] && env_args+=("HOMEBREW_PREFIX=$HOMEBREW_PREFIX")
 
   # Allowlist is deliberate: build a clean login-like environment, not a
   # denylist over the caller's ambient state. Forward non-session config roots
