@@ -141,16 +141,18 @@ change_counter = struct.unpack(">I", header[24:28])[0]
 page_count = struct.unpack(">I", header[28:32])[0]
 freelist_count = struct.unpack(">I", header[36:40])[0]
 valid_for = struct.unpack(">I", header[92:96])[0]
-write_version = struct.unpack(">I", header[96:100])[0]
+sqlite_version_number = struct.unpack(">I", header[96:100])[0]
 
 # The in-header page count is only authoritative when these match.
-if change_counter != valid_for or write_version < 3007000:
+if change_counter != valid_for or sqlite_version_number < 3007000:
     raise SystemExit(1)
 if page_count == 0:
     raise SystemExit(1)
 
 expected_size = page_count * page_size
-if expected_size > file_size:
+# Reject when the file is shorter than the accounted pages, or has more than
+# one trailing page of unaccounted bytes.
+if expected_size > file_size or file_size > expected_size + page_size:
     raise SystemExit(1)
 
 print(page_size, page_count, freelist_count)

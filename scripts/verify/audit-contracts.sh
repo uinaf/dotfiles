@@ -171,6 +171,20 @@ PY
   grep -Fq 'live data is larger than' "$heavy_log" \
     || fail "heavy SQLite log did not fail on live data"
 
+  healthy_log="$sqlite_fixture/healthy.log"
+  warn_count=0
+  fail_count=0
+  CODEX_LOG_FAIL_BYTES=100000000 \
+    CODEX_LOG_WARN_BYTES=50000000 \
+    CODEX_LOG_RECLAIM_WARN_BYTES=50000000 \
+    CODEX_LOG_FREELIST_WARN_RATIO=90 \
+    CODEX_LOG_RECLAIM_FLOOR_BYTES=50000000 \
+    check_codex_log_file_size "$heavy_db" >"$healthy_log" 2>&1
+  [ "$fail_count" -eq 0 ] || fail "healthy SQLite thresholds unexpectedly failed"
+  [ "$warn_count" -eq 0 ] || fail "healthy SQLite thresholds unexpectedly warned"
+  grep -Fq 'size is healthy' "$healthy_log" \
+    || fail "healthy SQLite thresholds did not report ok"
+
   wal_log="$sqlite_fixture/wal.log"
   warn_count=0
   fail_count=0
