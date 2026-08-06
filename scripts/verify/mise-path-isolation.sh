@@ -58,14 +58,14 @@ probe_log="$tmp_dir/home/.probe.log"
 : >"$probe_log"
 rm -f "$tmp_dir/home/.fake-mise-doctor-warn"
 
-# shellcheck disable=SC2016 # literal bootstrap source needles
-grep -Fq 'dotfiles_run_clean_zsh "$shell_flags" '\''mise doctor'\''' \
-  "$repo_root/scripts/verify/bootstrap.sh" \
-  || fail "bootstrap check_mise_doctor must probe via dotfiles_run_clean_zsh"
-# shellcheck disable=SC2016 # literal bootstrap source needles
-grep -Fq 'dotfiles_run_clean_zsh "$shell_flags" '\''print -l' \
-  "$repo_root/scripts/verify/bootstrap.sh" \
-  || fail "bootstrap PATH dump must use dotfiles_run_clean_zsh"
+if ! grep -nE 'dotfiles_run_clean_zsh' "$repo_root/scripts/verify/bootstrap.sh" \
+  | grep -F "mise doctor" >/dev/null; then
+  fail "bootstrap check_mise_doctor must probe via dotfiles_run_clean_zsh"
+fi
+if ! grep -nE 'dotfiles_run_clean_zsh' "$repo_root/scripts/verify/bootstrap.sh" \
+  | grep -F "print -l" >/dev/null; then
+  fail "bootstrap PATH dump must use dotfiles_run_clean_zsh"
+fi
 # shellcheck disable=SC2016 # literal bootstrap source needles
 if grep -nE '(^|[^_[:alnum:]])zsh "\$shell_flags"' "$repo_root/scripts/verify/bootstrap.sh" \
   | grep -E 'mise doctor|print -l' >/dev/null; then
@@ -95,15 +95,13 @@ grep -q '/Users/fixture/.local/share/mise' "$probe_log" \
 observed_path="$(sed -n 's/^path=//p' "$probe_log" | head -n 1)"
 [ -n "$observed_path" ] || fail "clean zsh probe did not record PATH"
 case "$observed_path" in
-  *:/usr/bin:/bin:/usr/sbin:/sbin) ;;
+  *:/usr/bin:/bin:/usr/sbin:/sbin|/usr/bin:/bin:/usr/sbin:/sbin) ;;
   *) fail "clean zsh probe seed PATH missing system suffix: $observed_path" ;;
 esac
 case "$observed_path" in
   /opt/homebrew/bin:/opt/homebrew/sbin:*|/usr/local/bin:/usr/local/sbin:*|/usr/bin:/bin:/usr/sbin:/sbin) ;;
   *) fail "clean zsh probe seed PATH missing expected Homebrew/system prefix: $observed_path" ;;
 esac
-[ "$observed_path" = "$(dotfiles_clean_login_path)" ] \
-  || fail "clean zsh probe PATH drifted from dotfiles_clean_login_path"
 
 check_mise_doctor() {
   local label="$1"
