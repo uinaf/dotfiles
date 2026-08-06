@@ -159,12 +159,19 @@ grep -Fq 'secret_scan_rules_json_or_empty_object' "$repo_root/scripts/audit/devb
 before_scan_dirs="$(find "${TMPDIR:-/tmp}" -maxdepth 1 \( -name 'dotfiles-secret-scan.*' -o -name 'dotfiles-secret-report.*' \) 2>/dev/null | wc -l | tr -d ' ')"
 
 broken_gitleaks_bin="$tmp_root/broken-bin"
+broken_gitleaks_log="$tmp_root/broken-gitleaks.log"
 mkdir -p "$broken_gitleaks_bin"
 cat >"$broken_gitleaks_bin/gitleaks" <<'EOF'
 #!/usr/bin/env bash
 exit 42
 EOF
 chmod 755 "$broken_gitleaks_bin/gitleaks"
+# Keep trufflehog from also failing so this asserts the gitleaks-error path.
+cat >"$broken_gitleaks_bin/trufflehog" <<'EOF'
+#!/usr/bin/env bash
+exit 0
+EOF
+chmod 755 "$broken_gitleaks_bin/trufflehog"
 json_output=0
 warn_count=0
 fail_count=0
@@ -173,8 +180,44 @@ secret_scan_finding_count=0
 secret_scan_rules_json=
 PATH="$broken_gitleaks_bin:$PATH" \
   HOME="$secret_fixture" \
-  scan_files_for_secrets < <(printf '%s\n' "$secret_fixture/id_rsa") >/dev/null 2>&1 || true
+  scan_files_for_secrets < <(printf '%s\n' "$secret_fixture/id_rsa") \
+  >"$broken_gitleaks_log" 2>&1 || true
 [ "$fail_count" -ge 1 ] || fail "gitleaks scanner failure was reported as clean"
+[ "$secret_scan_finding_count" -eq 0 ] \
+  || fail "gitleaks scanner failure unexpectedly counted findings"
+grep -Fq 'gitleaks local config scan failed' "$broken_gitleaks_log" \
+  || fail "gitleaks scanner failure did not emit the status-only failure"
+
+missing_python_bin="$tmp_root/missing-python-bin"
+missing_python_log="$tmp_root/missing-python.log"
+mkdir -p "$missing_python_bin"
+ln -s "$(command -v gitleaks)" "$missing_python_bin/gitleaks"
+ln -s "$(command -v trufflehog)" "$missing_python_bin/trufflehog"
+# Shadow every python3 on PATH while keeping system utilities available.
+cat >"$missing_python_bin/python3" <<'EOF'
+#!/usr/bin/env bash
+exit 127
+EOF
+chmod 755 "$missing_python_bin/python3"
+json_output=0
+warn_count=0
+fail_count=0
+secret_scan_count=0
+secret_scan_finding_count=0
+secret_scan_rules_json=
+PATH="$missing_python_bin:/usr/bin:/bin" \
+  HOME="$secret_fixture" \
+  scan_files_for_secrets < <(printf '%s\n' "$secret_fixture/id_rsa") \
+  >"$missing_python_log" 2>&1 || true
+[ "$fail_count" -ge 1 ] || fail "python3-absent degrade path did not fail closed"
+[ "$secret_scan_finding_count" -eq 0 ] \
+  || fail "python3-absent degrade path counted findings"
+if grep -Fq 'finding rule=' "$missing_python_log"; then
+  fail "python3-absent degrade path still emitted locators"
+fi
+grep -Fq 'python3 failed while' "$missing_python_log" \
+  || grep -Fq 'python3 is missing' "$missing_python_log" \
+  || fail "python3-absent degrade path did not warn"
 
 clean_fixture="$tmp_root/clean-home"
 clean_log="$tmp_root/clean-secret-scan.log"

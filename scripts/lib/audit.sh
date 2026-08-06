@@ -340,11 +340,11 @@ scan_files_for_secrets() {
   : >"$report_path"
   chmod 600 "$report_path"
   cleanup_secret_scan_tmp() {
-    trap - RETURN
+    trap - RETURN EXIT INT TERM
     rm -rf "${scan_root:-}" "${report_dir:-}"
   }
-  # Clear the RETURN trap inside cleanup so it does not linger in the caller.
-  trap cleanup_secret_scan_tmp RETURN
+  # Clear traps inside cleanup so they do not linger in the caller.
+  trap cleanup_secret_scan_tmp RETURN EXIT INT TERM
 
   while IFS= read -r path; do
     [ -n "$path" ] || continue
@@ -387,11 +387,19 @@ scan_files_for_secrets() {
   chmod 600 "$report_path" 2>/dev/null || true
 
   if [ "$have_python" -eq 1 ]; then
-    secret_scan_rules_json="$(
+    if ! secret_scan_rules_json="$(
       merge_secret_scan_rule_counts "$(secret_scan_rules_json_or_empty_object)" "$report_path"
-    )"
-    finding_count="$(count_gitleaks_findings "$report_path")"
-    secret_scan_finding_count=$((secret_scan_finding_count + finding_count))
+    )"; then
+      have_python=0
+      warn "python3 failed while summarizing gitleaks findings; falling back to status-only reporting"
+    elif ! finding_count="$(count_gitleaks_findings "$report_path")" \
+      || ! [[ "$finding_count" =~ ^[0-9]+$ ]]; then
+      have_python=0
+      finding_count=0
+      warn "python3 failed while counting gitleaks findings; falling back to status-only reporting"
+    else
+      secret_scan_finding_count=$((secret_scan_finding_count + finding_count))
+    fi
   fi
 
   if [ "$have_python" -eq 1 ]; then
