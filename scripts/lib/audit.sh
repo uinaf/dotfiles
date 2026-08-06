@@ -70,6 +70,152 @@ size_of() {
   stat -f '%z' "$1"
 }
 
+human_bytes() {
+  local bytes="${1:-0}"
+  local units=(B KB MB GB TB)
+  local unit=0
+  local whole
+  local frac
+
+  if ! [[ "$bytes" =~ ^[0-9]+$ ]]; then
+    printf '%s\n' "$bytes"
+    return
+  fi
+
+  while [ "$bytes" -ge 1024 ] && [ "$unit" -lt 4 ]; do
+    whole=$((bytes / 1024))
+    frac=$(((bytes % 1024) * 10 / 1024))
+    bytes=$whole
+    unit=$((unit + 1))
+  done
+
+  if [ "$unit" -eq 0 ] || [ "$frac" -eq 0 ]; then
+    printf '%s%s\n' "$bytes" "${units[$unit]}"
+  else
+    printf '%s.%s%s\n' "$bytes" "$frac" "${units[$unit]}"
+  fi
+}
+
+# Read SQLite page stats without modifying the database.
+# Prints: page_size page_count freelist_count
+# Returns non-zero when sqlite3 is missing or the file is unreadable/invalid.
+sqlite_page_stats() {
+  local path="$1"
+  local output
+
+  command -v sqlite3 >/dev/null 2>&1 || return 1
+  [ -r "$path" ] || return 1
+
+  output="$(
+    sqlite3 -readonly "file:${path}?mode=ro" \
+      'PRAGMA page_size;
+PRAGMA page_count;
+PRAGMA freelist_count;' 2>/dev/null
+  )" || return 1
+
+  # Expect exactly three integer lines.
+  printf '%s\n' "$output" | awk '
+    BEGIN { count = 0 }
+    /^[0-9]+$/ { values[++count] = $0 }
+    END {
+      if (count != 3) exit 1
+      print values[1], values[2], values[3]
+    }
+  '
+}
+
+# Check a Codex/log SQLite database against live-data thresholds, with a
+# physical-size fallback when page stats are unavailable.
+# Override thresholds via CODEX_LOG_*_BYTES / CODEX_LOG_FREELIST_WARN_RATIO.
+check_sqlite_log_size() {
+  local path="$1"
+  local fail_bytes="${CODEX_LOG_FAIL_BYTES:-524288000}"
+  local warn_bytes="${CODEX_LOG_WARN_BYTES:-209715200}"
+  local reclaim_warn_bytes="${CODEX_LOG_RECLAIM_WARN_BYTES:-209715200}"
+  local freelist_warn_ratio="${CODEX_LOG_FREELIST_WARN_RATIO:-50}"
+  local physical_bytes
+  local stats
+  local page_size
+  local page_count
+  local freelist_count
+  local live_pages
+  local live_bytes
+  local reclaimable_bytes
+  local freelist_ratio=0
+  local summary
+
+  physical_bytes="$(size_of "$path" 2>/dev/null || printf 0)"
+  if ! [[ "$physical_bytes" =~ ^[0-9]+$ ]]; then
+    physical_bytes=0
+  fi
+
+  if ! stats="$(sqlite_page_stats "$path")"; then
+    if [ "$physical_bytes" -ge "$fail_bytes" ]; then
+      fail_check "$path is larger than $(human_bytes "$fail_bytes") (physical size; SQLite stats unavailable)"
+    elif [ "$physical_bytes" -ge "$warn_bytes" ]; then
+      warn "$path is larger than $(human_bytes "$warn_bytes") (physical size; SQLite stats unavailable)"
+    else
+      ok "$path size is under $(human_bytes "$warn_bytes") (physical size; SQLite stats unavailable)"
+    fi
+    return
+  fi
+
+  read -r page_size page_count freelist_count <<< "$stats"
+  if [ "$freelist_count" -gt "$page_count" ]; then
+    freelist_count=$page_count
+  fi
+  live_pages=$((page_count - freelist_count))
+  live_bytes=$((live_pages * page_size))
+  reclaimable_bytes=$((freelist_count * page_size))
+  if [ "$page_count" -gt 0 ]; then
+    freelist_ratio=$((freelist_count * 100 / page_count))
+  fi
+
+  summary="physical=$(human_bytes "$physical_bytes") live=$(human_bytes "$live_bytes") reclaimable=$(human_bytes "$reclaimable_bytes") freelist=${freelist_ratio}%"
+
+  if [ "$live_bytes" -ge "$fail_bytes" ]; then
+    fail_check "$path live data is larger than $(human_bytes "$fail_bytes") ($summary)"
+    return
+  fi
+
+  if [ "$reclaimable_bytes" -ge "$reclaim_warn_bytes" ] \
+    || [ "$freelist_ratio" -ge "$freelist_warn_ratio" ]; then
+    warn "$path has high reclaimable SQLite space ($summary)"
+  elif [ "$live_bytes" -ge "$warn_bytes" ]; then
+    warn "$path live data is larger than $(human_bytes "$warn_bytes") ($summary)"
+  else
+    ok "$path size is healthy ($summary)"
+  fi
+}
+
+check_codex_log_file_size() {
+  local path="$1"
+  local fail_bytes="${CODEX_LOG_FAIL_BYTES:-524288000}"
+  local warn_bytes="${CODEX_LOG_WARN_BYTES:-209715200}"
+  local physical_bytes
+
+  case "$path" in
+    *.sqlite|*.sqlite3|*.db)
+      check_sqlite_log_size "$path"
+      return
+      ;;
+  esac
+
+  # WAL and other non-database companions keep physical-size checks.
+  physical_bytes="$(size_of "$path" 2>/dev/null || printf 0)"
+  if ! [[ "$physical_bytes" =~ ^[0-9]+$ ]]; then
+    physical_bytes=0
+  fi
+
+  if [ "$physical_bytes" -ge "$fail_bytes" ]; then
+    fail_check "$path is larger than $(human_bytes "$fail_bytes")"
+  elif [ "$physical_bytes" -ge "$warn_bytes" ]; then
+    warn "$path is larger than $(human_bytes "$warn_bytes")"
+  else
+    ok "$path size is under $(human_bytes "$warn_bytes")"
+  fi
+}
+
 check_mode_any() {
   local missing_severity="$1"
   local path="$2"

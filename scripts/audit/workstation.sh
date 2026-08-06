@@ -156,14 +156,7 @@ section "Codex log size"
 if [ -d "$HOME/.codex" ]; then
   while IFS= read -r log_path; do
     [ -n "$log_path" ] || continue
-    log_size="$(size_of "$log_path" 2>/dev/null || printf 0)"
-    if [ "$log_size" -ge 524288000 ]; then
-      fail_check "$log_path is larger than 500 MB"
-    elif [ "$log_size" -ge 209715200 ]; then
-      warn "$log_path is larger than 200 MB"
-    else
-      ok "$log_path size is under 200 MB"
-    fi
+    check_codex_log_file_size "$log_path"
   done < <(find "$HOME/.codex" -maxdepth 1 -type f \( -name 'logs*.sqlite' -o -name 'logs*.sqlite-wal' \) -print 2>/dev/null | sort)
 fi
 

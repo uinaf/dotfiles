@@ -93,6 +93,71 @@ grep -Fq 'secret_scan_finding_count' "$repo_root/scripts/audit/devbox.sh" \
 grep -Fq 'secret_scan_rules_json_or_empty_object' "$repo_root/scripts/audit/devbox.sh" \
   || fail "devbox JSON summary missing brace-safe rules helper"
 
+if command -v sqlite3 >/dev/null 2>&1; then
+  sqlite_fixture="$tmp_root/sqlite-logs"
+  mkdir -p "$sqlite_fixture"
+  sparse_db="$sqlite_fixture/logs_sparse.sqlite"
+  heavy_db="$sqlite_fixture/logs_heavy.sqlite"
+  junk_db="$sqlite_fixture/logs_junk.sqlite"
+  wal_file="$sqlite_fixture/logs_sparse.sqlite-wal"
+
+  sqlite3 "$sparse_db" <<'SQL'
+PRAGMA page_size=4096;
+CREATE TABLE t(x BLOB);
+WITH RECURSIVE c(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM c WHERE n < 400)
+INSERT INTO t SELECT randomblob(3000) FROM c;
+DELETE FROM t;
+SQL
+  sqlite3 "$heavy_db" <<'SQL'
+PRAGMA page_size=4096;
+CREATE TABLE t(x BLOB);
+WITH RECURSIVE c(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM c WHERE n < 400)
+INSERT INTO t SELECT randomblob(3000) FROM c;
+SQL
+  printf 'not a sqlite database\n' >"$junk_db"
+  printf 'wal-bytes\n' >"$wal_file"
+  sparse_cksum_before="$(cksum "$sparse_db")"
+
+  json_output=0
+  warn_count=0
+  fail_count=0
+  CODEX_LOG_FAIL_BYTES=1000000 \
+    CODEX_LOG_WARN_BYTES=200000 \
+    CODEX_LOG_RECLAIM_WARN_BYTES=200000 \
+    CODEX_LOG_FREELIST_WARN_RATIO=40 \
+    check_codex_log_file_size "$sparse_db" >/dev/null 2>&1
+  [ "$fail_count" -eq 0 ] || fail "sparse SQLite log failed instead of warning"
+  [ "$warn_count" -ge 1 ] || fail "sparse SQLite log did not warn about reclaimable space"
+  [ "$(cksum "$sparse_db")" = "$sparse_cksum_before" ] \
+    || fail "SQLite page-stat probe modified the sparse database"
+
+  warn_count=0
+  fail_count=0
+  CODEX_LOG_FAIL_BYTES=100000 \
+    CODEX_LOG_WARN_BYTES=50000 \
+    CODEX_LOG_RECLAIM_WARN_BYTES=1000000000 \
+    CODEX_LOG_FREELIST_WARN_RATIO=100 \
+    check_codex_log_file_size "$heavy_db" >/dev/null 2>&1
+  [ "$fail_count" -ge 1 ] || fail "heavy SQLite live data did not fail"
+
+  warn_count=0
+  fail_count=0
+  CODEX_LOG_FAIL_BYTES=10 \
+    CODEX_LOG_WARN_BYTES=5 \
+    check_codex_log_file_size "$junk_db" >/dev/null 2>&1
+  [ "$fail_count" -ge 1 ] || fail "invalid SQLite input did not fall back to physical fail"
+  [ "$(cat "$junk_db")" = "not a sqlite database" ] \
+    || fail "invalid SQLite probe modified the input file"
+
+  warn_count=0
+  fail_count=0
+  CODEX_LOG_FAIL_BYTES=1000000 \
+    CODEX_LOG_WARN_BYTES=5 \
+    check_codex_log_file_size "$wal_file" >/dev/null 2>&1
+  [ "$fail_count" -eq 0 ] || fail "WAL physical-size check failed unexpectedly"
+  [ "$warn_count" -ge 1 ] || fail "WAL physical-size check did not warn"
+fi
+
 if ! command -v gitleaks >/dev/null 2>&1 \
   || ! command -v trufflehog >/dev/null 2>&1; then
   printf 'ok audit output privacy and recursive SSH private-key classification\n'
