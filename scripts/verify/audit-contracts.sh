@@ -267,9 +267,13 @@ PY
     || fail "WAL physical-size check did not warn"
 fi
 
-# Secret-scan cleanup must restore caller traps, not wipe them.
-grep -Fq 'secret_scan_prev_exit' "$repo_root/scripts/lib/audit.sh" \
-  || fail "secret scan cleanup must save the caller EXIT trap"
+# Secret-scan cleanup must not install EXIT/INT/TERM traps (caller owns those).
+grep -Fq 'secret_scan_prev_return' "$repo_root/scripts/lib/audit.sh" \
+  || fail "secret scan cleanup must save the caller RETURN trap"
+if grep -n 'trap cleanup_secret_scan_tmp' "$repo_root/scripts/lib/audit.sh" \
+  | grep -Eq 'EXIT|INT|TERM'; then
+  fail "secret scan cleanup must not take over caller EXIT/INT/TERM traps"
+fi
 grep -Fq 'gitleaks local config scan failed' "$repo_root/scripts/lib/audit.sh" \
   || fail "no-python gitleaks fallback must distinguish tool failures from leaks"
 # Status 1 (findings) and >1 (error) must be separate branches in the fallback.
@@ -290,19 +294,14 @@ if ! command -v gitleaks >/dev/null 2>&1 \
   exit 0
 fi
 
-# Live proof: caller EXIT trap survives scan_files_for_secrets cleanup.
-trap_probe_marker="$tmp_root/caller-exit-trap-marker"
-rm -f "$trap_probe_marker"
-trap 'printf restored >"$trap_probe_marker"' EXIT
+# Live proof: caller EXIT trap is never replaced by secret-scan cleanup.
+caller_exit_before="$(trap -p EXIT || true)"
 set +e
 scan_files_for_secrets </dev/null >/dev/null 2>&1
 set -e
-trap_probe_state="$(trap -p EXIT || true)"
-printf '%s\n' "$trap_probe_state" | grep -Fq 'trap_probe_marker' \
-  || fail "secret scan cleanup wiped the caller EXIT trap"
-# Restore this script's real EXIT cleanup.
-trap 'rm -rf "$tmp_root"' EXIT
-rm -f "$trap_probe_marker"
+caller_exit_after="$(trap -p EXIT || true)"
+[ "$caller_exit_before" = "$caller_exit_after" ] \
+  || fail "secret scan cleanup mutated the caller EXIT trap"
 
 secret_fixture="$tmp_root/secret-home"
 mkdir -p "$secret_fixture"

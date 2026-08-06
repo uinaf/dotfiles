@@ -504,9 +504,6 @@ scan_files_for_secrets() {
   local staged_path
   local have_python=0
   local secret_scan_prev_return
-  local secret_scan_prev_exit
-  local secret_scan_prev_int
-  local secret_scan_prev_term
 
   if ! command -v gitleaks >/dev/null 2>&1; then
     fail_check "gitleaks is missing for local secret scan"
@@ -530,11 +527,9 @@ scan_files_for_secrets() {
   report_path="$report_dir/gitleaks-report.json"
   : >"$report_path"
   chmod 600 "$report_path"
-  # Save caller traps so cleanup restores them instead of wiping EXIT/INT/TERM.
+  # Only RETURN is trapped so caller EXIT/INT/TERM handlers stay untouched.
+  # Explicit cleanup calls cover normal paths; RETURN covers early returns.
   secret_scan_prev_return="$(trap -p RETURN)"
-  secret_scan_prev_exit="$(trap -p EXIT)"
-  secret_scan_prev_int="$(trap -p INT)"
-  secret_scan_prev_term="$(trap -p TERM)"
   cleanup_secret_scan_tmp() {
     rm -rf "${scan_root:-}" "${report_dir:-}"
     if [ -n "${secret_scan_prev_return:-}" ]; then
@@ -542,23 +537,8 @@ scan_files_for_secrets() {
     else
       trap - RETURN
     fi
-    if [ -n "${secret_scan_prev_exit:-}" ]; then
-      eval "$secret_scan_prev_exit"
-    else
-      trap - EXIT
-    fi
-    if [ -n "${secret_scan_prev_int:-}" ]; then
-      eval "$secret_scan_prev_int"
-    else
-      trap - INT
-    fi
-    if [ -n "${secret_scan_prev_term:-}" ]; then
-      eval "$secret_scan_prev_term"
-    else
-      trap - TERM
-    fi
   }
-  trap cleanup_secret_scan_tmp RETURN EXIT INT TERM
+  trap cleanup_secret_scan_tmp RETURN
 
   while IFS= read -r path; do
     [ -n "$path" ] || continue
