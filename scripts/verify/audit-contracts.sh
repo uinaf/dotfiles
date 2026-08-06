@@ -103,6 +103,7 @@ else
   wal_mode_db="$sqlite_fixture/logs_wal.sqlite"
   junk_db="$sqlite_fixture/logs_junk.sqlite"
   broken_header_db="$sqlite_fixture/logs_broken_header.sqlite"
+  bad_freelist_db="$sqlite_fixture/logs_bad_freelist.sqlite"
   wal_file="$sqlite_fixture/logs_sparse.sqlite-wal"
 
   sqlite3 "$sparse_db" <<'SQL'
@@ -139,6 +140,19 @@ path = Path(sys.argv[1])
 header = bytearray(b"SQLite format 3\x00" + (b"\x00" * 84))
 # page_size = 0 (invalid), rest zeroed
 path.write_bytes(bytes(header) + (b"\x00" * 4096))
+PY
+  # Copy a real DB, then corrupt freelist_count > page_count in the header.
+  cp "$heavy_db" "$bad_freelist_db"
+  python3 - "$bad_freelist_db" <<'PY'
+from pathlib import Path
+import struct
+import sys
+
+path = Path(sys.argv[1])
+data = bytearray(path.read_bytes())
+page_count = struct.unpack(">I", data[28:32])[0]
+struct.pack_into(">I", data, 36, page_count + 1)
+path.write_bytes(data)
 PY
   sparse_cksum_before="$(cksum "$sparse_db")"
   wal_cksum_before="$(cksum "$wal_mode_db")"
@@ -223,6 +237,18 @@ PY
   [ "$fail_count" -ge 1 ] || fail "broken SQLite header did not fall back to physical fail"
   grep -Fq 'SQLite stats unavailable' "$broken_log" \
     || fail "broken SQLite header did not report physical-size fallback"
+
+  bad_freelist_log="$sqlite_fixture/bad-freelist.log"
+  warn_count=0
+  fail_count=0
+  CODEX_LOG_FAIL_BYTES=100000 \
+    CODEX_LOG_WARN_BYTES=50000 \
+    check_codex_log_file_size "$bad_freelist_db" >"$bad_freelist_log" 2>&1
+  [ "$fail_count" -ge 1 ] || fail "freelist>page_count did not fall back to physical fail"
+  grep -Fq 'SQLite stats unavailable' "$bad_freelist_log" \
+    || fail "freelist>page_count did not report physical-size fallback"
+  grep -Fq 'live data is larger than' "$bad_freelist_log" \
+    && fail "freelist>page_count incorrectly used clamped live_bytes=0 path"
 
   wal_sidecar_log="$sqlite_fixture/wal-sidecar.log"
   warn_count=0

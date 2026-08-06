@@ -148,6 +148,9 @@ if change_counter != valid_for or sqlite_version_number < 3007000:
     raise SystemExit(1)
 if page_count == 0:
     raise SystemExit(1)
+# Freelist larger than the database is corrupt; do not invent live_bytes=0.
+if freelist_count > page_count:
+    raise SystemExit(1)
 
 expected_size = page_count * page_size
 # Reject when the file is shorter than the accounted pages, or has more than
@@ -198,9 +201,6 @@ check_sqlite_log_size() {
   fi
 
   read -r page_size page_count freelist_count <<< "$stats"
-  if [ "$freelist_count" -gt "$page_count" ]; then
-    freelist_count=$page_count
-  fi
   live_pages=$((page_count - freelist_count))
   live_bytes=$((live_pages * page_size))
   reclaimable_bytes=$((freelist_count * page_size))
