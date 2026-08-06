@@ -199,7 +199,7 @@ profile=workstation # use personal for the opinionated layer
 mise trust
 mise install
 ./scripts/bootstrap/install.sh --profile "$profile"
-# Optional until this machine decrypts vault or other SOPS material:
+# Optional for workstation/personal; required for secret-consuming profiles:
 # ./scripts/secrets/configure-sops-age-identity.sh
 ./scripts/bootstrap/configure-git.sh --profile "$profile"
 ./scripts/bootstrap/configure-power.sh --profile "$profile"
