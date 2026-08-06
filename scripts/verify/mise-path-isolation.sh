@@ -24,6 +24,9 @@ warn_flag="${HOME}/.fake-mise-doctor-warn"
 {
   printf 'flags=%s\n' "$*"
   printf 'path=%s\n' "${PATH:-}"
+  printf 'zdotdir=%s\n' "${ZDOTDIR:-}"
+  printf 'xdg_config=%s\n' "${XDG_CONFIG_HOME:-}"
+  printf 'mise_config=%s\n' "${MISE_CONFIG_DIR:-}"
   printf 'mise_shell=%s\n' "${MISE_SHELL:-}"
   printf 'mise_session=%s\n' "${__MISE_SESSION:-}"
   printf 'mise_orig_path=%s\n' "${__MISE_ORIG_PATH:-}"
@@ -82,10 +85,16 @@ export __MISE_ZSH_ACTIVATE_PATH="/Users/fixture/.local/share/mise/installs/node/
 
 HOME="$tmp_dir/home" \
   DOTFILES_ZSH_BIN="$tmp_dir/bin/zsh" \
+  ZDOTDIR="$tmp_dir/zdot" \
+  XDG_CONFIG_HOME="$tmp_dir/xdg-config" \
+  MISE_CONFIG_DIR="$tmp_dir/mise-config" \
   PATH="$caller_mise_path" \
   dotfiles_run_clean_zsh -lic 'mise doctor' >/dev/null
 
 grep -Fxq "flags=-lic mise doctor" "$probe_log" || fail "clean zsh probe did not keep shell flags"
+grep -Fxq "zdotdir=$tmp_dir/zdot" "$probe_log" || fail "clean zsh probe dropped ZDOTDIR"
+grep -Fxq "xdg_config=$tmp_dir/xdg-config" "$probe_log" || fail "clean zsh probe dropped XDG_CONFIG_HOME"
+grep -Fxq "mise_config=$tmp_dir/mise-config" "$probe_log" || fail "clean zsh probe dropped MISE_CONFIG_DIR"
 grep -Fxq "mise_shell=" "$probe_log" || fail "clean zsh probe leaked MISE_SHELL"
 grep -Fxq "mise_session=" "$probe_log" || fail "clean zsh probe leaked __MISE_SESSION"
 grep -Fxq "mise_orig_path=" "$probe_log" || fail "clean zsh probe leaked __MISE_ORIG_PATH"
