@@ -93,13 +93,16 @@ grep -Fq 'secret_scan_finding_count' "$repo_root/scripts/audit/devbox.sh" \
 grep -Fq 'secret_scan_rules_json_or_empty_object' "$repo_root/scripts/audit/devbox.sh" \
   || fail "devbox JSON summary missing brace-safe rules helper"
 
-if command -v sqlite3 >/dev/null 2>&1 && command -v python3 >/dev/null 2>&1; then
+if ! command -v sqlite3 >/dev/null 2>&1 || ! command -v python3 >/dev/null 2>&1; then
+  printf 'ok sqlite Codex log size contracts skipped (sqlite3/python3 unavailable)\n'
+else
   sqlite_fixture="$tmp_root/sqlite-logs"
   mkdir -p "$sqlite_fixture"
   sparse_db="$sqlite_fixture/logs_sparse.sqlite"
   heavy_db="$sqlite_fixture/logs_heavy.sqlite"
   wal_mode_db="$sqlite_fixture/logs_wal.sqlite"
   junk_db="$sqlite_fixture/logs_junk.sqlite"
+  broken_header_db="$sqlite_fixture/logs_broken_header.sqlite"
   wal_file="$sqlite_fixture/logs_sparse.sqlite-wal"
 
   sqlite3 "$sparse_db" <<'SQL'
@@ -128,6 +131,15 @@ SQL
   rm -f "${wal_mode_db}-wal" "${wal_mode_db}-shm"
   printf 'not a sqlite database\n' >"$junk_db"
   printf 'wal-bytes\n' >"$wal_file"
+  # Valid magic, invalid page-size field -> stats unavailable fallback.
+  python3 - "$broken_header_db" <<'PY'
+from pathlib import Path
+import sys
+path = Path(sys.argv[1])
+header = bytearray(b"SQLite format 3\x00" + (b"\x00" * 84))
+# page_size = 0 (invalid), rest zeroed
+path.write_bytes(bytes(header) + (b"\x00" * 4096))
+PY
   sparse_cksum_before="$(cksum "$sparse_db")"
   wal_cksum_before="$(cksum "$wal_mode_db")"
 
@@ -139,6 +151,7 @@ SQL
     CODEX_LOG_WARN_BYTES=200000 \
     CODEX_LOG_RECLAIM_WARN_BYTES=200000 \
     CODEX_LOG_FREELIST_WARN_RATIO=40 \
+    CODEX_LOG_RECLAIM_FLOOR_BYTES=1000 \
     check_codex_log_file_size "$sparse_db" >"$sparse_log" 2>&1
   [ "$fail_count" -eq 0 ] || fail "sparse SQLite log failed instead of warning"
   grep -Fq 'high reclaimable SQLite space' "$sparse_log" \
@@ -165,6 +178,7 @@ SQL
     CODEX_LOG_WARN_BYTES=200000 \
     CODEX_LOG_RECLAIM_WARN_BYTES=200000 \
     CODEX_LOG_FREELIST_WARN_RATIO=40 \
+    CODEX_LOG_RECLAIM_FLOOR_BYTES=1000 \
     check_codex_log_file_size "$wal_mode_db" >"$wal_log" 2>&1
   [ "$fail_count" -eq 0 ] || fail "WAL-mode SQLite log failed instead of warning"
   grep -Fq 'high reclaimable SQLite space' "$wal_log" \
@@ -185,6 +199,16 @@ SQL
     || fail "invalid non-SQLite input did not report physical-size failure"
   [ "$(cat "$junk_db")" = "not a sqlite database" ] \
     || fail "invalid non-SQLite probe modified the input file"
+
+  broken_log="$sqlite_fixture/broken-header.log"
+  warn_count=0
+  fail_count=0
+  CODEX_LOG_FAIL_BYTES=10 \
+    CODEX_LOG_WARN_BYTES=5 \
+    check_codex_log_file_size "$broken_header_db" >"$broken_log" 2>&1
+  [ "$fail_count" -ge 1 ] || fail "broken SQLite header did not fall back to physical fail"
+  grep -Fq 'SQLite stats unavailable' "$broken_log" \
+    || fail "broken SQLite header did not report physical-size fallback"
 
   wal_sidecar_log="$sqlite_fixture/wal-sidecar.log"
   warn_count=0

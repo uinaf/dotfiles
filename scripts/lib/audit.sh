@@ -122,7 +122,9 @@ from pathlib import Path
 
 path = Path(sys.argv[1])
 try:
-    header = path.read_bytes()[:100]
+    with path.open("rb") as handle:
+        header = handle.read(100)
+        file_size = path.stat().st_size
 except OSError:
     raise SystemExit(1)
 
@@ -135,8 +137,22 @@ if page_size == 1:
 if page_size < 512 or (page_size & (page_size - 1)) != 0:
     raise SystemExit(1)
 
+change_counter = struct.unpack(">I", header[24:28])[0]
 page_count = struct.unpack(">I", header[28:32])[0]
 freelist_count = struct.unpack(">I", header[36:40])[0]
+valid_for = struct.unpack(">I", header[92:96])[0]
+write_version = struct.unpack(">I", header[96:100])[0]
+
+# The in-header page count is only authoritative when these match.
+if change_counter != valid_for or write_version < 3007000:
+    raise SystemExit(1)
+if page_count == 0:
+    raise SystemExit(1)
+
+expected_size = page_count * page_size
+if expected_size > file_size:
+    raise SystemExit(1)
+
 print(page_size, page_count, freelist_count)
 PY
 }
@@ -150,6 +166,7 @@ check_sqlite_log_size() {
   local warn_bytes="${CODEX_LOG_WARN_BYTES:-209715200}"
   local reclaim_warn_bytes="${CODEX_LOG_RECLAIM_WARN_BYTES:-209715200}"
   local freelist_warn_ratio="${CODEX_LOG_FREELIST_WARN_RATIO:-50}"
+  local reclaim_floor_bytes="${CODEX_LOG_RECLAIM_FLOOR_BYTES:-52428800}"
   local physical_bytes
   local stats
   local page_size
@@ -159,6 +176,7 @@ check_sqlite_log_size() {
   local live_bytes
   local reclaimable_bytes
   local freelist_ratio=0
+  local high_reclaimable=0
   local summary
 
   physical_bytes="$(size_of "$path" 2>/dev/null || printf 0)"
@@ -199,12 +217,14 @@ check_sqlite_log_size() {
     warn "$path live data is larger than $(human_bytes "$warn_bytes") ($summary)"
   fi
   if [ "$reclaimable_bytes" -ge "$reclaim_warn_bytes" ] \
-    || [ "$freelist_ratio" -ge "$freelist_warn_ratio" ]; then
+    || {
+      [ "$freelist_ratio" -ge "$freelist_warn_ratio" ] \
+        && [ "$reclaimable_bytes" -ge "$reclaim_floor_bytes" ]
+    }; then
+    high_reclaimable=1
     warn "$path has high reclaimable SQLite space ($summary)"
   fi
-  if [ "$live_bytes" -lt "$warn_bytes" ] \
-    && [ "$reclaimable_bytes" -lt "$reclaim_warn_bytes" ] \
-    && [ "$freelist_ratio" -lt "$freelist_warn_ratio" ]; then
+  if [ "$live_bytes" -lt "$warn_bytes" ] && [ "$high_reclaimable" -eq 0 ]; then
     ok "$path size is healthy ($summary)"
   fi
 }
