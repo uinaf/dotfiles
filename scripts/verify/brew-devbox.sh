@@ -58,7 +58,13 @@ chmod 600 "$isolated_external"
 
 run_brew_bundle() {
   local log_file="$1"
+  local fixture_home="$HOME"
   shift
+
+  if [ "${1:-}" = "--home" ]; then
+    fixture_home="$2"
+    shift 2
+  fi
 
   (
     unset HOMEBREW_BUNDLE_BREW_SKIP \
@@ -66,7 +72,8 @@ run_brew_bundle() {
       HOMEBREW_BUNDLE_TAP_SKIP \
       HOMEBREW_BUNDLE_MAS_SKIP
     umask 0077
-    PATH="$tmp_dir/bin:$PATH" \
+    HOME="$fixture_home" \
+      PATH="$tmp_dir/bin:$PATH" \
       FAKE_BREW_LOG="$log_file" \
       FAKE_BREW_PREFIX="$fake_prefix" \
       DOTFILES_EXTERNAL_HOMEBREW_FILE="$isolated_external" \
@@ -169,6 +176,11 @@ printf 'cask|1password|command|/usr/bin/true\n' >"$host_home/.config/dotfiles/ex
 chmod 600 "$host_home/.config/dotfiles/external-homebrew"
 set +e
 ambient_output="$(
+  unset HOMEBREW_BUNDLE_BREW_SKIP \
+    HOMEBREW_BUNDLE_CASK_SKIP \
+    HOMEBREW_BUNDLE_TAP_SKIP \
+    HOMEBREW_BUNDLE_MAS_SKIP \
+    DOTFILES_EXTERNAL_HOMEBREW_FILE
   HOME="$host_home" PATH="$tmp_dir/bin:$PATH" \
     FAKE_BREW_LOG="$tmp_dir/ambient.log" \
     FAKE_BREW_PREFIX="$fake_prefix" \
@@ -181,7 +193,7 @@ printf '%s\n' "$ambient_output" | grep -Fq 'cask 1password is not declared by pr
   || fail "ambient workstation capability failure was not profile-specific"
 
 : >"$tmp_dir/isolated-ambient.log"
-HOME="$host_home" run_brew_bundle "$tmp_dir/isolated-ambient.log" devbox
+run_brew_bundle "$tmp_dir/isolated-ambient.log" --home "$host_home" devbox
 [ "$(grep -c '^arg=bundle$' "$tmp_dir/isolated-ambient.log")" -eq 3 ] \
   || fail "isolated fixture still read ambient workstation Homebrew capabilities"
 
