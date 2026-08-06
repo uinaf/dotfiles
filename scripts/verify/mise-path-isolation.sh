@@ -61,18 +61,25 @@ probe_log="$tmp_dir/home/.probe.log"
 : >"$probe_log"
 rm -f "$tmp_dir/home/.fake-mise-doctor-warn"
 
-if ! grep -nE 'dotfiles_run_clean_zsh' "$repo_root/scripts/verify/bootstrap.sh" \
-  | grep -F "mise doctor" >/dev/null; then
-  fail "bootstrap check_mise_doctor must probe via dotfiles_run_clean_zsh"
-fi
-if ! grep -nE 'dotfiles_run_clean_zsh' "$repo_root/scripts/verify/bootstrap.sh" \
-  | grep -F "print -l" >/dev/null; then
-  fail "bootstrap PATH dump must use dotfiles_run_clean_zsh"
-fi
-# shellcheck disable=SC2016 # literal bootstrap source needles
-if grep -nE '(^|[^_[:alnum:]])zsh "\$shell_flags"' "$repo_root/scripts/verify/bootstrap.sh" \
-  | grep -E 'mise doctor|print -l' >/dev/null; then
-  fail "bootstrap still probes mise PATH ordering with bare zsh"
+check_mise_doctor_body="$(
+  awk '
+    /^check_mise_doctor\(\)/ { in_fn = 1 }
+    in_fn { print }
+    in_fn && /^}/ { exit }
+  ' "$repo_root/scripts/verify/bootstrap.sh"
+)"
+[ -n "$check_mise_doctor_body" ] || fail "could not extract check_mise_doctor from bootstrap.sh"
+printf '%s\n' "$check_mise_doctor_body" | grep -Fq 'dotfiles_run_clean_zsh' \
+  || fail "bootstrap check_mise_doctor must probe via dotfiles_run_clean_zsh"
+printf '%s\n' "$check_mise_doctor_body" | grep -Fq 'mise doctor' \
+  || fail "bootstrap check_mise_doctor must run mise doctor"
+printf '%s\n' "$check_mise_doctor_body" | grep -Fq 'print -l' \
+  || fail "bootstrap check_mise_doctor must dump PATH on failure"
+if printf '%s\n' "$check_mise_doctor_body" \
+  | grep -vE '^[[:space:]]*#' \
+  | grep -nE '(^|[^_[:alnum:]])(/bin/|/usr/|/opt/)?zsh([[:space:]"'\'']|$)' \
+  | grep -Ev 'dotfiles_run_clean_zsh|dotfiles_probe_zsh' >/dev/null; then
+  fail "bootstrap check_mise_doctor still invokes bare zsh"
 fi
 
 # Inherited mise session + fat PATH must not reach the probe. Scope the poisoned

@@ -32,7 +32,7 @@ dotfiles_probe_zsh_bin() {
   # Prefer the workstation login shell when it is zsh. Do not use `command -v
   # zsh` here: an activated mise session can put a zsh shim first on PATH.
   if [ -n "${SHELL:-}" ] && [ -x "${SHELL}" ]; then
-    case "$(basename "${SHELL}")" in
+    case "${SHELL##*/}" in
       zsh)
         printf '%s\n' "${SHELL}"
         return 0
@@ -47,29 +47,35 @@ dotfiles_probe_zsh_bin() {
     fi
   done
 
-  printf '%s\n' /bin/zsh
+  printf 'no zsh found for PATH probe; set DOTFILES_ZSH_BIN\n' >&2
+  return 1
 }
 
 dotfiles_run_clean_zsh() {
   local flags="$1"
   shift
   local zsh_bin
-  zsh_bin="$(dotfiles_probe_zsh_bin)"
+  zsh_bin="$(dotfiles_probe_zsh_bin)" || return 1
   local -a env_args=(
     HOME="$HOME"
     USER="${USER:-$(id -un)}"
     LOGNAME="${LOGNAME:-$(id -un)}"
     SHELL="${SHELL:-$zsh_bin}"
     TMPDIR="${TMPDIR:-/tmp}"
-    TERM="${TERM:-dumb}"
-    LANG="${LANG:-C}"
     PATH="$(dotfiles_clean_login_path)"
   )
 
-  # Forward non-session config roots when set so the probe still reads the same
-  # zsh/mise config tree as the workstation. Drop mise session/PATH activation
-  # variables (MISE_SHELL, __MISE_SESSION, __MISE_ORIG_PATH,
-  # __MISE_ZSH_ACTIVATE_PATH) by omission.
+  # Forward locale/terminal when set. Do not invent TERM=dumb — many zsh
+  # startup files treat that as a non-interactive/tramp sentinel.
+  [ -n "${TERM:-}" ] && env_args+=("TERM=$TERM")
+  [ -n "${LANG:-}" ] && env_args+=("LANG=$LANG")
+  [ -n "${LC_ALL:-}" ] && env_args+=("LC_ALL=$LC_ALL")
+
+  # Allowlist is deliberate: build a clean login-like environment, not a
+  # denylist over the caller's ambient state. Forward non-session config roots
+  # when set so the probe still reads the same zsh/mise config tree. Drop mise
+  # session/PATH activation variables (MISE_SHELL, __MISE_SESSION,
+  # __MISE_ORIG_PATH, __MISE_ZSH_ACTIVATE_PATH) by omission.
   [ -n "${ZDOTDIR:-}" ] && env_args+=("ZDOTDIR=$ZDOTDIR")
   [ -n "${XDG_CONFIG_HOME:-}" ] && env_args+=("XDG_CONFIG_HOME=$XDG_CONFIG_HOME")
   [ -n "${XDG_DATA_HOME:-}" ] && env_args+=("XDG_DATA_HOME=$XDG_DATA_HOME")
