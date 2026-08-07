@@ -90,6 +90,7 @@ human_workstation_cli_checks=(
 
 personal_cli_checks=(
   "gitcrawl --version"
+  "grok --version"
   "tailscale status --peers=false"
 )
 

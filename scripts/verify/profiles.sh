@@ -205,6 +205,13 @@ for file in Brewfile Brewfile.developer Brewfile.workstation Brewfile.devbox Bre
     fail "$file includes personal-only Zed"
   fi
 done
+grep -Fqx 'cask "grok-build"' "$repo_root/Brewfile.personal" \
+  || fail "personal layer missed Grok Build"
+for file in Brewfile Brewfile.developer Brewfile.workstation Brewfile.devbox Brewfile.assistant Brewfile.service; do
+  if grep -Fqx 'cask "grok-build"' "$repo_root/$file"; then
+    fail "$file includes personal-only Grok Build"
+  fi
+done
 
 assistant_steps="$("$repo_root/scripts/bootstrap/install.sh" --print-steps --profile assistant)"
 assert_eq "$(printf 'apply-dotfiles\ninstall-gh-app-auth')" "$assistant_steps" "assistant install steps"

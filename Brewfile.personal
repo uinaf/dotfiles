@@ -23,6 +23,7 @@ cask "zoom"
 
 # Agent tools
 cask "codexbar"
+cask "grok-build"
 
 # Design and work apps
 cask "zed"
