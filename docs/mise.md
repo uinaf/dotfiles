@@ -118,10 +118,10 @@ When changing `chezmoi/private_dot_config/mise/config.toml.tmpl`:
 
 Avoid floating runtime versions such as `latest` in profile machine config.
 
-The personal/workstation/devbox Node entry enables Corepack and installs pnpm 11.18.0 as
+The personal/workstation/devbox Node entry enables Corepack and installs pnpm 11.20.0 as
 the default outside projects. A project's `packageManager` field remains the
 repository-owned version source. The Node postinstall pins npm itself to
-12.0.1, while Playwright CLI is an exact `npm:` backend entry. Vite+ stays
+12.0.2, while Playwright CLI is an exact `npm:` backend entry. Vite+ stays
 repository-local and is invoked through the owning package manager.
 
 `scripts/bootstrap/install.sh` enables Corepack, installs the stable pnpm

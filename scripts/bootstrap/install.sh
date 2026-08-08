@@ -103,7 +103,7 @@ run_step() {
     install-pnpm)
       if command -v corepack >/dev/null 2>&1; then
         corepack enable pnpm
-        corepack install --global pnpm@11.18.0
+        corepack install --global pnpm@11.20.0
       else
         printf 'skipped pnpm setup; install the pinned Node runtime with Corepack support\n' >&2
       fi

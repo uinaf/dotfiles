@@ -212,8 +212,8 @@ check_runtime_versions() {
     return
   fi
 
-  check_default_pnpm_version "11.18.0"
-  check_exact_version "npm" "12.0.1" "npm --version"
+  check_default_pnpm_version "11.20.0"
+  check_exact_version "npm" "12.0.2" "npm --version"
   check_exact_version "Playwright CLI" "0.1.17" "playwright-cli --version"
   check_mise_tool_owner "pnpm" "pnpm" "node"
   check_mise_tool_owner "npm" "npm" "node"

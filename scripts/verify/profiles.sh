@@ -307,7 +307,7 @@ npm uninstall --global vite-plus
 npm_config_prefix $install_node_root
 mise reshim --force
 corepack enable pnpm
-corepack install --global pnpm@11.18.0
+corepack install --global pnpm@11.20.0
 configure-codex.sh
 sync.ts
 EOF
