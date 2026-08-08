@@ -11,6 +11,7 @@ cask "ghostty"
 cask "codex"
 cask "claude-code@latest"
 cask "uinaf/tap/autoreview"
+cask "uinaf/tap/slopomatic"
 cask "1password-cli"
 
 # Development CLI

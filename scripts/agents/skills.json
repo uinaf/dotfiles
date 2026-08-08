@@ -53,6 +53,10 @@
       "source": "uinaf/skills"
     },
     {
+      "name": "slopomatic",
+      "source": "uinaf/slopomatic"
+    },
+    {
       "name": "tanstack-form",
       "source": "tanstack-skills/tanstack-skills"
     },

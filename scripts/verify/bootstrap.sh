@@ -82,6 +82,7 @@ developer_cli_checks=(
   "claude --version"
   "cursor-agent --version"
   "autoreview --version"
+  "slopomatic version"
 )
 
 human_workstation_cli_checks=(

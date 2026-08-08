@@ -39,7 +39,8 @@ the former manifest sync.
 Shared first-party skills live in [`uinaf/skills`](https://github.com/uinaf/skills).
 The autoreview skill ships with
 [`uinaf/autoreview`](https://github.com/uinaf/autoreview) and invokes the CLI
-installed by the developer Homebrew layer.
+installed by the developer Homebrew layer. The slopomatic skill ships with
+[`uinaf/slopomatic`](https://github.com/uinaf/slopomatic) the same way.
 
 Regular files and foreign symlinks at the global instruction entrypoints are
 rejected before global state changes.

@@ -51,7 +51,7 @@ while IFS=: read -r file line content; do
       ;;
     docs/agents.md)
       case "$content" in
-        *github.com/uinaf/skills*|*github.com/uinaf/autoreview*) continue ;;
+        *github.com/uinaf/skills*|*github.com/uinaf/autoreview*|*github.com/uinaf/slopomatic*) continue ;;
       esac
       ;;
     docs/devbox.md)
@@ -81,12 +81,12 @@ while IFS=: read -r file line content; do
       ;;
     scripts/agents/skills.json)
       case "$content" in
-        *'"source": "uinaf/skills"'*|*'"source": "uinaf/autoreview"'*|*'"source": "https://cdn.uinaf.dev/skills/ui"'*) continue ;;
+        *'"source": "uinaf/skills"'*|*'"source": "uinaf/autoreview"'*|*'"source": "uinaf/slopomatic"'*|*'"source": "https://cdn.uinaf.dev/skills/ui"'*) continue ;;
       esac
       ;;
     scripts/agents/sync.test.ts)
       case "$content" in
-        *'sources.includes("uinaf/agents")'*|*'sources.includes("uinaf/skills")'*|*'sourceByName.get("autoreview"), "uinaf/autoreview"'*) continue ;;
+        *'sources.includes("uinaf/agents")'*|*'sources.includes("uinaf/skills")'*|*'sourceByName.get("autoreview"), "uinaf/autoreview"'*|*'sourceByName.get("slopomatic"), "uinaf/slopomatic"'*) continue ;;
       esac
       ;;
     scripts/verify/profiles.sh)

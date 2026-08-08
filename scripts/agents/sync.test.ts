@@ -766,6 +766,7 @@ test("uses the current first-party skill sources", () => {
   assert.equal(sources.includes("uinaf/agents"), false);
   assert.equal(sources.includes("uinaf/skills"), true);
   assert.equal(sourceByName.get("autoreview"), "uinaf/autoreview");
+  assert.equal(sourceByName.get("slopomatic"), "uinaf/slopomatic");
 });
 
 test("the executable TypeScript entrypoint runs the CLI", () => {
