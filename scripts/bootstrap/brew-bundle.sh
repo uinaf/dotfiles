@@ -125,7 +125,11 @@ run_bundle() {
 if [ "$shared_only" -eq 1 ]; then
   run_bundle "$repo_root/Brewfile"
 else
+  brewfiles=()
   while IFS= read -r file; do
-    run_bundle "$repo_root/$file"
+    brewfiles+=("$file")
   done < <(dotfiles_profile_brewfiles "$profile")
+  for file in "${brewfiles[@]}"; do
+    run_bundle "$repo_root/$file"
+  done
 fi

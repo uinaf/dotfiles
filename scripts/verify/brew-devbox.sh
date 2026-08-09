@@ -44,6 +44,10 @@ if [ -n "${FAKE_BREW_OUTPUT_DIR:-}" ]; then
   chmod a+x "$FAKE_BREW_OUTPUT_DIR/executable"
 fi
 
+if [ -n "${FAKE_BREW_READ_STDIN:-}" ]; then
+  while IFS= read -r _; do :; done
+fi
+
 exit "${FAKE_BREW_EXIT:-0}"
 EOF
 chmod 755 "$tmp_dir/bin/brew"
@@ -76,6 +80,7 @@ run_brew_bundle() {
       PATH="$tmp_dir/bin:$PATH" \
       FAKE_BREW_LOG="$log_file" \
       FAKE_BREW_PREFIX="$fake_prefix" \
+      FAKE_BREW_READ_STDIN="${FAKE_BREW_READ_STDIN:-}" \
       DOTFILES_EXTERNAL_HOMEBREW_FILE="$isolated_external" \
       "$repo_root/scripts/bootstrap/brew-bundle.sh" "$@" >/dev/null
   )
@@ -138,6 +143,16 @@ run_brew_bundle "$bundle_log" devbox
 grep -Fqx "arg=$repo_root/Brewfile" "$bundle_log" || fail "shared Brewfile was not bundled"
 grep -Fqx "arg=$repo_root/Brewfile.developer" "$bundle_log" || fail "developer Brewfile was not bundled"
 grep -Fqx "arg=$repo_root/Brewfile.devbox" "$bundle_log" || fail "devbox Brewfile was not bundled"
+
+stdin_bundle_log="$tmp_dir/stdin-bundle.log"
+: >"$stdin_bundle_log"
+FAKE_BREW_READ_STDIN=1 run_brew_bundle "$stdin_bundle_log" personal
+[ "$(grep -c '^arg=bundle$' "$stdin_bundle_log")" -eq 4 ] \
+  || fail "stdin-consuming brew skipped personal profile layers"
+for file in Brewfile Brewfile.developer Brewfile.workstation Brewfile.personal; do
+  grep -Fqx "arg=$repo_root/$file" "$stdin_bundle_log" \
+    || fail "stdin-consuming brew skipped $file"
+done
 
 assistant_log="$tmp_dir/assistant.log"
 : >"$assistant_log"
