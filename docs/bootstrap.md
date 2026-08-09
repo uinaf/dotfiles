@@ -201,7 +201,7 @@ same source state, then configures the remaining developer integrations.
 The developer mise config pins Node, enables the stable Corepack-managed pnpm
 default, and installs exact shared npm and Playwright CLI versions. Vite+ stays
 repository-local. `install.sh` also removes the retired global Vite+ package
-and standalone state under `~/.vite-plus`;
+while preserving the `~/.vite-plus` cache used by repository-local installs;
 `mise install` remains required for a fresh runtime or CLI version change.
 
 The dotfile step applies the repo-local chezmoi source state from `chezmoi/`.
@@ -296,7 +296,7 @@ The first dotfile apply makes the developer runtime pins available before the
 typed agent sync runs. The developer mise config pins Node, enables the stable Corepack-managed pnpm
 default, and installs exact shared npm and Playwright CLI versions. Vite+ stays
 repository-local. `install.sh` removes the retired global Vite+ package and
-standalone state under `~/.vite-plus`, then refreshes machine-global agent
+preserves the `~/.vite-plus` cache used by local Vite+ projects, then refreshes machine-global agent
 instructions and skills. `mise install` installs missing runtimes and CLIs.
 
 The power step keeps plugged-in devboxes awake for agents, remote access, and

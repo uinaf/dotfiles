@@ -11,22 +11,36 @@ mkdir -p "$tmp_dir/bin"
 # shellcheck source=scripts/lib/homebrew.sh
 . "$repo_root/scripts/lib/homebrew.sh"
 
+# Keep capability-validation cases deterministic. Profile composition and real
+# Brewfile evaluation are covered by profiles.sh; this fixture exercises the
+# trust boundary without depending on the runner's installed Homebrew state.
+dotfiles_homebrew_external_entry_declared() {
+  local profile="$2"
+  local package_type="$3"
+  local package_name="$4"
+
+  case "$profile|$package_type|$package_name" in
+    workstation\|brew\|git | workstation\|cask\|google-chrome | personal-workstation\|cask\|tailscale-app)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
 fail() {
   printf 'FAILED: %s\n' "$1" >&2
   exit 1
 }
 
-# Keep this fixture independent of the caller's Homebrew Bundle skip state and
-# any per-user external-homebrew declarations under $HOME.
+# Keep this fixture independent of the caller's Homebrew Bundle skip state.
+# Explicit fixture paths isolate external declarations without replacing HOME,
+# which Homebrew needs to resolve the real profile Brewfiles consistently.
 unset HOMEBREW_BUNDLE_BREW_SKIP \
   HOMEBREW_BUNDLE_CASK_SKIP \
   HOMEBREW_BUNDLE_TAP_SKIP \
   HOMEBREW_BUNDLE_MAS_SKIP
-mkdir -p "$tmp_dir/host-home/.config/dotfiles"
-printf 'cask|1password|command|/usr/bin/true\n' >"$tmp_dir/host-home/.config/dotfiles/external-homebrew"
-chmod 600 "$tmp_dir/host-home/.config/dotfiles/external-homebrew"
-HOME="$tmp_dir/host-home"
-export HOME
 
 cat >"$tmp_dir/bin/managed-tool" <<'EOF'
 #!/usr/bin/env bash
