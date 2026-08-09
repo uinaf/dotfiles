@@ -37,10 +37,11 @@ ownership initialization. Before migrating a machine that predates ownership
 tracking, seed the lock only with entries confirmed to have been installed by
 the former manifest sync.
 Shared first-party skills live in [`uinaf/skills`](https://github.com/uinaf/skills).
-The autoreview skill ships with
-[`uinaf/autoreview`](https://github.com/uinaf/autoreview) and invokes the CLI
-installed by the developer Homebrew layer. The slopomatic skill ships with
-[`uinaf/slopomatic`](https://github.com/uinaf/slopomatic) the same way.
+The attach-cli skill ships with
+[`uinaf/attach`](https://github.com/uinaf/attach), the autoreview skill with
+[`uinaf/autoreview`](https://github.com/uinaf/autoreview), and the slopomatic
+skill with [`uinaf/slopomatic`](https://github.com/uinaf/slopomatic). Each
+invokes the CLI installed by the developer Homebrew layer.
 
 Regular files and foreign symlinks at the global instruction entrypoints are
 rejected before global state changes.
