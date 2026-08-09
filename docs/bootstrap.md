@@ -282,11 +282,15 @@ Run every other Homebrew mutation on a shared devbox through the repo wrapper:
 ```
 
 The wrapper requires the current Unix user to own the Homebrew prefix, then
-scopes a group-safe umask to the Homebrew child process. The devbox bundle
-command uses it internally; it does not change the caller's shell umask. Run
-these commands once from the owning admin identity, then run the devbox
-bootstrap verification as every Unix identity. Verification disables Homebrew
-auto-update so a read-only package check cannot mutate the shared checkout.
+scopes a group-safe umask to the Homebrew child process. After every attempted
+mutation it restores group read and traverse permissions on prefix-owner-owned
+content, including macOS symlinks, while preserving Homebrew's exit status. It
+does not change content owned by another Unix identity. The devbox bundle
+command uses the wrapper internally; it does not change the caller's shell
+umask. Run these commands once from the owning admin identity, then run the
+devbox bootstrap verification as every Unix identity. Verification disables
+Homebrew auto-update so a read-only package check cannot mutate the shared
+checkout.
 
 Blacksmith uses its official per-user installer rather than Homebrew and
 self-updates from `~/.local/bin`.
@@ -475,10 +479,10 @@ can hang.
 
 - If `brew bundle check` fails, run the matching `brew-bundle.sh` profile and
   retry verification.
-- If devbox verification reports an unreadable Homebrew payload, reinstall
-  the owning formula or cask through `brew-devbox.sh`; use a targeted
-  permission repair only when Homebrew itself cannot run. Do not recursively
-  change permissions across the Homebrew prefix.
+- If historical prefix-owner content is unreadable to another devbox identity,
+  run `brew-devbox.sh --repair-shared-readability` as the prefix owner, then
+  retry verification. The repair is additive and owner-scoped; investigate
+  files owned by another identity separately.
 - If `chezmoi` is missing, rerun `./scripts/bootstrap/brew-bundle.sh` for the
   correct profile before `./scripts/bootstrap/install.sh`.
 - If Git reports dubious ownership under `/opt/homebrew`, rerun

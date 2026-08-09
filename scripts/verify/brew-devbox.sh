@@ -44,6 +44,17 @@ if [ -n "${FAKE_BREW_OUTPUT_DIR:-}" ]; then
   chmod a+x "$FAKE_BREW_OUTPUT_DIR/executable"
 fi
 
+if [ -n "${FAKE_BREW_RESTRICTIVE_DIR:-}" ]; then
+  mkdir "$FAKE_BREW_RESTRICTIVE_DIR/directory"
+  : >"$FAKE_BREW_RESTRICTIVE_DIR/file"
+  : >"$FAKE_BREW_RESTRICTIVE_DIR/executable"
+  chmod 700 "$FAKE_BREW_RESTRICTIVE_DIR/directory"
+  chmod 600 "$FAKE_BREW_RESTRICTIVE_DIR/file"
+  chmod 700 "$FAKE_BREW_RESTRICTIVE_DIR/executable"
+  ln -s file "$FAKE_BREW_RESTRICTIVE_DIR/link"
+  chmod -h 700 "$FAKE_BREW_RESTRICTIVE_DIR/link" 2>/dev/null || true
+fi
+
 if [ -n "${FAKE_BREW_READ_STDIN:-}" ]; then
   while IFS= read -r _; do :; done
 fi
@@ -106,18 +117,47 @@ actual="$(cat "$direct_log")"
 [ "$(file_mode "$tmp_dir/output/file")" = 664 ] || fail "wrapper created a non-shared file"
 [ "$(file_mode "$tmp_dir/output/executable")" = 775 ] || fail "wrapper created a non-shared executable"
 
+mkdir "$fake_prefix/restrictive"
+PATH="$tmp_dir/bin:$PATH" \
+  FAKE_BREW_LOG="$direct_log" \
+  FAKE_BREW_PREFIX="$fake_prefix" \
+  FAKE_BREW_RESTRICTIVE_DIR="$fake_prefix/restrictive" \
+  "$wrapper" install restrictive
+[ "$(file_mode "$fake_prefix/restrictive/directory")" = 750 ] \
+  || fail "wrapper left an owner-only directory unreadable"
+[ "$(file_mode "$fake_prefix/restrictive/file")" = 640 ] \
+  || fail "wrapper left an owner-only file unreadable"
+[ "$(file_mode "$fake_prefix/restrictive/executable")" = 750 ] \
+  || fail "wrapper left an owner-only executable unusable"
+if [ "$(uname -s)" = Darwin ]; then
+  [ "$(file_mode "$fake_prefix/restrictive/link")" = 750 ] \
+    || fail "wrapper left an owner-only symlink unreadable"
+fi
+
+chmod 700 "$fake_prefix/restrictive/directory"
+PATH="$tmp_dir/bin:$PATH" \
+  FAKE_BREW_LOG="$direct_log" \
+  FAKE_BREW_PREFIX="$fake_prefix" \
+  "$wrapper" --repair-shared-readability
+[ "$(file_mode "$fake_prefix/restrictive/directory")" = 750 ] \
+  || fail "explicit readability repair left an owner-only directory unreadable"
+
 set +e
 (
   umask 0077
+  mkdir "$fake_prefix/failure-output"
   PATH="$tmp_dir/bin:$PATH" \
     FAKE_BREW_LOG="$direct_log" \
     FAKE_BREW_PREFIX="$fake_prefix" \
+    FAKE_BREW_RESTRICTIVE_DIR="$fake_prefix/failure-output" \
     FAKE_BREW_EXIT=37 \
     "$wrapper" failure-path
 )
 status=$?
 set -e
 [ "$status" -eq 37 ] || fail "wrapper returned $status instead of the brew exit status"
+[ "$(file_mode "$fake_prefix/failure-output/directory")" = 750 ] \
+  || fail "failed Homebrew mutation skipped readability repair"
 
 set +e
 owner_output="$(

@@ -34,6 +34,27 @@ dotfiles_homebrew_require_prefix_owner() {
   return 1
 }
 
+dotfiles_homebrew_repair_shared_readability() {
+  local prefix
+  local current_uid
+
+  dotfiles_homebrew_require_prefix_owner || return 1
+  prefix="$(brew --prefix)" || return 1
+  current_uid="$(id -u)"
+
+  find "$prefix" -xdev -type d -user "$current_uid" ! -perm -0050 \
+    -exec chmod g+rX {} + || return 1
+  find "$prefix" -xdev -type f -user "$current_uid" ! -perm -0040 \
+    -exec chmod g+r {} + || return 1
+  find "$prefix" -xdev -type f -user "$current_uid" -perm -0100 ! -perm -0010 \
+    -exec chmod g+x {} + || return 1
+
+  if [ "$(uname -s)" = Darwin ]; then
+    find "$prefix" -xdev -type l -user "$current_uid" ! -perm -0050 \
+      -exec chmod -h g+rX {} + || return 1
+  fi
+}
+
 dotfiles_homebrew_bundle_check() {
   HOMEBREW_NO_AUTO_UPDATE=1 brew bundle check --file "$1"
 }

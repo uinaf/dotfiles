@@ -13,7 +13,27 @@ fi
 
 dotfiles_homebrew_require_prefix_owner
 
-# Preserve the devbox prefix's existing shared-writer modes without weakening
-# the caller's default shell umask.
+if [ "${1:-}" = "--repair-shared-readability" ]; then
+  if [ "$#" -ne 1 ]; then
+    printf 'Usage: %s --repair-shared-readability\n' "$0" >&2
+    exit 2
+  fi
+  dotfiles_homebrew_repair_shared_readability
+  exit 0
+fi
+
+# Preserve shared-writer modes where Homebrew honors umask, then restore the
+# minimum group readability required by other identities using this prefix.
 umask 0002
-exec brew "$@"
+set +e
+brew "$@"
+brew_status=$?
+set -e
+
+repair_status=0
+dotfiles_homebrew_repair_shared_readability || repair_status=$?
+
+if [ "$brew_status" -ne 0 ]; then
+  exit "$brew_status"
+fi
+exit "$repair_status"
