@@ -73,6 +73,41 @@ EOF
 
 chmod 0700 "$tmp_dir/bin/curl" "$tmp_dir/bin/mise" "$tmp_dir/bin/gh"
 
+mkdir -p "$tmp_dir/default-bin"
+cat >"$tmp_dir/default-bin/shasum" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+printf '%s  source.tar.gz\n' "$FAKE_SOURCE_SHA256"
+EOF
+chmod 0700 "$tmp_dir/default-bin/shasum"
+
+default_commit=620f73d8e27a81ea5736acbf5643b461da61c0f4
+default_source_sha256=c4d80ff42526308bd27fc8b458e2c256bfced14cf6d90c4ce28afa3aa5ccbae3
+default_home="$tmp_dir/default-home"
+default_log="$tmp_dir/default-install.log"
+: >"$default_log"
+env \
+  -u GH_APP_AUTH_SOURCE_COMMIT \
+  -u GH_APP_AUTH_SOURCE_URL \
+  -u GH_APP_AUTH_SOURCE_SHA256 \
+  HOME="$default_home" \
+  PATH="$tmp_dir/default-bin:$tmp_dir/bin:/usr/bin:/bin" \
+  FAKE_INSTALL_LOG="$default_log" \
+  FAKE_SOURCE_ARCHIVE="$tmp_dir/source.tar.gz" \
+  FAKE_SOURCE_SHA256="$default_source_sha256" \
+  GH_APP_AUTH_GO_VERSION=1.26.5 \
+    "$installer" >/dev/null
+grep -Fq "curl --fail --location --silent --show-error --retry 3 https://codeload.github.com/AmadeusITGroup/gh-app-auth/tar.gz/$default_commit" "$default_log" \
+  || fail "installer defaults did not fetch the pinned upstream release"
+cat >"$tmp_dir/default-marker" <<EOF
+commit=$default_commit
+source_sha256=$default_source_sha256
+go=1.26.5
+EOF
+cmp -s "$tmp_dir/default-marker" "$default_home/.local/share/gh/extensions/gh-app-auth/.dotfiles-source" \
+  || fail "installer defaults did not preserve the pinned upstream release marker"
+
 test_home="$tmp_dir/home"
 install_dir="$test_home/.local/share/gh/extensions/gh-app-auth"
 log="$tmp_dir/install.log"
