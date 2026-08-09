@@ -450,7 +450,7 @@ check_config_paths() {
     done
   fi
 
-  if [ "$profile" = "personal-workstation" ] || [ "$profile" = "personal-devbox" ]; then
+  if [ "$profile" = "personal-workstation" ]; then
     for path in "${personal_config_paths[@]}"; do
       if [ -e "$path" ]; then
         printf 'ok %s\n' "$path"

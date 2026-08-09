@@ -1,4 +1,4 @@
-{{ if not (or (eq .dotfilesProfile "personal-workstation") (eq .dotfilesProfile "personal-devbox")) }}
+{{ if ne .dotfilesProfile "personal-workstation" }}
 .config/zed
 {{ end }}
 {{ if or (eq .dotfilesProfile "assistant") (eq .dotfilesProfile "service") }}

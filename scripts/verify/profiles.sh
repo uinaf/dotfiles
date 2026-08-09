@@ -554,8 +554,9 @@ devbox_managed="$({
     managed --path-style relative
 })"
 personal_devbox_managed="$(managed_paths personal-devbox)"
-printf '%s\n' "$personal_devbox_managed" | grep -Fqx '.config/zed/settings.json' \
-  || fail "personal devbox profile does not manage personal Zed settings"
+if printf '%s\n' "$personal_devbox_managed" | grep -Eq '^\.config/zed(/|$)'; then
+  fail "personal devbox profile manages headful Zed state"
+fi
 for required_path in \
   '.config/git/allowed_signers' \
   '.gitconfig' \

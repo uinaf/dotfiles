@@ -58,7 +58,7 @@ layer installs Attach, Crabbox, Gitcrawl, and Mole for both personal profiles,
 while personal GUI applications remain workstation-only. Developer-profile install
 flows also sync machine-global instructions and additive skills from
 `scripts/agents/`; see [Agent setup](agents.md). Zed and its managed settings
-belong to both personal profiles.
+belong only to personal-workstation.
 The workstation layer supplies 1Password, Slack, Claude Desktop, and ChatGPT to
 both interactive profiles. The separately verified Cursor desktop installer is
 available to either interactive profile.
