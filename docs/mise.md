@@ -75,6 +75,7 @@ Live host checks:
 
 ```zsh
 mise run verify:bootstrap:personal
+mise run verify:bootstrap:personal-devbox
 mise run verify:bootstrap:workstation
 mise run verify:bootstrap:devbox
 mise run verify:bootstrap:assistant
@@ -98,8 +99,8 @@ mise run agents:sync -- --update
 mise run bootstrap:trust-agent-worktrees
 ```
 
-`agents:sync` refreshes the personal/workstation/devbox global instructions and
-additive skills described in [Agent setup](agents.md). Pass `--update` after
+`agents:sync` refreshes developer-profile global instructions and the
+profile-selected skills described in [Agent setup](agents.md). Pass `--update` after
 `--` to also refresh every globally installed skill with `skills update -g`.
 
 Workstation and devbox configs trust Codex and Claude generated worktree roots:
@@ -118,7 +119,7 @@ When changing `chezmoi/private_dot_config/mise/config.toml.tmpl`:
 
 Avoid floating runtime versions such as `latest` in profile machine config.
 
-The personal/workstation/devbox Node entry enables Corepack and installs pnpm 11.20.0 as
+The personal/personal-devbox/workstation/devbox Node entry enables Corepack and installs pnpm 11.20.0 as
 the default outside projects. A project's `packageManager` field remains the
 repository-owned version source. The Node postinstall pins npm itself to
 12.0.2, while Playwright CLI is an exact `npm:` backend entry. Vite+ stays

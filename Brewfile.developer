@@ -1,4 +1,4 @@
-# Shared development layer for personal, workstation, and devbox users.
+# Shared development layer for personal, personal-devbox, workstation, and devbox users.
 
 # Taps
 tap "f1bonacc1/tap"

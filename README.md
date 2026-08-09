@@ -66,7 +66,7 @@ troubleshooting.
 | Dotfiles | `chezmoi/` through `scripts/bootstrap/apply-dotfiles.sh` |
 | Runtimes and CLIs | `chezmoi/private_dot_config/mise/config.toml.tmpl` |
 | Git, SSH, age, and GitHub App setup | `scripts/bootstrap/`, `scripts/secrets/`, and [Identity provisioning](docs/identities.md) |
-| Global coding-agent rules and skills | `scripts/agents/` for workstation and devbox profiles |
+| Global coding-agent rules and skills | `scripts/agents/` for developer profiles, with personal additions selected by profile |
 | Repository and host checks | `scripts/verify/` and `scripts/audit/` |
 
 Consumer repositories own project dependencies, encrypted payloads, runtime

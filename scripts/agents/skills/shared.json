@@ -9,10 +9,6 @@
       "source": "uinaf/skills"
     },
     {
-      "name": "attach-cli",
-      "source": "uinaf/attach"
-    },
-    {
       "name": "autoreview",
       "source": "uinaf/autoreview"
     },

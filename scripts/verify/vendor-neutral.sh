@@ -8,7 +8,7 @@ path_matches=""
 grep_status=0
 
 set +e
-matches="$(git -C "$repo_root" grep -n -i uinaf -- ':!scripts/verify/vendor-neutral.sh')"
+matches="$(git -C "$repo_root" grep --untracked -n -i uinaf -- ':!scripts/verify/vendor-neutral.sh')"
 grep_status=$?
 set -e
 if [ "$grep_status" -ne 0 ] && [ "$grep_status" -ne 1 ]; then
@@ -51,7 +51,7 @@ while IFS=: read -r file line content; do
       ;;
     docs/agents.md)
       case "$content" in
-        *github.com/uinaf/skills*|*github.com/uinaf/attach*|*github.com/uinaf/autoreview*|*github.com/uinaf/slopomatic*) continue ;;
+        *github.com/uinaf/skills*|*github.com/uinaf/attach*|*github.com/uinaf/autoreview*|*github.com/uinaf/slopomatic*|*github.com/uinaf/design*|*uinaf-design*) continue ;;
       esac
       ;;
     docs/devbox.md)
@@ -79,14 +79,14 @@ while IFS=: read -r file line content; do
         *uinaf*dotfiles*) continue ;;
       esac
       ;;
-    scripts/agents/skills.json)
+    scripts/agents/skills/shared.json|scripts/agents/skills/personal.json)
       case "$content" in
-        *'"source": "uinaf/skills"'*|*'"source": "uinaf/attach"'*|*'"source": "uinaf/autoreview"'*|*'"source": "uinaf/slopomatic"'*|*'"source": "https://cdn.uinaf.dev/skills/ui"'*) continue ;;
+        *'"name": "uinaf-design"'*|*'"source": "uinaf/skills"'*|*'"source": "uinaf/attach"'*|*'"source": "uinaf/autoreview"'*|*'"source": "uinaf/slopomatic"'*|*'"source": "uinaf/design"'*|*'"source": "https://cdn.uinaf.dev/skills/ui"'*) continue ;;
       esac
       ;;
     scripts/agents/sync.test.ts)
       case "$content" in
-        *'sources.includes("uinaf/agents")'*|*'sources.includes("uinaf/skills")'*|*'sourceByName.get("attach-cli"), "uinaf/attach"'*|*'sourceByName.get("autoreview"), "uinaf/autoreview"'*|*'sourceByName.get("slopomatic"), "uinaf/slopomatic"'*) continue ;;
+        *uinaf/agents*|*uinaf/skills*|*uinaf/attach*|*uinaf/autoreview*|*uinaf/slopomatic*|*uinaf/design*|*uinaf-design*) continue ;;
       esac
       ;;
     scripts/verify/profiles.sh)

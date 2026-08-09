@@ -30,6 +30,9 @@ provider credentials must remain independently replaceable.
 | Git authorship metadata | required | required | required | required |
 | Provider credentials | identity-scoped | identity-scoped | identity-scoped | workload-scoped |
 
+Personal uses the workstation identity policy. Personal-devbox uses the devbox
+identity policy.
+
 Inbound SSH does not require the workload to own a private SSH key. Put an
 administrator's public key in the target user's `authorized_keys`. Provision a
 private SSH identity for an assistant only when the assistant must initiate an
@@ -41,9 +44,10 @@ without adding a human session or assistant credential to the service user.
 
 ## Developer Git and SSH
 
-Workstation and devbox users require explicit Git authorship and an owner-only,
-unencrypted local SSH private key for unattended commit signing. Agent-backed,
-encrypted, and public-key-only signing paths are not supported.
+Workstation, personal-devbox, and devbox users require explicit Git authorship
+and an owner-only, unencrypted local SSH private key for unattended commit
+signing. Agent-backed, encrypted, and public-key-only signing paths are not
+supported.
 
 If the key comes from a human recovery system, export it in OpenSSH format
 without a passphrase, save it outside this repository, derive its public key,
@@ -96,7 +100,7 @@ GIT_USER_EMAIL='workload@example.invalid' \
 
 Age calls the private decryption key an **identity** and its derived public
 encryption address a **recipient**. Secret-consuming deployments
-(`devbox`, `assistant`, `service`, vault/sudo consumers) require one general
+(`personal-devbox`, `devbox`, `assistant`, `service`, vault/sudo consumers) require one general
 SOPS age identity per managed Unix user. Portable workstation and personal
 profiles keep the SOPS CLI without an identity until they decrypt encrypted
 material. Keep sudo-specific age identities separate because they protect a

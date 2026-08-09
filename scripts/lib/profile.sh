@@ -1,14 +1,26 @@
 #!/usr/bin/env bash
 
+DOTFILES_PROFILES="personal personal-devbox workstation devbox assistant service"
+
+dotfiles_profiles() {
+  local profile
+
+  for profile in $DOTFILES_PROFILES; do
+    printf '%s\n' "$profile"
+  done
+}
+
 dotfiles_normalize_profile() {
-  case "${1:-}" in
-    personal|workstation|devbox|assistant|service)
-      printf '%s\n' "$1"
-      ;;
-    *)
-      return 2
-      ;;
-  esac
+  local requested="${1:-}"
+  local profile
+
+  for profile in $DOTFILES_PROFILES; do
+    if [ "$requested" = "$profile" ]; then
+      printf '%s\n' "$profile"
+      return 0
+    fi
+  done
+  return 2
 }
 
 dotfiles_trim_profile() {
@@ -78,10 +90,10 @@ dotfiles_resolve_profile() {
 
 dotfiles_profile_is_developer() {
   case "$1" in
-    personal|workstation|devbox)
+    personal|personal-devbox|workstation|devbox)
       return 0
       ;;
-    assistant)
+    assistant|service)
       return 1
       ;;
     *)
@@ -95,7 +107,7 @@ dotfiles_profile_is_workload() {
     assistant|service)
       return 0
       ;;
-    personal|workstation|devbox)
+    personal|personal-devbox|workstation|devbox)
       return 1
       ;;
     *)
@@ -106,7 +118,7 @@ dotfiles_profile_is_workload() {
 
 dotfiles_profile_uses_shared_brew() {
   case "$1" in
-    devbox|assistant|service)
+    personal-devbox|devbox|assistant|service)
       return 0
       ;;
     personal|workstation)
@@ -123,10 +135,24 @@ dotfiles_profile_uses_shared_brew() {
 # private age identity until a secret-consuming workflow is enabled.
 dotfiles_profile_requires_sops_identity() {
   case "$1" in
-    devbox|assistant|service)
+    personal-devbox|devbox|assistant|service)
       return 0
       ;;
     personal|workstation)
+      return 1
+      ;;
+    *)
+      return 2
+      ;;
+  esac
+}
+
+dotfiles_profile_is_devbox() {
+  case "$1" in
+    personal-devbox|devbox)
+      return 0
+      ;;
+    personal|workstation|assistant|service)
       return 1
       ;;
     *)
@@ -139,7 +165,7 @@ dotfiles_profile_brewfiles() {
   local profile="$1"
 
   case "$profile" in
-    personal|workstation|devbox|assistant|service) ;;
+    personal|personal-devbox|workstation|devbox|assistant|service) ;;
     *) return 2 ;;
   esac
   printf 'Brewfile\n'
@@ -150,7 +176,7 @@ dotfiles_profile_brewfiles() {
     service)
       printf 'Brewfile.service\n'
       ;;
-    devbox)
+    personal-devbox|devbox)
       printf 'Brewfile.developer\n'
       printf 'Brewfile.devbox\n'
       ;;

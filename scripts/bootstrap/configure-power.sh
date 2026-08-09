@@ -7,7 +7,7 @@ check_only=0
 usage() {
   cat <<'USAGE'
 Usage:
-  scripts/bootstrap/configure-power.sh [--profile personal|workstation|devbox] [--check]
+  scripts/bootstrap/configure-power.sh [--profile personal|personal-devbox|workstation|devbox] [--check]
 
 Configures plugged-in macOS power policy for managed Macs:
   - disables system sleep on AC power
@@ -28,7 +28,7 @@ while [ "$#" -gt 0 ]; do
       fi
       profile="$1"
       ;;
-    personal|workstation|devbox)
+    personal|personal-devbox|workstation|devbox)
       profile="$1"
       ;;
     --check)
@@ -47,7 +47,7 @@ while [ "$#" -gt 0 ]; do
 done
 
 case "$profile" in
-  personal|workstation|devbox)
+  personal|personal-devbox|workstation|devbox)
     ;;
   *)
     usage >&2

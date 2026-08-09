@@ -9,13 +9,16 @@ host and they are not a security boundary by themselves.
 | --- | --- | --- |
 | `workstation` | Interactive human on a laptop or desktop | Portable development, human authentication, and local containers |
 | `personal` | Owner-operated personal laptop or desktop | Workstation capabilities plus opinionated applications and preferences |
+| `personal-devbox` | Owner-operated remote coding identity | Devbox capabilities plus personal agent skills, without personal desktop software |
 | `devbox` | Remote coding identity on an SSH-first host | Coding agents, Git/GitHub, SDKs, containers, and verification tools |
 | `assistant` | Unattended persona or agent identity | Minimal agent runtime, browser, and scoped GitHub App access |
 | `service` | Non-persona managed workload identity | Identity-safe bootstrap tools; workload-owned runtime, authentication, and supervision |
 
 Choose `workstation` when another trusted system may supply or govern software.
 Choose `personal` only when this repository should own the full personal
-desktop contract.
+desktop contract. Choose `personal-devbox` for an owner-operated headless
+devbox that should receive personal agent skills. Its `personal` prefix does
+not include the workstation or personal desktop layers.
 
 ## Host and User Boundaries
 
@@ -33,11 +36,12 @@ service configuration.
 
 ## Software Layers
 
-All profiles install the minimal `Brewfile` base. Personal, workstation, and
-devbox also install `Brewfile.developer`. Workstation and devbox then install
-their profile layer. Personal installs `Brewfile.workstation` followed by
-`Brewfile.personal`. Assistant skips the developer layer and installs only
-`Brewfile.assistant`. Service installs only the base and `Brewfile.service`.
+All profiles install the minimal `Brewfile` base. Personal, personal-devbox,
+workstation, and devbox also install `Brewfile.developer`. Workstation installs
+`Brewfile.workstation`; devbox and personal-devbox install `Brewfile.devbox`.
+Personal installs `Brewfile.workstation` followed by `Brewfile.personal`.
+Assistant skips the developer layer and installs only `Brewfile.assistant`.
+Service installs only the base and `Brewfile.service`.
 
 The assistant mise config contains only Node, and its profile layer adds Chrome
 and `gh`. The service profile declares neither browser nor language runtime.
@@ -45,8 +49,9 @@ Workload repositories own OpenClaw, Hermes, model providers, media tools,
 containers, process supervision, language runtimes, and other
 workload-specific packages.
 
-Personal, workstation, and devbox retain the full shared development runtime
-set, including Codex CLI, Claude Code CLI, Cursor Agent CLI, and 1Password CLI.
+Personal, personal-devbox, workstation, and devbox retain the full shared
+development runtime set, including Codex CLI, Claude Code CLI, Cursor Agent
+CLI, and 1Password CLI.
 The same developer layer installs the attach, autoreview, and slopomatic CLIs
 from `uinaf/tap`. Their install flow also syncs machine-global instructions
 and additive skills from `scripts/agents/`; see
@@ -64,12 +69,12 @@ development skills. Service authentication remains entirely workload-owned.
 ## Identity Policy
 
 [Identity provisioning](identities.md) is the source of truth for age, Git,
-SSH, GitHub App, recovery, and deployment lifecycle. Workstation and devbox
-users configure explicit human authorship and local signing. Assistants
-configure unsigned workload authorship and use a workload-owned GitHub App for
-repository access. Services configure unsigned workload authorship but receive
-authentication only from their owning workload. Identity values remain
-operator input and are never tracked.
+SSH, GitHub App, recovery, and deployment lifecycle. Workstation, devbox, and
+personal-devbox users configure explicit human authorship and local signing.
+Assistants configure unsigned workload authorship and use a workload-owned
+GitHub App for repository access. Services configure unsigned workload
+authorship but receive authentication only from their owning workload.
+Identity values remain operator input and are never tracked.
 
 ## Apply a Profile
 
@@ -77,6 +82,7 @@ Run Homebrew changes from the authorized host administrator:
 
 ```zsh
 ./scripts/bootstrap/brew-bundle.sh personal
+./scripts/bootstrap/brew-bundle.sh personal-devbox
 ./scripts/bootstrap/brew-bundle.sh workstation
 ./scripts/bootstrap/brew-bundle.sh devbox
 ./scripts/bootstrap/brew-bundle.sh assistant
@@ -96,15 +102,18 @@ mise install
 ./scripts/verify/bootstrap.sh --profile "$profile"
 ```
 
-Use `profile=personal` for the opinionated personal layer. The remaining steps
-are identical. Secret-consuming profiles (`devbox`, `assistant`, `service`)
-still require the age-identity step before bootstrap verification.
+Use `profile=personal` for the opinionated personal desktop layer or
+`profile=personal-devbox` for devbox packages plus personal skills. The
+remaining steps are identical. Secret-consuming profiles (`personal-devbox`,
+`devbox`, `assistant`, `service`) still require the age-identity step before
+bootstrap verification.
 
 Configure the appropriate human or workload Git identity separately:
 
 ```zsh
 ./scripts/bootstrap/configure-git.sh --profile workstation
 ./scripts/bootstrap/configure-git.sh --profile personal
+./scripts/bootstrap/configure-git.sh --profile personal-devbox
 ./scripts/bootstrap/configure-git.sh --profile devbox
 GIT_USER_NAME='Workload Name' \
 GIT_USER_EMAIL='APP_BOT_NOREPLY_EMAIL' \
@@ -160,3 +169,8 @@ Existing personal machines that should retain the full opinionated layer must
 run the package, dotfile, install, and verification steps again with
 `profile=personal`. A managed or portable machine can keep
 `profile=workstation`.
+
+To convert an owner-operated devbox, apply `personal-devbox` through the
+Homebrew, dotfile, install, Git, and verification commands above. This changes
+the persisted marker and personal skill selection while retaining the devbox
+package, identity, service, power, and audit contracts.

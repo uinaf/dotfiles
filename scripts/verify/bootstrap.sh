@@ -16,11 +16,11 @@ ghostty_config="$HOME/Library/Application Support/com.mitchellh.ghostty/config"
 usage() {
   cat <<'USAGE'
 Usage:
-  scripts/verify/bootstrap.sh [--profile personal|workstation|devbox|assistant|service] [--desktop]
+  scripts/verify/bootstrap.sh [--profile personal|personal-devbox|workstation|devbox|assistant|service] [--desktop]
 
 Checks the live per-user bootstrap for the selected profile. An existing
 ~/.config/dotfiles/profile is used when --profile is omitted. --desktop is
-valid only with devbox.
+valid only with a devbox profile.
 USAGE
 }
 
@@ -34,7 +34,7 @@ while [ "$#" -gt 0 ]; do
       fi
       profile="$1"
       ;;
-    personal|workstation|devbox|assistant|service)
+    personal|personal-devbox|workstation|devbox|assistant|service)
       profile="$1"
       ;;
     --desktop)
@@ -57,8 +57,8 @@ if ! profile="$(dotfiles_resolve_profile "$profile")"; then
   exit 2
 fi
 
-if [ "$desktop_baseline" -eq 1 ] && [ "$profile" != "devbox" ]; then
-  printf 'FAILED: --desktop requires --profile devbox\n' >&2
+if [ "$desktop_baseline" -eq 1 ] && ! dotfiles_profile_is_devbox "$profile"; then
+  printf 'FAILED: --desktop requires a devbox profile\n' >&2
   exit 2
 fi
 
@@ -348,7 +348,7 @@ check_ghostty_ssh_integration() {
 }
 
 check_remote_ssh_prompt() {
-  if [ "$profile" != "devbox" ]; then
+  if ! dotfiles_profile_is_devbox "$profile"; then
     return
   fi
 
@@ -382,7 +382,7 @@ check_cli_tools() {
         done
       fi
       ;;
-    devbox)
+    personal-devbox|devbox)
       for check in "${devbox_cli_checks[@]}"; do
         run_zsh_check "$check"
       done
@@ -408,7 +408,7 @@ check_brew_bundle() {
 }
 
 check_devbox_homebrew() {
-  if [ "$profile" != "devbox" ]; then
+  if ! dotfiles_profile_is_devbox "$profile"; then
     return
   fi
 

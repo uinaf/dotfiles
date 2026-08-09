@@ -1,7 +1,8 @@
 # Devbox Setup
 
 Devbox automation keeps dedicated Unix users reproducible without making
-secrets or identities part of the public dotfiles repository. Assistant and
+secrets or identities part of the public dotfiles repository. Personal-devbox
+uses the devbox operational contract with personal agent skills. Assistant and
 service profiles reuse the same Unix-user and service boundaries without
 inheriting the coding toolchain or a human Git identity. Services remain
 non-persona workloads and do not inherit assistant runtime or authentication.
@@ -84,7 +85,8 @@ authorization mechanism; HTTPS push and GitHub API operations use the short-
 lived App token.
 
 Devbox Git repositories normally use SSH remotes for human identities.
-`configure-git.sh --profile devbox` writes a `Host github.com` override in
+`configure-git.sh --profile devbox` (or `personal-devbox`) writes a
+`Host github.com` override in
 `~/.ssh/github.config` when the signing key is a local path.
 
 ## Local Contract
@@ -136,6 +138,9 @@ Run each check as the intended Unix identity:
 ./scripts/verify/devbox-services.sh
 ./scripts/audit/devbox.sh --json
 ```
+
+Use `--profile personal-devbox` for the bootstrap check on an owner-operated
+personal devbox. The service verification and audit commands are unchanged.
 
 The bootstrap gate checks the selected profile packages and shared config. The
 service gate verifies the age identity, local config, and launchd boundary. The

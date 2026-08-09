@@ -17,11 +17,11 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 usage() {
   cat <<EOF
-usage: $0 [--profile personal|workstation|devbox|assistant|service] [--non-interactive]
+usage: $0 [--profile personal|personal-devbox|workstation|devbox|assistant|service] [--non-interactive]
 
-Personal, workstation, and devbox profiles configure human identity. Assistant
-and service profiles write an explicit workload commit identity without signing
-or SSH authentication.
+Personal, personal-devbox, workstation, and devbox profiles configure human
+identity. Assistant and service profiles write an explicit workload commit
+identity without signing or SSH authentication.
 
 Writes:
   ~/.gitconfig.local
@@ -256,7 +256,7 @@ if [ -z "$profile" ]; then
       printf '%s\n' 'stored or environment profile is invalid' >&2
       exit 2
     fi
-    profile="$(prompt 'Profile (personal/workstation/devbox/assistant/service)' workstation)"
+    profile="$(prompt 'Profile (personal/personal-devbox/workstation/devbox/assistant/service)' workstation)"
   fi
 fi
 
@@ -266,7 +266,7 @@ if ! profile="$(dotfiles_normalize_profile "$profile")"; then
 fi
 
 case "$profile" in
-  devbox)
+  personal-devbox|devbox)
     sign_commits="${sign_commits:-true}"
     ;;
   assistant|service)
@@ -337,7 +337,7 @@ if [ "$sign_commits" = "true" ]; then
   fi
 fi
 
-if [ -z "$git_ssh_identity_file" ] && [ "$profile" = "devbox" ]; then
+if [ -z "$git_ssh_identity_file" ] && dotfiles_profile_is_devbox "$profile"; then
   git_ssh_identity_file="$signing_key"
 fi
 
@@ -370,7 +370,7 @@ fi
   printf '\tgpgsign = %s\n' "$sign_commits"
   printf '\n[tag]\n'
   printf '\tgpgsign = %s\n' "$sign_commits"
-  if [ "$profile" = "devbox" ]; then
+  if dotfiles_profile_is_devbox "$profile"; then
     printf '\n[safe]\n'
     printf '\tdirectory = /opt/homebrew\n'
   fi

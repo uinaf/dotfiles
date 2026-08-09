@@ -38,7 +38,22 @@ render_target() {
     cat "$home/$target"
 }
 
+managed_paths() {
+  local profile="$1"
+  local home="$tmp_root/managed-$profile"
+  local data
+
+  mkdir -p "$home"
+  data="$(printf '{"dotfilesProfile":"%s"}' "$profile")"
+  chezmoi \
+    --source "$repo_root/chezmoi" \
+    --destination "$home" \
+    --override-data "$data" \
+    managed --path-style relative
+}
+
 assert_eq personal "$(dotfiles_normalize_profile personal)" "personal profile"
+assert_eq personal-devbox "$(dotfiles_normalize_profile personal-devbox)" "personal devbox profile"
 assert_eq workstation "$(dotfiles_normalize_profile workstation)" "workstation profile"
 assert_eq devbox "$(dotfiles_normalize_profile devbox)" "devbox profile"
 assert_eq assistant "$(dotfiles_normalize_profile assistant)" "assistant profile"
@@ -47,7 +62,25 @@ if dotfiles_normalize_profile unsupported >/dev/null 2>&1; then
   fail "unsupported profile was accepted"
 fi
 
-if ! dotfiles_profile_requires_sops_identity devbox \
+for supported_profile in $(dotfiles_profiles); do
+  for predicate in \
+    dotfiles_profile_is_developer \
+    dotfiles_profile_is_workload \
+    dotfiles_profile_uses_shared_brew \
+    dotfiles_profile_requires_sops_identity \
+    dotfiles_profile_is_devbox; do
+    if "$predicate" "$supported_profile"; then
+      predicate_status=0
+    else
+      predicate_status=$?
+    fi
+    [ "$predicate_status" -le 1 ] \
+      || fail "$predicate returned unsupported for supported profile $supported_profile"
+  done
+done
+
+if ! dotfiles_profile_requires_sops_identity personal-devbox \
+  || ! dotfiles_profile_requires_sops_identity devbox \
   || ! dotfiles_profile_requires_sops_identity assistant \
   || ! dotfiles_profile_requires_sops_identity service; then
   fail "secret-consuming profiles must require a SOPS age identity"
@@ -113,6 +146,28 @@ assert_eq assistant "$(HOME="$profile_home" dotfiles_resolve_profile)" \
   "unterminated single-record persisted profile"
 rm "$profile_home/.config/dotfiles/profile"
 
+agent_sync_home="$tmp_root/agent-sync-profile"
+mkdir -p "$agent_sync_home/.config/dotfiles"
+printf 'personal-devbox\n' > "$agent_sync_home/.config/dotfiles/profile"
+assert_eq personal-devbox "$({
+  HOME="$agent_sync_home" \
+  DOTFILES_PROFILE=workstation \
+  DOTFILES_PROFILE_FILE="$tmp_root/ignored-profile" \
+    "$repo_root/scripts/agents/resolve-profile.sh" --expected personal-devbox
+})" "agent sync canonical profile"
+if HOME="$agent_sync_home" \
+  "$repo_root/scripts/agents/resolve-profile.sh" --expected devbox >/dev/null 2>&1; then
+  fail "agent sync accepted a mismatched expected profile"
+elif [ "$?" -ne 3 ]; then
+  fail "agent sync mismatch did not return refusal status"
+fi
+printf 'assistant\n' > "$agent_sync_home/.config/dotfiles/profile"
+if HOME="$agent_sync_home" "$repo_root/scripts/agents/resolve-profile.sh" >/dev/null 2>&1; then
+  fail "assistant profile accepted agent sync"
+elif [ "$?" -ne 3 ]; then
+  fail "assistant agent sync refusal returned the wrong status"
+fi
+
 config_home="$tmp_root/config-paths"
 mkdir -p "$config_home/.config/dotfiles"
 assert_eq "$config_home/.config/dotfiles/devbox.env" \
@@ -149,6 +204,8 @@ service_files="$(dotfiles_profile_brewfiles service)"
 assert_eq "$(printf 'Brewfile\nBrewfile.service')" "$service_files" "service Brewfile layers"
 devbox_files="$(dotfiles_profile_brewfiles devbox)"
 assert_eq "$(printf 'Brewfile\nBrewfile.developer\nBrewfile.devbox')" "$devbox_files" "devbox Brewfile layers"
+personal_devbox_files="$(dotfiles_profile_brewfiles personal-devbox)"
+assert_eq "$devbox_files" "$personal_devbox_files" "personal devbox Brewfile layers"
 workstation_files="$(dotfiles_profile_brewfiles workstation)"
 assert_eq "$(printf 'Brewfile\nBrewfile.developer\nBrewfile.workstation')" "$workstation_files" "workstation Brewfile layers"
 personal_files="$(dotfiles_profile_brewfiles personal)"
@@ -223,6 +280,8 @@ for step in apply-dotfiles install-cursor-agent trust-agent-worktrees install-gh
 done
 devbox_steps="$("$repo_root/scripts/bootstrap/install.sh" --print-steps --profile devbox)"
 assert_eq "$developer_steps" "$devbox_steps" "devbox developer install steps"
+personal_devbox_steps="$("$repo_root/scripts/bootstrap/install.sh" --print-steps --profile personal-devbox)"
+assert_eq "$devbox_steps" "$personal_devbox_steps" "personal devbox developer install steps"
 personal_steps="$("$repo_root/scripts/bootstrap/install.sh" --print-steps --profile personal)"
 assert_eq "$developer_steps" "$personal_steps" "personal developer install steps"
 
@@ -248,7 +307,9 @@ EOF
 done
 cat > "$install_fixture/scripts/agents/sync.ts" <<'EOF'
 #!/usr/bin/env bash
-printf 'sync.ts\n' >> "${DOTFILES_INSTALL_LOG:?}"
+printf 'sync.ts' >> "${DOTFILES_INSTALL_LOG:?}"
+[ "$#" -eq 0 ] || printf ' %s' "$@" >> "${DOTFILES_INSTALL_LOG:?}"
+printf '\n' >> "${DOTFILES_INSTALL_LOG:?}"
 EOF
 chmod 0700 "$install_fixture/scripts/agents/sync.ts"
 for command_name in corepack mise npm codex; do
@@ -309,7 +370,7 @@ mise reshim --force
 corepack enable pnpm
 corepack install --global pnpm@11.20.0
 configure-codex.sh
-sync.ts
+sync.ts --profile devbox
 EOF
 )"
 assert_eq "$expected_install_log" "$(cat "$install_log")" "devbox install execution"
@@ -370,12 +431,15 @@ done
 
 devbox_mise="$(render_target devbox .config/mise/config.toml)"
 assert_eq "$workstation_mise" "$devbox_mise" "devbox developer mise config"
+personal_devbox_mise="$(render_target personal-devbox .config/mise/config.toml)"
+assert_eq "$devbox_mise" "$personal_devbox_mise" "personal devbox mise config"
 personal_mise="$(render_target personal .config/mise/config.toml)"
 assert_eq "$workstation_mise" "$personal_mise" "personal developer mise config"
 
 assert_eq assistant "$(render_target assistant .config/dotfiles/profile)" "rendered assistant profile"
 assert_eq service "$(render_target service .config/dotfiles/profile)" "rendered service profile"
 assert_eq personal "$(render_target personal .config/dotfiles/profile)" "rendered personal profile"
+assert_eq personal-devbox "$(render_target personal-devbox .config/dotfiles/profile)" "rendered personal devbox profile"
 
 assistant_managed="$({
   data='{"dotfilesProfile":"assistant"}'
@@ -447,6 +511,8 @@ devbox_managed="$({
     --override-data "$data" \
     managed --path-style relative
 })"
+personal_devbox_managed="$(managed_paths personal-devbox)"
+assert_eq "$devbox_managed" "$personal_devbox_managed" "personal devbox managed dotfiles"
 for required_path in \
   '.config/git/allowed_signers' \
   '.gitconfig' \

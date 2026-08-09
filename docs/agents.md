@@ -1,8 +1,9 @@
 # Agent Setup
 
-The workstation and devbox profiles install machine-global instructions and
-skills from `scripts/agents/`. Assistant and service profiles do not install
-coding agents, global instructions, or development skills.
+The personal, personal-devbox, workstation, and devbox profiles install
+machine-global instructions and skills from `scripts/agents/`. Assistant and
+service profiles refuse agent sync and do not install coding agents, global
+instructions, or development skills.
 
 ## Sync
 
@@ -13,17 +14,26 @@ mise run agents:sync
 mise run agents:sync -- --update
 ```
 
-The equivalent direct entrypoint is `./scripts/agents/sync.ts`.
+The equivalent direct entrypoint is `./scripts/agents/sync.ts`. Sync reads the
+secure persisted profile marker before pulling or changing global state.
 
 The sync fast-forwards the clean dotfiles checkout, generates
 `scripts/agents/rules/final.md`, links it to installed Codex and Claude Code
-entrypoints, and installs every entry in `scripts/agents/skills.json`. The
-ignored `scripts/agents/skills.lock.json` records the last manifest successfully
-applied by this checkout. Later syncs remove skills dropped from that lock while
+entrypoints, and installs the effective selection from
+`scripts/agents/skills/shared.json` and `scripts/agents/skills/personal.json`.
+Personal and personal-devbox install both layers; workstation and devbox
+install only shared. The ignored `scripts/agents/skills.lock.json` records the
+last manifest successfully applied by this checkout. Later syncs remove skills
+dropped from that lock while
 preserving globally installed skills the lock never owned. Removing an owned
 skill also removes its links from every agent configured by the skills CLI.
 Retired owned skills are still removed when neither supported coding agent is
 installed; only current-skill installation is skipped.
+
+Upgrading directly from the former single-manifest sync is intentionally a
+breaking transition. An old sync process can fast-forward the checkout and then
+fail because its manifest path no longer exists. Rerun `mise run agents:sync`;
+the new entrypoint reads the layered manifests and completes the migration.
 
 Pass `--update` to run `skills update -g` after a successful manifest sync.
 That refreshes every globally installed skill, including extras the lock never
@@ -40,8 +50,10 @@ Shared first-party skills live in [`uinaf/skills`](https://github.com/uinaf/skil
 The attach-cli skill ships with
 [`uinaf/attach`](https://github.com/uinaf/attach), the autoreview skill with
 [`uinaf/autoreview`](https://github.com/uinaf/autoreview), and the slopomatic
-skill with [`uinaf/slopomatic`](https://github.com/uinaf/slopomatic). Each
-invokes the CLI installed by the developer Homebrew layer.
+skill with [`uinaf/slopomatic`](https://github.com/uinaf/slopomatic).
+The personal uinaf-design skill ships with
+[`uinaf/design`](https://github.com/uinaf/design). CLI-backed skills invoke
+tools installed by the developer Homebrew layer.
 
 Regular files and foreign symlinks at the global instruction entrypoints are
 rejected before global state changes.
@@ -53,8 +65,10 @@ rejected before global state changes.
 | `scripts/agents/rules/base.md` | Tracked global rules. |
 | `scripts/agents/rules/local.md` | Ignored optional machine overrides. |
 | `scripts/agents/rules/final.md` | Ignored generated rules linked into installed agents. |
-| `scripts/agents/skills.json` | Tracked desired managed skill selection. |
+| `scripts/agents/skills/shared.json` | Shared managed skill selection. |
+| `scripts/agents/skills/personal.json` | Personal additions for personal and personal-devbox. |
 | `scripts/agents/skills.lock.json` | Ignored machine-local ownership ledger for safe removal. |
+| `scripts/agents/resolve-profile.sh` | Strict persisted-profile resolver used before sync mutation. |
 | `scripts/agents/sync.ts` | Executable sync entrypoint. |
 
 ## Local Rules
@@ -70,5 +84,5 @@ owning repository, then rerun the sync.
 ## Verify
 
 Repository verification exercises the typed sync in an isolated fixture. A
-live workstation or devbox bootstrap runs the same sync after Codex, Claude
-Code, Node, and pnpm are installed.
+live developer-profile bootstrap runs the same sync after Codex, Claude Code,
+Node, and pnpm are installed.

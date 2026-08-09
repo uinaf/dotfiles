@@ -11,7 +11,7 @@ print_steps=0
 usage() {
   cat <<'USAGE'
 Usage:
-  scripts/bootstrap/install.sh --profile personal|workstation|devbox|assistant|service
+  scripts/bootstrap/install.sh --profile personal|personal-devbox|workstation|devbox|assistant|service
   scripts/bootstrap/install.sh --print-steps --profile PROFILE
 
 Applies per-user dotfiles and runs only the setup steps owned by the selected
@@ -45,7 +45,7 @@ while [ "$#" -gt 0 ]; do
 done
 
 if ! profile="$(dotfiles_resolve_profile "$profile")"; then
-  printf 'a supported profile is required: personal, workstation, devbox, assistant, or service\n' >&2
+  printf 'a supported profile is required: personal, personal-devbox, workstation, devbox, assistant, or service\n' >&2
   exit 2
 fi
 
@@ -116,7 +116,7 @@ run_step() {
       fi
       ;;
     sync-agents)
-      "$repo_root/scripts/agents/sync.ts"
+      "$repo_root/scripts/agents/sync.ts" --profile "$profile"
       ;;
     *)
       printf 'unsupported install step: %s\n' "$1" >&2

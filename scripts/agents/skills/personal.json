@@ -1,0 +1,12 @@
+{
+  "skills": [
+    {
+      "name": "attach-cli",
+      "source": "uinaf/attach"
+    },
+    {
+      "name": "uinaf-design",
+      "source": "uinaf/design"
+    }
+  ]
+}

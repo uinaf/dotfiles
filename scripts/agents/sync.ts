@@ -24,6 +24,25 @@ const MAX_DIAGNOSTIC_LINES = 3;
 
 type Agent = "claude-code" | "codex";
 
+export type Profile =
+  | "personal"
+  | "personal-devbox"
+  | "workstation"
+  | "devbox"
+  | "assistant"
+  | "service";
+
+type SkillLayer = "shared" | "personal";
+
+export const PROFILE_SKILL_LAYERS: Record<Profile, readonly SkillLayer[] | undefined> = {
+  personal: ["shared", "personal"],
+  "personal-devbox": ["shared", "personal"],
+  workstation: ["shared"],
+  devbox: ["shared"],
+  assistant: undefined,
+  service: undefined,
+};
+
 type Skill = {
   name: string;
   source: string;
@@ -247,6 +266,63 @@ function readSkills(manifestPath: string): Skill[] {
   }
 
   return parsed.skills;
+}
+
+function isProfile(value: string): value is Profile {
+  return Object.hasOwn(PROFILE_SKILL_LAYERS, value);
+}
+
+function resolveProfile(
+  runtime: Runtime,
+  scriptDir: string,
+  expectedProfile: string | undefined,
+): Profile {
+  const args = expectedProfile === undefined ? [] : ["--expected", expectedProfile];
+  const result = runtime.run(join(scriptDir, "resolve-profile.sh"), args, {
+    stdout: "capture",
+    stderr: "capture",
+  });
+  if (result.status !== 0) {
+    const detail = result.stderr.trim();
+    throw new Error(`Profile resolution failed${detail ? `: ${detail}` : ""}`);
+  }
+
+  const profile = result.stdout.trim();
+  if (!isProfile(profile) || PROFILE_SKILL_LAYERS[profile] === undefined) {
+    throw new Error(`Profile resolver returned an unsupported agent profile: ${profile || "<empty>"}`);
+  }
+  return profile;
+}
+
+function readLayeredSkills(
+  repoDir: string,
+  profile: Profile,
+): { layers: readonly SkillLayer[]; skills: Skill[] } {
+  const layers = PROFILE_SKILL_LAYERS[profile];
+  if (layers === undefined) {
+    throw new Error(`Profile ${profile} does not manage agent skills`);
+  }
+
+  const manifests = new Map<SkillLayer, Skill[]>();
+  for (const layer of ["shared", "personal"] as const) {
+    manifests.set(
+      layer,
+      readSkills(join(repoDir, "scripts", "agents", "skills", `${layer}.json`)),
+    );
+  }
+
+  const skills = layers.flatMap((layer) => manifests.get(layer) ?? []);
+  const sources = new Map<string, string>();
+  for (const skill of skills) {
+    const previousSource = sources.get(skill.name);
+    if (previousSource !== undefined) {
+      const detail = previousSource === skill.source ? skill.source : `${previousSource} and ${skill.source}`;
+      throw new Error(`Invalid layered skills: ${skill.name} is defined more than once (${detail})`);
+    }
+    sources.set(skill.name, skill.source);
+  }
+
+  return { layers, skills };
 }
 
 function readSkillLock(lockPath: string): Skill[] | undefined {
@@ -620,6 +696,7 @@ function removeSkills(
 }
 
 type SyncOptions = {
+  profile?: string;
   update: boolean;
 };
 
@@ -628,14 +705,28 @@ type ParsedArgs =
   | { kind: "help" }
   | { kind: "error"; message: string };
 
-const USAGE = "Usage: ./scripts/agents/sync.ts [--update]";
+const USAGE = "Usage: ./scripts/agents/sync.ts [--profile PROFILE] [--update]";
 
 export function parseArgs(args: readonly string[]): ParsedArgs {
+  let profile: string | undefined;
   let update = false;
 
-  for (const arg of args) {
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
     if (arg === "--update") {
       update = true;
+      continue;
+    }
+    if (arg === "--profile") {
+      if (profile !== undefined) {
+        return { kind: "error", message: `${USAGE}\n--profile may be provided only once` };
+      }
+      const value = args[index + 1];
+      if (value === undefined) {
+        return { kind: "error", message: `${USAGE}\n--profile requires a value` };
+      }
+      profile = value;
+      index += 1;
       continue;
     }
     if (arg === "--help" || arg === "-h") {
@@ -644,7 +735,7 @@ export function parseArgs(args: readonly string[]): ParsedArgs {
     return { kind: "error", message: `${USAGE}\nUnknown argument: ${arg}` };
   }
 
-  return { kind: "run", options: { update } };
+  return { kind: "run", options: { profile, update } };
 }
 
 function finishSync(runtime: Runtime, options: SyncOptions, cliVersion: string): number {
@@ -661,6 +752,7 @@ function finishSync(runtime: Runtime, options: SyncOptions, cliVersion: string):
 
 function sync(runtime: Runtime, options: SyncOptions): number {
   const scriptDir = dirname(fileURLToPath(import.meta.url));
+  const profile = resolveProfile(runtime, scriptDir, options.profile);
   const repoResult = runtime.run("git", ["-C", scriptDir, "rev-parse", "--show-toplevel"], {
     stdout: "capture",
     stderr: "capture",
@@ -688,10 +780,9 @@ function sync(runtime: Runtime, options: SyncOptions): number {
   );
   requireUpstreamHead(runtime, repoDir);
 
-  const manifestPath = join(repoDir, "scripts", "agents", "skills.json");
-  const skills = existsSync(manifestPath) ? readSkills(manifestPath) : undefined;
+  const { layers, skills } = readLayeredSkills(repoDir, profile);
   const skillLockPath = join(repoDir, "scripts", "agents", "skills.lock.json");
-  const previouslyManagedSkills = skills === undefined ? undefined : readSkillLock(skillLockPath);
+  const previouslyManagedSkills = readSkillLock(skillLockPath);
   const agentsDir = join(repoDir, "scripts", "agents");
   const finalRules = join(agentsDir, "rules", "final.md");
   const previousFinalRules = join(agentsDir, "rules.final.md");
@@ -705,12 +796,8 @@ function sync(runtime: Runtime, options: SyncOptions): number {
   const agents = configureAgents(runtime, links, finalRules);
   rmSync(previousFinalRules, { force: true });
 
-  if (skills === undefined) {
-    writeLine(runtime.stdout, `No skills manifest found at ${manifestPath}`);
-    return finishSync(runtime, options, cliVersion);
-  }
-
-  writeLine(runtime.stdout, `Using skills manifest: ${manifestPath}`);
+  writeLine(runtime.stdout, `Profile: ${profile}`);
+  writeLine(runtime.stdout, `Skill layers: ${layers.join(", ")}`);
   if (agents.length === 0) {
     writeLine(runtime.stdout, "No supported agent installations found; skipping skill installation");
   } else {

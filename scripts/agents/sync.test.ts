@@ -11,11 +11,11 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { afterEach, test } from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { main, type Runtime } from "./sync.ts";
+import { main, PROFILE_SKILL_LAYERS, type Profile, type Runtime } from "./sync.ts";
 
 type CommandCall = {
   command: string;
@@ -29,6 +29,7 @@ type FixtureOptions = {
   failures?: ReadonlyMap<string, FixtureFailure>;
   gitDir?: string;
   head?: string;
+  profile?: Profile;
   removalFailures?: ReadonlyMap<string, FixtureFailure>;
   trackedChanges?: string;
   updateFailure?: FixtureFailure;
@@ -61,6 +62,7 @@ class FixtureRuntime implements Runtime {
   readonly gitDir: string;
   readonly head: string;
   readonly home: string;
+  readonly profile: Profile;
   readonly repoDir: string;
   readonly removalFailures: ReadonlyMap<string, FixtureFailure>;
   readonly trackedChanges: string;
@@ -77,6 +79,7 @@ class FixtureRuntime implements Runtime {
     this.gitDir = options.gitDir ?? ".git";
     this.head = options.head ?? "same-head";
     this.home = home;
+    this.profile = options.profile ?? "workstation";
     this.trackedChanges = options.trackedChanges ?? "";
     this.updateFailure = options.updateFailure;
     this.upstream = options.upstream ?? this.head;
@@ -89,6 +92,18 @@ class FixtureRuntime implements Runtime {
 
   run(command: string, args: readonly string[]): { status: number; stdout: string; stderr: string } {
     this.calls.push({ command, args });
+
+    if (command.endsWith("/resolve-profile.sh")) {
+      const expectedFlag = args.indexOf("--expected");
+      const expected = expectedFlag >= 0 ? args[expectedFlag + 1] : undefined;
+      if (expected !== undefined && expected !== this.profile) {
+        return { status: 3, stdout: "", stderr: "profile mismatch" };
+      }
+      if (PROFILE_SKILL_LAYERS[this.profile] === undefined) {
+        return { status: 3, stdout: "", stderr: "profile does not manage agents" };
+      }
+      return { status: 0, stdout: `${this.profile}\n`, stderr: "" };
+    }
 
     if (command === "git" && args.includes("rev-parse")) {
       if (args.includes("--show-toplevel")) {
@@ -171,6 +186,8 @@ const fixtureSkills = [
   { name: "ok-after", source: "fixture/after" },
 ];
 
+const fixturePersonalSkills = [{ name: "personal-only", source: "fixture/personal" }];
+
 afterEach(() => {
   for (const path of temporaryDirectories.splice(0)) {
     rmSync(path, { force: true, recursive: true });
@@ -184,17 +201,16 @@ function createFixture(): { repoDir: string; home: string } {
   const home = join(root, "home");
 
   mkdirSync(join(repoDir, "scripts", "agents", "rules"), { recursive: true });
+  mkdirSync(join(repoDir, "scripts", "agents", "skills"), { recursive: true });
   mkdirSync(home, { recursive: true });
   writeFileSync(join(repoDir, "scripts", "agents", "rules", "base.md"), "# Fixture agent rules\n");
   writeFileSync(
-    join(repoDir, "scripts", "agents", "skills.json"),
-    JSON.stringify(
-      {
-        skills: fixtureSkills,
-      },
-      null,
-      2,
-    ),
+    join(repoDir, "scripts", "agents", "skills", "shared.json"),
+    JSON.stringify({ skills: fixtureSkills }, null, 2),
+  );
+  writeFileSync(
+    join(repoDir, "scripts", "agents", "skills", "personal.json"),
+    JSON.stringify({ skills: fixturePersonalSkills }, null, 2),
   );
   writeFileSync(
     join(repoDir, "scripts", "agents", "skills.lock.json"),
@@ -387,6 +403,42 @@ test("completes a successful sync and preserves rules links", () => {
   const finalRules = join(repoDir, "scripts", "agents", "rules", "final.md");
   assert.equal(readlinkSync(join(home, ".claude", "CLAUDE.md")), finalRules);
   assert.equal(readlinkSync(join(home, ".codex", "AGENTS.md")), finalRules);
+});
+
+test("installs the personal layer only for personal profiles", () => {
+  const { repoDir, home } = createFixture();
+  const runtime = new FixtureRuntime(repoDir, home, { profile: "personal-devbox" });
+
+  assert.equal(main(["--profile", "personal-devbox"], runtime), 0);
+  assert.deepEqual(installedSkillNames(runtime), [...fixtureSkills, ...fixturePersonalSkills].map((skill) => skill.name));
+  assert.match(runtime.stdout.value, /Profile: personal-devbox/);
+  assert.match(runtime.stdout.value, /Skill layers: shared, personal/);
+});
+
+test("rejects duplicate names across selected layers before changing rules", () => {
+  const { repoDir, home } = createFixture();
+  writeFileSync(finalRulesPath(repoDir), "old generated rules\n");
+  createManagedRuleLinks(repoDir, home);
+  writeFileSync(
+    join(repoDir, "scripts", "agents", "skills", "personal.json"),
+    JSON.stringify({ skills: [{ name: fixtureSkills[0]?.name, source: "fixture/conflict" }] }),
+  );
+  const runtime = new FixtureRuntime(repoDir, home, { profile: "personal" });
+
+  assert.equal(main([], runtime), 1);
+  assert.match(runtime.stderr.value, /Invalid layered skills/);
+  assert.equal(readFileSync(finalRulesPath(repoDir), "utf8"), "old generated rules\n");
+  assert.equal(installedSkillNames(runtime).length, 0);
+});
+
+test("refuses profiles without agent setup before touching Git", () => {
+  const { repoDir, home } = createFixture();
+  const runtime = new FixtureRuntime(repoDir, home, { profile: "assistant" });
+
+  assert.equal(main([], runtime), 1);
+  assert.match(runtime.stderr.value, /Profile resolution failed/);
+  assert.equal(runtime.calls.length, 1);
+  assert.ok(runtime.calls[0]?.command.endsWith("/resolve-profile.sh"));
 });
 
 test("initializes a missing ownership lock without removing unowned skills", () => {
@@ -651,7 +703,7 @@ test("rejects an invalid manifest before changing generated or global rules", ()
   writeFileSync(finalRulesPath(repoDir), "old generated rules\n");
   createManagedRuleLinks(repoDir, home);
   writeFileSync(
-    join(repoDir, "scripts", "agents", "skills.json"),
+    join(repoDir, "scripts", "agents", "skills", "shared.json"),
     '{"skills":[{"name":"missing-source"}]}',
   );
   const runtime = new FixtureRuntime(repoDir, home);
@@ -670,7 +722,7 @@ test("rejects unknown sync arguments without changing state", () => {
   const runtime = new FixtureRuntime(repoDir, home);
 
   assert.equal(main(["--refresh"], runtime), 2);
-  assert.match(runtime.stderr.value, /Usage: \.\/scripts\/agents\/sync\.ts \[--update\]/);
+  assert.match(runtime.stderr.value, /Usage: \.\/scripts\/agents\/sync\.ts \[--profile PROFILE\] \[--update\]/);
   assert.match(runtime.stderr.value, /Unknown argument: --refresh/);
   assert.equal(runtime.calls.length, 0);
   assert.equal(existsSync(finalRulesPath(repoDir)), false);
@@ -681,7 +733,7 @@ test("prints help without syncing", () => {
   const runtime = new FixtureRuntime(repoDir, home);
 
   assert.equal(main(["--help"], runtime), 0);
-  assert.match(runtime.stdout.value, /Usage: \.\/scripts\/agents\/sync\.ts \[--update\]/);
+  assert.match(runtime.stdout.value, /Usage: \.\/scripts\/agents\/sync\.ts \[--profile PROFILE\] \[--update\]/);
   assert.equal(runtime.calls.length, 0);
   assert.equal(existsSync(finalRulesPath(repoDir)), false);
 });
@@ -738,27 +790,28 @@ test("skips the updater when managed skill installation fails", () => {
 
 test("uses the current first-party skill sources", () => {
   const scriptDir = dirname(fileURLToPath(import.meta.url));
-  const manifest: unknown = JSON.parse(
-    readFileSync(join(scriptDir, "skills.json"), "utf8"),
+  const manifests: unknown[] = ["shared", "personal"].map((layer) =>
+    JSON.parse(readFileSync(join(scriptDir, "skills", `${layer}.json`), "utf8")),
   );
 
-  assert.ok(
-    typeof manifest === "object" &&
-      manifest !== null &&
-      "skills" in manifest &&
-      Array.isArray(manifest.skills),
-  );
-
-  const skills = manifest.skills.map((skill: unknown) => {
+  const skills = manifests.flatMap((manifest) => {
     assert.ok(
-      typeof skill === "object" &&
-        skill !== null &&
-        "name" in skill &&
-        typeof skill.name === "string" &&
-        "source" in skill &&
-        typeof skill.source === "string",
+      typeof manifest === "object" &&
+        manifest !== null &&
+        "skills" in manifest &&
+        Array.isArray(manifest.skills),
     );
-    return { name: skill.name, source: skill.source };
+    return manifest.skills.map((skill: unknown) => {
+      assert.ok(
+        typeof skill === "object" &&
+          skill !== null &&
+          "name" in skill &&
+          typeof skill.name === "string" &&
+          "source" in skill &&
+          typeof skill.source === "string",
+      );
+      return { name: skill.name, source: skill.source };
+    });
   });
   const sources = skills.map((skill) => skill.source);
   const sourceByName = new Map(skills.map((skill) => [skill.name, skill.source]));
@@ -766,8 +819,61 @@ test("uses the current first-party skill sources", () => {
   assert.equal(sources.includes("uinaf/agents"), false);
   assert.equal(sources.includes("uinaf/skills"), true);
   assert.equal(sourceByName.get("attach-cli"), "uinaf/attach");
+  assert.equal(sourceByName.get("uinaf-design"), "uinaf/design");
   assert.equal(sourceByName.get("autoreview"), "uinaf/autoreview");
   assert.equal(sourceByName.get("slopomatic"), "uinaf/slopomatic");
+
+  const preSplitInventory = [
+    ["agent-dx-cli-scale", "jpoehnelt/skills"],
+    ["agent-readiness", "uinaf/skills"],
+    ["attach-cli", "uinaf/attach"],
+    ["autoreview", "uinaf/autoreview"],
+    ["docs", "uinaf/skills"],
+    ["i-have-adhd", "ayghri/i-have-adhd"],
+    ["gh-setup", "uinaf/skills"],
+    ["gh-stack", "github/gh-stack"],
+    ["grilling", "mattpocock/skills"],
+    ["improve", "shadcn/improve"],
+    ["planning", "uinaf/skills"],
+    ["react-ban-use-effect", "uinaf/skills"],
+    ["shadcn", "shadcn/ui"],
+    ["skill-audit", "uinaf/skills"],
+    ["slopomatic", "uinaf/slopomatic"],
+    ["tanstack-form", "tanstack-skills/tanstack-skills"],
+    ["tanstack-query", "tanstack-skills/tanstack-skills"],
+    ["tanstack-start", "tanstack-skills/tanstack-skills"],
+    ["vercel-react-best-practices", "vercel-labs/agent-skills"],
+    ["verify", "uinaf/skills"],
+    ["vite-plus", "uinaf/skills"],
+  ].map(([name, source]) => ({ name, source }));
+  assert.deepEqual(
+    skills.filter((skill) => skill.name !== "uinaf-design").sort((a, b) => a.name.localeCompare(b.name)),
+    preSplitInventory.sort((a, b) => a.name.localeCompare(b.name)),
+  );
+});
+
+test("shell and TypeScript profile contracts stay aligned", () => {
+  const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+  const result = spawnSync(
+    "bash",
+    [
+      "-c",
+      '. "$1/scripts/lib/profile.sh"; dotfiles_profiles; printf "%s\\n" --developers--; for profile in $DOTFILES_PROFILES; do if dotfiles_profile_is_developer "$profile"; then printf "%s\\n" "$profile"; elif [ "$?" -eq 2 ]; then exit 9; fi; done',
+      "profile-contract",
+      repoRoot,
+    ],
+    { encoding: "utf8" },
+  );
+  assert.equal(result.status, 0, result.stderr);
+  const [profilesOutput, developersOutput] = result.stdout.split("--developers--\n");
+  assert.deepEqual(profilesOutput?.trim().split("\n").sort(), Object.keys(PROFILE_SKILL_LAYERS).sort());
+  assert.deepEqual(
+    developersOutput?.trim().split("\n").sort(),
+    Object.entries(PROFILE_SKILL_LAYERS)
+      .filter(([, layers]) => layers !== undefined)
+      .map(([profile]) => profile)
+      .sort(),
+  );
 });
 
 test("the executable TypeScript entrypoint runs the CLI", () => {
@@ -775,6 +881,6 @@ test("the executable TypeScript entrypoint runs the CLI", () => {
   const result = spawnSync(scriptPath, ["unexpected"], { encoding: "utf8" });
 
   assert.equal(result.status, 2);
-  assert.match(result.stderr, /Usage: \.\/scripts\/agents\/sync\.ts \[--update\]/);
+  assert.match(result.stderr, /Usage: \.\/scripts\/agents\/sync\.ts \[--profile PROFILE\] \[--update\]/);
   assert.match(result.stderr, /Unknown argument: unexpected/);
 });

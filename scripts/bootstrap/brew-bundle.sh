@@ -16,6 +16,7 @@ usage() {
 Usage:
   scripts/bootstrap/brew-bundle.sh workstation
   scripts/bootstrap/brew-bundle.sh devbox
+  scripts/bootstrap/brew-bundle.sh personal-devbox
   scripts/bootstrap/brew-bundle.sh assistant
   scripts/bootstrap/brew-bundle.sh service
   scripts/bootstrap/brew-bundle.sh personal
@@ -25,7 +26,7 @@ Usage:
   scripts/bootstrap/brew-bundle.sh --shared-only service
   scripts/bootstrap/brew-bundle.sh --print-files PROFILE
 
-Installs the minimal base first, the developer layer for personal/workstation/devbox,
+Installs the minimal base first, the developer layer for personal/personal-devbox/workstation/devbox,
 then the selected profile layers. --shared-only installs only the base.
 An owner-controlled external-homebrew file can validate and skip entries
 supplied by another trusted installer.
@@ -35,7 +36,7 @@ USAGE
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
-    personal|workstation|devbox|assistant|service)
+    personal|personal-devbox|workstation|devbox|assistant|service)
       if [ -n "$profile" ]; then
         usage >&2
         exit 2
@@ -49,7 +50,7 @@ while [ "$#" -gt 0 ]; do
         exit 2
       fi
       case "$1" in
-        personal|workstation|devbox|assistant|service)
+        personal|personal-devbox|workstation|devbox|assistant|service)
           if [ -n "$profile" ]; then
             usage >&2
             exit 2

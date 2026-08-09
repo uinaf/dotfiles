@@ -2,16 +2,17 @@
 
 Use this guide when installing or refreshing a Mac from this repository.
 
-The repo has five per-user profiles:
+The repo has six per-user profiles:
 
 - `workstation` for a portable human-operated development Mac.
 - `personal` for an opinionated personal Mac extending workstation.
+- `personal-devbox` for an owner-operated devbox with personal agent skills.
 - `devbox` for a remote coding identity on an SSH-first host.
 - `assistant` for an unattended persona or agent identity.
 - `service` for a non-persona managed workload identity.
 
 The role contract and host/user boundary are defined in [User profiles](profiles.md).
-Cursor Agent CLI is required for personal, workstation, and devbox profiles
+Cursor Agent CLI is required for personal, personal-devbox, workstation, and devbox profiles
 and installed by `./scripts/bootstrap/install.sh`. The optional Cursor desktop
 app is available to both interactive profiles and installed with
 `./scripts/bootstrap/install-cursor-desktop.sh`. Devbox shells use Cursor's
@@ -22,7 +23,7 @@ Run commands from the repo root unless a step says otherwise.
 
 Keep the SOPS and age CLIs in the portable Homebrew baseline. Require a
 per-user SOPS age identity only for profiles and workflows that decrypt
-encrypted material (`devbox`, `assistant`, `service`, and any vault or sudo
+encrypted material (`personal-devbox`, `devbox`, `assistant`, `service`, and any vault or sudo
 consumer). Portable `workstation` and `personal` boots can pass readiness
 without an identity; decryption stays fail-closed until one is provisioned.
 When you do create an identity, follow [Identity provisioning](identities.md),
@@ -248,6 +249,11 @@ Verify:
 
 ## Devbox Mac
 
+Use `devbox` for the standard shared-host contract. Use `personal-devbox` for
+the same packages, dotfiles, identity, power, services, and verification plus
+the personal agent-skill layer. It does not install workstation or personal
+desktop applications.
+
 The human owner profile may opt into the compact desktop baseline. It is not
 part of the shared agent-user bootstrap:
 
@@ -263,7 +269,8 @@ only persistent Dock app. Run it only from the logged-in owner account.
 Install shared plus devbox Homebrew dependencies:
 
 ```zsh
-./scripts/bootstrap/brew-bundle.sh devbox
+profile=devbox # use personal-devbox for personal agent skills
+./scripts/bootstrap/brew-bundle.sh "$profile"
 ./scripts/bootstrap/install-blacksmith.sh
 ```
 
@@ -287,12 +294,12 @@ self-updates from `~/.local/bin`.
 Apply dotfiles:
 
 ```zsh
-./scripts/bootstrap/apply-dotfiles.sh --profile devbox
+./scripts/bootstrap/apply-dotfiles.sh --profile "$profile"
 mise trust
 mise install
-./scripts/bootstrap/install.sh --profile devbox
+./scripts/bootstrap/install.sh --profile "$profile"
 ./scripts/secrets/configure-sops-age-identity.sh
-./scripts/bootstrap/configure-power.sh --profile devbox
+./scripts/bootstrap/configure-power.sh --profile "$profile"
 ./scripts/bootstrap/configure-spotlight.sh
 ```
 
@@ -316,7 +323,7 @@ GUI SSH agents:
 GIT_USER_NAME='Devbox Name' \
 GIT_USER_EMAIL='devbox@example.com' \
 GIT_SIGNING_KEY="$HOME/.ssh/devbox-key" \
-  ./scripts/bootstrap/configure-git.sh --profile devbox --non-interactive
+  ./scripts/bootstrap/configure-git.sh --profile "$profile" --non-interactive
 ```
 
 See [Developer Git and SSH](identities.md#developer-git-and-ssh) for key
@@ -330,7 +337,7 @@ let each workspace own its narrow SOPS consumers.
 Verify each devbox user:
 
 ```zsh
-./scripts/verify/bootstrap.sh --profile devbox
+./scripts/verify/bootstrap.sh --profile "$profile"
 ./scripts/audit/host.sh
 ./scripts/verify/devbox-services.sh
 ./scripts/audit/devbox.sh
@@ -426,15 +433,16 @@ profile=workstation # use personal for the opinionated layer
 mise trust
 mise install
 ./scripts/bootstrap/install.sh --profile "$profile"
-# Optional for workstation/personal; required for devbox/assistant/service:
+# Optional for workstation/personal; required for personal-devbox/devbox/assistant/service:
 ./scripts/secrets/configure-sops-age-identity.sh
 ./scripts/bootstrap/configure-power.sh --profile "$profile"
 ./scripts/bootstrap/configure-spotlight.sh
 ./scripts/verify/bootstrap.sh --profile "$profile"
 ```
 
-Use the target Unix user's `devbox`, `assistant`, or `service` role instead when
-appropriate, and keep the age-identity step for those profiles.
+Use the target Unix user's `personal-devbox`, `devbox`, `assistant`, or
+`service` role instead when appropriate, and keep the age-identity step for
+those profiles.
 Existing personal machines whose stored marker is `workstation` should set
 `profile=personal` once to adopt the new personal layer.
 
@@ -475,14 +483,15 @@ can hang.
   correct profile before `./scripts/bootstrap/install.sh`.
 - If Git reports dubious ownership under `/opt/homebrew`, rerun
   `configure-git.sh` for the correct profile.
-- If `git@github.com` fails on a devbox but the key is present, rerun
-  `configure-git.sh --profile devbox --non-interactive` with
+- If `git@github.com` fails on a devbox profile but the key is present, rerun
+  `configure-git.sh --profile devbox --non-interactive` (or use
+  `personal-devbox`) with
   `GIT_SIGNING_KEY` or `GIT_SSH_IDENTITY_FILE` pointing at the owner-only local
   private key file.
 - If shared env access is missing over SSH, check the SOPS recipient and
   deployment identity in [Devbox setup](devbox.md) instead of exporting service
   tokens in shell startup.
-- If `codex` is not installed yet for a workstation or devbox user,
+- If `codex` is not installed yet for a developer-profile user,
   `install.sh` skips Codex defaults; rerun it after installing the developer
   Homebrew layer.
 - If macOS Gatekeeper blocks an embedded Cursor Agent `.node` module, remove a

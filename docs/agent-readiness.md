@@ -31,6 +31,7 @@ profile.
 | Surface | Command | Proves |
 | --- | --- | --- |
 | Workstation | `mise run verify:bootstrap:workstation` | Required package layers, SOPS/age CLIs, mise tools, Codex ChatGPT login default, and managed config exist. Age identity is optional until secrets are consumed. |
+| Personal devbox | `mise run verify:bootstrap:personal-devbox` | Devbox package, identity, runtime, and managed-config contracts exist with personal agent skills selected. |
 | Devbox | `mise run verify:bootstrap:devbox` | Developer package layers, age identity, mise tools, Codex ChatGPT login default, and managed config exist. |
 | Assistant | `mise run verify:bootstrap:assistant` | Minimal package layers, age identity, managed Git base, and workload authorship match the assistant contract. |
 | Service | `mise run verify:bootstrap:service` | Identity-safe package layers, age identity, minimal Git base, and unsigned workload authorship match the service contract. |
@@ -55,7 +56,8 @@ For a repository change:
 5. Commit only the verified diff.
 
 For live setup, confirm the target profile, follow
-[Bootstrap](bootstrap.md), then run its live profile check. Devbox users also
+[Bootstrap](bootstrap.md), then run its live profile check. Devbox and
+personal-devbox users also
 run the service check and devbox audit.
 
 ## CI
