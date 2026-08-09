@@ -41,7 +41,6 @@ if personal_profile == "personal-workstation"
 
   # Design and work apps
   cask "zed"
-  cask "figma"
   cask "cleanshot"
   cask "tuna"
 
