@@ -418,7 +418,7 @@ install_devbox_home="$tmp_root/install-devbox-home"
 install_node_root="$install_fixture/node-root"
 mkdir -p "$install_devbox_home/.vite-plus"
 mkdir -p "$install_node_root/bin" "$install_node_root/lib/node_modules/vite-plus"
-touch "$install_devbox_home/.vite-plus/retired-state"
+touch "$install_devbox_home/.vite-plus/project-cache"
 touch "$install_node_root/lib/node_modules/vite-plus/package.json"
 cp "$install_fixture/bin/npm" "$install_node_root/bin/npm"
 PATH="$install_fixture_path" \
@@ -443,7 +443,8 @@ sync.ts --profile devbox
 EOF
 )"
 assert_eq "$expected_install_log" "$(cat "$install_log")" "devbox install execution"
-[ ! -e "$install_devbox_home/.vite-plus" ] || fail "devbox install kept standalone Vite+ state"
+[ -f "$install_devbox_home/.vite-plus/project-cache" ] \
+  || fail "devbox install removed repository-local Vite+ cache"
 
 : > "$install_log"
 printf 'caller-input\n' | \

@@ -96,9 +96,6 @@ run_step() {
         fi
         mise reshim --force
       fi
-      if [ -e "$HOME/.vite-plus" ] || [ -L "$HOME/.vite-plus" ]; then
-        rm -rf -- "$HOME/.vite-plus"
-      fi
       ;;
     install-pnpm)
       if command -v corepack >/dev/null 2>&1; then

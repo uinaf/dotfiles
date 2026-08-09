@@ -127,7 +127,7 @@ repository-local and is invoked through the owning package manager.
 
 `scripts/bootstrap/install.sh` enables Corepack, installs the stable pnpm
 default, removes the retired Vite+ package from both the mise npm backend and
-every installed mise Node version, removes standalone state under
+every installed mise Node version, preserves repository-local cache under
 `~/.vite-plus`, and force-rebuilds mise shims so retired commands are pruned. A
 fresh Node install gets the same pnpm state from the Node postinstall hook.
 The assistant profile intentionally contains only Node. The service profile
