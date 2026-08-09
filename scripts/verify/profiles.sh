@@ -390,8 +390,19 @@ printf '\n' >> "${DOTFILES_INSTALL_LOG:?}"
 if [ "$(basename "$0")" = npm ] && [ -n "${npm_config_prefix:-}" ]; then
   printf 'npm_config_prefix %s\n' "$npm_config_prefix" >> "${DOTFILES_INSTALL_LOG:?}"
 fi
-if [ "$(basename "$0")" = mise ] && [ "$*" = "ls node --installed --json" ]; then
-  printf '[{"install_path":"%s"}]\n' "${DOTFILES_INSTALL_NODE_ROOT:?}"
+if [ "$(basename "$0")" = mise ]; then
+  case "$*" in
+    "ls npm:vite-plus --installed --json")
+      if [ "${DOTFILES_INSTALL_VITE_PLUS_INSTALLED:-1}" = 1 ]; then
+        printf '[{"installed": true}]\n'
+      else
+        printf '[]\n'
+      fi
+      ;;
+    "ls node --installed --json")
+      printf '[{"install_path":"%s"}]\n' "${DOTFILES_INSTALL_NODE_ROOT:?}"
+      ;;
+  esac
 fi
 EOF
   chmod 0700 "$install_fixture/bin/$command_name"
@@ -431,6 +442,7 @@ apply-dotfiles.sh --profile devbox
 install-cursor-agent.sh
 trust-agent-worktrees.sh
 install-gh-extensions.sh
+mise ls npm:vite-plus --installed --json
 mise uninstall --all --yes npm:vite-plus
 mise ls node --installed --json
 npm uninstall --global vite-plus
@@ -443,6 +455,19 @@ sync.ts --profile devbox
 EOF
 )"
 assert_eq "$expected_install_log" "$(cat "$install_log")" "devbox install execution"
+
+: > "$install_log"
+PATH="$install_fixture_path" \
+DOTFILES_INSTALL_LOG="$install_log" \
+DOTFILES_INSTALL_NODE_ROOT="$install_node_root" \
+DOTFILES_INSTALL_VITE_PLUS_INSTALLED=0 \
+HOME="$install_devbox_home" \
+  "$install_fixture/scripts/bootstrap/install.sh" --profile devbox
+grep -Fqx 'mise ls npm:vite-plus --installed --json' "$install_log" \
+  || fail "devbox install did not inspect the mise Vite+ installation"
+if grep -Fqx 'mise uninstall --all --yes npm:vite-plus' "$install_log"; then
+  fail "devbox install asked mise to uninstall an absent Vite+ installation"
+fi
 [ -f "$install_devbox_home/.vite-plus/project-cache" ] \
   || fail "devbox install removed repository-local Vite+ cache"
 
