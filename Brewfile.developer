@@ -4,8 +4,7 @@
 tap "teamookla/speedtest"
 tap "uinaf/tap"
 
-# Terminal and coding agents
-cask "ghostty"
+# Coding agents
 cask "codex"
 cask "claude-code@latest"
 cask "uinaf/tap/autoreview"
@@ -18,6 +17,7 @@ brew "git-filter-repo"
 brew "actionlint"
 brew "shellcheck"
 brew "xcodes"
+brew "watchman"
 
 # Download and media helpers
 brew "aria2"

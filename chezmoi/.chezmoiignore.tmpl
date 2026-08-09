@@ -1,11 +1,13 @@
 {{ if ne .dotfilesProfile "personal-workstation" }}
 .config/zed
 {{ end }}
+{{ if and (ne .dotfilesProfile "personal-workstation") (ne .dotfilesProfile "workstation") }}
+Library/Application Support/com.mitchellh.ghostty
+{{ end }}
 {{ if or (eq .dotfilesProfile "assistant") (eq .dotfilesProfile "service") }}
 .codex
 .config/1Password/ssh
 .config/git
 .local/libexec/dotfiles/git-ssh-sign-agentless
 .ssh
-Library/Application Support/com.mitchellh.ghostty
 {{ end }}

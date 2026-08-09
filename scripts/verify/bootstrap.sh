@@ -124,9 +124,12 @@ common_config_paths=(
 developer_config_paths=(
   "$HOME/.config/git/allowed_signers"
   "$HOME/.codex/config.toml"
-  "$ghostty_config"
   "$HOME/.gitconfig.local"
   "$HOME/.ssh/config"
+)
+
+workstation_config_paths=(
+  "$ghostty_config"
 )
 
 personal_config_paths=(
@@ -341,9 +344,10 @@ check_truecolor_shell() {
 }
 
 check_ghostty_ssh_integration() {
-  if ! dotfiles_profile_is_developer "$profile"; then
-    return
-  fi
+  case "$profile" in
+    personal-workstation|workstation) ;;
+    *) return ;;
+  esac
 
   section "Ghostty SSH integration"
   grep -Fqx 'shell-integration-features = ssh-env,ssh-terminfo' "$ghostty_config" ||
@@ -449,6 +453,18 @@ check_config_paths() {
       fi
     done
   fi
+
+  case "$profile" in
+    personal-workstation|workstation)
+      for path in "${workstation_config_paths[@]}"; do
+        if [ -e "$path" ]; then
+          printf 'ok %s\n' "$path"
+        else
+          fail "missing $path"
+        fi
+      done
+      ;;
+  esac
 
   if [ "$profile" = "personal-workstation" ]; then
     for path in "${personal_config_paths[@]}"; do

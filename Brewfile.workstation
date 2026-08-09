@@ -2,8 +2,12 @@
 # Run through brew-bundle.sh so base and developer layers install first.
 
 # Human desktop
+cask "ghostty"
 cask "1password"
 cask "slack"
 cask "claude"
 cask "chatgpt"
 cask "cursor"
+
+# Hardware security
+brew "ykman"

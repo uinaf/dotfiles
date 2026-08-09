@@ -14,13 +14,10 @@ brew "openclaw/tap/crabbox"
 brew "openclaw/tap/gitcrawl"
 brew "mole"
 
-# Hardware security
-brew "ykman"
-
-brew "watchman"
-brew "mas"
-
 if personal_profile == "personal-workstation"
+  # App Store automation
+  brew "mas"
+
   # Browsers and sync
   cask "firefox"
   cask "brave-browser"

@@ -21,9 +21,9 @@ Use chezmoi source attributes instead of literal target filenames:
 The `private_` attribute is used for parent config directories and files that
 should land as owner-only local config.
 
-Personal-workstation manages Zed settings. Personal-workstation,
-personal-devbox, workstation, and devbox profiles share GitHub authentication, outbound SSH, signing-helper,
-allowed-signers, and Ghostty sources. Assistant and service profiles render a
+Personal-workstation manages Zed settings. Personal-workstation and workstation
+manage Ghostty settings. All four developer profiles share GitHub authentication,
+outbound SSH, signing-helper, and allowed-signers sources. Assistant and service profiles render a
 minimal Git base with a local workload-identity include and exclude those
 developer surfaces; only assistant includes the optional GitHub App helper.
 

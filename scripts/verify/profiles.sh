@@ -230,6 +230,19 @@ personal_devbox_casks="$(
 )"
 [ -z "$personal_devbox_casks" ] \
   || fail "personal devbox Brewfile included headful casks: $personal_devbox_casks"
+personal_workstation_formulae="$(
+  HOMEBREW_BUNDLE_DOTFILES_PROFILE=personal-workstation HOMEBREW_NO_AUTO_UPDATE=1 \
+    brew bundle list --formula --file "$repo_root/Brewfile.personal"
+)"
+printf '%s\n' "$personal_workstation_formulae" | grep -Fqx mas \
+  || fail "personal workstation Brewfile omitted mas"
+personal_devbox_formulae="$(
+  HOMEBREW_BUNDLE_DOTFILES_PROFILE=personal-devbox HOMEBREW_NO_AUTO_UPDATE=1 \
+    brew bundle list --formula --file "$repo_root/Brewfile.personal"
+)"
+if printf '%s\n' "$personal_devbox_formulae" | grep -Fqx mas; then
+  fail "personal devbox Brewfile included workstation-only mas"
+fi
 if personal_error="$(
   HOMEBREW_BUNDLE_DOTFILES_PROFILE=workstation HOMEBREW_NO_AUTO_UPDATE=1 \
     brew bundle list --all --file "$repo_root/Brewfile.personal" 2>&1
@@ -248,6 +261,13 @@ for required in 'cask "codex"' 'cask "claude-code@latest"' 'cask "uinaf/tap/auto
       fail "$file duplicates shared developer dependency $required"
     fi
   done
+done
+grep -Fqx 'brew "watchman"' "$repo_root/Brewfile.developer" \
+  || fail "developer layer missed Watchman"
+for file in Brewfile.workstation Brewfile.personal Brewfile.devbox Brewfile.assistant Brewfile.service; do
+  if grep -Fqx 'brew "watchman"' "$repo_root/$file"; then
+    fail "$file duplicates developer Watchman"
+  fi
 done
 for required in 'brew "uinaf/tap/attach"' 'brew "openclaw/tap/crabbox"' 'brew "openclaw/tap/gitcrawl"' 'brew "mole"'; do
   grep -Fqx "$required" "$repo_root/Brewfile.personal" \
@@ -276,9 +296,16 @@ for required in 'brew "gh"' 'cask "google-chrome"'; do
 done
 grep -Fqx 'cask "1password-cli"' "$repo_root/Brewfile.developer" \
   || fail "developer layer missed 1Password CLI"
-for required in 'cask "1password"' 'cask "slack"' 'cask "claude"' 'cask "chatgpt"' 'cask "cursor"'; do
+for required in 'cask "ghostty"' 'cask "1password"' 'cask "slack"' 'cask "claude"' 'cask "chatgpt"' 'cask "cursor"' 'brew "ykman"'; do
   grep -Fqx "$required" "$repo_root/Brewfile.workstation" \
     || fail "workstation layer missed shared human desktop app $required"
+done
+for file in Brewfile.developer Brewfile.personal Brewfile.devbox Brewfile.assistant Brewfile.service; do
+  for workstation_only in 'cask "ghostty"' 'brew "ykman"'; do
+    if grep -Fqx "$workstation_only" "$repo_root/$file"; then
+      fail "$file includes workstation-only dependency $workstation_only"
+    fi
+  done
 done
 for file in Brewfile.workstation Brewfile.personal Brewfile.devbox Brewfile.assistant Brewfile.service; do
   if grep -Fqx 'cask "1password-cli"' "$repo_root/$file"; then
@@ -554,8 +581,8 @@ devbox_managed="$({
     managed --path-style relative
 })"
 personal_devbox_managed="$(managed_paths personal-devbox)"
-if printf '%s\n' "$personal_devbox_managed" | grep -Eq '^\.config/zed(/|$)'; then
-  fail "personal devbox profile manages headful Zed state"
+if printf '%s\n' "$personal_devbox_managed" | grep -Eq '^(\.config/zed|Library/Application Support/com\.mitchellh\.ghostty)(/|$)'; then
+  fail "personal devbox profile manages headful application state"
 fi
 for required_path in \
   '.config/git/allowed_signers' \
@@ -567,6 +594,9 @@ for required_path in \
 done
 if printf '%s\n' "$devbox_managed" | grep -Eq '^\.config/zed(/|$)'; then
   fail "devbox profile manages personal-only Zed state"
+fi
+if printf '%s\n' "$devbox_managed" | grep -Eq '^Library/Application Support/com\.mitchellh\.ghostty(/|$)'; then
+  fail "devbox profile manages workstation-only Ghostty state"
 fi
 
 assistant_home="$tmp_root/assistant-applied"
