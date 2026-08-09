@@ -9,6 +9,7 @@ end
 tap "openclaw/tap"
 
 # Personal development tools
+brew "asc"
 brew "uinaf/tap/attach"
 brew "openclaw/tap/crabbox"
 brew "openclaw/tap/gitcrawl"

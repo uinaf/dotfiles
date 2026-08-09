@@ -91,6 +91,7 @@ human_workstation_cli_checks=(
 )
 
 personal_common_cli_checks=(
+  "asc --version"
   "attach --help"
   "crabbox --version"
   "gitcrawl --version"

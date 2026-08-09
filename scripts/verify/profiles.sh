@@ -269,7 +269,7 @@ for file in Brewfile.workstation Brewfile.personal Brewfile.devbox Brewfile.assi
     fail "$file duplicates developer Watchman"
   fi
 done
-for required in 'brew "uinaf/tap/attach"' 'brew "openclaw/tap/crabbox"' 'brew "openclaw/tap/gitcrawl"' 'brew "mole"'; do
+for required in 'brew "asc"' 'brew "uinaf/tap/attach"' 'brew "openclaw/tap/crabbox"' 'brew "openclaw/tap/gitcrawl"' 'brew "mole"'; do
   grep -Fqx "$required" "$repo_root/Brewfile.personal" \
     || fail "personal layer missed $required"
   for file in Brewfile.developer Brewfile.workstation Brewfile.devbox Brewfile.assistant Brewfile.service; do

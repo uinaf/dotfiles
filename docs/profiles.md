@@ -54,7 +54,7 @@ Personal-workstation, personal-devbox, workstation, and devbox retain the full s
 development runtime set, including Codex CLI, Claude Code CLI, Cursor Agent
 CLI, and 1Password CLI.
 The developer layer installs the autoreview and slopomatic CLIs. The personal
-layer installs Attach, Crabbox, Gitcrawl, and Mole for both personal profiles,
+layer installs the App Store Connect CLI, Attach, Crabbox, Gitcrawl, and Mole for both personal profiles,
 while personal GUI applications remain workstation-only. Developer-profile install
 flows also sync machine-global instructions and additive skills from
 `scripts/agents/`; see [Agent setup](agents.md). Zed and its managed settings
