@@ -83,7 +83,10 @@ run_step() {
       ;;
     remove-global-vite-plus)
       if command -v mise >/dev/null 2>&1; then
-        mise uninstall --all --yes npm:vite-plus
+        installed_vite_plus="$(mise ls npm:vite-plus --installed --json)"
+        if printf '%s\n' "$installed_vite_plus" | grep -Eq '"installed":[[:space:]]*true'; then
+          mise uninstall --all --yes npm:vite-plus
+        fi
         installed_nodes="$(mise ls node --installed --json)"
         if [ -n "$installed_nodes" ] && command -v node >/dev/null 2>&1; then
           printf '%s\n' "$installed_nodes" \
