@@ -14,45 +14,46 @@ brew "openclaw/tap/crabbox"
 brew "openclaw/tap/gitcrawl"
 brew "mole"
 
-# Browsers and sync
-cask "firefox"
-cask "brave-browser"
-cask "google-drive"
-
 # Hardware security
 brew "ykman"
 
-# Networking
-cask "tailscale-app" if personal_profile == "personal-workstation"
-cask "proxyman"
-
-# Communication
-cask "signal"
-cask "telegram"
-cask "zoom"
-
-# Agent tools
-cask "codexbar"
-cask "grok-build"
-
-# Design and work apps
-cask "zed"
-cask "figma"
-cask "cleanshot"
-cask "tuna"
-
-# Platform development
-cask "android-studio"
-cask "raspberry-pi-imager"
 brew "watchman"
-
-# Media utilities
-cask "imageoptim"
-cask "the-unarchiver"
-cask "vlc"
-
-# Remote desktop
-cask "parsec"
-
-# App Store automation
 brew "mas"
+
+if personal_profile == "personal-workstation"
+  # Browsers and sync
+  cask "firefox"
+  cask "brave-browser"
+  cask "google-drive"
+
+  # Networking
+  cask "tailscale-app"
+  cask "proxyman"
+
+  # Communication
+  cask "signal"
+  cask "telegram"
+  cask "zoom"
+
+  # Agent tools
+  cask "codexbar"
+  cask "grok-build"
+
+  # Design and work apps
+  cask "zed"
+  cask "figma"
+  cask "cleanshot"
+  cask "tuna"
+
+  # Platform development
+  cask "android-studio"
+  cask "raspberry-pi-imager"
+
+  # Media utilities
+  cask "imageoptim"
+  cask "the-unarchiver"
+  cask "vlc"
+
+  # Remote desktop
+  cask "parsec"
+end

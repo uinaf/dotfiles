@@ -9,7 +9,7 @@ host and they are not a security boundary by themselves.
 | --- | --- | --- |
 | `workstation` | Interactive human on a laptop or desktop | Portable development, human authentication, and local containers |
 | `personal-workstation` | Owner-operated personal laptop or desktop | Workstation capabilities plus personal applications, tools, skills, and preferences |
-| `personal-devbox` | Owner-operated remote coding identity | Devbox capabilities plus personal applications, tools, skills, and preferences |
+| `personal-devbox` | Owner-operated remote coding identity | Devbox capabilities plus headless personal tools, skills, and preferences |
 | `devbox` | Remote coding identity on an SSH-first host | Coding agents, Git/GitHub, SDKs, containers, and verification tools |
 | `assistant` | Unattended persona or agent identity | Minimal agent runtime, browser, and scoped GitHub App access |
 | `service` | Non-persona managed workload identity | Identity-safe bootstrap tools; workload-owned runtime, authentication, and supervision |
@@ -17,7 +17,7 @@ host and they are not a security boundary by themselves.
 Choose `workstation` when another trusted system may supply or govern software.
 Choose `personal-workstation` when this repository should own the full personal
 workstation contract. Choose `personal-devbox` for an owner-operated devbox
-that should receive the same additive personal package and skill layers.
+that should receive the additive personal formulas and skills without GUI casks.
 
 ## Host and User Boundaries
 
@@ -40,7 +40,7 @@ Personal-workstation, personal-devbox, workstation, and devbox also install
 `Brewfile.developer`. Workstation installs
 `Brewfile.workstation`; devbox and personal-devbox install `Brewfile.devbox`.
 Both personal profiles finish with `Brewfile.personal`; its profile-aware
-Tailscale declaration installs the GUI app only for personal-workstation.
+declarations install GUI casks only for personal-workstation.
 Assistant skips the developer layer and installs only `Brewfile.assistant`.
 Service installs only the base and `Brewfile.service`.
 
@@ -54,7 +54,8 @@ Personal-workstation, personal-devbox, workstation, and devbox retain the full s
 development runtime set, including Codex CLI, Claude Code CLI, Cursor Agent
 CLI, and 1Password CLI.
 The developer layer installs the autoreview and slopomatic CLIs. The personal
-layer installs Attach, Crabbox, Gitcrawl, and Mole. Developer-profile install
+layer installs Attach, Crabbox, Gitcrawl, and Mole for both personal profiles,
+while personal GUI applications remain workstation-only. Developer-profile install
 flows also sync machine-global instructions and additive skills from
 `scripts/agents/`; see [Agent setup](agents.md). Zed and its managed settings
 belong to both personal profiles.
@@ -174,5 +175,5 @@ run the package, dotfile, install, Git, and verification steps again with
 
 To convert an owner-operated devbox, apply `personal-devbox` through the
 Homebrew, dotfile, install, Git, and verification commands above. This adds the
-personal package and skill layers while retaining the devbox identity, service,
+headless personal tool and skill layers while retaining the devbox identity, service,
 power, and audit contracts.

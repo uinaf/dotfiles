@@ -6,7 +6,7 @@ The repo has six per-user profiles:
 
 - `workstation` for a portable human-operated development Mac.
 - `personal-workstation` for a workstation plus personal packages and skills.
-- `personal-devbox` for a devbox plus personal packages and skills.
+- `personal-devbox` for a devbox plus headless personal tools and skills.
 - `devbox` for a remote coding identity on an SSH-first host.
 - `assistant` for an unattended persona or agent identity.
 - `service` for a non-persona managed workload identity.
@@ -250,7 +250,7 @@ Verify:
 ## Devbox Mac
 
 Use `devbox` for the standard shared-host contract. Use `personal-devbox` for
-the same host shape plus the additive personal package and skill layers.
+the same host shape plus additive headless personal tools and skills.
 
 The human owner profile may opt into the compact desktop baseline. It is not
 part of the shared agent-user bootstrap:
@@ -267,7 +267,7 @@ only persistent Dock app. Run it only from the logged-in owner account.
 Install shared plus devbox Homebrew dependencies:
 
 ```zsh
-profile=devbox # use personal-devbox for personal packages and skills
+profile=devbox # use personal-devbox for headless personal tools and skills
 ./scripts/bootstrap/brew-bundle.sh "$profile"
 ./scripts/bootstrap/install-blacksmith.sh
 ```

@@ -228,9 +228,8 @@ personal_devbox_casks="$(
   HOMEBREW_BUNDLE_DOTFILES_PROFILE=personal-devbox HOMEBREW_NO_AUTO_UPDATE=1 \
     brew bundle list --cask --file "$repo_root/Brewfile.personal"
 )"
-if printf '%s\n' "$personal_devbox_casks" | grep -Fqx tailscale-app; then
-  fail "personal devbox Brewfile included tailscale-app"
-fi
+[ -z "$personal_devbox_casks" ] \
+  || fail "personal devbox Brewfile included headful casks: $personal_devbox_casks"
 if personal_error="$(
   HOMEBREW_BUNDLE_DOTFILES_PROFILE=workstation HOMEBREW_NO_AUTO_UPDATE=1 \
     brew bundle list --all --file "$repo_root/Brewfile.personal" 2>&1
@@ -298,15 +297,15 @@ for removed in 'cask "gcloud-cli"' 'brew "openclaw/tap/crabbox"' 'brew "openclaw
     fail "devbox layer retained $removed"
   fi
 done
-grep -Fqx 'cask "zed"' "$repo_root/Brewfile.personal" \
-  || fail "personal layer missed Zed"
+printf '%s\n' "$personal_workstation_casks" | grep -Fqx zed \
+  || fail "personal workstation layer missed Zed"
 for file in Brewfile Brewfile.developer Brewfile.workstation Brewfile.devbox Brewfile.assistant Brewfile.service; do
   if grep -Fqx 'cask "zed"' "$repo_root/$file"; then
     fail "$file includes personal-only Zed"
   fi
 done
-grep -Fqx 'cask "grok-build"' "$repo_root/Brewfile.personal" \
-  || fail "personal layer missed Grok Build"
+printf '%s\n' "$personal_workstation_casks" | grep -Fqx grok-build \
+  || fail "personal workstation layer missed Grok Build"
 for file in Brewfile Brewfile.developer Brewfile.workstation Brewfile.devbox Brewfile.assistant Brewfile.service; do
   if grep -Fqx 'cask "grok-build"' "$repo_root/$file"; then
     fail "$file includes personal-only Grok Build"
