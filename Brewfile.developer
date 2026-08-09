@@ -15,6 +15,7 @@ cask "uinaf/tap/slopomatic"
 cask "1password-cli"
 
 # Development CLI
+brew "uinaf/tap/attach"
 brew "gh"
 brew "git-crypt"
 brew "git-filter-repo"

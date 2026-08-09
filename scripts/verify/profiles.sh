@@ -158,7 +158,7 @@ if unsupported_files="$(dotfiles_profile_brewfiles unsupported 2>/dev/null)"; th
 fi
 [ -z "$unsupported_files" ] || fail "unsupported profile emitted partial Brewfile layers"
 
-for required in 'cask "codex"' 'cask "claude-code@latest"' 'cask "uinaf/tap/autoreview"' 'cask "uinaf/tap/slopomatic"'; do
+for required in 'brew "uinaf/tap/attach"' 'cask "codex"' 'cask "claude-code@latest"' 'cask "uinaf/tap/autoreview"' 'cask "uinaf/tap/slopomatic"'; do
   grep -Fqx "$required" "$repo_root/Brewfile.developer" \
     || fail "developer layer missed $required"
   for file in Brewfile.workstation Brewfile.personal Brewfile.devbox; do

@@ -81,6 +81,7 @@ developer_cli_checks=(
   "codex --version"
   "claude --version"
   "cursor-agent --version"
+  "attach --help"
   "autoreview --version"
   "slopomatic version"
 )
