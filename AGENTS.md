@@ -43,7 +43,7 @@ repository.
 ## Workflow
 
 1. Run `git status --short --branch` and preserve unrelated work.
-2. Identify the affected profile: `personal`, `personal-devbox`, `workstation`,
+2. Identify the affected profile: `personal-workstation`, `personal-devbox`, `workstation`,
    `devbox`, `assistant`, `service`, or repository-only tooling.
 3. Read the smallest owning guide from the table above.
 4. Change tracked sources, not generated home-directory state.
@@ -65,7 +65,7 @@ Run live checks only on a machine that should satisfy the selected profile:
 
 ```zsh
 ./scripts/verify/bootstrap.sh --profile workstation
-./scripts/verify/bootstrap.sh --profile personal
+./scripts/verify/bootstrap.sh --profile personal-workstation
 ./scripts/verify/bootstrap.sh --profile personal-devbox
 ./scripts/verify/bootstrap.sh --profile devbox
 ./scripts/verify/bootstrap.sh --profile assistant
@@ -78,8 +78,9 @@ Run live checks only on a machine that should satisfy the selected profile:
 ## Repository Contracts
 
 - Use Conventional Commits.
-- Keep `Brewfile` minimal and identity-safe. Shared coding tools belong in
-  `Brewfile.developer`; role-specific software belongs in
+- Keep `Brewfile` limited to capabilities required by every profile, including
+  Chrome and `gh`. Shared coding tools belong in `Brewfile.developer`;
+  role-specific software belongs in
   `Brewfile.workstation`, `Brewfile.personal`, `Brewfile.devbox`,
   `Brewfile.assistant`, or `Brewfile.service`.
 - Edit dotfiles under `chezmoi/`, not the generated files in `$HOME`.

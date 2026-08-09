@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-DOTFILES_PROFILES="personal personal-devbox workstation devbox assistant service"
+DOTFILES_PROFILES="personal-workstation personal-devbox workstation devbox assistant service"
 
 dotfiles_profiles() {
   local profile
@@ -90,7 +90,7 @@ dotfiles_resolve_profile() {
 
 dotfiles_profile_is_developer() {
   case "$1" in
-    personal|personal-devbox|workstation|devbox)
+    personal-workstation|personal-devbox|workstation|devbox)
       return 0
       ;;
     assistant|service)
@@ -107,7 +107,7 @@ dotfiles_profile_is_workload() {
     assistant|service)
       return 0
       ;;
-    personal|personal-devbox|workstation|devbox)
+    personal-workstation|personal-devbox|workstation|devbox)
       return 1
       ;;
     *)
@@ -121,7 +121,7 @@ dotfiles_profile_uses_shared_brew() {
     personal-devbox|devbox|assistant|service)
       return 0
       ;;
-    personal|workstation)
+    personal-workstation|workstation)
       return 1
       ;;
     *)
@@ -131,14 +131,14 @@ dotfiles_profile_uses_shared_brew() {
 }
 
 # Shared-host and workload profiles consume encrypted material (vault, sudo,
-# services). Portable workstation/personal boots keep the SOPS CLI without a
+# services). Portable workstation/personal-workstation boots keep the SOPS CLI without a
 # private age identity until a secret-consuming workflow is enabled.
 dotfiles_profile_requires_sops_identity() {
   case "$1" in
     personal-devbox|devbox|assistant|service)
       return 0
       ;;
-    personal|workstation)
+    personal-workstation|workstation)
       return 1
       ;;
     *)
@@ -152,7 +152,7 @@ dotfiles_profile_is_devbox() {
     personal-devbox|devbox)
       return 0
       ;;
-    personal|workstation|assistant|service)
+    personal-workstation|workstation|assistant|service)
       return 1
       ;;
     *)
@@ -165,7 +165,7 @@ dotfiles_profile_brewfiles() {
   local profile="$1"
 
   case "$profile" in
-    personal|personal-devbox|workstation|devbox|assistant|service) ;;
+    personal-workstation|personal-devbox|workstation|devbox|assistant|service) ;;
     *) return 2 ;;
   esac
   printf 'Brewfile\n'
@@ -176,15 +176,20 @@ dotfiles_profile_brewfiles() {
     service)
       printf 'Brewfile.service\n'
       ;;
-    personal-devbox|devbox)
+    devbox)
       printf 'Brewfile.developer\n'
       printf 'Brewfile.devbox\n'
+      ;;
+    personal-devbox)
+      printf 'Brewfile.developer\n'
+      printf 'Brewfile.devbox\n'
+      printf 'Brewfile.personal\n'
       ;;
     workstation)
       printf 'Brewfile.developer\n'
       printf 'Brewfile.workstation\n'
       ;;
-    personal)
+    personal-workstation)
       printf 'Brewfile.developer\n'
       printf 'Brewfile.workstation\n'
       printf 'Brewfile.personal\n'

@@ -74,7 +74,7 @@ mise run audit:mscp
 Live host checks:
 
 ```zsh
-mise run verify:bootstrap:personal
+mise run verify:bootstrap:personal-workstation
 mise run verify:bootstrap:personal-devbox
 mise run verify:bootstrap:workstation
 mise run verify:bootstrap:devbox
@@ -119,7 +119,7 @@ When changing `chezmoi/private_dot_config/mise/config.toml.tmpl`:
 
 Avoid floating runtime versions such as `latest` in profile machine config.
 
-The personal/personal-devbox/workstation/devbox Node entry enables Corepack and installs pnpm 11.20.0 as
+The personal-workstation/personal-devbox/workstation/devbox Node entry enables Corepack and installs pnpm 11.20.0 as
 the default outside projects. A project's `packageManager` field remains the
 repository-owned version source. The Node postinstall pins npm itself to
 12.0.2, while Playwright CLI is an exact `npm:` backend entry. Vite+ stays

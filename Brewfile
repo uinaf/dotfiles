@@ -1,12 +1,16 @@
-# Minimal Homebrew layer for every managed Unix user on macOS.
+# Shared Homebrew layer for every managed Unix user on macOS.
 # Profile-specific software belongs in Brewfile.developer and Brewfile.<profile>.
 
-# Identity-safe bootstrap tools
+# Bootstrap and runtime tools
 brew "age"
 brew "sops"
 brew "git"
+brew "gh"
 brew "chezmoi"
 brew "mise"
 brew "direnv"
 brew "btop"
 brew "ripgrep"
+
+# Shared browser
+cask "google-chrome"

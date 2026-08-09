@@ -16,7 +16,7 @@ ghostty_config="$HOME/Library/Application Support/com.mitchellh.ghostty/config"
 usage() {
   cat <<'USAGE'
 Usage:
-  scripts/verify/bootstrap.sh [--profile personal|personal-devbox|workstation|devbox|assistant|service] [--desktop]
+  scripts/verify/bootstrap.sh [--profile personal-workstation|personal-devbox|workstation|devbox|assistant|service] [--desktop]
 
 Checks the live per-user bootstrap for the selected profile. An existing
 ~/.config/dotfiles/profile is used when --profile is omitted. --desktop is
@@ -34,7 +34,7 @@ while [ "$#" -gt 0 ]; do
       fi
       profile="$1"
       ;;
-    personal|personal-devbox|workstation|devbox|assistant|service)
+    personal-workstation|personal-devbox|workstation|devbox|assistant|service)
       profile="$1"
       ;;
     --desktop)
@@ -66,6 +66,7 @@ common_cli_checks=(
   "age --version"
   "brew --version"
   "chezmoi --version"
+  "gh --version"
   "git --version"
   "mise --version"
   "sops --version"
@@ -81,7 +82,6 @@ developer_cli_checks=(
   "codex --version"
   "claude --version"
   "cursor-agent --version"
-  "attach --help"
   "autoreview --version"
   "slopomatic version"
 )
@@ -90,8 +90,14 @@ human_workstation_cli_checks=(
   "op --version"
 )
 
-personal_cli_checks=(
+personal_common_cli_checks=(
+  "attach --help"
+  "crabbox --version"
   "gitcrawl --version"
+  "mole --version"
+)
+
+personal_workstation_cli_checks=(
   "grok --version"
   "tailscale status --peers=false"
 )
@@ -99,16 +105,14 @@ personal_cli_checks=(
 devbox_cli_checks=(
   "blacksmith --version"
   "tmux -V"
-  "qpdf --version"
-  "qrencode --version"
   "xcodes version"
-  "gitcrawl --version"
   "tailscale status --peers=false"
 )
 
 assistant_cli_checks=(
-  "gh --version"
   "GH_NO_EXTENSION_UPDATE_NOTIFIER=1 gh app-auth exec --help"
+  "qpdf --version"
+  "qrencode --version"
 )
 
 common_config_paths=(
@@ -372,12 +376,20 @@ check_cli_tools() {
   fi
 
   case "$profile" in
-    personal|workstation)
+    personal-workstation|personal-devbox)
+      for check in "${personal_common_cli_checks[@]}"; do
+        run_zsh_check "$check"
+      done
+      ;;
+  esac
+
+  case "$profile" in
+    personal-workstation|workstation)
       for check in "${human_workstation_cli_checks[@]}"; do
         run_zsh_check "$check"
       done
-      if [ "$profile" = personal ]; then
-        for check in "${personal_cli_checks[@]}"; do
+      if [ "$profile" = personal-workstation ]; then
+        for check in "${personal_workstation_cli_checks[@]}"; do
           run_zsh_check "$check"
         done
       fi
@@ -402,7 +414,7 @@ check_brew_bundle() {
   dotfiles_homebrew_configure_external_capabilities "$repo_root" "$profile" ||
     fail "external Homebrew capability validation failed"
   while IFS= read -r file; do
-    dotfiles_homebrew_bundle_check "$repo_root/$file" \
+    dotfiles_homebrew_bundle_check "$repo_root/$file" "$profile" \
       || fail "missing Homebrew dependencies from $file"
   done < <(dotfiles_profile_brewfiles "$profile")
 }
@@ -438,7 +450,7 @@ check_config_paths() {
     done
   fi
 
-  if [ "$profile" = "personal" ]; then
+  if [ "$profile" = "personal-workstation" ] || [ "$profile" = "personal-devbox" ]; then
     for path in "${personal_config_paths[@]}"; do
       if [ -e "$path" ]; then
         printf 'ok %s\n' "$path"

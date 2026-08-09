@@ -1,8 +1,18 @@
-# Opinionated personal workstation additions.
-# Personal composes the base, developer, workstation, and this layer.
+# Personal additions shared by personal-workstation and personal-devbox.
+
+personal_profile = ENV.fetch("HOMEBREW_BUNDLE_DOTFILES_PROFILE")
+unless %w[personal-workstation personal-devbox].include?(personal_profile)
+  raise "Brewfile.personal requires a personal-workstation or personal-devbox profile"
+end
 
 # Taps
 tap "openclaw/tap"
+
+# Personal development tools
+brew "uinaf/tap/attach"
+brew "openclaw/tap/crabbox"
+brew "openclaw/tap/gitcrawl"
+brew "mole"
 
 # Browsers and sync
 cask "firefox"
@@ -13,7 +23,7 @@ cask "google-drive"
 brew "ykman"
 
 # Networking
-cask "tailscale-app"
+cask "tailscale-app" if personal_profile == "personal-workstation"
 cask "proxyman"
 
 # Communication
@@ -46,7 +56,3 @@ cask "parsec"
 
 # App Store automation
 brew "mas"
-
-# Project tools
-brew "openclaw/tap/gitcrawl"
-brew "openclaw/tap/crabbox"

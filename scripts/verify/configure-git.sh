@@ -166,7 +166,7 @@ effective_unrelated="$(ssh -F "$personal_home/.ssh/config" -G unrelated.example 
 cp "$github_config" "$tmp_root/personal.github.before"
 configure \
   "$personal_home" \
-  personal \
+  personal-workstation \
   "$personal_home/.ssh/signing" \
   "$personal_home/.ssh/signing" >/dev/null
 cmp -s "$tmp_root/personal.github.before" "$github_config" || fail "dedicated GitHub config is not idempotent"
@@ -188,7 +188,7 @@ make_home "$encrypted_home"
 make_encrypted_key "$encrypted_home/.ssh/signing"
 assert_rejected_without_mutation \
   "$encrypted_home" 'must be an unencrypted SSH private key' \
-  "$encrypted_home" personal "$encrypted_home/.ssh/signing"
+  "$encrypted_home" personal-workstation "$encrypted_home/.ssh/signing"
 
 missing_signer_home="$tmp_root/missing-signer"
 make_home "$missing_signer_home"
@@ -196,7 +196,7 @@ make_key "$missing_signer_home/.ssh/signing"
 rm "$missing_signer_home/.local/libexec/dotfiles/git-ssh-sign-agentless"
 assert_rejected_without_mutation \
   "$missing_signer_home" 'agentless signer is missing or not executable' \
-  "$missing_signer_home" personal "$missing_signer_home/.ssh/signing"
+  "$missing_signer_home" personal-workstation "$missing_signer_home/.ssh/signing"
 
 legacy_marker_home="$tmp_root/legacy-marker"
 make_home "$legacy_marker_home"
@@ -209,7 +209,7 @@ Host github.com
 EOF
 assert_rejected_without_mutation \
   "$legacy_marker_home" 'unmanaged Host github.com entry exists' \
-  "$legacy_marker_home" personal "$legacy_marker_home/.ssh/signing" "$legacy_marker_home/.ssh/signing"
+  "$legacy_marker_home" personal-workstation "$legacy_marker_home/.ssh/signing" "$legacy_marker_home/.ssh/signing"
 
 devbox_home="$tmp_root/devbox"
 make_home "$devbox_home"
@@ -227,7 +227,7 @@ mkdir -p "$missing_home/.config/git"
 printf 'original allowed signers\n' > "$missing_home/.config/git/allowed_signers.local"
 assert_rejected_without_mutation \
   "$missing_home" 'key file does not exist' \
-  "$missing_home" personal "$missing_home/.ssh/signing" "$missing_home/.ssh/missing"
+  "$missing_home" personal-workstation "$missing_home/.ssh/signing" "$missing_home/.ssh/missing"
 
 invalid_auth_home="$tmp_root/invalid-auth"
 make_home "$invalid_auth_home"
@@ -235,14 +235,14 @@ make_key "$invalid_auth_home/.ssh/signing"
 printf 'not a private key\n' > "$invalid_auth_home/.ssh/not-a-key"
 assert_rejected_without_mutation \
   "$invalid_auth_home" 'key file is not an SSH private key' \
-  "$invalid_auth_home" personal "$invalid_auth_home/.ssh/signing" "$invalid_auth_home/.ssh/not-a-key"
+  "$invalid_auth_home" personal-workstation "$invalid_auth_home/.ssh/signing" "$invalid_auth_home/.ssh/not-a-key"
 
 invalid_signing_home="$tmp_root/invalid-signing"
 make_home "$invalid_signing_home"
 printf 'not a private key\n' > "$invalid_signing_home/.ssh/signing"
 assert_rejected_without_mutation \
   "$invalid_signing_home" 'key file is not an SSH private key' \
-  "$invalid_signing_home" personal "$invalid_signing_home/.ssh/signing"
+  "$invalid_signing_home" personal-workstation "$invalid_signing_home/.ssh/signing"
 
 permissive_home="$tmp_root/permissive"
 make_home "$permissive_home"
@@ -250,7 +250,7 @@ make_key "$permissive_home/.ssh/signing"
 chmod 0644 "$permissive_home/.ssh/signing"
 assert_rejected_without_mutation \
   "$permissive_home" 'key file permissions must be owner-only' \
-  "$permissive_home" personal "$permissive_home/.ssh/signing"
+  "$permissive_home" personal-workstation "$permissive_home/.ssh/signing"
 
 unmanaged_github_config_home="$tmp_root/unmanaged-github-config"
 make_home "$unmanaged_github_config_home"
@@ -261,7 +261,7 @@ Host github.com
 EOF
 assert_rejected_without_mutation \
   "$unmanaged_github_config_home" 'existing file is not managed exclusively by these dotfiles' \
-  "$unmanaged_github_config_home" personal "$unmanaged_github_config_home/.ssh/signing" "$unmanaged_github_config_home/.ssh/signing"
+  "$unmanaged_github_config_home" personal-workstation "$unmanaged_github_config_home/.ssh/signing" "$unmanaged_github_config_home/.ssh/signing"
 
 conflict_home="$tmp_root/conflict"
 make_home "$conflict_home"
@@ -272,7 +272,7 @@ Host=github.com
 EOF
 assert_rejected_without_mutation \
   "$conflict_home" 'unmanaged Host github.com entry exists' \
-  "$conflict_home" personal "$conflict_home/.ssh/signing" "$conflict_home/.ssh/signing"
+  "$conflict_home" personal-workstation "$conflict_home/.ssh/signing" "$conflict_home/.ssh/signing"
 
 malformed_home="$tmp_root/malformed"
 make_home "$malformed_home"
@@ -280,7 +280,7 @@ make_key "$malformed_home/.ssh/signing"
 printf '# dotfiles: github-ssh begin\n' > "$malformed_home/.ssh/config.local"
 assert_rejected_without_mutation \
   "$malformed_home" 'malformed managed block' \
-  "$malformed_home" personal "$malformed_home/.ssh/signing" "$malformed_home/.ssh/signing"
+  "$malformed_home" personal-workstation "$malformed_home/.ssh/signing" "$malformed_home/.ssh/signing"
 
 public_only_home="$tmp_root/public-only"
 make_home "$public_only_home"

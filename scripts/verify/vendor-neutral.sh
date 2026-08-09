@@ -39,7 +39,7 @@ while IFS=: read -r file line content; do
         *"Do not add \`uinaf\` or another owner"*) continue ;;
       esac
       ;;
-    Brewfile.developer|Brewfile.devbox|CONTRIBUTING.md|LICENSE|README.md|SECURITY.md|docs/bootstrap.md|docs/profiles.md)
+    Brewfile.developer|Brewfile.personal|Brewfile.devbox|CONTRIBUTING.md|LICENSE|README.md|SECURITY.md|docs/bootstrap.md|docs/profiles.md)
       case "$content" in
         *uinaf/dotfiles*|*uinaf/tap*|*github.com/uinaf/sops-vault-template*|*dev@uinaf.dev*|*'Copyright (c) 2026 uinaf'*) continue ;;
       esac

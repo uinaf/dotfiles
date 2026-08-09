@@ -1,12 +1,10 @@
-# Shared development layer for personal, personal-devbox, workstation, and devbox users.
+# Shared development layer for personal-workstation, personal-devbox, workstation, and devbox users.
 
 # Taps
-tap "f1bonacc1/tap"
 tap "teamookla/speedtest"
 tap "uinaf/tap"
 
-# Terminal, browser, and coding agents
-cask "google-chrome"
+# Terminal and coding agents
 cask "ghostty"
 cask "codex"
 cask "claude-code@latest"
@@ -15,8 +13,6 @@ cask "uinaf/tap/slopomatic"
 cask "1password-cli"
 
 # Development CLI
-brew "uinaf/tap/attach"
-brew "gh"
 brew "git-crypt"
 brew "git-filter-repo"
 brew "actionlint"
@@ -26,7 +22,6 @@ brew "xcodes"
 # Download and media helpers
 brew "aria2"
 brew "ffmpeg"
-brew "mole"
 
 # Containers
 brew "colima"

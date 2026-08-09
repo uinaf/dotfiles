@@ -25,7 +25,7 @@ const MAX_DIAGNOSTIC_LINES = 3;
 type Agent = "claude-code" | "codex";
 
 export type Profile =
-  | "personal"
+  | "personal-workstation"
   | "personal-devbox"
   | "workstation"
   | "devbox"
@@ -35,7 +35,7 @@ export type Profile =
 type SkillLayer = "shared" | "personal";
 
 export const PROFILE_SKILL_LAYERS: Record<Profile, readonly SkillLayer[] | undefined> = {
-  personal: ["shared", "personal"],
+  "personal-workstation": ["shared", "personal"],
   "personal-devbox": ["shared", "personal"],
   workstation: ["shared"],
   devbox: ["shared"],

@@ -56,7 +56,11 @@ dotfiles_homebrew_repair_shared_readability() {
 }
 
 dotfiles_homebrew_bundle_check() {
-  HOMEBREW_NO_AUTO_UPDATE=1 brew bundle check --file "$1"
+  local file="$1"
+  local profile="$2"
+
+  HOMEBREW_BUNDLE_DOTFILES_PROFILE="$profile" HOMEBREW_NO_AUTO_UPDATE=1 \
+    brew bundle check --file "$file"
 }
 
 dotfiles_homebrew_fail_external() {
@@ -100,10 +104,19 @@ dotfiles_homebrew_external_entry_declared() {
   local profile="$2"
   local package_type="$3"
   local package_name="$4"
+  local list_flag
   local file
 
+  case "$package_type" in
+    brew) list_flag="--formula" ;;
+    cask) list_flag="--cask" ;;
+    *) return 1 ;;
+  esac
+
   while IFS= read -r file; do
-    if grep -Fqx "$package_type \"$package_name\"" "$repo_root/$file"; then
+    if HOMEBREW_BUNDLE_DOTFILES_PROFILE="$profile" HOMEBREW_NO_AUTO_UPDATE=1 \
+      brew bundle list "$list_flag" --file "$repo_root/$file" 2>/dev/null \
+      | grep -Fqx "$package_name"; then
       return 0
     fi
   done < <(dotfiles_profile_brewfiles "$profile")

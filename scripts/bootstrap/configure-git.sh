@@ -17,9 +17,9 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 usage() {
   cat <<EOF
-usage: $0 [--profile personal|personal-devbox|workstation|devbox|assistant|service] [--non-interactive]
+usage: $0 [--profile personal-workstation|personal-devbox|workstation|devbox|assistant|service] [--non-interactive]
 
-Personal, personal-devbox, workstation, and devbox profiles configure human
+Personal-workstation, personal-devbox, workstation, and devbox profiles configure human
 identity. Assistant and service profiles write an explicit workload commit
 identity without signing or SSH authentication.
 
@@ -256,7 +256,7 @@ if [ -z "$profile" ]; then
       printf '%s\n' 'stored or environment profile is invalid' >&2
       exit 2
     fi
-    profile="$(prompt 'Profile (personal/personal-devbox/workstation/devbox/assistant/service)' workstation)"
+    profile="$(prompt 'Profile (personal-workstation/personal-devbox/workstation/devbox/assistant/service)' workstation)"
   fi
 fi
 
@@ -272,7 +272,7 @@ case "$profile" in
   assistant|service)
     sign_commits="${sign_commits:-false}"
     ;;
-  personal|workstation)
+  personal-workstation|workstation)
     ;;
 esac
 

@@ -34,6 +34,8 @@ fi
 {
   printf 'umask=%s\n' "$(umask)"
   printf 'no_auto_update=%s\n' "${HOMEBREW_NO_AUTO_UPDATE:-}"
+  [ -z "${HOMEBREW_BUNDLE_DOTFILES_PROFILE:-}" ] \
+    || printf 'profile=%s\n' "$HOMEBREW_BUNDLE_DOTFILES_PROFILE"
   printf 'arg=%s\n' "$@"
 } >>"$FAKE_BREW_LOG"
 
@@ -179,6 +181,7 @@ bundle_log="$tmp_dir/bundle.log"
 run_brew_bundle "$bundle_log" devbox
 
 [ "$(grep -c '^umask=0002$' "$bundle_log")" -eq 3 ] || fail "devbox bundle bypassed the shared umask"
+[ "$(grep -c '^profile=devbox$' "$bundle_log")" -eq 3 ] || fail "devbox bundle omitted its profile environment"
 [ "$(grep -c '^arg=bundle$' "$bundle_log")" -eq 3 ] || fail "devbox bundle did not run all profile layers"
 grep -Fqx "arg=$repo_root/Brewfile" "$bundle_log" || fail "shared Brewfile was not bundled"
 grep -Fqx "arg=$repo_root/Brewfile.developer" "$bundle_log" || fail "developer Brewfile was not bundled"
@@ -186,18 +189,33 @@ grep -Fqx "arg=$repo_root/Brewfile.devbox" "$bundle_log" || fail "devbox Brewfil
 
 stdin_bundle_log="$tmp_dir/stdin-bundle.log"
 : >"$stdin_bundle_log"
-FAKE_BREW_READ_STDIN=1 run_brew_bundle "$stdin_bundle_log" personal
+FAKE_BREW_READ_STDIN=1 run_brew_bundle "$stdin_bundle_log" personal-workstation
 [ "$(grep -c '^arg=bundle$' "$stdin_bundle_log")" -eq 4 ] \
-  || fail "stdin-consuming brew skipped personal profile layers"
+  || fail "stdin-consuming brew skipped personal workstation profile layers"
+[ "$(grep -c '^profile=personal-workstation$' "$stdin_bundle_log")" -eq 4 ] \
+  || fail "personal workstation bundle omitted its profile environment"
 for file in Brewfile Brewfile.developer Brewfile.workstation Brewfile.personal; do
   grep -Fqx "arg=$repo_root/$file" "$stdin_bundle_log" \
     || fail "stdin-consuming brew skipped $file"
+done
+
+personal_devbox_log="$tmp_dir/personal-devbox.log"
+: >"$personal_devbox_log"
+run_brew_bundle "$personal_devbox_log" personal-devbox
+[ "$(grep -c '^arg=bundle$' "$personal_devbox_log")" -eq 4 ] \
+  || fail "personal devbox bundle skipped a profile layer"
+[ "$(grep -c '^profile=personal-devbox$' "$personal_devbox_log")" -eq 4 ] \
+  || fail "personal devbox bundle omitted its profile environment"
+for file in Brewfile Brewfile.developer Brewfile.devbox Brewfile.personal; do
+  grep -Fqx "arg=$repo_root/$file" "$personal_devbox_log" \
+    || fail "personal devbox bundle skipped $file"
 done
 
 assistant_log="$tmp_dir/assistant.log"
 : >"$assistant_log"
 run_brew_bundle "$assistant_log" assistant
 [ "$(grep -c '^umask=0002$' "$assistant_log")" -eq 2 ] || fail "assistant bundle bypassed the shared umask"
+[ "$(grep -c '^profile=assistant$' "$assistant_log")" -eq 2 ] || fail "assistant bundle omitted its profile environment"
 [ "$(grep -c '^arg=bundle$' "$assistant_log")" -eq 2 ] || fail "assistant bundle did not run base and assistant layers"
 grep -Fqx "arg=$repo_root/Brewfile" "$assistant_log" || fail "assistant bundle missed the base Brewfile"
 grep -Fqx "arg=$repo_root/Brewfile.assistant" "$assistant_log" || fail "assistant bundle missed its profile Brewfile"
@@ -209,6 +227,7 @@ service_log="$tmp_dir/service.log"
 : >"$service_log"
 run_brew_bundle "$service_log" service
 [ "$(grep -c '^umask=0002$' "$service_log")" -eq 2 ] || fail "service bundle bypassed the shared umask"
+[ "$(grep -c '^profile=service$' "$service_log")" -eq 2 ] || fail "service bundle omitted its profile environment"
 [ "$(grep -c '^arg=bundle$' "$service_log")" -eq 2 ] || fail "service bundle did not run base and service layers"
 grep -Fqx "arg=$repo_root/Brewfile" "$service_log" || fail "service bundle missed the base Brewfile"
 grep -Fqx "arg=$repo_root/Brewfile.service" "$service_log" || fail "service bundle missed its profile Brewfile"
@@ -220,6 +239,7 @@ shared_log="$tmp_dir/shared.log"
 : >"$shared_log"
 run_brew_bundle "$shared_log" --shared-only devbox
 [ "$(grep -c '^umask=0002$' "$shared_log")" -eq 1 ] || fail "devbox shared-only bundle bypassed the shared umask"
+[ "$(grep -c '^profile=devbox$' "$shared_log")" -eq 1 ] || fail "shared-only bundle omitted its profile environment"
 [ "$(grep -c '^arg=bundle$' "$shared_log")" -eq 1 ] || fail "devbox shared-only bundle did not run exactly once"
 grep -Fqx "arg=$repo_root/Brewfile" "$shared_log" || fail "devbox shared-only bundle missed the shared Brewfile"
 
@@ -266,9 +286,11 @@ check_log="$tmp_dir/check.log"
   PATH="$tmp_dir/bin:$PATH" \
   FAKE_BREW_LOG="$check_log" \
   FAKE_BREW_PREFIX="$fake_prefix" \
-    dotfiles_homebrew_bundle_check "$repo_root/Brewfile"
+    dotfiles_homebrew_bundle_check "$repo_root/Brewfile" devbox
 )
 grep -Fqx 'no_auto_update=1' "$check_log" \
   || fail "bundle verification allowed Homebrew auto-update"
+grep -Fqx 'profile=devbox' "$check_log" \
+  || fail "bundle verification omitted its profile environment"
 
 printf 'ok shared Homebrew mutations require the prefix owner and verification stays read-only\n'

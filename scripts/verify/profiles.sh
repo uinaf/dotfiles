@@ -52,7 +52,7 @@ managed_paths() {
     managed --path-style relative
 }
 
-assert_eq personal "$(dotfiles_normalize_profile personal)" "personal profile"
+assert_eq personal-workstation "$(dotfiles_normalize_profile personal-workstation)" "personal workstation profile"
 assert_eq personal-devbox "$(dotfiles_normalize_profile personal-devbox)" "personal devbox profile"
 assert_eq workstation "$(dotfiles_normalize_profile workstation)" "workstation profile"
 assert_eq devbox "$(dotfiles_normalize_profile devbox)" "devbox profile"
@@ -60,6 +60,9 @@ assert_eq assistant "$(dotfiles_normalize_profile assistant)" "assistant profile
 assert_eq service "$(dotfiles_normalize_profile service)" "service profile"
 if dotfiles_normalize_profile unsupported >/dev/null 2>&1; then
   fail "unsupported profile was accepted"
+fi
+if dotfiles_normalize_profile personal >/dev/null 2>&1; then
+  fail "retired personal profile was accepted"
 fi
 
 for supported_profile in $(dotfiles_profiles); do
@@ -86,7 +89,7 @@ if ! dotfiles_profile_requires_sops_identity personal-devbox \
   fail "secret-consuming profiles must require a SOPS age identity"
 fi
 if dotfiles_profile_requires_sops_identity workstation \
-  || dotfiles_profile_requires_sops_identity personal; then
+  || dotfiles_profile_requires_sops_identity personal-workstation; then
   fail "portable profiles must not require a SOPS age identity"
 fi
 if dotfiles_profile_requires_sops_identity unsupported >/dev/null 2>&1; then
@@ -205,22 +208,54 @@ assert_eq "$(printf 'Brewfile\nBrewfile.service')" "$service_files" "service Bre
 devbox_files="$(dotfiles_profile_brewfiles devbox)"
 assert_eq "$(printf 'Brewfile\nBrewfile.developer\nBrewfile.devbox')" "$devbox_files" "devbox Brewfile layers"
 personal_devbox_files="$(dotfiles_profile_brewfiles personal-devbox)"
-assert_eq "$devbox_files" "$personal_devbox_files" "personal devbox Brewfile layers"
+assert_eq "$(printf 'Brewfile\nBrewfile.developer\nBrewfile.devbox\nBrewfile.personal')" "$personal_devbox_files" "personal devbox Brewfile layers"
 workstation_files="$(dotfiles_profile_brewfiles workstation)"
 assert_eq "$(printf 'Brewfile\nBrewfile.developer\nBrewfile.workstation')" "$workstation_files" "workstation Brewfile layers"
-personal_files="$(dotfiles_profile_brewfiles personal)"
-assert_eq "$(printf 'Brewfile\nBrewfile.developer\nBrewfile.workstation\nBrewfile.personal')" "$personal_files" "personal Brewfile layers"
+personal_workstation_files="$(dotfiles_profile_brewfiles personal-workstation)"
+assert_eq "$(printf 'Brewfile\nBrewfile.developer\nBrewfile.workstation\nBrewfile.personal')" "$personal_workstation_files" "personal workstation Brewfile layers"
 if unsupported_files="$(dotfiles_profile_brewfiles unsupported 2>/dev/null)"; then
   fail "unsupported profile resolved Brewfile layers"
 fi
 [ -z "$unsupported_files" ] || fail "unsupported profile emitted partial Brewfile layers"
 
-for required in 'brew "uinaf/tap/attach"' 'cask "codex"' 'cask "claude-code@latest"' 'cask "uinaf/tap/autoreview"' 'cask "uinaf/tap/slopomatic"'; do
+personal_workstation_casks="$(
+  HOMEBREW_BUNDLE_DOTFILES_PROFILE=personal-workstation HOMEBREW_NO_AUTO_UPDATE=1 \
+    brew bundle list --cask --file "$repo_root/Brewfile.personal"
+)"
+printf '%s\n' "$personal_workstation_casks" | grep -Fqx tailscale-app \
+  || fail "personal workstation Brewfile omitted tailscale-app"
+personal_devbox_casks="$(
+  HOMEBREW_BUNDLE_DOTFILES_PROFILE=personal-devbox HOMEBREW_NO_AUTO_UPDATE=1 \
+    brew bundle list --cask --file "$repo_root/Brewfile.personal"
+)"
+if printf '%s\n' "$personal_devbox_casks" | grep -Fqx tailscale-app; then
+  fail "personal devbox Brewfile included tailscale-app"
+fi
+if personal_error="$(
+  HOMEBREW_BUNDLE_DOTFILES_PROFILE=workstation HOMEBREW_NO_AUTO_UPDATE=1 \
+    brew bundle list --all --file "$repo_root/Brewfile.personal" 2>&1
+)"; then
+  fail "personal Brewfile accepted a non-personal profile"
+fi
+printf '%s\n' "$personal_error" | grep -Fq \
+  'Brewfile.personal requires a personal-workstation or personal-devbox profile' \
+  || fail "personal Brewfile profile failure was not actionable"
+
+for required in 'cask "codex"' 'cask "claude-code@latest"' 'cask "uinaf/tap/autoreview"' 'cask "uinaf/tap/slopomatic"'; do
   grep -Fqx "$required" "$repo_root/Brewfile.developer" \
     || fail "developer layer missed $required"
   for file in Brewfile.workstation Brewfile.personal Brewfile.devbox; do
     if grep -Fqx "$required" "$repo_root/$file"; then
       fail "$file duplicates shared developer dependency $required"
+    fi
+  done
+done
+for required in 'brew "uinaf/tap/attach"' 'brew "openclaw/tap/crabbox"' 'brew "openclaw/tap/gitcrawl"' 'brew "mole"'; do
+  grep -Fqx "$required" "$repo_root/Brewfile.personal" \
+    || fail "personal layer missed $required"
+  for file in Brewfile.developer Brewfile.workstation Brewfile.devbox Brewfile.assistant Brewfile.service; do
+    if grep -Fqx "$required" "$repo_root/$file"; then
+      fail "$file includes personal dependency $required"
     fi
   done
 done
@@ -231,16 +266,15 @@ for file in Brewfile.workstation Brewfile.personal Brewfile.devbox; do
     fail "$file duplicates the shared developer uinaf/tap"
   fi
 done
-if grep -Fqx 'cask "google-chrome"' "$repo_root/Brewfile"; then
-  fail "base layer exposed Google Chrome to service users"
-fi
-for file in Brewfile.developer Brewfile.assistant; do
-  grep -Fqx 'cask "google-chrome"' "$repo_root/$file" \
-    || fail "$file missed Google Chrome"
+for required in 'brew "gh"' 'cask "google-chrome"'; do
+  grep -Fqx "$required" "$repo_root/Brewfile" \
+    || fail "base layer missed $required"
+  for file in Brewfile.developer Brewfile.workstation Brewfile.personal Brewfile.devbox Brewfile.assistant Brewfile.service; do
+    if grep -Fqx "$required" "$repo_root/$file"; then
+      fail "$file duplicates shared base dependency $required"
+    fi
+  done
 done
-if grep -Fqx 'cask "google-chrome"' "$repo_root/Brewfile.service"; then
-  fail "service layer included browser software"
-fi
 grep -Fqx 'cask "1password-cli"' "$repo_root/Brewfile.developer" \
   || fail "developer layer missed 1Password CLI"
 for required in 'cask "1password"' 'cask "slack"' 'cask "claude"' 'cask "chatgpt"'; do
@@ -252,9 +286,18 @@ for file in Brewfile.workstation Brewfile.personal Brewfile.devbox Brewfile.assi
     fail "$file duplicates developer 1Password CLI"
   fi
 done
-if grep -Fqx 'brew "ffmpeg"' "$repo_root/Brewfile.assistant"; then
-  fail 'assistant layer retained workload-owned dependency brew "ffmpeg"'
-fi
+for required in 'brew "yt-dlp"' 'brew "poppler"' 'brew "qpdf"' 'brew "qrencode"' 'brew "weasyprint"' 'brew "whisper-cpp"' 'brew "summarize"' 'brew "openclaw/tap/gogcli"' 'brew "steipete/tap/peekaboo"'; do
+  grep -Fqx "$required" "$repo_root/Brewfile.assistant" \
+    || fail "assistant layer missed $required"
+  if grep -Fqx "$required" "$repo_root/Brewfile.devbox"; then
+    fail "devbox layer retained assistant dependency $required"
+  fi
+done
+for removed in 'cask "gcloud-cli"' 'brew "openclaw/tap/crabbox"' 'brew "openclaw/tap/gitcrawl"'; do
+  if grep -Fqx "$removed" "$repo_root/Brewfile.devbox"; then
+    fail "devbox layer retained $removed"
+  fi
+done
 grep -Fqx 'cask "zed"' "$repo_root/Brewfile.personal" \
   || fail "personal layer missed Zed"
 for file in Brewfile Brewfile.developer Brewfile.workstation Brewfile.devbox Brewfile.assistant Brewfile.service; do
@@ -282,8 +325,8 @@ devbox_steps="$("$repo_root/scripts/bootstrap/install.sh" --print-steps --profil
 assert_eq "$developer_steps" "$devbox_steps" "devbox developer install steps"
 personal_devbox_steps="$("$repo_root/scripts/bootstrap/install.sh" --print-steps --profile personal-devbox)"
 assert_eq "$devbox_steps" "$personal_devbox_steps" "personal devbox developer install steps"
-personal_steps="$("$repo_root/scripts/bootstrap/install.sh" --print-steps --profile personal)"
-assert_eq "$developer_steps" "$personal_steps" "personal developer install steps"
+personal_workstation_steps="$("$repo_root/scripts/bootstrap/install.sh" --print-steps --profile personal-workstation)"
+assert_eq "$developer_steps" "$personal_workstation_steps" "personal workstation developer install steps"
 
 install_fixture="$tmp_root/install-fixture"
 install_log="$tmp_root/install-fixture.log"
@@ -433,12 +476,12 @@ devbox_mise="$(render_target devbox .config/mise/config.toml)"
 assert_eq "$workstation_mise" "$devbox_mise" "devbox developer mise config"
 personal_devbox_mise="$(render_target personal-devbox .config/mise/config.toml)"
 assert_eq "$devbox_mise" "$personal_devbox_mise" "personal devbox mise config"
-personal_mise="$(render_target personal .config/mise/config.toml)"
-assert_eq "$workstation_mise" "$personal_mise" "personal developer mise config"
+personal_workstation_mise="$(render_target personal-workstation .config/mise/config.toml)"
+assert_eq "$workstation_mise" "$personal_workstation_mise" "personal workstation developer mise config"
 
 assert_eq assistant "$(render_target assistant .config/dotfiles/profile)" "rendered assistant profile"
 assert_eq service "$(render_target service .config/dotfiles/profile)" "rendered service profile"
-assert_eq personal "$(render_target personal .config/dotfiles/profile)" "rendered personal profile"
+assert_eq personal-workstation "$(render_target personal-workstation .config/dotfiles/profile)" "rendered personal workstation profile"
 assert_eq personal-devbox "$(render_target personal-devbox .config/dotfiles/profile)" "rendered personal devbox profile"
 
 assistant_managed="$({
@@ -492,16 +535,16 @@ if printf '%s\n' "$workstation_managed" | grep -Eq '^\.config/zed(/|$)'; then
   fail "workstation profile manages personal-only Zed state"
 fi
 
-personal_managed="$({
-  data='{"dotfilesProfile":"personal"}'
+personal_workstation_managed="$({
+  data='{"dotfilesProfile":"personal-workstation"}'
   chezmoi \
     --source "$repo_root/chezmoi" \
-    --destination "$tmp_root/personal" \
+    --destination "$tmp_root/personal-workstation" \
     --override-data "$data" \
     managed --path-style relative
 })"
-printf '%s\n' "$personal_managed" | grep -Fqx '.config/zed/settings.json' \
-  || fail "personal profile does not manage Zed settings"
+printf '%s\n' "$personal_workstation_managed" | grep -Fqx '.config/zed/settings.json' \
+  || fail "personal workstation profile does not manage Zed settings"
 
 devbox_managed="$({
   data='{"dotfilesProfile":"devbox"}'
@@ -512,7 +555,8 @@ devbox_managed="$({
     managed --path-style relative
 })"
 personal_devbox_managed="$(managed_paths personal-devbox)"
-assert_eq "$devbox_managed" "$personal_devbox_managed" "personal devbox managed dotfiles"
+printf '%s\n' "$personal_devbox_managed" | grep -Fqx '.config/zed/settings.json' \
+  || fail "personal devbox profile does not manage personal Zed settings"
 for required_path in \
   '.config/git/allowed_signers' \
   '.gitconfig' \

@@ -44,7 +44,7 @@ without adding a human session or assistant credential to the service user.
 
 ## Developer Git and SSH
 
-Workstation, personal-devbox, and devbox users require explicit Git authorship
+Workstation, personal-workstation, personal-devbox, and devbox users require explicit Git authorship
 and an owner-only, unencrypted local SSH private key for unattended commit
 signing. Agent-backed, encrypted, and public-key-only signing paths are not
 supported.
@@ -101,7 +101,7 @@ GIT_USER_EMAIL='workload@example.invalid' \
 Age calls the private decryption key an **identity** and its derived public
 encryption address a **recipient**. Secret-consuming deployments
 (`personal-devbox`, `devbox`, `assistant`, `service`, vault/sudo consumers) require one general
-SOPS age identity per managed Unix user. Portable workstation and personal
+SOPS age identity per managed Unix user. Portable workstation and personal-workstation
 profiles keep the SOPS CLI without an identity until they decrypt encrypted
 material. Keep sudo-specific age identities separate because they protect a
 different capability and have a different rotation lifecycle.

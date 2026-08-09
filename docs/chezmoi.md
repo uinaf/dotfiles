@@ -16,13 +16,13 @@ Use chezmoi source attributes instead of literal target filenames:
 | `chezmoi/private_dot_config/private_dotfiles/profile.tmpl` | `~/.config/dotfiles/profile` |
 | `chezmoi/private_dot_ssh/private_config` | `~/.ssh/config` |
 | `chezmoi/private_dot_local/private_libexec/private_dotfiles/private_executable_git-ssh-sign-agentless` | `~/.local/libexec/dotfiles/git-ssh-sign-agentless` |
-| `chezmoi/private_dot_config/zed/private_settings.json` | `~/.config/zed/settings.json` for personal users |
+| `chezmoi/private_dot_config/zed/private_settings.json` | `~/.config/zed/settings.json` for personal-workstation and personal-devbox users |
 
 The `private_` attribute is used for parent config directories and files that
 should land as owner-only local config.
 
-The personal profile manages Zed settings. Personal, personal-devbox,
-workstation, and devbox profiles share GitHub authentication, outbound SSH, signing-helper,
+Both personal profiles manage Zed settings. Personal-workstation,
+personal-devbox, workstation, and devbox profiles share GitHub authentication, outbound SSH, signing-helper,
 allowed-signers, and Ghostty sources. Assistant and service profiles render a
 minimal Git base with a local workload-identity include and exclude those
 developer surfaces; only assistant includes the optional GitHub App helper.

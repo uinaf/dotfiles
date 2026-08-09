@@ -31,9 +31,10 @@ profile.
 | Surface | Command | Proves |
 | --- | --- | --- |
 | Workstation | `mise run verify:bootstrap:workstation` | Required package layers, SOPS/age CLIs, mise tools, Codex ChatGPT login default, and managed config exist. Age identity is optional until secrets are consumed. |
-| Personal devbox | `mise run verify:bootstrap:personal-devbox` | Devbox package, identity, runtime, and managed-config contracts exist with personal agent skills selected. |
+| Personal workstation | `mise run verify:bootstrap:personal-workstation` | Workstation package and runtime contracts exist with personal packages, dotfiles, and skills selected. |
+| Personal devbox | `mise run verify:bootstrap:personal-devbox` | Devbox package, identity, and runtime contracts exist with personal packages, dotfiles, and skills selected. |
 | Devbox | `mise run verify:bootstrap:devbox` | Developer package layers, age identity, mise tools, Codex ChatGPT login default, and managed config exist. |
-| Assistant | `mise run verify:bootstrap:assistant` | Minimal package layers, age identity, managed Git base, and workload authorship match the assistant contract. |
+| Assistant | `mise run verify:bootstrap:assistant` | Shared browser and GitHub tools, assistant automation packages, age identity, managed Git base, and workload authorship match the assistant contract. |
 | Service | `mise run verify:bootstrap:service` | Identity-safe package layers, age identity, minimal Git base, and unsigned workload authorship match the service contract. |
 | Devbox services | `mise run verify:devbox-services` | Launchd, age, and local service configuration match the shared-host contract. |
 | Workstation drift | `mise run audit:workstation` | Human Git, SSH, Codex, secret, permission, and local-state boundaries are visible. |

@@ -1,6 +1,6 @@
 # Agent Setup
 
-The personal, personal-devbox, workstation, and devbox profiles install
+The personal-workstation, personal-devbox, workstation, and devbox profiles install
 machine-global instructions and skills from `scripts/agents/`. Assistant and
 service profiles refuse agent sync and do not install coding agents, global
 instructions, or development skills.
@@ -21,7 +21,7 @@ The sync fast-forwards the clean dotfiles checkout, generates
 `scripts/agents/rules/final.md`, links it to installed Codex and Claude Code
 entrypoints, and installs the effective selection from
 `scripts/agents/skills/shared.json` and `scripts/agents/skills/personal.json`.
-Personal and personal-devbox install both layers; workstation and devbox
+Personal-workstation and personal-devbox install both layers; workstation and devbox
 install only shared. The ignored `scripts/agents/skills.lock.json` records the
 last manifest successfully applied by this checkout. Later syncs remove skills
 dropped from that lock while
@@ -47,13 +47,14 @@ ownership initialization. Before migrating a machine that predates ownership
 tracking, seed the lock only with entries confirmed to have been installed by
 the former manifest sync.
 Shared first-party skills live in [`uinaf/skills`](https://github.com/uinaf/skills).
-The attach-cli skill ships with
+The personal attach-cli skill ships with
 [`uinaf/attach`](https://github.com/uinaf/attach), the autoreview skill with
 [`uinaf/autoreview`](https://github.com/uinaf/autoreview), and the slopomatic
 skill with [`uinaf/slopomatic`](https://github.com/uinaf/slopomatic).
 The personal uinaf-design skill ships with
-[`uinaf/design`](https://github.com/uinaf/design). CLI-backed skills invoke
-tools installed by the developer Homebrew layer.
+[`uinaf/design`](https://github.com/uinaf/design). Shared CLI-backed skills use
+the developer Homebrew layer; personal CLI-backed skills use the personal
+layer.
 
 Regular files and foreign symlinks at the global instruction entrypoints are
 rejected before global state changes.
@@ -66,7 +67,7 @@ rejected before global state changes.
 | `scripts/agents/rules/local.md` | Ignored optional machine overrides. |
 | `scripts/agents/rules/final.md` | Ignored generated rules linked into installed agents. |
 | `scripts/agents/skills/shared.json` | Shared managed skill selection. |
-| `scripts/agents/skills/personal.json` | Personal additions for personal and personal-devbox. |
+| `scripts/agents/skills/personal.json` | Personal additions for personal-workstation and personal-devbox. |
 | `scripts/agents/skills.lock.json` | Ignored machine-local ownership ledger for safe removal. |
 | `scripts/agents/resolve-profile.sh` | Strict persisted-profile resolver used before sync mutation. |
 | `scripts/agents/sync.ts` | Executable sync entrypoint. |

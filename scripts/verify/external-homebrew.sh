@@ -61,6 +61,22 @@ chmod 755 "$tmp_dir/bin/managed-tool"
 )
 [ "$(grep -c '^--version$' "$managed_log")" -eq 2 ] || fail "external command checks did not execute"
 
+printf 'cask|tailscale-app|command|%s|--version\n' "$tmp_dir/bin/managed-tool" >"$external_file"
+(
+  unset HOMEBREW_BUNDLE_CASK_SKIP
+  MANAGED_TOOL_LOG="$managed_log" \
+    DOTFILES_EXTERNAL_HOMEBREW_FILE="$external_file" \
+    dotfiles_homebrew_configure_external_capabilities "$repo_root" personal-workstation >/dev/null
+  [ "$HOMEBREW_BUNDLE_CASK_SKIP" = tailscale-app ] \
+    || fail "personal workstation conditional cask was not skipped"
+)
+if (
+  MANAGED_TOOL_LOG="$managed_log" DOTFILES_EXTERNAL_HOMEBREW_FILE="$external_file" \
+    dotfiles_homebrew_configure_external_capabilities "$repo_root" personal-devbox >/dev/null 2>&1
+); then
+  fail "personal devbox accepted the workstation-only Tailscale cask"
+fi
+
 if (
   HOMEBREW_BUNDLE_BREW_SKIP=git DOTFILES_EXTERNAL_HOMEBREW_FILE="$tmp_dir/missing" \
     dotfiles_homebrew_configure_external_capabilities "$repo_root" workstation >/dev/null 2>&1

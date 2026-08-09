@@ -8,7 +8,7 @@ and migrate each Unix user before applying the new profile.
 
 1. Back up the user's dotfiles, Git configuration, SSH configuration, and
    LaunchAgent/LaunchDaemon definitions.
-2. Choose exactly one canonical role: `personal`, `personal-devbox`,
+2. Choose exactly one canonical role: `personal-workstation`, `personal-devbox`,
    `workstation`, `devbox`, `assistant`, or `service`.
 3. Inventory old state under `~/.config/uinaf`,
    `~/.local/libexec/uinaf`, `~/Library/LaunchAgents`, and
@@ -38,9 +38,10 @@ chmod 0700 "$HOME/.config/dotfiles"
 chmod 0600 "$HOME/.config/dotfiles"/*
 ```
 
-Use `personal` for the opinionated desktop contract. Use `personal-devbox` for
-the devbox contract plus personal agent skills; it does not install workstation
-or personal desktop layers.
+Use `personal-workstation` for the workstation shape plus personal packages and
+skills. Use `personal-devbox` for the devbox shape plus the same personal
+packages and skills. The former `personal` marker is unsupported and must be
+replaced explicitly.
 
 The migrated sudo age identity remains sudo-specific. Do not copy or reuse it
 as the general SOPS identity. After installing the selected profile's Homebrew
@@ -64,7 +65,7 @@ mise install
 ./scripts/bootstrap/install.sh --profile "$role"
 ```
 
-For `workstation`, `personal-devbox`, and `devbox`, remove the former marker-delimited GitHub block
+For `workstation`, `personal-workstation`, `personal-devbox`, and `devbox`, remove the former marker-delimited GitHub block
 from `~/.ssh/config.local`, preserve any unrelated directives, and rerun:
 
 ```sh

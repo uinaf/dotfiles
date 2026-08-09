@@ -16,17 +16,17 @@ usage() {
 Usage:
   scripts/bootstrap/brew-bundle.sh workstation
   scripts/bootstrap/brew-bundle.sh devbox
+  scripts/bootstrap/brew-bundle.sh personal-workstation
   scripts/bootstrap/brew-bundle.sh personal-devbox
   scripts/bootstrap/brew-bundle.sh assistant
   scripts/bootstrap/brew-bundle.sh service
-  scripts/bootstrap/brew-bundle.sh personal
   scripts/bootstrap/brew-bundle.sh --shared-only workstation
   scripts/bootstrap/brew-bundle.sh --shared-only devbox
   scripts/bootstrap/brew-bundle.sh --shared-only assistant
   scripts/bootstrap/brew-bundle.sh --shared-only service
   scripts/bootstrap/brew-bundle.sh --print-files PROFILE
 
-Installs the minimal base first, the developer layer for personal/personal-devbox/workstation/devbox,
+Installs the shared base first, the developer layer for personal-workstation/personal-devbox/workstation/devbox,
 then the selected profile layers. --shared-only installs only the base.
 An owner-controlled external-homebrew file can validate and skip entries
 supplied by another trusted installer.
@@ -36,7 +36,7 @@ USAGE
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
-    personal|personal-devbox|workstation|devbox|assistant|service)
+    personal-workstation|personal-devbox|workstation|devbox|assistant|service)
       if [ -n "$profile" ]; then
         usage >&2
         exit 2
@@ -50,7 +50,7 @@ while [ "$#" -gt 0 ]; do
         exit 2
       fi
       case "$1" in
-        personal|personal-devbox|workstation|devbox|assistant|service)
+        personal-workstation|personal-devbox|workstation|devbox|assistant|service)
           if [ -n "$profile" ]; then
             usage >&2
             exit 2
@@ -117,9 +117,10 @@ run_bundle() {
   local file="$1"
   printf '\n## brew bundle --file %s\n' "$file"
   if dotfiles_profile_uses_shared_brew "$profile"; then
-    "$repo_root/scripts/bootstrap/brew-devbox.sh" bundle --file "$file"
+    HOMEBREW_BUNDLE_DOTFILES_PROFILE="$profile" \
+      "$repo_root/scripts/bootstrap/brew-devbox.sh" bundle --file "$file"
   else
-    brew bundle --file "$file"
+    HOMEBREW_BUNDLE_DOTFILES_PROFILE="$profile" brew bundle --file "$file"
   fi
 }
 

@@ -5,14 +5,14 @@ Use this guide when installing or refreshing a Mac from this repository.
 The repo has six per-user profiles:
 
 - `workstation` for a portable human-operated development Mac.
-- `personal` for an opinionated personal Mac extending workstation.
-- `personal-devbox` for an owner-operated devbox with personal agent skills.
+- `personal-workstation` for a workstation plus personal packages and skills.
+- `personal-devbox` for a devbox plus personal packages and skills.
 - `devbox` for a remote coding identity on an SSH-first host.
 - `assistant` for an unattended persona or agent identity.
 - `service` for a non-persona managed workload identity.
 
 The role contract and host/user boundary are defined in [User profiles](profiles.md).
-Cursor Agent CLI is required for personal, personal-devbox, workstation, and devbox profiles
+Cursor Agent CLI is required for personal-workstation, personal-devbox, workstation, and devbox profiles
 and installed by `./scripts/bootstrap/install.sh`. The optional Cursor desktop
 app is available to both interactive profiles and installed with
 `./scripts/bootstrap/install-cursor-desktop.sh`. Devbox shells use Cursor's
@@ -24,7 +24,7 @@ Run commands from the repo root unless a step says otherwise.
 Keep the SOPS and age CLIs in the portable Homebrew baseline. Require a
 per-user SOPS age identity only for profiles and workflows that decrypt
 encrypted material (`personal-devbox`, `devbox`, `assistant`, `service`, and any vault or sudo
-consumer). Portable `workstation` and `personal` boots can pass readiness
+consumer). Portable `workstation` and `personal-workstation` boots can pass readiness
 without an identity; decryption stays fail-closed until one is provisioned.
 When you do create an identity, follow [Identity provisioning](identities.md),
 back it up through an approved human recovery system, and verify the restored
@@ -105,13 +105,13 @@ profile steps below.
 ## Human Workstation Macs
 
 Use `workstation` for the portable developer baseline or when another trusted
-system owns selected software. Use `personal` when this repository should
-also own the opinionated desktop applications and preferences.
+system owns selected software. Use `personal-workstation` when this repository
+should also own the personal package and skill layers.
 
 Install Homebrew dependencies:
 
 ```zsh
-profile=workstation # use personal for the opinionated layer
+profile=workstation # use personal-workstation for the personal layers
 ./scripts/bootstrap/brew-bundle.sh "$profile"
 ```
 
@@ -130,7 +130,7 @@ macOS Gatekeeper assessment pass. It does not remove quarantine attributes or
 replace an existing installation. Use `--verify-only` to validate the current
 vendor download without installing it.
 
-On `personal` only, install Mac App Store apps and remove bundled apps this
+On `personal-workstation` only, install Mac App Store apps and remove bundled apps this
 setup does not use:
 
 ```zsh
@@ -158,7 +158,7 @@ entry on the remote host when possible and fall back to `xterm-256color` when
 installation is unavailable. See [Ghostty SSH
 integration](https://ghostty.org/docs/features/ssh).
 
-The personal profile's ChatGPT desktop app includes Codex. Its Codex appearance
+The personal-workstation profile's ChatGPT desktop app includes Codex. Its Codex appearance
 is manual app state, not repo-managed config. After installing ChatGPT, open
 its Codex settings and set:
 
@@ -195,12 +195,12 @@ remote_connections = true
 Apply dotfiles and configure local state:
 
 ```zsh
-profile=workstation # use personal for the opinionated layer
+profile=workstation # use personal-workstation for the personal layers
 ./scripts/bootstrap/apply-dotfiles.sh --profile "$profile"
 mise trust
 mise install
 ./scripts/bootstrap/install.sh --profile "$profile"
-# Optional for workstation/personal; required for secret-consuming profiles:
+# Optional for workstation/personal-workstation; required for secret-consuming profiles:
 # ./scripts/secrets/configure-sops-age-identity.sh
 ./scripts/bootstrap/configure-git.sh --profile "$profile"
 ./scripts/bootstrap/configure-power.sh --profile "$profile"
@@ -250,9 +250,7 @@ Verify:
 ## Devbox Mac
 
 Use `devbox` for the standard shared-host contract. Use `personal-devbox` for
-the same packages, dotfiles, identity, power, services, and verification plus
-the personal agent-skill layer. It does not install workstation or personal
-desktop applications.
+the same host shape plus the additive personal package and skill layers.
 
 The human owner profile may opt into the compact desktop baseline. It is not
 part of the shared agent-user bootstrap:
@@ -269,7 +267,7 @@ only persistent Dock app. Run it only from the logged-in owner account.
 Install shared plus devbox Homebrew dependencies:
 
 ```zsh
-profile=devbox # use personal-devbox for personal agent skills
+profile=devbox # use personal-devbox for personal packages and skills
 ./scripts/bootstrap/brew-bundle.sh "$profile"
 ./scripts/bootstrap/install-blacksmith.sh
 ```
@@ -431,13 +429,13 @@ Pull the repo and rerun the relevant profile:
 ```zsh
 cd ~/projects/dotfiles
 git pull --ff-only
-profile=workstation # use personal for the opinionated layer
+profile=workstation # use personal-workstation for the personal layers
 ./scripts/bootstrap/brew-bundle.sh "$profile"
 ./scripts/bootstrap/apply-dotfiles.sh --profile "$profile"
 mise trust
 mise install
 ./scripts/bootstrap/install.sh --profile "$profile"
-# Optional for workstation/personal; required for personal-devbox/devbox/assistant/service:
+# Optional for workstation/personal-workstation; required for personal-devbox/devbox/assistant/service:
 ./scripts/secrets/configure-sops-age-identity.sh
 ./scripts/bootstrap/configure-power.sh --profile "$profile"
 ./scripts/bootstrap/configure-spotlight.sh
@@ -448,7 +446,8 @@ Use the target Unix user's `personal-devbox`, `devbox`, `assistant`, or
 `service` role instead when appropriate, and keep the age-identity step for
 those profiles.
 Existing personal machines whose stored marker is `workstation` should set
-`profile=personal` once to adopt the new personal layer.
+`profile=personal-workstation` once to adopt the personal layers. Machines with
+the retired `personal` marker must also replace it explicitly.
 
 ## React Native
 

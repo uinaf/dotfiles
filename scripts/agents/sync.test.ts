@@ -423,7 +423,7 @@ test("rejects duplicate names across selected layers before changing rules", () 
     join(repoDir, "scripts", "agents", "skills", "personal.json"),
     JSON.stringify({ skills: [{ name: fixtureSkills[0]?.name, source: "fixture/conflict" }] }),
   );
-  const runtime = new FixtureRuntime(repoDir, home, { profile: "personal" });
+  const runtime = new FixtureRuntime(repoDir, home, { profile: "personal-workstation" });
 
   assert.equal(main([], runtime), 1);
   assert.match(runtime.stderr.value, /Invalid layered skills/);
