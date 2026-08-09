@@ -11,6 +11,24 @@ mkdir -p "$tmp_dir/bin"
 # shellcheck source=scripts/lib/homebrew.sh
 . "$repo_root/scripts/lib/homebrew.sh"
 
+# Keep capability-validation cases deterministic. Profile composition and real
+# Brewfile evaluation are covered by profiles.sh; this fixture exercises the
+# trust boundary without depending on the runner's installed Homebrew state.
+dotfiles_homebrew_external_entry_declared() {
+  local profile="$2"
+  local package_type="$3"
+  local package_name="$4"
+
+  case "$profile|$package_type|$package_name" in
+    workstation\|brew\|git | workstation\|cask\|google-chrome | personal-workstation\|cask\|tailscale-app)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
 fail() {
   printf 'FAILED: %s\n' "$1" >&2
   exit 1
