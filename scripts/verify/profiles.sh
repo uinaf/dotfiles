@@ -276,7 +276,7 @@ for required in 'brew "gh"' 'cask "google-chrome"'; do
 done
 grep -Fqx 'cask "1password-cli"' "$repo_root/Brewfile.developer" \
   || fail "developer layer missed 1Password CLI"
-for required in 'cask "1password"' 'cask "slack"' 'cask "claude"' 'cask "chatgpt"'; do
+for required in 'cask "1password"' 'cask "slack"' 'cask "claude"' 'cask "chatgpt"' 'cask "cursor"'; do
   grep -Fqx "$required" "$repo_root/Brewfile.workstation" \
     || fail "workstation layer missed shared human desktop app $required"
 done

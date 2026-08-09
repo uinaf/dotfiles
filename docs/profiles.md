@@ -59,9 +59,8 @@ while personal GUI applications remain workstation-only. Developer-profile insta
 flows also sync machine-global instructions and additive skills from
 `scripts/agents/`; see [Agent setup](agents.md). Zed and its managed settings
 belong only to personal-workstation.
-The workstation layer supplies 1Password, Slack, Claude Desktop, and ChatGPT to
-both interactive profiles. The separately verified Cursor desktop installer is
-available to either interactive profile.
+The workstation layer supplies 1Password, Slack, Claude Desktop, ChatGPT, and
+Cursor desktop to both interactive profiles.
 
 Assistant dotfile application installs the shared Git base and the
 `gh-app-auth` execution adapter. Service dotfile application installs only the

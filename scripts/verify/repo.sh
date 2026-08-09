@@ -107,9 +107,6 @@ section "mise PATH probe isolation"
 section "profile contracts"
 ./scripts/verify/profiles.sh
 
-section "Cursor desktop installer"
-./scripts/verify/cursor-desktop.sh
-
 section "agent sync contracts"
 node --test scripts/agents/sync.test.ts
 
