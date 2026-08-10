@@ -229,6 +229,10 @@ add_bundle "$external_file" google-chrome "$app_path" com.example.ManagedBrowser
 assert_rejected "wrong signing team" "$external_file"
 
 new_config "$external_file"
+add_bundle "$external_file" google-chrome "$app_path" com.example.ManagedBrowser "not set"
+assert_rejected "placeholder signing team" "$external_file"
+
+new_config "$external_file"
 add_bundle "$external_file" google-chrome "$app_path" com.example.WrongBrowser MANAGEDTEAM
 assert_rejected "wrong bundle identifier" "$external_file"
 
