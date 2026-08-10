@@ -17,8 +17,8 @@ Chezmoi owns the shared rules and both agent entrypoints:
 Preview and apply rule changes with the normal dotfile commands:
 
 ```zsh
-mise run dotfiles:diff
-mise run dotfiles:apply
+mise run dotfiles:diff workstation
+mise run dotfiles:apply workstation
 ```
 
 The links point to `../.agents/AGENTS.md`. They do not depend on a repository
@@ -54,7 +54,7 @@ Run the profile-owned skill sync from any checkout:
 
 ```zsh
 mise run agents:sync
-mise run agents:sync -- --update
+mise run agents:update
 ```
 
 The direct entrypoint is `./scripts/agents/sync.ts`. It reads the secure stored

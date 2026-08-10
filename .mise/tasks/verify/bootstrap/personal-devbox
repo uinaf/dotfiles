@@ -1,5 +1,0 @@
-#!/usr/bin/env bash
-#MISE description="Verify the live personal devbox profile"
-set -euo pipefail
-
-./scripts/verify/bootstrap.sh --profile personal-devbox

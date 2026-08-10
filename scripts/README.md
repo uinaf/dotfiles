@@ -1,7 +1,7 @@
 # Scripts
 
-Run scripts from the repository root. Mise tasks in `.mise/tasks/` are thin,
-discoverable wrappers; reusable behavior stays here.
+Run scripts from the repository root. `mise.toml` provides the small public
+task graph; reusable behavior stays here.
 
 | Directory | Purpose |
 | --- | --- |
@@ -46,10 +46,10 @@ and [User profiles](../docs/profiles.md) for role boundaries.
 ## Global Agent Setup
 
 ```zsh
-mise run dotfiles:diff
-mise run dotfiles:apply
+mise run dotfiles:diff workstation
+mise run dotfiles:apply workstation
 mise run agents:sync
-mise run agents:sync -- --update
+mise run agents:update
 ```
 
 Chezmoi owns global rules and links. The direct skill entrypoint is

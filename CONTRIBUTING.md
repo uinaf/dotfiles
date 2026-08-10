@@ -42,7 +42,7 @@ the current machine should satisfy that profile.
 
 - Packages: `Brewfile`, `Brewfile.developer`, and `Brewfile.<profile>`.
 - Dotfiles: tracked source under `chezmoi/`.
-- Repo tasks: `.mise/tasks/`; machine runtime pins:
+- Repo tasks: `mise.toml`; machine runtime pins:
   `chezmoi/private_dot_config/mise/config.toml.tmpl`.
 - Global agent setup: `scripts/agents/`; repository-local skills remain with
   their consumer.

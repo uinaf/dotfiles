@@ -71,7 +71,7 @@ Codex defaults when `codex` is available.
 For normal edits:
 
 1. Edit the source file under `chezmoi/`.
-2. Preview with `mise run dotfiles:diff`.
+2. Preview with `mise run dotfiles:diff <profile>`.
 3. If changing bootstrap behavior, test in a temporary destination:
 
 ```zsh

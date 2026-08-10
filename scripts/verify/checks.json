@@ -5,8 +5,15 @@
       "id": "static",
       "domain": "static",
       "command": ["node", "scripts/verify/static.ts"],
-      "inputs": ["scripts/**", ".mise/tasks/**", ".github/workflows/**", "chezmoi/private_dot_local/private_libexec/private_dotfiles/private_executable_git-ssh-sign-agentless", "chezmoi/private_Library/private_Application Support/com.mitchellh.ghostty/private_config", "AGENTS.md", "CLAUDE.md"],
+      "inputs": ["scripts/**", "mise.toml", ".github/workflows/**", "chezmoi/private_dot_local/private_libexec/private_dotfiles/private_executable_git-ssh-sign-agentless", "chezmoi/private_Library/private_Application Support/com.mitchellh.ghostty/private_config", "AGENTS.md", "CLAUDE.md"],
       "output": "Syntax, lint, workflow, entrypoint, and Git diff hygiene"
+    },
+    {
+      "id": "mise-tasks",
+      "domain": "static",
+      "command": ["node", "--test", "scripts/verify/mise-tasks.test.ts"],
+      "inputs": ["mise.toml", "scripts/audit/run.ts", "scripts/verify/mise-tasks.test.ts"],
+      "output": "Validated task graph, typed arguments, routing, and failure propagation"
     },
     {
       "id": "vendor-neutral",

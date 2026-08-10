@@ -1,0 +1,75 @@
+#!/usr/bin/env node
+
+import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
+import test from "node:test";
+import { fileURLToPath } from "node:url";
+
+import { auditCommand, runAudit } from "../audit/run.ts";
+
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+const publicTasks = [
+  "agents:sync",
+  "agents:update",
+  "audit",
+  "bootstrap:trust-agent-worktrees",
+  "dotfiles:apply",
+  "dotfiles:diff",
+  "verify",
+  "verify:bootstrap",
+  "verify:devbox-services",
+  "verify:domain",
+  "verify:fast",
+];
+
+function run(command: string, args: string[], env: NodeJS.ProcessEnv = process.env) {
+  return spawnSync(command, args, { cwd: repoRoot, encoding: "utf8", env });
+}
+
+test("mise exposes one validated task graph", () => {
+  const validation = run("mise", ["tasks", "validate", "--errors-only"]);
+  assert.equal(validation.status, 0, validation.stderr);
+
+  const listing = run("mise", ["tasks", "--hidden", "--json"]);
+  assert.equal(listing.status, 0, listing.stderr);
+  const tasks = JSON.parse(listing.stdout) as Array<{ name: string; depends: string[]; hide: boolean; source: string; usage: string }>;
+  assert.deepEqual(
+    tasks.filter((task) => !task.hide).map((task) => task.name).sort(),
+    publicTasks,
+  );
+  assert.deepEqual(tasks.find((task) => task.name === "verify")?.depends.sort(), ["verify:fast", "verify:history"]);
+  assert.ok(tasks.every((task) => task.source === resolve(repoRoot, "mise.toml")));
+  assert.ok(tasks.find((task) => task.name === "audit")?.usage.includes("<scope>"));
+  assert.ok(tasks.find((task) => task.name === "verify:bootstrap")?.usage.includes("<profile>"));
+});
+
+test("task arguments fail before live commands run", () => {
+  assert.notEqual(run("mise", ["run", "audit", "unknown"]).status, 0);
+  assert.notEqual(run("mise", ["run", "verify:bootstrap", "unknown"]).status, 0);
+});
+
+test("focused verification preserves the delegated failure code", () => {
+  const bin = mkdtempSync(join(tmpdir(), "dotfiles-mise-bin-"));
+  try {
+    const node = join(bin, "node");
+    writeFileSync(node, "#!/bin/sh\nexit 23\n");
+    chmodSync(node, 0o755);
+    const result = run("mise", ["run", "verify:domain", "static"], {
+      ...process.env,
+      PATH: `${bin}:${process.env.PATH ?? ""}`,
+    });
+    assert.equal(result.status, 23, result.stderr);
+  } finally {
+    rmSync(bin, { force: true, recursive: true });
+  }
+});
+
+test("audit routing is explicit and preserves failures", () => {
+  assert.deepEqual(auditCommand("repo", "json")[1], ["--skip-mscp", "--json"]);
+  assert.deepEqual(auditCommand("mscp", "text")[1], []);
+  assert.match(auditCommand("personal", "text")[0], /scripts\/audit\/personal\.sh$/);
+  assert.equal(runAudit("host", "text", () => ({ status: 29 })), 29);
+});

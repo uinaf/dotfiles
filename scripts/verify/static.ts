@@ -54,7 +54,6 @@ function run(command: string, args: string[], label: string): void {
 
 const shellFiles = [
   ...filesBelow(resolve(repoRoot, "scripts"), (path) => path.endsWith(".sh")),
-  ...filesBelow(resolve(repoRoot, ".mise/tasks"), () => true),
   agentlessSigner,
 ];
 run("bash", ["-n", ...shellFiles], "shell syntax");
