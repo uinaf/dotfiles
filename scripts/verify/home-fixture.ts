@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const sourceDir = resolve(repoRoot, "chezmoi");
-const profiles = [
+export const profiles = [
   "personal-workstation",
   "personal-devbox",
   "workstation",
@@ -18,7 +18,7 @@ const profiles = [
   "service",
 ] as const;
 
-function runApply(profile: (typeof profiles)[number], fixtureRoot: string): Promise<void> {
+export function runApply(profile: (typeof profiles)[number], fixtureRoot: string): Promise<void> {
   const paths = {
     home: join(fixtureRoot, "home"),
     config: join(fixtureRoot, "xdg/config"),
@@ -79,7 +79,7 @@ function runApply(profile: (typeof profiles)[number], fixtureRoot: string): Prom
   });
 }
 
-async function verifyProfiles(): Promise<void> {
+export async function verifyProfiles(): Promise<void> {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-homes-"));
   try {
     const results = await Promise.allSettled(
@@ -94,10 +94,12 @@ async function verifyProfiles(): Promise<void> {
   }
 }
 
-try {
-  await verifyProfiles();
-  process.stdout.write("ok all profiles apply in disposable homes\n");
-} catch (error) {
-  process.stderr.write(`FAILED: ${error instanceof Error ? error.message : String(error)}\n`);
-  process.exit(1);
+if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
+  try {
+    await verifyProfiles();
+    process.stdout.write("ok all profiles apply in disposable homes\n");
+  } catch (error) {
+    process.stderr.write(`FAILED: ${error instanceof Error ? error.message : String(error)}\n`);
+    process.exit(1);
+  }
 }
