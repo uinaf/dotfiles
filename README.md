@@ -81,7 +81,7 @@ List the verification domains and run the one that owns the change:
 
 ```zsh
 ./scripts/verify/repo.sh --list
-./scripts/verify/repo.sh --domain config
+./scripts/verify/repo.sh --domain config # example; select the owning domain
 ```
 
 Use `mise run verify:fast` for the complete deterministic graph and `mise run

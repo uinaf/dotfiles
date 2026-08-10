@@ -57,7 +57,7 @@ the owning domain:
 
 ```zsh
 ./scripts/verify/repo.sh --list
-./scripts/verify/repo.sh --domain config
+./scripts/verify/repo.sh --domain config # example; select the owning domain
 ```
 
 `mise run verify:fast` runs the complete deterministic graph in parallel.

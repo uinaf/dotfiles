@@ -67,7 +67,12 @@ if (existsSync(resolve(repoRoot, ".github/workflows"))) {
 run("git", ["diff", "--check"], "working-tree diff hygiene");
 run("git", ["diff", "--cached", "--check"], "index diff hygiene");
 
-const ghosttyLines = readFileSync(ghosttyConfig, "utf8").split(/\r?\n/);
+let ghosttyLines: string[];
+try {
+  ghosttyLines = readFileSync(ghosttyConfig, "utf8").split(/\r?\n/);
+} catch (error) {
+  fail(`cannot read managed Ghostty config: ${error instanceof Error ? error.message : String(error)}`);
+}
 if (!ghosttyLines.includes("shell-integration-features = ssh-env,ssh-terminfo")) {
   fail("managed Ghostty config does not enable SSH environment and terminfo integration");
 }

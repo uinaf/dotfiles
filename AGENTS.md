@@ -58,7 +58,7 @@ manual step in the owning guide instead.
 
 ```zsh
 ./scripts/verify/repo.sh --list
-./scripts/verify/repo.sh --domain config
+./scripts/verify/repo.sh --domain config   # example; select the owning domain
 ./scripts/verify/repo.sh --skip-security # complete deterministic graph
 ./scripts/verify/repo.sh                 # complete graph plus secret scans
 ```

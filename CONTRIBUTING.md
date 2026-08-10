@@ -28,7 +28,7 @@ List the domains and run the focused check that owns the change:
 
 ```zsh
 ./scripts/verify/repo.sh --list
-./scripts/verify/repo.sh --domain config
+./scripts/verify/repo.sh --domain config # example; select the owning domain
 ```
 
 `./scripts/verify/repo.sh --skip-security` runs every deterministic check in

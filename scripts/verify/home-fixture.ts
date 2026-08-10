@@ -1,9 +1,10 @@
+#!/usr/bin/env node
+
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -78,11 +79,25 @@ function runApply(profile: (typeof profiles)[number], fixtureRoot: string): Prom
   });
 }
 
-test("all profiles apply with user-writable state inside disposable homes", async () => {
+async function verifyProfiles(): Promise<void> {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-homes-"));
   try {
-    await Promise.all(profiles.map((profile) => runApply(profile, join(root, profile))));
+    const results = await Promise.allSettled(
+      profiles.map((profile) => runApply(profile, join(root, profile))),
+    );
+    const failure = results.find((result) => result.status === "rejected");
+    if (failure?.status === "rejected") {
+      throw failure.reason;
+    }
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
-});
+}
+
+try {
+  await verifyProfiles();
+  process.stdout.write("ok all profiles apply in disposable homes\n");
+} catch (error) {
+  process.stderr.write(`FAILED: ${error instanceof Error ? error.message : String(error)}\n`);
+  process.exit(1);
+}

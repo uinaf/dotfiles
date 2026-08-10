@@ -5,7 +5,7 @@
       "id": "static",
       "domain": "static",
       "command": ["node", "scripts/verify/static.ts"],
-      "inputs": ["scripts/**", ".mise/tasks/**", ".github/workflows/**", "AGENTS.md", "CLAUDE.md"],
+      "inputs": ["scripts/**", ".mise/tasks/**", ".github/workflows/**", "chezmoi/private_dot_local/private_libexec/private_dotfiles/private_executable_git-ssh-sign-agentless", "chezmoi/private_Library/private_Application Support/com.mitchellh.ghostty/private_config", "AGENTS.md", "CLAUDE.md"],
       "output": "Syntax, lint, workflow, entrypoint, and Git diff hygiene"
     },
     {
@@ -18,7 +18,7 @@
     {
       "id": "dotfiles",
       "domain": "config",
-      "command": ["node", "scripts/verify/home-fixture.test.ts"],
+      "command": ["node", "scripts/verify/home-fixture.ts"],
       "inputs": ["chezmoi/**"],
       "output": "All profiles apply in isolated disposable homes"
     },
@@ -124,7 +124,7 @@
       "id": "pre-push",
       "domain": "git",
       "command": ["node", "--test", "scripts/verify/pre-push.test.ts"],
-      "inputs": ["scripts/verify/pre-push.ts", "scripts/bootstrap/install-git-hooks.sh"],
+      "inputs": ["scripts/verify/pre-push.ts", "scripts/verify/pre-push.test.ts", "scripts/bootstrap/install-git-hooks.sh"],
       "output": "Outgoing commit hygiene across Git ref update shapes"
     },
     {
