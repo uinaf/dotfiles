@@ -10,6 +10,7 @@ Use chezmoi source attributes instead of literal target filenames:
 
 | Source | Target |
 | --- | --- |
+| `chezmoi/.chezmoidata/profiles.json` | Versioned template data for profile capabilities and composition |
 | `chezmoi/dot_zshrc` | `~/.zshrc` |
 | `chezmoi/dot_gitconfig.tmpl` | `~/.gitconfig` |
 | `chezmoi/private_dot_config/mise/config.toml.tmpl` | `~/.config/mise/config.toml` |
@@ -17,6 +18,10 @@ Use chezmoi source attributes instead of literal target filenames:
 | `chezmoi/private_dot_ssh/private_config` | `~/.ssh/config` |
 | `chezmoi/private_dot_local/private_libexec/private_dotfiles/private_executable_git-ssh-sign-agentless` | `~/.local/libexec/dotfiles/git-ssh-sign-agentless` |
 | `chezmoi/private_dot_config/zed/private_settings.json` | `~/.config/zed/settings.json` for personal-workstation users |
+| `chezmoi/private_dot_claude/modify_private_settings.json` | Selected values inside `~/.claude/settings.json` for developer profiles |
+| `chezmoi/private_dot_agents/AGENTS.md.tmpl` | Shared global agent rules with optional local data |
+| `chezmoi/private_dot_claude/symlink_CLAUDE.md` | `~/.claude/CLAUDE.md` link to the shared rules |
+| `chezmoi/private_dot_codex/symlink_AGENTS.md` | `~/.codex/AGENTS.md` link to the shared rules |
 
 The `private_` attribute is used for parent config directories and files that
 should land as owner-only local config.
@@ -26,6 +31,12 @@ manage Ghostty settings. All four developer profiles share GitHub authentication
 outbound SSH, signing-helper, and allowed-signers sources. Assistant and service profiles render a
 minimal Git base with a local workload-identity include and exclude those
 developer surfaces; only assistant includes the optional GitHub App helper.
+
+All four developer profiles set `CLAUDE_CODE_DISABLE_1M_CONTEXT=1` in the `env`
+object of the Claude Code user settings. The modify template preserves unrelated
+settings and sibling environment values. User settings are the lowest-precedence
+Claude Code scope; project, local, command-line, and managed settings can override
+this default. The repository does not manage `~/.claude.json`.
 
 Use attributes deliberately:
 
@@ -38,29 +49,29 @@ Use attributes deliberately:
 
 ## Workflow
 
-Preview the target state before applying:
+Operators preview and apply the full per-user flow through the root command:
 
 ```zsh
-./scripts/bootstrap/apply-dotfiles.sh --profile workstation --dry-run --verbose
 mise trust
-mise run dotfiles:diff -- --profile workstation
+./dotfiles diff workstation
+./dotfiles apply workstation
 ```
 
-Apply the source state:
+Contributors changing chezmoi source use the repository task interface:
 
 ```zsh
-./scripts/bootstrap/apply-dotfiles.sh --profile workstation
 mise trust
-mise run dotfiles:apply -- --profile workstation
+mise run dotfiles:diff workstation
+mise run dotfiles:apply workstation
 ```
 
-`./scripts/bootstrap/install.sh` calls the same wrapper and then configures
-Codex defaults when `codex` is available.
+`./dotfiles apply` delegates to `scripts/bootstrap/install.sh`, which applies
+the same source before running the remaining profile install steps.
 
 For normal edits:
 
 1. Edit the source file under `chezmoi/`.
-2. Preview with `mise run dotfiles:diff`.
+2. Preview with `mise run dotfiles:diff <profile>`.
 3. If changing bootstrap behavior, test in a temporary destination:
 
 ```zsh
@@ -106,5 +117,5 @@ Keep `scripts/bootstrap/apply-dotfiles.sh` non-interactive and preserve:
 
 - `--dry-run` and `--verbose`.
 - Backups for pre-existing local files before `--force apply`.
-- Cleanup of obsolete old `home/` symlinks.
-- A final `mise run verify` before handoff when wrapper behavior changes.
+- `mise run verify:domain config` and `mise run verify:domain profiles` when
+  wrapper behavior changes.

@@ -5,43 +5,23 @@ import {
   accessSync,
   constants,
   existsSync,
-  lstatSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
-  readlinkSync,
   renameSync,
   rmSync,
-  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { delimiter, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+
+import { readProfileModel, requireProfile, type SkillLayer } from "../profiles/model.ts";
 
 const DEFAULT_SKILLS_CLI_VERSION = "1.5.7";
 const MAX_DIAGNOSTIC_LENGTH = 600;
 const MAX_DIAGNOSTIC_LINES = 3;
 
 type Agent = "claude-code" | "codex";
-
-export type Profile =
-  | "personal-workstation"
-  | "personal-devbox"
-  | "workstation"
-  | "devbox"
-  | "assistant"
-  | "service";
-
-type SkillLayer = "shared" | "personal";
-
-export const PROFILE_SKILL_LAYERS: Record<Profile, readonly SkillLayer[] | undefined> = {
-  "personal-workstation": ["shared", "personal"],
-  "personal-devbox": ["shared", "personal"],
-  workstation: ["shared"],
-  devbox: ["shared"],
-  assistant: undefined,
-  service: undefined,
-};
 
 type Skill = {
   name: string;
@@ -77,6 +57,7 @@ type Writer = {
 
 export type Runtime = {
   env: NodeJS.ProcessEnv;
+  repoDir?: string;
   stdout: Writer;
   stderr: Writer;
   commandExists(command: string): boolean;
@@ -141,93 +122,6 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-function isErrnoException(error: unknown): error is NodeJS.ErrnoException {
-  return error instanceof Error && "code" in error && typeof error.code === "string";
-}
-
-function requireSuccess(result: CommandResult, operation: string): void {
-  if (result.status === 0) {
-    return;
-  }
-
-  const detail = result.stderr.trim();
-  throw new Error(`${operation} failed with exit ${result.status}${detail ? `: ${detail}` : ""}`);
-}
-
-function gitValue(runtime: Runtime, repoDir: string, args: readonly string[], operation: string): string {
-  const result = runtime.run("git", ["-C", repoDir, ...args], {
-    stdout: "capture",
-    stderr: "capture",
-  });
-  requireSuccess(result, operation);
-
-  const value = result.stdout.trim();
-  if (value.length === 0) {
-    throw new Error(`${operation} returned an empty value`);
-  }
-  return value;
-}
-
-function requireCanonicalCheckout(runtime: Runtime, repoDir: string): void {
-  const gitDir = resolve(
-    repoDir,
-    gitValue(runtime, repoDir, ["rev-parse", "--git-dir"], "Finding Git metadata"),
-  );
-  const commonDir = resolve(
-    repoDir,
-    gitValue(runtime, repoDir, ["rev-parse", "--git-common-dir"], "Finding shared Git metadata"),
-  );
-  if (gitDir !== commonDir) {
-    throw new Error(
-      `Sync must run from the primary checkout, not a linked worktree. Run it from ${dirname(commonDir)}.`,
-    );
-  }
-
-  const branch = gitValue(
-    runtime,
-    repoDir,
-    ["rev-parse", "--abbrev-ref", "HEAD"],
-    "Finding the current branch",
-  );
-  if (branch !== "main") {
-    throw new Error(`Sync must run from the main branch; current branch is ${branch}.`);
-  }
-}
-
-function requireCleanTrackedCheckout(runtime: Runtime, repoDir: string): void {
-  const result = runtime.run(
-    "git",
-    ["-C", repoDir, "status", "--porcelain=v1", "--untracked-files=no"],
-    { stdout: "capture", stderr: "capture" },
-  );
-  requireSuccess(result, "Checking the dotfiles repository for tracked changes");
-
-  const changes = result.stdout.trim();
-  if (changes.length > 0) {
-    throw new Error(
-      "Sync requires a clean tracked checkout before pulling. Commit, stash, or restore these changes:\n" +
-        changes,
-    );
-  }
-}
-
-function requireUpstreamHead(runtime: Runtime, repoDir: string): void {
-  const head = gitValue(runtime, repoDir, ["rev-parse", "HEAD"], "Finding the local HEAD");
-  const upstream = gitValue(
-    runtime,
-    repoDir,
-    ["rev-parse", "@{upstream}"],
-    "Finding the upstream HEAD",
-  );
-
-  if (head !== upstream) {
-    throw new Error(
-      `Local main must exactly match its upstream after pulling (local ${head}, upstream ${upstream}). ` +
-        "Publish or reconcile the local commits, then rerun sync.",
-    );
-  }
-}
-
 function isSkill(value: unknown): value is Skill {
   return (
     typeof value === "object" &&
@@ -268,15 +162,11 @@ function readSkills(manifestPath: string): Skill[] {
   return parsed.skills;
 }
 
-function isProfile(value: string): value is Profile {
-  return Object.hasOwn(PROFILE_SKILL_LAYERS, value);
-}
-
-function resolveProfile(
+function resolveProfileName(
   runtime: Runtime,
   scriptDir: string,
   expectedProfile: string | undefined,
-): Profile {
+): string {
   const args = expectedProfile === undefined ? [] : ["--expected", expectedProfile];
   const result = runtime.run(join(scriptDir, "resolve-profile.sh"), args, {
     stdout: "capture",
@@ -287,19 +177,15 @@ function resolveProfile(
     throw new Error(`Profile resolution failed${detail ? `: ${detail}` : ""}`);
   }
 
-  const profile = result.stdout.trim();
-  if (!isProfile(profile) || PROFILE_SKILL_LAYERS[profile] === undefined) {
-    throw new Error(`Profile resolver returned an unsupported agent profile: ${profile || "<empty>"}`);
-  }
-  return profile;
+  return result.stdout.trim();
 }
 
 function readLayeredSkills(
   repoDir: string,
-  profile: Profile,
+  profile: string,
+  layers: readonly SkillLayer[],
 ): { layers: readonly SkillLayer[]; skills: Skill[] } {
-  const layers = PROFILE_SKILL_LAYERS[profile];
-  if (layers === undefined) {
+  if (layers.length === 0) {
     throw new Error(`Profile ${profile} does not manage agent skills`);
   }
 
@@ -373,139 +259,22 @@ function writeSkillLock(lockPath: string, skills: readonly Skill[]): void {
   }
 }
 
-function replaceSymlinkAtomically(target: string, destination: string): void {
-  mkdirSync(dirname(destination), { recursive: true });
-  const temporaryDirectory = mkdtempSync(join(dirname(destination), ".agents-rules-link-"));
-  const temporaryLink = join(temporaryDirectory, "link");
-
-  try {
-    symlinkSync(target, temporaryLink);
-    renameSync(temporaryLink, destination);
-  } finally {
-    rmSync(temporaryDirectory, { force: true, recursive: true });
-  }
-}
-
-function migrateLocalRules(repoDir: string, runtime: Runtime): string {
-  const agentsDir = join(repoDir, "scripts", "agents");
-  const localRules = join(agentsDir, "rules", "local.md");
-  const legacyLocalRules = join(agentsDir, "rules.local.md");
-
-  if (existsSync(localRules) && existsSync(legacyLocalRules)) {
-    throw new Error(
-      `Both ${localRules} and legacy ${legacyLocalRules} exist. Merge them into ${localRules}, remove the legacy file, and rerun sync.`,
-    );
-  }
-
-  if (existsSync(legacyLocalRules)) {
-    mkdirSync(dirname(localRules), { recursive: true });
-    renameSync(legacyLocalRules, localRules);
-    writeLine(runtime.stdout, "Migrated: scripts/agents/rules.local.md -> scripts/agents/rules/local.md");
-  }
-
-  return localRules;
-}
-
-function generateRules(repoDir: string, localRules: string): string {
-  const rulesDir = join(repoDir, "scripts", "agents", "rules");
-  const baseRules = join(rulesDir, "base.md");
-  const finalRules = join(rulesDir, "final.md");
-  const header =
-    "<!-- Generated by scripts/agents/sync.ts from scripts/agents/rules/base.md and optional scripts/agents/rules/local.md. Do not edit directly. -->\n\n";
-  const localOverrides = existsSync(localRules)
-    ? `\n---\n\n## Local Overrides\n\n${readFileSync(localRules, "utf8")}`
-    : "";
-  const temporaryDirectory = mkdtempSync(join(dirname(finalRules), ".agents-final-"));
-  const temporaryRules = join(temporaryDirectory, "agents.final.md");
-
-  try {
-    writeFileSync(temporaryRules, `${header}${readFileSync(baseRules, "utf8")}${localOverrides}`);
-    renameSync(temporaryRules, finalRules);
-    return finalRules;
-  } finally {
-    rmSync(temporaryDirectory, { force: true, recursive: true });
-  }
-}
-
-type AgentLink = {
-  agent: Agent;
-  destination: string;
-  label: string;
-};
-
-function findAgentLinks(runtime: Runtime, home: string): AgentLink[] {
-  const links: AgentLink[] = [];
+function findInstalledAgents(runtime: Runtime): Agent[] {
+  const agents: Agent[] = [];
 
   if (runtime.commandExists("claude")) {
-    links.push({
-      agent: "claude-code",
-      destination: join(home, ".claude", "CLAUDE.md"),
-      label: "~/.claude/CLAUDE.md",
-    });
+    agents.push("claude-code");
   } else {
-    writeLine(runtime.stdout, "Skipping Claude Code setup: 'claude' is not installed");
+    writeLine(runtime.stdout, "Skipping Claude Code skills: 'claude' is not installed");
   }
 
   if (runtime.commandExists("codex")) {
-    links.push({
-      agent: "codex",
-      destination: join(home, ".codex", "AGENTS.md"),
-      label: "~/.codex/AGENTS.md",
-    });
+    agents.push("codex");
   } else {
-    writeLine(runtime.stdout, "Skipping Codex setup: 'codex' is not installed");
+    writeLine(runtime.stdout, "Skipping Codex skills: 'codex' is not installed");
   }
 
-  return links;
-}
-
-function unmanagedLinkReason(destination: string, targets: readonly string[]): string | undefined {
-  try {
-    const status = lstatSync(destination);
-    if (!status.isSymbolicLink()) {
-      return "it is not a symbolic link";
-    }
-
-    const currentTarget = readlinkSync(destination);
-    if (!targets.map((target) => resolve(target)).includes(resolve(dirname(destination), currentTarget))) {
-      return `it points to ${currentTarget}`;
-    }
-    return undefined;
-  } catch (error) {
-    if (isErrnoException(error) && error.code === "ENOENT") {
-      return undefined;
-    }
-    throw error;
-  }
-}
-
-function preflightAgentLinks(
-  links: readonly AgentLink[],
-  finalRules: string,
-  ...managedTargets: readonly string[]
-): void {
-  const allowedTargets = [finalRules, ...managedTargets];
-  const conflicts = links.flatMap((link) => {
-    const reason = unmanagedLinkReason(link.destination, allowedTargets);
-    return reason === undefined ? [] : [`${link.destination}: ${reason}`];
-  });
-
-  if (conflicts.length > 0) {
-    throw new Error(
-      "Refusing to replace unmanaged global agent rules:\n" +
-        conflicts.map((conflict) => `  - ${conflict}`).join("\n") +
-        `\nMove the listed paths aside or link them to ${finalRules}, then rerun sync.`,
-    );
-  }
-}
-
-function configureAgents(runtime: Runtime, links: readonly AgentLink[], finalRules: string): Agent[] {
-  for (const link of links) {
-    replaceSymlinkAtomically(finalRules, link.destination);
-    writeLine(runtime.stdout, `Linked: ${link.label} -> scripts/agents/rules/final.md`);
-  }
-
-  return links.map((link) => link.agent);
+  return agents;
 }
 
 function sanitizeDiagnostic(stderr: string): string {
@@ -752,51 +521,24 @@ function finishSync(runtime: Runtime, options: SyncOptions, cliVersion: string):
 
 function sync(runtime: Runtime, options: SyncOptions): number {
   const scriptDir = dirname(fileURLToPath(import.meta.url));
-  const profile = resolveProfile(runtime, scriptDir, options.profile);
-  const repoResult = runtime.run("git", ["-C", scriptDir, "rev-parse", "--show-toplevel"], {
-    stdout: "capture",
-    stderr: "capture",
-  });
-  requireSuccess(repoResult, "Finding the dotfiles repository");
-
-  const repoDir = repoResult.stdout.trim();
-  if (repoDir.length === 0) {
-    throw new Error("Finding the dotfiles repository returned an empty path");
-  }
-  requireCanonicalCheckout(runtime, repoDir);
-  requireCleanTrackedCheckout(runtime, repoDir);
+  const repoDir = runtime.repoDir ?? resolve(scriptDir, "../..");
+  const profileName = resolveProfileName(runtime, scriptDir, options.profile);
 
   const home = runtime.env.HOME;
   if (!home) {
-    throw new Error("HOME is required to link agent rules");
+    throw new Error("HOME is required to manage agent skills");
   }
 
   const cliVersion = runtime.env.SKILLS_CLI_VERSION || DEFAULT_SKILLS_CLI_VERSION;
 
-  writeLine(runtime.stdout, `Pulling latest in ${repoDir}...`);
-  requireSuccess(
-    runtime.run("git", ["-C", repoDir, "pull", "--ff-only"]),
-    "Fast-forwarding the dotfiles repository",
-  );
-  requireUpstreamHead(runtime, repoDir);
-
-  const { layers, skills } = readLayeredSkills(repoDir, profile);
+  const model = readProfileModel(resolve(repoDir, "chezmoi/.chezmoidata/profiles.json"));
+  const profile = requireProfile(model, profileName);
+  const { layers, skills } = readLayeredSkills(repoDir, profileName, profile.skillLayers);
   const skillLockPath = join(repoDir, "scripts", "agents", "skills.lock.json");
   const previouslyManagedSkills = readSkillLock(skillLockPath);
-  const agentsDir = join(repoDir, "scripts", "agents");
-  const finalRules = join(agentsDir, "rules", "final.md");
-  const previousFinalRules = join(agentsDir, "rules.final.md");
-  const legacyFinalRules = join(dirname(repoDir), "agents", "rules", "agents.final.md");
-  const links = findAgentLinks(runtime, home);
-  preflightAgentLinks(links, finalRules, previousFinalRules, legacyFinalRules);
+  const agents = findInstalledAgents(runtime);
 
-  const localRules = migrateLocalRules(repoDir, runtime);
-  generateRules(repoDir, localRules);
-  writeLine(runtime.stdout, "Generated: scripts/agents/rules/final.md");
-  const agents = configureAgents(runtime, links, finalRules);
-  rmSync(previousFinalRules, { force: true });
-
-  writeLine(runtime.stdout, `Profile: ${profile}`);
+  writeLine(runtime.stdout, `Profile: ${profileName}`);
   writeLine(runtime.stdout, `Skill layers: ${layers.join(", ")}`);
   if (agents.length === 0) {
     writeLine(runtime.stdout, "No supported agent installations found; skipping skill installation");

@@ -54,31 +54,6 @@ while IFS=: read -r file line content; do
         *github.com/uinaf/skills*|*github.com/uinaf/attach*|*github.com/uinaf/autoreview*|*github.com/uinaf/slopomatic*|*github.com/uinaf/design*|*uinaf-design*) continue ;;
       esac
       ;;
-    docs/devbox.md)
-      case "$content" in
-        *legacy*com.uinaf.*|*legacy*config/uinaf*) continue ;;
-      esac
-      ;;
-    docs/migrating-to-role-profiles.md)
-      case "$content" in
-        *config/uinaf*|*libexec/uinaf*|*com.uinaf.*|*uinaf-dotfiles*) continue ;;
-      esac
-      ;;
-    scripts/bootstrap/install-devbox-service-daemons.sh)
-      case "$content" in
-        *forbidden_agent*com.uinaf.*|*check_job*com.uinaf.*|*reject_legacy_system_job*com.uinaf.*|*reject_user_agent*com.uinaf.*) continue ;;
-      esac
-      ;;
-    scripts/verify/devbox-services.sh)
-      case "$content" in
-        *LaunchDaemons/com.uinaf.*) continue ;;
-      esac
-      ;;
-    scripts/bootstrap/configure-git.sh|scripts/bootstrap/install-git-hooks.sh|scripts/verify/configure-git.sh)
-      case "$content" in
-        *uinaf*dotfiles*) continue ;;
-      esac
-      ;;
     scripts/agents/skills/shared.json|scripts/agents/skills/personal.json)
       case "$content" in
         *'"name": "uinaf-design"'*|*'"source": "uinaf/skills"'*|*'"source": "uinaf/attach"'*|*'"source": "uinaf/autoreview"'*|*'"source": "uinaf/slopomatic"'*|*'"source": "uinaf/design"'*|*'"source": "https://cdn.uinaf.dev/skills/ui"'*) continue ;;
@@ -101,4 +76,4 @@ while IFS=: read -r file line content; do
 done <<< "$matches"
 
 [ "$unexpected" -eq 0 ] || exit 1
-printf 'ok owner names are limited to external coordinates and legacy compatibility\n'
+printf 'ok owner names are limited to external coordinates\n'

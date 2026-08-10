@@ -107,3 +107,31 @@ dotfiles_run_clean_zsh() {
 
   env -i "${env_args[@]}" "$zsh_bin" "$flags" "$@"
 }
+
+dotfiles_check_mise_doctor() {
+  local label="$1"
+  local shell_flags="$2"
+  local output
+  local probe_status
+
+  dotfiles_probe_zsh_bin >/dev/null || return 1
+  if output="$(dotfiles_run_clean_zsh "$shell_flags" 'mise doctor' 2>&1)"; then
+    probe_status=0
+  else
+    probe_status=$?
+  fi
+  printf '%s\n' "$output"
+
+  if grep -q 'tool paths are not first in PATH' <<< "$output"; then
+    printf '\n## PATH (%s)\n' "$label" >&2
+    # shellcheck disable=SC2016 # zsh code evaluated by the probe shell
+    dotfiles_run_clean_zsh "$shell_flags" 'print -l ${(s/:/)PATH} | nl -ba | sed -n "1,60p"' >&2 \
+      || true
+    printf 'FAILED: mise tool paths are not first in PATH (%s)\n' "$label" >&2
+    return 1
+  fi
+  if [ "$probe_status" -ne 0 ]; then
+    printf 'FAILED: mise doctor probe exited non-zero (%s)\n' "$label" >&2
+    return 1
+  fi
+}

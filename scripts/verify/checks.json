@@ -1,0 +1,196 @@
+{
+  "version": 1,
+  "checks": [
+    {
+      "id": "static",
+      "domain": "static",
+      "command": ["node", "scripts/verify/static.ts"],
+      "inputs": ["dotfiles", "scripts/**", "mise.toml", ".github/workflows/**", "chezmoi/private_dot_local/private_libexec/private_dotfiles/private_executable_git-ssh-sign-agentless", "chezmoi/private_Library/private_Application Support/com.mitchellh.ghostty/private_config", "AGENTS.md", "CLAUDE.md"],
+      "output": "Syntax, lint, workflow, entrypoint, and Git diff hygiene"
+    },
+    {
+      "id": "mise-tasks",
+      "domain": "static",
+      "command": ["node", "--test", "scripts/verify/mise-tasks.test.ts"],
+      "inputs": ["mise.toml", "scripts/audit/run.ts", "scripts/verify/mise-tasks.test.ts"],
+      "output": "Validated task graph, typed arguments, routing, and failure propagation"
+    },
+    {
+      "id": "vendor-neutral",
+      "domain": "static",
+      "command": ["scripts/verify/vendor-neutral.sh"],
+      "inputs": ["scripts/**", "chezmoi/**", "docs/**"],
+      "output": "Portable public interfaces"
+    },
+    {
+      "id": "dotfiles",
+      "domain": "config",
+      "scope": "complete",
+      "command": ["node", "scripts/verify/home-fixture.ts"],
+      "inputs": ["chezmoi/**", "scripts/profiles/model.ts", "scripts/verify/home-fixture.ts"],
+      "output": "All profiles apply in isolated disposable homes"
+    },
+    {
+      "id": "claude-settings",
+      "domain": "config",
+      "command": ["node", "scripts/verify/claude-settings.ts"],
+      "inputs": ["chezmoi/private_dot_claude/**", "chezmoi/.chezmoiignore.tmpl", "chezmoi/.chezmoidata/profiles.json", "chezmoi/.chezmoitemplates/profile", "scripts/profiles/model.ts", "scripts/verify/claude-settings.ts", "scripts/verify/home-fixture.ts"],
+      "output": "Claude user settings preserve unrelated keys, mode, and malformed input"
+    },
+    {
+      "id": "agent-rules",
+      "domain": "agents",
+      "command": ["node", "--test", "scripts/verify/agent-rules.test.ts"],
+      "inputs": ["chezmoi/private_dot_agents/**", "chezmoi/private_dot_claude/symlink_CLAUDE.md", "chezmoi/private_dot_codex/**", "chezmoi/.chezmoiignore.tmpl", "chezmoi/.chezmoidata/profiles.json", "chezmoi/.chezmoitemplates/profile", "scripts/bootstrap/apply-dotfiles.sh", "scripts/verify/agent-rules.test.ts"],
+      "output": "Global agent rules, local data, links, conflicts, and explicit apply behavior"
+    },
+    {
+      "id": "profiles",
+      "domain": "profiles",
+      "command": ["scripts/verify/profiles.sh"],
+      "inputs": ["Brewfile*", "dotfiles", "chezmoi/**", "scripts/bootstrap/**", "scripts/lib/profile.sh"],
+      "output": "Profile package, install, and managed-path contracts"
+    },
+    {
+      "id": "operator-command",
+      "domain": "profiles",
+      "command": ["node", "--test", "scripts/verify/dotfiles.test.ts"],
+      "inputs": ["dotfiles", "chezmoi/.chezmoidata/profiles.json", "scripts/lib/profile.sh", "scripts/verify/dotfiles.test.ts"],
+      "output": "Validated operator routing for every profile"
+    },
+    {
+      "id": "profile-model",
+      "domain": "profiles",
+      "command": ["node", "--test", "scripts/profiles/model.test.ts"],
+      "inputs": ["Brewfile.personal", "chezmoi/.chezmoidata/profiles.json", "chezmoi/.chezmoitemplates/profile", "scripts/profiles/**", "scripts/lib/profile.sh"],
+      "output": "Strict profile model parsing and chezmoi consumption"
+    },
+    {
+      "id": "brew-devbox",
+      "domain": "profiles",
+      "command": ["scripts/verify/brew-devbox.sh"],
+      "inputs": ["chezmoi/.chezmoidata/profiles.json", "scripts/bootstrap/brew-bundle.sh", "scripts/bootstrap/brew-devbox.sh", "scripts/lib/homebrew.sh", "scripts/lib/profile.sh"],
+      "output": "Devbox Homebrew behavior"
+    },
+    {
+      "id": "external-homebrew",
+      "domain": "profiles",
+      "command": ["scripts/verify/external-homebrew.sh"],
+      "inputs": ["chezmoi/.chezmoidata/profiles.json", "scripts/lib/homebrew.sh", "scripts/lib/profile.sh", "scripts/bootstrap/brew-bundle.sh"],
+      "output": "External Homebrew capability boundary"
+    },
+    {
+      "id": "chrome-state",
+      "domain": "profiles",
+      "command": ["node", "--test", "scripts/bootstrap/chrome-state.test.ts"],
+      "inputs": ["scripts/bootstrap/configure-chrome.sh", "scripts/bootstrap/chrome-state.ts", "scripts/bootstrap/chrome-state.test.ts"],
+      "output": "Atomic Chrome Local State updates and malformed-input preservation"
+    },
+    {
+      "id": "mise-path",
+      "domain": "profiles",
+      "command": ["scripts/verify/mise-path-isolation.sh"],
+      "inputs": ["chezmoi/private_dot_config/mise/**", "chezmoi/.chezmoidata/profiles.json", "chezmoi/.chezmoitemplates/profile", "scripts/lib/shell-probe.sh"],
+      "output": "Mise runtime path isolation"
+    },
+    {
+      "id": "sops-age",
+      "domain": "identity",
+      "command": ["scripts/verify/sops-age-identity.sh"],
+      "inputs": ["scripts/secrets/configure-sops-age-identity.sh", "scripts/lib/sudo-age.sh"],
+      "output": "SOPS age identity boundary"
+    },
+    {
+      "id": "sops-sudo",
+      "domain": "identity",
+      "command": ["scripts/verify/sops-devbox-sudo.sh"],
+      "inputs": ["scripts/secrets/sops-devbox-sudo.sh", "scripts/lib/sudo-age*.sh"],
+      "output": "SOPS-backed sudo boundary"
+    },
+    {
+      "id": "git-bootstrap",
+      "domain": "identity",
+      "command": ["scripts/verify/configure-git.sh"],
+      "inputs": ["scripts/bootstrap/configure-git.sh", "scripts/lib/profile.sh", "chezmoi/.chezmoidata/profiles.json", "chezmoi/.chezmoitemplates/profile", "chezmoi/dot_gitconfig.tmpl", "chezmoi/private_dot_config/git/**"],
+      "output": "Git identity and signing behavior"
+    },
+    {
+      "id": "service-labels",
+      "domain": "services",
+      "command": ["scripts/verify/service-labels.sh"],
+      "inputs": ["scripts/bootstrap/install-devbox-service-daemons.sh", "scripts/lib/launchd.sh"],
+      "output": "Launchd service labels"
+    },
+    {
+      "id": "audit-contracts",
+      "domain": "audit",
+      "command": ["scripts/verify/audit-contracts.sh"],
+      "inputs": ["scripts/audit/**", "scripts/lib/audit.sh"],
+      "output": "Audit output and failure contracts"
+    },
+    {
+      "id": "repo-audit",
+      "domain": "audit",
+      "command": ["node", "--test", "scripts/verify/repo-audit.test.ts"],
+      "inputs": ["scripts/audit/repo.sh", "scripts/lib/audit.sh", "scripts/verify/repo-audit.test.ts"],
+      "output": "macOS release branch selection and repository audit results"
+    },
+    {
+      "id": "audit-data",
+      "domain": "audit",
+      "command": ["node", "--test", "scripts/audit/data.test.ts"],
+      "inputs": ["scripts/audit/data.ts", "scripts/audit/data.test.ts", "scripts/lib/audit.sh"],
+      "output": "Typed SQLite header and sanitized Gitleaks report handling"
+    },
+    {
+      "id": "agent-sync",
+      "domain": "agents",
+      "command": ["node", "--test", "scripts/agents/sync.test.ts"],
+      "inputs": ["scripts/agents/**", "scripts/profiles/model.ts", "chezmoi/.chezmoidata/profiles.json"],
+      "output": "External agent skill installation and ownership"
+    },
+    {
+      "id": "gh-extensions",
+      "domain": "agents",
+      "command": ["scripts/verify/gh-extensions.sh"],
+      "inputs": ["scripts/bootstrap/install-gh-extensions.sh"],
+      "output": "GitHub CLI extension installation"
+    },
+    {
+      "id": "gh-app-auth",
+      "domain": "agents",
+      "command": ["scripts/verify/gh-app-auth.sh"],
+      "inputs": ["scripts/bootstrap/install-gh-app-auth.sh"],
+      "output": "GitHub App authentication helper"
+    },
+    {
+      "id": "assistant-gh-app",
+      "domain": "agents",
+      "command": ["scripts/verify/configure-assistant-github-app.sh"],
+      "inputs": ["scripts/bootstrap/configure-assistant-github-app.sh"],
+      "output": "Assistant GitHub App configuration"
+    },
+    {
+      "id": "zsh-prompt",
+      "domain": "config",
+      "command": ["scripts/verify/zsh-prompt.sh"],
+      "inputs": ["chezmoi/dot_zshrc"],
+      "output": "Managed zsh prompt behavior"
+    },
+    {
+      "id": "pre-push",
+      "domain": "git",
+      "command": ["node", "--test", "scripts/verify/pre-push.test.ts"],
+      "inputs": ["scripts/verify/pre-push.ts", "scripts/verify/pre-push.test.ts", "scripts/bootstrap/install-git-hooks.sh"],
+      "output": "Outgoing commit hygiene across Git ref update shapes"
+    },
+    {
+      "id": "history-secrets",
+      "domain": "security",
+      "gate": "history",
+      "command": ["scripts/audit/repo.sh", "--skip-mscp"],
+      "inputs": ["**/*"],
+      "output": "Fail-closed full-history secret scan"
+    }
+  ]
+}

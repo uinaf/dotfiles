@@ -2,7 +2,12 @@
 set -euo pipefail
 
 profile="personal-workstation"
+profile_set=0
 check_only=0
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+
+# shellcheck source=scripts/lib/profile.sh
+. "$repo_root/scripts/lib/profile.sh"
 
 usage() {
   cat <<'USAGE'
@@ -26,10 +31,12 @@ while [ "$#" -gt 0 ]; do
         usage >&2
         exit 2
       fi
+      if [ "$profile_set" -eq 1 ]; then
+        usage >&2
+        exit 2
+      fi
       profile="$1"
-      ;;
-    personal-workstation|personal-devbox|workstation|devbox)
-      profile="$1"
+      profile_set=1
       ;;
     --check)
       check_only=1
@@ -38,22 +45,30 @@ while [ "$#" -gt 0 ]; do
       usage
       exit 0
       ;;
-    *)
+    -*)
       usage >&2
       exit 2
+      ;;
+    *)
+      if [ "$profile_set" -eq 1 ]; then
+        usage >&2
+        exit 2
+      fi
+      profile="$1"
+      profile_set=1
       ;;
   esac
   shift
 done
 
-case "$profile" in
-  personal-workstation|personal-devbox|workstation|devbox)
-    ;;
-  *)
-    usage >&2
-    exit 2
-    ;;
-esac
+profile="$(dotfiles_normalize_profile "$profile")" || {
+  usage >&2
+  exit 2
+}
+dotfiles_profile_is_developer "$profile" || {
+  usage >&2
+  exit 2
+}
 
 if [ "$(uname -s)" != "Darwin" ]; then
   printf 'configure-power is macOS-only\n' >&2

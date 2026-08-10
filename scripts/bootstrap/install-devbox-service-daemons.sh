@@ -244,16 +244,11 @@ fi
 
 check_job() {
   local label="$1"
-  local forbidden_agent="${2:-}"
 
   [ -f "$launch_daemon_dir/$label.plist" ] || fail "missing $launch_daemon_dir/$label.plist"
   [ "$(stat -f '%Su:%Sg:%Lp' "$launch_daemon_dir/$label.plist")" = "root:wheel:644" ] \
     || fail "$label plist must be root:wheel mode 0644"
   launchctl print "system/$label" >/dev/null 2>&1 || fail "$label is not loaded"
-  if [ -n "$forbidden_agent" ]; then
-    [ ! -e "$target_home/Library/LaunchAgents/$forbidden_agent.plist" ] \
-      || fail "conflicting LaunchAgent remains: $forbidden_agent"
-  fi
   printf 'ok %s loaded for %s\n' "$label" "$target_user"
 }
 
@@ -304,7 +299,7 @@ check_colima() {
 
 if [ "$check_only" -eq 1 ]; then
   if [ "$install_openclaw" -eq 1 ]; then
-    check_job "$openclaw_label" ai.openclaw.gateway
+    check_job "$openclaw_label"
   fi
   if [ "$allow_openclaw_restart" -eq 1 ]; then
     check_openclaw_restart_sudoers
@@ -402,26 +397,6 @@ install_openclaw_restart_policy() {
   check_openclaw_restart_sudoers
 }
 
-reject_legacy_system_job() {
-  local old_label="$1"
-  local old_path="$launch_daemon_dir/$old_label.plist"
-
-  if [ -e "$old_path" ] || launchctl print "system/$old_label" >/dev/null 2>&1; then
-    fail "legacy system job $old_label must be retired explicitly before installing its replacement"
-  fi
-}
-
-reject_user_agent() {
-  local old_agent_label="$1"
-  local old_agent_path="$target_home/Library/LaunchAgents/$old_agent_label.plist"
-
-  if [ -e "$old_agent_path" ] \
-    || launchctl print "gui/$target_uid/$old_agent_label" >/dev/null 2>&1 \
-    || launchctl print "user/$target_uid/$old_agent_label" >/dev/null 2>&1; then
-    fail "user LaunchAgent $old_agent_label must be retired explicitly before installing its replacement"
-  fi
-}
-
 env_wrapper="$target_home/.openclaw/service-env/ai.openclaw.gateway-env-wrapper.sh"
 env_file="$target_home/.openclaw/service-env/ai.openclaw.gateway.env"
 gateway_wrapper="$target_home/.local/bin/openclaw-gateway-mise-wrapper"
@@ -437,14 +412,6 @@ if [ "$install_openclaw" -eq 1 ]; then
     [ -x "$gateway_wrapper" ] || fail "missing executable $gateway_wrapper"
   fi
 fi
-if [ "$install_openclaw" -eq 1 ]; then
-  reject_legacy_system_job "com.uinaf.openclaw-gateway.$target_user"
-  reject_user_agent ai.openclaw.gateway
-fi
-if [ "$install_colima" -eq 1 ]; then
-  reject_legacy_system_job "com.uinaf.colima.$target_user"
-fi
-
 launchd_namespace_dir="$(dirname "$launchd_namespace_file")"
 run_as_target install -d -m 0700 "$launchd_namespace_dir"
 namespace_tmp="$(run_as_target mktemp "$launchd_namespace_dir/.launchd-namespace.XXXXXX")"

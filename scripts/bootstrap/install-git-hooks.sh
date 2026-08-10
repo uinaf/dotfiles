@@ -20,7 +20,7 @@ pre_push="$hooks_dir/pre-push"
 mkdir -p "$hooks_dir"
 
 if [ -e "$pre_push" ] || [ -L "$pre_push" ]; then
-  if ! grep -Eq '^# (uinaf-)?dotfiles: pre-push$' "$pre_push" 2>/dev/null; then
+  if ! grep -Fqx '# dotfiles: pre-push' "$pre_push" 2>/dev/null; then
     backup="$pre_push.backup.$(date +%Y%m%d%H%M%S)"
     mv "$pre_push" "$backup"
     printf 'backed up existing pre-push hook to %s\n' "$backup"
@@ -33,7 +33,7 @@ set -euo pipefail
 
 # dotfiles: pre-push
 repo_root="$(git rev-parse --show-toplevel)"
-exec "$repo_root/scripts/verify/repo.sh" --skip-security
+exec node "$repo_root/scripts/verify/pre-push.ts" "$@"
 HOOK
 
 chmod 0755 "$pre_push"

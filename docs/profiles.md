@@ -35,6 +35,15 @@ service configuration.
 
 ## Software Layers
 
+[`chezmoi/.chezmoidata/profiles.json`](../chezmoi/.chezmoidata/profiles.json)
+is the versioned source of truth for profile capabilities, Brewfile order,
+runtime groups, skill layers, and per-user install steps. Chezmoi reads it as
+template data, TypeScript uses the strict parser in `scripts/profiles/model.ts`,
+and shell reads typed values through the small `plutil` boundary in
+`scripts/lib/profile.sh`. These consumers reject unsupported versions, unknown
+profiles, missing fields, and wrong value types. No generated profile adapters
+exist.
+
 All profiles install the shared `Brewfile` base, including Chrome and `gh`.
 Personal-workstation, personal-devbox, workstation, and devbox also install
 `Brewfile.developer`. Workstation installs
@@ -56,8 +65,8 @@ CLI, and 1Password CLI.
 The developer layer installs the autoreview and slopomatic CLIs. The personal
 layer installs the App Store Connect CLI, Attach, Crabbox, Gitcrawl, and Mole for both personal profiles,
 while personal GUI applications remain workstation-only. Developer-profile install
-flows also sync machine-global instructions and additive skills from
-`scripts/agents/`; see [Agent setup](agents.md). Zed and its managed settings
+flows apply machine-global instructions through chezmoi and sync additive skills
+from `scripts/agents/`; see [Agent setup](agents.md). Zed and its managed settings
 belong only to personal-workstation.
 The workstation layer supplies 1Password, Slack, Claude Desktop, ChatGPT, and
 Cursor and Ghostty desktop apps, plus YubiKey Manager, to both interactive
@@ -98,13 +107,12 @@ Then run the per-user setup as the target Unix user:
 
 ```zsh
 profile=workstation
-./scripts/bootstrap/apply-dotfiles.sh --profile "$profile"
 mise trust
-mise install
-./scripts/bootstrap/install.sh --profile "$profile"
+./dotfiles diff "$profile"
+./dotfiles apply "$profile"
 # Optional until this machine decrypts vault or other SOPS material:
 # ./scripts/secrets/configure-sops-age-identity.sh
-./scripts/verify/bootstrap.sh --profile "$profile"
+./dotfiles check "$profile"
 ```
 
 Use `profile=personal-workstation` for the personal workstation composition or
@@ -138,15 +146,40 @@ GIT_USER_EMAIL='service@example.invalid' \
 
 A workstation can accept a formula or cask from another trusted installer
 without pretending Homebrew owns it. Create
-`~/.config/dotfiles/external-homebrew` as a regular file owned by the current
+`~/.config/dotfiles/external-homebrew.plist` as a regular XML property list owned by the current
 user and not writable by group or other users.
 
-Each non-comment line names an entry from the selected profile and its
-validation contract:
+The root dictionary has version `1` and a `capabilities` array. Each capability
+names a selected-profile entry and either a command or app-bundle validator:
 
-```text
-brew|git|command|/usr/bin/git|--version
-cask|google-chrome|bundle|/Applications/Google Chrome.app|com.google.Chrome|TEAM_IDENTIFIER
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>version</key>
+  <integer>1</integer>
+  <key>capabilities</key>
+  <array>
+    <dict>
+      <key>packageType</key><string>brew</string>
+      <key>name</key><string>git</string>
+      <key>validator</key><string>command</string>
+      <key>path</key><string>/usr/bin/git</string>
+      <key>arguments</key>
+      <array><string>--version</string></array>
+    </dict>
+    <dict>
+      <key>packageType</key><string>cask</string>
+      <key>name</key><string>google-chrome</string>
+      <key>validator</key><string>bundle</string>
+      <key>path</key><string>/Applications/Google Chrome.app</string>
+      <key>bundleIdentifier</key><string>com.google.Chrome</string>
+      <key>teamIdentifier</key><string>TEAM_IDENTIFIER</string>
+    </dict>
+  </array>
+</dict>
+</plist>
 ```
 
 The `command` validator requires an absolute executable path owned by the
@@ -156,25 +189,9 @@ that endpoint policy permits execution. The `bundle` validator requires an
 absolute nonsymlinked app bundle, exact bundle identifier, exact signing team,
 and a valid strict code signature.
 
-Both `brew-bundle.sh` and bootstrap verification reject ambient Homebrew
-Bundle skip variables, then validate this file before setting the formula or
-cask skip list. Unknown entries, duplicates, failed commands, signature
-mismatches, unsafe permissions, and unreadable files fail closed. Keep
-organization-specific paths and identifiers in this local file, not in the
-repository.
-
-## Migrate an Existing User
-
-For an installation that still uses the former owner-specific layout, follow
-[Migrating to role profiles](migrating-to-role-profiles.md) before applying a
-new role.
-
-The former `personal` profile is not accepted. Existing personal machines must
-run the package, dotfile, install, Git, and verification steps again with
-`profile=personal-workstation`. A managed or portable machine can keep
-`profile=workstation`.
-
-To convert an owner-operated devbox, apply `personal-devbox` through the
-Homebrew, dotfile, install, Git, and verification commands above. This adds the
-headless personal tool and skill layers while retaining the devbox identity, service,
-power, and audit contracts.
+Both `brew-bundle.sh` and bootstrap verification reject ambient Homebrew Bundle
+skip variables. They use macOS `plutil` to lint the file and enforce root,
+version, record, field, and value types before setting a formula or cask skip
+list. Unknown entries, duplicates, failed commands, signature mismatches,
+unsafe permissions, and unreadable files fail closed. Delimiters, whitespace,
+and Unicode are normal plist string content.

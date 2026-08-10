@@ -1,26 +1,52 @@
 #!/usr/bin/env bash
 
-DOTFILES_PROFILES="personal-workstation personal-devbox workstation devbox assistant service"
+DOTFILES_PROFILE_MODEL_FILE="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/chezmoi/.chezmoidata/profiles.json"
+DOTFILES_PLUTIL="/usr/bin/plutil"
+_DOTFILES_VALIDATED_PROFILE_MODEL=""
+
+dotfiles_profile_model_validate() {
+  local version
+
+  if [ "$_DOTFILES_VALIDATED_PROFILE_MODEL" = "$DOTFILES_PROFILE_MODEL_FILE" ]; then
+    return 0
+  fi
+  [ -f "$DOTFILES_PROFILE_MODEL_FILE" ] && [ ! -L "$DOTFILES_PROFILE_MODEL_FILE" ] \
+    && [ -x "$DOTFILES_PLUTIL" ] || return 2
+  version="$($DOTFILES_PLUTIL -extract profileModel.version raw -expect integer "$DOTFILES_PROFILE_MODEL_FILE" 2>/dev/null)" \
+    || return 2
+  [ "$version" = 1 ] || return 2
+  "$DOTFILES_PLUTIL" -extract profileModel.profiles raw -expect dictionary \
+    "$DOTFILES_PROFILE_MODEL_FILE" >/dev/null 2>&1 || return 2
+  _DOTFILES_VALIDATED_PROFILE_MODEL="$DOTFILES_PROFILE_MODEL_FILE"
+}
+
+dotfiles_profile_extract() {
+  local profile="$1"
+  local key="$2"
+  local type="$3"
+
+  dotfiles_profile_model_validate || return 2
+  dotfiles_normalize_profile "$profile" >/dev/null || return 2
+  "$DOTFILES_PLUTIL" -extract "profileModel.profiles.$profile.$key" raw -expect "$type" \
+    "$DOTFILES_PROFILE_MODEL_FILE" 2>/dev/null || return 2
+}
 
 dotfiles_profiles() {
-  local profile
-
-  for profile in $DOTFILES_PROFILES; do
-    printf '%s\n' "$profile"
-  done
+  dotfiles_profile_model_validate || return 2
+  "$DOTFILES_PLUTIL" -extract profileModel.profiles raw -expect dictionary \
+    "$DOTFILES_PROFILE_MODEL_FILE" 2>/dev/null || return 2
 }
 
 dotfiles_normalize_profile() {
   local requested="${1:-}"
-  local profile
 
-  for profile in $DOTFILES_PROFILES; do
-    if [ "$requested" = "$profile" ]; then
-      printf '%s\n' "$profile"
-      return 0
-    fi
-  done
-  return 2
+  case "$requested" in
+    ""|*[!a-z-]*) return 2 ;;
+  esac
+  dotfiles_profile_model_validate || return 2
+  "$DOTFILES_PLUTIL" -extract "profileModel.profiles.$requested" raw -expect dictionary \
+    "$DOTFILES_PROFILE_MODEL_FILE" >/dev/null 2>&1 || return 2
+  printf '%s\n' "$requested"
 }
 
 dotfiles_trim_profile() {
@@ -88,111 +114,66 @@ dotfiles_resolve_profile() {
   dotfiles_normalize_profile "$requested"
 }
 
+dotfiles_profile_has_capability() {
+  local value
+
+  value="$(dotfiles_profile_extract "$1" "capabilities.$2" bool)" || return 2
+  [ "$value" = true ]
+}
+
 dotfiles_profile_is_developer() {
-  case "$1" in
-    personal-workstation|personal-devbox|workstation|devbox)
-      return 0
-      ;;
-    assistant|service)
-      return 1
-      ;;
-    *)
-      return 2
-      ;;
-  esac
+  dotfiles_profile_has_capability "$1" developer
 }
 
 dotfiles_profile_is_workload() {
-  case "$1" in
-    assistant|service)
-      return 0
-      ;;
-    personal-workstation|personal-devbox|workstation|devbox)
-      return 1
-      ;;
-    *)
-      return 2
-      ;;
-  esac
+  dotfiles_profile_has_capability "$1" workload
 }
 
 dotfiles_profile_uses_shared_brew() {
-  case "$1" in
-    personal-devbox|devbox|assistant|service)
-      return 0
-      ;;
-    personal-workstation|workstation)
-      return 1
-      ;;
-    *)
-      return 2
-      ;;
-  esac
+  dotfiles_profile_has_capability "$1" sharedHomebrew
 }
 
-# Shared-host and workload profiles consume encrypted material (vault, sudo,
-# services). Portable workstation/personal-workstation boots keep the SOPS CLI without a
-# private age identity until a secret-consuming workflow is enabled.
 dotfiles_profile_requires_sops_identity() {
-  case "$1" in
-    personal-devbox|devbox|assistant|service)
-      return 0
-      ;;
-    personal-workstation|workstation)
-      return 1
-      ;;
-    *)
-      return 2
-      ;;
-  esac
+  dotfiles_profile_has_capability "$1" requiresSopsIdentity
 }
 
 dotfiles_profile_is_devbox() {
-  case "$1" in
-    personal-devbox|devbox)
-      return 0
-      ;;
-    personal-workstation|workstation|assistant|service)
-      return 1
-      ;;
-    *)
-      return 2
-      ;;
-  esac
+  dotfiles_profile_has_capability "$1" devbox
+}
+
+dotfiles_profile_is_workstation() {
+  dotfiles_profile_has_capability "$1" workstation
+}
+
+dotfiles_profile_is_personal() {
+  dotfiles_profile_has_capability "$1" personal
+}
+
+dotfiles_profile_array() {
+  local profile="$1"
+  local field="$2"
+  local count
+  local index=0
+
+  count="$(dotfiles_profile_extract "$profile" "$field" array)" || return 2
+  while [ "$index" -lt "$count" ]; do
+    dotfiles_profile_extract "$profile" "$field.$index" string || return 2
+    index=$((index + 1))
+  done
 }
 
 dotfiles_profile_brewfiles() {
-  local profile="$1"
+  dotfiles_profile_array "$1" brewfiles
+}
 
-  case "$profile" in
-    personal-workstation|personal-devbox|workstation|devbox|assistant|service) ;;
-    *) return 2 ;;
-  esac
-  printf 'Brewfile\n'
-  case "$profile" in
-    assistant)
-      printf 'Brewfile.assistant\n'
-      ;;
-    service)
-      printf 'Brewfile.service\n'
-      ;;
-    devbox)
-      printf 'Brewfile.developer\n'
-      printf 'Brewfile.devbox\n'
-      ;;
-    personal-devbox)
-      printf 'Brewfile.developer\n'
-      printf 'Brewfile.devbox\n'
-      printf 'Brewfile.personal\n'
-      ;;
-    workstation)
-      printf 'Brewfile.developer\n'
-      printf 'Brewfile.workstation\n'
-      ;;
-    personal-workstation)
-      printf 'Brewfile.developer\n'
-      printf 'Brewfile.workstation\n'
-      printf 'Brewfile.personal\n'
-      ;;
-  esac
+dotfiles_profile_install_steps() {
+  dotfiles_profile_array "$1" installSteps
+}
+
+dotfiles_profile_skill_layers() {
+  dotfiles_profile_array "$1" skillLayers
+}
+
+dotfiles_profile_runtime_group() {
+  dotfiles_profile_extract "$1" runtimeGroup string
 }

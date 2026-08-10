@@ -1,7 +1,8 @@
 [core]
 	ignorecase = false
 
-{{ if and (ne .dotfilesProfile "assistant") (ne .dotfilesProfile "service") -}}
+{{ $profile := includeTemplate "profile" . | fromJson -}}
+{{ if $profile.capabilities.developer -}}
 [gpg]
 	format = ssh
 
@@ -19,7 +20,7 @@
 {{ end -}}
 [include]
 	path = ~/.gitconfig.local
-{{ if eq .dotfilesProfile "assistant" -}}
+{{ if $profile.capabilities.githubAppAuth -}}
 [include]
 	path = ~/.config/dotfiles/github-app.gitconfig
 {{ end -}}

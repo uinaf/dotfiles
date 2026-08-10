@@ -51,6 +51,9 @@ WARN
       fi
     else
       printf 'activated: yes\n1 warning found:\n\n1. unrelated warning\n'
+      if [ -f "$fail_flag" ]; then
+        exit 1
+      fi
     fi
     ;;
   *'print -l'*)
@@ -72,8 +75,6 @@ bash -n "$repo_root/scripts/verify/bootstrap.sh" \
   || fail "bootstrap.sh does not parse"
 bash -n "$repo_root/scripts/lib/shell-probe.sh" \
   || fail "shell-probe.sh does not parse"
-grep -Fq 'command -p id -un' "$repo_root/scripts/lib/shell-probe.sh" \
-  || fail "shell-probe must resolve id via command -p, not ambient PATH"
 
 # Ambient PATH must not break USER/LOGNAME defaults when those vars are unset.
 expected_user="$(command -p id -un)"
@@ -98,51 +99,6 @@ grep -Fxq "logname=$expected_user" "$probe_log" \
   || fail "clean zsh probe did not resolve LOGNAME via command -p id when LOGNAME was unset"
 grep -Fxq 'user=poisoned-id' "$probe_log" \
   && fail "clean zsh probe used ambient PATH id for USER"
-
-check_mise_doctor_body="$(
-  awk '
-    /^check_mise_doctor\(\)/ { in_fn = 1 }
-    in_fn { print }
-    in_fn && /^}/ { exit }
-  ' "$repo_root/scripts/verify/bootstrap.sh"
-)"
-[ -n "$check_mise_doctor_body" ] || fail "could not extract check_mise_doctor from bootstrap.sh"
-printf '%s\n' "$check_mise_doctor_body" | grep -Fq 'dotfiles_run_clean_zsh' \
-  || fail "bootstrap check_mise_doctor must probe via dotfiles_run_clean_zsh"
-printf '%s\n' "$check_mise_doctor_body" | grep -Fq 'dotfiles_probe_zsh_bin' \
-  || fail "bootstrap check_mise_doctor must resolve zsh before capturing probe output"
-printf '%s\n' "$check_mise_doctor_body" | grep -Fq 'mise doctor' \
-  || fail "bootstrap check_mise_doctor must run mise doctor"
-printf '%s\n' "$check_mise_doctor_body" | grep -Fq 'print -l' \
-  || fail "bootstrap check_mise_doctor must dump PATH on failure"
-printf '%s\n' "$check_mise_doctor_body" | grep -Fq 'tool paths are not first in PATH' \
-  || fail "bootstrap check_mise_doctor must detect PATH-ordering failures"
-printf '%s\n' "$check_mise_doctor_body" | grep -Fq 'FAILED: mise tool paths are not first in PATH' \
-  || fail "bootstrap check_mise_doctor must emit the PATH-ordering failure text"
-printf '%s\n' "$check_mise_doctor_body" | grep -Fq 'FAILED: mise doctor probe exited non-zero' \
-  || fail "bootstrap check_mise_doctor must emit the non-zero probe failure text"
-ordering_line="$(
-  printf '%s\n' "$check_mise_doctor_body" \
-    | grep -nF 'tool paths are not first in PATH' \
-    | head -n 1 \
-    | cut -d: -f1
-)"
-nonzero_line="$(
-  printf '%s\n' "$check_mise_doctor_body" \
-    | grep -nF 'FAILED: mise doctor probe exited non-zero' \
-    | head -n 1 \
-    | cut -d: -f1
-)"
-[ -n "$ordering_line" ] && [ -n "$nonzero_line" ] \
-  || fail "bootstrap check_mise_doctor must compare PATH ordering before generic non-zero exits"
-[ "$ordering_line" -lt "$nonzero_line" ] \
-  || fail "bootstrap check_mise_doctor must prefer PATH-ordering diagnostics over generic non-zero exits"
-if printf '%s\n' "$check_mise_doctor_body" \
-  | grep -vE '^[[:space:]]*#' \
-  | sed 's/dotfiles_run_clean_zsh//g; s/dotfiles_probe_zsh_bin//g; s/dotfiles_probe_zsh//g' \
-  | grep -nE '(^|[^_[:alnum:]])(/bin/|/usr/|/opt/)?zsh([[:space:]"'\'']|$)' >/dev/null; then
-  fail "bootstrap check_mise_doctor still invokes bare zsh"
-fi
 
 # Inherited mise session + fat PATH must not reach the probe. Scope the poisoned
 # PATH to probe invocations so the rest of the fixture keeps the real PATH.
@@ -198,40 +154,6 @@ if [ -d /usr/local/bin ]; then
   esac
 fi
 
-# Behavioral twin of scripts/verify/bootstrap.sh:check_mise_doctor for the fake
-# zsh fixture. Keep detection/failure text aligned with the production function;
-# the source guards above pin the production wiring.
-check_mise_doctor() {
-  local label="$1"
-  local shell_flags="$2"
-  local output
-  local probe_status
-
-  set +e
-  output="$(
-    PATH="$caller_mise_path" \
-      dotfiles_run_clean_zsh "$shell_flags" 'mise doctor' 2>&1
-  )"
-  probe_status=$?
-  set -e
-  printf '%s\n' "$output"
-
-  if grep -q 'tool paths are not first in PATH' <<< "$output"; then
-    printf '\n## PATH (%s)\n' "$label" >&2
-    # shellcheck disable=SC2016 # zsh code evaluated by the probe shell
-    PATH="$caller_mise_path" \
-      dotfiles_run_clean_zsh "$shell_flags" 'print -l ${(s/:/)PATH} | nl -ba | sed -n "1,60p"' >&2 \
-      || true
-    printf 'FAILED: mise tool paths are not first in PATH (%s)\n' "$label" >&2
-    return 1
-  fi
-  if [ "$probe_status" -ne 0 ]; then
-    printf 'FAILED: mise doctor probe exited non-zero (%s)\n' "$label" >&2
-    return 1
-  fi
-  return 0
-}
-
 : >"$probe_log"
 : >"$tmp_dir/home/.fake-mise-doctor-warn"
 rm -f "$tmp_dir/home/.fake-mise-doctor-fail"
@@ -239,7 +161,8 @@ set +e
 warn_output="$(
   HOME="$tmp_dir/home" \
     DOTFILES_ZSH_BIN="$tmp_dir/bin/zsh" \
-    check_mise_doctor "login interactive" -lic 2>&1
+    PATH="$caller_mise_path" \
+    dotfiles_check_mise_doctor "login interactive" -lic 2>&1
 )"
 warn_status=$?
 set -e
@@ -256,7 +179,8 @@ set +e
 fail_output="$(
   HOME="$tmp_dir/home" \
     DOTFILES_ZSH_BIN="$tmp_dir/bin/zsh" \
-    check_mise_doctor "login interactive" -lic 2>&1
+    PATH="$caller_mise_path" \
+    dotfiles_check_mise_doctor "login interactive" -lic 2>&1
 )"
 fail_status=$?
 set -e
@@ -269,10 +193,27 @@ printf '%s\n' "$fail_output" | grep -Fq 'FAILED: mise doctor probe exited non-ze
   && fail "PATH-ordering failure was replaced by the generic non-zero message"
 
 : >"$probe_log"
+rm -f "$tmp_dir/home/.fake-mise-doctor-warn"
+: >"$tmp_dir/home/.fake-mise-doctor-fail"
+set +e
+fail_output="$(
+  HOME="$tmp_dir/home" \
+    DOTFILES_ZSH_BIN="$tmp_dir/bin/zsh" \
+    PATH="$caller_mise_path" \
+    dotfiles_check_mise_doctor "interactive" -ic 2>&1
+)"
+fail_status=$?
+set -e
+[ "$fail_status" -ne 0 ] || fail "non-zero doctor probe was accepted"
+printf '%s\n' "$fail_output" | grep -Fq 'FAILED: mise doctor probe exited non-zero (interactive)' \
+  || fail "non-zero doctor probe did not report the generic failure"
+
+: >"$probe_log"
 rm -f "$tmp_dir/home/.fake-mise-doctor-warn" "$tmp_dir/home/.fake-mise-doctor-fail"
 HOME="$tmp_dir/home" \
   DOTFILES_ZSH_BIN="$tmp_dir/bin/zsh" \
-  check_mise_doctor "interactive" -ic >/dev/null \
+  PATH="$caller_mise_path" \
+  dotfiles_check_mise_doctor "interactive" -ic >/dev/null \
   || fail "healthy target shell was rejected"
 
 shim_dir="$tmp_dir/shim-bin"

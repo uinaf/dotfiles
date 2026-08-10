@@ -4,6 +4,8 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 tmp_root="$(mktemp -d)"
 trap 'rm -rf "$tmp_root"' EXIT
+mkdir -p "$tmp_root/tmp"
+export TMPDIR="$tmp_root/tmp"
 
 fail() {
   printf 'FAILED: %s\n' "$1" >&2
@@ -37,65 +39,53 @@ chmod 0600 "$HOME/.ssh/nested/id_ed25519" "$HOME/.ssh/nested/id_ssh2" "$HOME/.ss
 check_ssh_private_key_modes
 [ "$fail_count" -eq 0 ] || fail "owner-only private keys or authorized_keys were misclassified"
 
-workstation_json="$(DOTFILES_AUDIT_NAME=workstation-security HOME="$HOME" SHELL=/bin/sh "$repo_root/scripts/audit/workstation.sh" --json 2>/dev/null || true)"
+workstation_json="$(HOME="$HOME" SHELL=/bin/sh "$repo_root/scripts/audit/workstation.sh" --json 2>/dev/null || true)"
 printf '%s\n' "$workstation_json" | grep -Fq '"audit":"workstation-security"' \
   || fail "workstation JSON audit name changed"
 if printf '%s\n' "$workstation_json" | grep -Fq '"user":'; then
   fail "workstation JSON exposed the Unix user"
 fi
 
-personal_json="$(HOME="$HOME" SHELL=/bin/sh "$repo_root/scripts/audit/personal.sh" --json 2>/dev/null || true)"
-printf '%s\n' "$personal_json" | grep -Fq '"audit":"personal-security"' \
-  || fail "personal compatibility audit name changed"
-
-personal_task_json="$(cd "$repo_root" && HOME="$HOME" SHELL=/bin/sh ./.mise/tasks/audit/personal/json 2>/dev/null || true)"
-printf '%s\n' "$personal_task_json" | grep -Fq '"audit":"personal-security"' \
-  || fail "personal compatibility task bypassed the personal audit wrapper"
-
-grep -Fqx './scripts/audit/personal.sh' "$repo_root/.mise/tasks/audit/personal/_default" \
-  || fail "personal default task bypassed the personal audit wrapper"
-
-command -v python3 >/dev/null 2>&1 \
-  || fail "python3 required for audit contract JSON summary tests"
-
-# shellcheck disable=SC3043
-eval "$(sed -n '/^print_json_summary()/,/^}/p' "$repo_root/scripts/audit/workstation.sh")"
 workstation_summary="$(
   fail_count=1
   warn_count=0
   secret_scan_count=2
   secret_scan_finding_count=2
   secret_scan_rules_json='{"private-key":2}'
-  print_json_summary
+  print_audit_json_summary workstation-security
 )"
-printf '%s' "$workstation_summary" | python3 -c '
-import json, sys
-data = json.load(sys.stdin)
-assert data["secret_scan_finding_count"] == 2
-assert data["secret_scan_rules"]["private-key"] == 2
-' || fail "workstation --json summary is not valid JSON with rule aggregates"
+[ "$(printf '%s' "$workstation_summary" | /usr/bin/plutil -extract secret_scan_finding_count raw -o - -)" = 2 ] \
+  || fail "workstation --json summary finding count changed"
+[ "$(printf '%s' "$workstation_summary" | /usr/bin/plutil -extract secret_scan_rules.private-key raw -o - -)" = 2 ] \
+  || fail "workstation --json summary rule aggregate changed"
 empty_summary="$(
   fail_count=0
   warn_count=0
   secret_scan_count=0
   secret_scan_finding_count=0
   secret_scan_rules_json=
-  print_json_summary
+  print_audit_json_summary workstation-security
 )"
-printf '%s' "$empty_summary" | python3 -c '
-import json, sys
-data = json.load(sys.stdin)
-assert data["secret_scan_rules"] == {}
-assert data["secret_scan_finding_count"] == 0
-' || fail "workstation --json summary default rules object is invalid"
+[ "$(printf '%s' "$empty_summary" | /usr/bin/plutil -extract secret_scan_finding_count raw -o - -)" = 0 ] \
+  || fail "workstation --json summary default finding count changed"
+[ "$(printf '%s' "$empty_summary" | /usr/bin/plutil -extract secret_scan_rules json -o - -)" = '{}' ] \
+  || fail "workstation --json summary default rules object is invalid"
 
-grep -Fq 'secret_scan_finding_count' "$repo_root/scripts/audit/devbox.sh" \
-  || fail "devbox JSON summary missing secret_scan_finding_count"
-grep -Fq 'secret_scan_rules_json_or_empty_object' "$repo_root/scripts/audit/devbox.sh" \
-  || fail "devbox JSON summary missing brace-safe rules helper"
+devbox_summary="$(
+  fail_count=1
+  warn_count=0
+  secret_scan_count=2
+  secret_scan_finding_count=2
+  secret_scan_rules_json='{"private-key":2}'
+  print_audit_json_summary devbox-security fixture fixture
+)"
+[ "$(printf '%s' "$devbox_summary" | /usr/bin/plutil -extract secret_scan_finding_count raw -o - -)" = 2 ] \
+  || fail "devbox --json summary finding count changed"
+[ "$(printf '%s' "$devbox_summary" | /usr/bin/plutil -extract secret_scan_rules.private-key raw -o - -)" = 2 ] \
+  || fail "devbox --json summary rule aggregate changed"
 
-if ! command -v sqlite3 >/dev/null 2>&1 || ! command -v python3 >/dev/null 2>&1; then
-  printf 'ok sqlite Codex log size contracts skipped (sqlite3/python3 unavailable)\n'
+if ! command -v sqlite3 >/dev/null 2>&1; then
+  printf 'ok sqlite Codex log size contracts skipped (sqlite3 unavailable)\n'
 else
   sqlite_fixture="$tmp_root/sqlite-logs"
   mkdir -p "$sqlite_fixture"
@@ -138,28 +128,10 @@ SQL
   rm -f "${wal_mode_db}-wal" "${wal_mode_db}-shm"
   printf 'not a sqlite database\n' >"$junk_db"
   printf 'wal-bytes\n' >"$wal_file"
-  # Valid magic, invalid page-size field -> stats unavailable fallback.
-  python3 - "$broken_header_db" <<'PY'
-from pathlib import Path
-import sys
-path = Path(sys.argv[1])
-header = bytearray(b"SQLite format 3\x00" + (b"\x00" * 84))
-# page_size = 0 (invalid), rest zeroed
-path.write_bytes(bytes(header) + (b"\x00" * 4096))
-PY
-  # Copy a real DB, then corrupt freelist_count > page_count in the header.
+  cp "$heavy_db" "$broken_header_db"
+  printf '\000\000' | dd of="$broken_header_db" bs=1 seek=16 conv=notrunc 2>/dev/null
   cp "$heavy_db" "$bad_freelist_db"
-  python3 - "$bad_freelist_db" <<'PY'
-from pathlib import Path
-import struct
-import sys
-
-path = Path(sys.argv[1])
-data = bytearray(path.read_bytes())
-page_count = struct.unpack(">I", data[28:32])[0]
-struct.pack_into(">I", data, 36, page_count + 1)
-path.write_bytes(data)
-PY
+  printf '\377\377\377\377' | dd of="$bad_freelist_db" bs=1 seek=36 conv=notrunc 2>/dev/null
   sparse_cksum_before="$(cksum "$sparse_db")"
   wal_cksum_before="$(cksum "$wal_mode_db")"
 
@@ -250,11 +222,11 @@ PY
   CODEX_LOG_FAIL_BYTES=100000 \
     CODEX_LOG_WARN_BYTES=50000 \
     check_codex_log_file_size "$bad_freelist_db" >"$bad_freelist_log" 2>&1
-  [ "$fail_count" -ge 1 ] || fail "freelist>page_count did not fall back to physical fail"
+  [ "$fail_count" -ge 1 ] || fail "freelist larger than page count did not use physical size"
   grep -Fq 'SQLite stats unavailable' "$bad_freelist_log" \
-    || fail "freelist>page_count did not report physical-size fallback"
+    || fail "invalid freelist did not report physical-size fallback"
   grep -Fq 'live data is larger than' "$bad_freelist_log" \
-    && fail "freelist>page_count incorrectly used clamped live_bytes=0 path"
+    && fail "invalid freelist used a clamped live size"
 
   wal_sidecar_log="$sqlite_fixture/wal-sidecar.log"
   warn_count=0
@@ -267,41 +239,22 @@ PY
     || fail "WAL physical-size check did not warn"
 fi
 
-# Secret-scan cleanup must not install EXIT/INT/TERM traps (caller owns those).
-grep -Fq 'secret_scan_prev_return' "$repo_root/scripts/lib/audit.sh" \
-  || fail "secret scan cleanup must save the caller RETURN trap"
-if grep -n 'trap cleanup_secret_scan_tmp' "$repo_root/scripts/lib/audit.sh" \
-  | grep -Eq 'EXIT|INT|TERM'; then
-  fail "secret scan cleanup must not take over caller EXIT/INT/TERM traps"
-fi
-grep -Fq 'gitleaks local config scan failed' "$repo_root/scripts/lib/audit.sh" \
-  || fail "no-python gitleaks fallback must distinguish tool failures from leaks"
-# Status 1 (findings) and >1 (error) must be separate branches in the fallback.
-awk '
-  /have_python/ { in_fallback = 0 }
-  /else$/ { maybe = 1; next }
-  maybe && /gitleaks_status/ { in_fallback = 1; maybe = 0 }
-  !maybe { maybe = 0 }
-  in_fallback && /gitleaks_status" -eq 1/ { found_leaks = 1 }
-  in_fallback && /local config scan failed/ { found_fail = 1 }
-  END { exit (found_leaks && found_fail) ? 0 : 1 }
-' "$repo_root/scripts/lib/audit.sh" \
-  || fail "no-python gitleaks fallback must treat status 1 as leaks and >1 as scan failure"
-
 if ! command -v gitleaks >/dev/null 2>&1 \
   || ! command -v trufflehog >/dev/null 2>&1; then
   printf 'ok audit output privacy and recursive SSH private-key classification\n'
   exit 0
 fi
 
-# Live proof: caller EXIT trap is never replaced by secret-scan cleanup.
-caller_exit_before="$(trap -p EXIT || true)"
-set +e
-scan_files_for_secrets </dev/null >/dev/null 2>&1
-set -e
-caller_exit_after="$(trap -p EXIT || true)"
-[ "$caller_exit_before" = "$caller_exit_after" ] \
-  || fail "secret scan cleanup mutated the caller EXIT trap"
+(
+  trap ':' EXIT INT TERM RETURN
+  caller_traps_before="$(trap -p EXIT INT TERM RETURN)"
+  set +e
+  scan_files_for_secrets </dev/null >/dev/null 2>&1
+  set -e
+  caller_traps_after="$(trap -p EXIT INT TERM RETURN)"
+  [ "$caller_traps_before" = "$caller_traps_after" ] \
+    || fail "secret scan cleanup mutated caller traps"
+)
 
 secret_fixture="$tmp_root/secret-home"
 mkdir -p "$secret_fixture"
@@ -318,6 +271,20 @@ mkdir -p "$secret_fixture"
   printf -- '-----END %s PRIVATE KEY-----\n' OPENSSH
 } >"$secret_fixture/id_ed25519"
 chmod 600 "$secret_fixture/id_rsa" "$secret_fixture/id_ed25519"
+
+failed_stage_tmp="$tmp_root/failed-stage-tmp"
+mkdir -p "$failed_stage_tmp"
+(
+  mkdir() {
+    return 1
+  }
+  fail_count=0
+  TMPDIR="$failed_stage_tmp" \
+    scan_files_for_secrets < <(printf '%s\n' "$secret_fixture/id_rsa") >/dev/null 2>&1
+  [ "$fail_count" -eq 1 ] || fail "staging failure was not reported"
+)
+[ -z "$(find "$failed_stage_tmp" -mindepth 1 -print -quit)" ] \
+  || fail "failed secret-scan staging left temporary directories behind"
 
 prose_log="$tmp_root/prose-secret-scan.log"
 json_output=0
@@ -348,6 +315,24 @@ fi
 printf '%s\n' "$secret_scan_rules_json" | grep -Fq '"private-key"' \
   || fail "rule aggregates omitted private-key"
 
+(
+  count_gitleaks_findings() {
+    return 1
+  }
+  json_output=0
+  warn_count=0
+  fail_count=0
+  secret_scan_count=0
+  secret_scan_finding_count=7
+  secret_scan_rules_json='{"existing":3}'
+  HOME="$secret_fixture" \
+    scan_files_for_secrets < <(printf '%s\n' "$secret_fixture/id_rsa") >/dev/null 2>&1 || true
+  [ "$secret_scan_finding_count" -eq 7 ] \
+    || fail "failed finding count partially updated the aggregate total"
+  [ "$secret_scan_rules_json" = '{"existing":3}' ] \
+    || fail "failed finding count partially updated the aggregate rules"
+)
+
 json_output=1
 warn_count=0
 fail_count=0
@@ -363,8 +348,6 @@ printf '%s\n' "$secret_scan_rules_json" | grep -Fq '"private-key"' \
 if printf '%s\n' "$secret_scan_rules_json" | grep -Eq 'BEGIN|MIIEowIBAAKCAQEA|Match|Secret'; then
   fail "json rule aggregates included secret material"
 fi
-
-before_scan_dirs="$(find "${TMPDIR:-/tmp}" -maxdepth 1 \( -name 'dotfiles-secret-scan.*' -o -name 'dotfiles-secret-report.*' \) 2>/dev/null | wc -l | tr -d ' ')"
 
 broken_gitleaks_bin="$tmp_root/broken-bin"
 broken_gitleaks_log="$tmp_root/broken-gitleaks.log"
@@ -396,36 +379,37 @@ PATH="$broken_gitleaks_bin:$PATH" \
 grep -Fq 'gitleaks local config scan failed' "$broken_gitleaks_log" \
   || fail "gitleaks scanner failure did not emit the status-only failure"
 
-missing_python_bin="$tmp_root/missing-python-bin"
-missing_python_log="$tmp_root/missing-python.log"
-mkdir -p "$missing_python_bin"
-ln -s "$(command -v gitleaks)" "$missing_python_bin/gitleaks"
-ln -s "$(command -v trufflehog)" "$missing_python_bin/trufflehog"
-# Shadow every python3 on PATH while keeping system utilities available.
-cat >"$missing_python_bin/python3" <<'EOF'
+missing_node_bin="$tmp_root/missing-node-bin"
+missing_node_log="$tmp_root/missing-node.log"
+mkdir -p "$missing_node_bin"
+ln -s "$(command -v gitleaks)" "$missing_node_bin/gitleaks"
+ln -s "$(command -v trufflehog)" "$missing_node_bin/trufflehog"
+cat >"$missing_node_bin/node" <<'EOF'
 #!/usr/bin/env bash
 exit 127
 EOF
-chmod 755 "$missing_python_bin/python3"
+chmod 755 "$missing_node_bin/node"
 json_output=0
 warn_count=0
 fail_count=0
 secret_scan_count=0
 secret_scan_finding_count=0
 secret_scan_rules_json=
-PATH="$missing_python_bin:/usr/bin:/bin" \
+PATH="$missing_node_bin:/usr/bin:/bin" \
   HOME="$secret_fixture" \
   scan_files_for_secrets < <(printf '%s\n' "$secret_fixture/id_rsa") \
-  >"$missing_python_log" 2>&1 || true
-[ "$fail_count" -ge 1 ] || fail "python3-absent degrade path did not fail closed"
+  >"$missing_node_log" 2>&1 || true
+[ "$fail_count" -ge 1 ] || fail "node-absent degrade path did not fail closed"
 [ "$secret_scan_finding_count" -eq 0 ] \
-  || fail "python3-absent degrade path counted findings"
-if grep -Fq 'finding rule=' "$missing_python_log"; then
-  fail "python3-absent degrade path still emitted locators"
+  || fail "node-absent degrade path counted findings"
+if grep -Fq 'finding rule=' "$missing_node_log"; then
+  fail "node-absent degrade path still emitted locators"
 fi
-grep -Fq 'python3 failed while' "$missing_python_log" \
-  || grep -Fq 'python3 is missing' "$missing_python_log" \
-  || fail "python3-absent degrade path did not warn"
+grep -Fq 'audit data tooling failed' "$missing_node_log" \
+  || grep -Fq 'node is missing' "$missing_node_log" \
+  || fail "node-absent degrade path did not warn"
+grep -Fq 'gitleaks reported possible leaks' "$missing_node_log" \
+  || fail "status-only gitleaks findings were reported as a scanner failure"
 
 clean_fixture="$tmp_root/clean-home"
 clean_log="$tmp_root/clean-secret-scan.log"
@@ -452,8 +436,9 @@ if printf '%s\n' "$clean_output" | grep -Fq 'finding rule='; then
   fail "clean fixture emitted finding locators"
 fi
 
-after_scan_dirs="$(find "${TMPDIR:-/tmp}" -maxdepth 1 \( -name 'dotfiles-secret-scan.*' -o -name 'dotfiles-secret-report.*' \) 2>/dev/null | wc -l | tr -d ' ')"
-[ "$after_scan_dirs" -le "$before_scan_dirs" ] \
-  || fail "secret-scan temporary directories were left behind"
+if find "$TMPDIR" -maxdepth 1 \( -name 'dotfiles-secret-scan.*' -o -name 'dotfiles-secret-report.*' \) \
+  -print -quit | grep -q .; then
+  fail "secret-scan temporary directories were left behind"
+fi
 
 printf 'ok audit output privacy and recursive SSH private-key classification\n'

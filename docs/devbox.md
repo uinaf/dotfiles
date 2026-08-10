@@ -134,13 +134,14 @@ process.
 Run each check as the intended Unix identity:
 
 ```bash
-./scripts/verify/bootstrap.sh --profile devbox
+./dotfiles check devbox
 ./scripts/verify/devbox-services.sh
 ./scripts/audit/devbox.sh --json
 ```
 
-Use `--profile personal-devbox` for the bootstrap check on an owner-operated
-personal devbox. The service verification and audit commands are unchanged.
+Use `./dotfiles check personal-devbox` for the bootstrap check on an
+owner-operated personal devbox. The service verification and audit commands
+are unchanged.
 
 The bootstrap gate checks the selected profile packages and shared config. The
 service gate verifies the age identity, local config, and launchd boundary. The

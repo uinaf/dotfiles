@@ -1,10 +1,13 @@
-{{ if ne .dotfilesProfile "personal-workstation" }}
+{{ $profile := includeTemplate "profile" . | fromJson }}
+{{ if not $profile.capabilities.zed }}
 .config/zed
 {{ end }}
-{{ if and (ne .dotfilesProfile "personal-workstation") (ne .dotfilesProfile "workstation") }}
+{{ if not $profile.capabilities.workstation }}
 Library/Application Support/com.mitchellh.ghostty
 {{ end }}
-{{ if or (eq .dotfilesProfile "assistant") (eq .dotfilesProfile "service") }}
+{{ if $profile.capabilities.workload }}
+.agents
+.claude
 .codex
 .config/1Password/ssh
 .config/git

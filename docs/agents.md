@@ -1,89 +1,88 @@
 # Agent Setup
 
-The personal-workstation, personal-devbox, workstation, and devbox profiles install
-machine-global instructions and skills from `scripts/agents/`. Assistant and
-service profiles refuse agent sync and do not install coding agents, global
-instructions, or development skills.
+personal-workstation, personal-devbox, workstation, and devbox profiles install
+machine-global instructions and skills. Assistant and service profiles install
+neither.
 
-## Sync
+## Global Rules
 
-Run the profile-owned sync from the primary dotfiles checkout on `main`:
+Chezmoi owns the shared rules and both agent entrypoints:
+
+| Source | Target |
+| --- | --- |
+| `chezmoi/private_dot_agents/AGENTS.md.tmpl` | `~/.agents/AGENTS.md` |
+| `chezmoi/private_dot_claude/symlink_CLAUDE.md` | `~/.claude/CLAUDE.md` |
+| `chezmoi/private_dot_codex/symlink_AGENTS.md` | `~/.codex/AGENTS.md` |
+
+Preview and apply rule changes with the normal dotfile commands:
+
+```zsh
+./dotfiles diff workstation
+./dotfiles apply workstation
+```
+
+The links point to `../.agents/AGENTS.md`. They do not depend on a repository
+checkout. Existing conflicting files or broken links are backed up by the
+dotfile wrapper before chezmoi converges them.
+
+### Private Rules
+
+Optional machine-specific text comes from the machine-local chezmoi config. It
+does not use a path in this repository. Add a string under the local `[data]`
+table:
+
+```toml
+[data]
+agentRulesPrivate = """
+### Machine-specific rule
+
+Add private instructions here.
+"""
+```
+
+The value is appended under `## Local Overrides`. An absent or blank value adds
+nothing. Preview before applying. Keep the local config and its contents out of
+Git.
+
+## Skill Sync
+
+Run the profile-owned skill sync from any checkout:
 
 ```zsh
 mise run agents:sync
-mise run agents:sync -- --update
+mise run agents:update
 ```
 
-The equivalent direct entrypoint is `./scripts/agents/sync.ts`. Sync reads the
-secure persisted profile marker before pulling or changing global state.
+The direct entrypoint is `./scripts/agents/sync.ts`. It reads the secure stored
+profile marker, selects `shared.json` plus the personal layer when configured,
+and installs those skills for available Codex and Claude Code CLIs. It does not
+pull Git or manage rule files.
 
-The sync fast-forwards the clean dotfiles checkout, generates
-`scripts/agents/rules/final.md`, links it to installed Codex and Claude Code
-entrypoints, and installs the effective selection from
-`scripts/agents/skills/shared.json` and `scripts/agents/skills/personal.json`.
-Personal-workstation and personal-devbox install both layers; workstation and devbox
-install only shared. The ignored `scripts/agents/skills.lock.json` records the
-last manifest successfully applied by this checkout. Later syncs remove skills
-dropped from that lock while
-preserving globally installed skills the lock never owned. Removing an owned
-skill also removes its links from every agent configured by the skills CLI.
-Retired owned skills are still removed when neither supported coding agent is
-installed; only current-skill installation is skipped.
+The ignored `scripts/agents/skills.lock.json` records the last manifest applied
+by this checkout. Sync removes skills dropped from that lock while preserving
+global skills it never owned. Removing an owned skill also removes its links
+from every agent configured by the skills CLI.
 
-Upgrading directly from the former single-manifest sync is intentionally a
-breaking transition. An old sync process can fast-forward the checkout and then
-fail because its manifest path no longer exists. Rerun `mise run agents:sync`;
-the new entrypoint reads the layered manifests and completes the migration.
+When the lock is missing, sync installs the current manifest and initializes
+ownership without removing anything. With no supported agent and no lock, it
+skips installation and ownership initialization.
 
-Pass `--update` to run `skills update -g` after a successful manifest sync.
-That refreshes every globally installed skill, including extras the lock never
-owned. Manifest install failures skip the updater; an updater failure still
-leaves the completed manifest sync in place.
+Pass `--update` to run `skills update -g` after manifest sync. That refreshes all
+global skills, including extras the lock never owned. Manifest failures skip the
+updater. An updater failure leaves the completed manifest sync in place.
 
-When the lock is missing and a supported coding agent is installed, sync
-installs the current manifest and initializes the lock without removing
-anything. With no supported agent and no lock, sync skips installation and
-ownership initialization. Before migrating a machine that predates ownership
-tracking, seed the lock only with entries confirmed to have been installed by
-the former manifest sync.
 Shared first-party skills live in [`uinaf/skills`](https://github.com/uinaf/skills).
-The personal attach-cli skill ships with
-[`uinaf/attach`](https://github.com/uinaf/attach), the autoreview skill with
-[`uinaf/autoreview`](https://github.com/uinaf/autoreview), and the slopomatic
-skill with [`uinaf/slopomatic`](https://github.com/uinaf/slopomatic).
-The personal uinaf-design skill ships with
-[`uinaf/design`](https://github.com/uinaf/design). Shared CLI-backed skills use
-the developer Homebrew layer; personal CLI-backed skills use the personal
-layer.
-
-Regular files and foreign symlinks at the global instruction entrypoints are
-rejected before global state changes.
-
-## Sources
-
-| Path | Ownership |
-| --- | --- |
-| `scripts/agents/rules/base.md` | Tracked global rules. |
-| `scripts/agents/rules/local.md` | Ignored optional machine overrides. |
-| `scripts/agents/rules/final.md` | Ignored generated rules linked into installed agents. |
-| `scripts/agents/skills/shared.json` | Shared managed skill selection. |
-| `scripts/agents/skills/personal.json` | Personal additions for personal-workstation and personal-devbox. |
-| `scripts/agents/skills.lock.json` | Ignored machine-local ownership ledger for safe removal. |
-| `scripts/agents/resolve-profile.sh` | Strict persisted-profile resolver used before sync mutation. |
-| `scripts/agents/sync.ts` | Executable sync entrypoint. |
-
-## Local Rules
-
-Put private machine-specific additions in `scripts/agents/rules/local.md`.
-Start local content at heading level three; the generated file inserts it below
-`## Local Overrides`.
-
-Do not edit `scripts/agents/rules/final.md` or installed copies under
-`~/.agents/skills/`. Edit the tracked rule source here or the skill in its
-owning repository, then rerun the sync.
+Personal CLI-backed skills retain their owning repositories. Shared selections
+live in `scripts/agents/skills/shared.json`; personal additions live in
+`scripts/agents/skills/personal.json`.
 
 ## Verify
 
-Repository verification exercises the typed sync in an isolated fixture. A
-live developer-profile bootstrap runs the same sync after Codex, Claude Code,
-Node, and pnpm are installed.
+```zsh
+mise run verify:domain config
+mise run verify:domain agents
+```
+
+Rule fixtures cover clean and repeated applies, local data present and absent,
+explicit diffs, conflicting files, and broken links. Skill fixtures cover
+install, update, conflict, removal, and ownership without touching rules or Git.

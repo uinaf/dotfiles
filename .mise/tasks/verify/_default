@@ -1,5 +1,0 @@
-#!/usr/bin/env bash
-#MISE description="Run the full repository verification gate"
-set -euo pipefail
-
-./scripts/verify/repo.sh

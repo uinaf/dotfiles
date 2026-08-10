@@ -1,15 +1,16 @@
 # Scripts
 
-Run scripts from the repository root. Mise tasks in `.mise/tasks/` are thin,
-discoverable wrappers; reusable behavior stays here.
+Run scripts from the repository root. `mise.toml` provides the small public
+task graph; reusable behavior stays here.
 
 | Directory | Purpose |
 | --- | --- |
-| `agents/` | Generate global agent rules and install additive skill selections. |
+| `agents/` | Install additive global skill selections. |
 | `app-store/` | Manage workstation Mac App Store applications through `mas`. |
 | `audit/` | Run non-destructive repository, host, workstation, and devbox audits. |
 | `bootstrap/` | Install packages and configure dotfiles, Git, coding tools, and host policy. |
 | `lib/` | Shared shell helpers. |
+| `profiles/` | Strict TypeScript parsing and tests for the canonical profile model. |
 | `secrets/` | Provision SOPS age identities and expose narrow sudo boundaries. |
 | `tizen/` | Install Tizen Studio and manage local certificate/profile archives. |
 | `verify/` | Check repository contracts and live profile/service state. |
@@ -17,9 +18,10 @@ discoverable wrappers; reusable behavior stays here.
 ## Repository Checks
 
 ```zsh
-./scripts/verify/repo.sh --skip-security
-./scripts/verify/repo.sh
-./scripts/audit/repo.sh --skip-mscp --json
+mise run verify:domain config # example; select the owning domain
+mise run verify:fast
+mise run verify
+mise run audit repo --format json
 ```
 
 ## Bootstrap
@@ -27,14 +29,16 @@ discoverable wrappers; reusable behavior stays here.
 ```zsh
 profile=workstation
 ./scripts/bootstrap/brew-bundle.sh "$profile"
-./scripts/bootstrap/apply-dotfiles.sh --profile "$profile"
 mise trust
-mise install
-./scripts/bootstrap/install.sh --profile "$profile"
+./dotfiles diff "$profile"
+./dotfiles apply "$profile"
 ./scripts/secrets/configure-sops-age-identity.sh
 ./scripts/bootstrap/configure-git.sh --profile "$profile"
-./scripts/verify/bootstrap.sh --profile "$profile"
+./dotfiles check "$profile"
 ```
+
+`./dotfiles` is the operator entrypoint. The scripts below it remain narrow
+implementation owners and are also used by repository tests.
 
 Use [Bootstrap](../docs/bootstrap.md) for the required order,
 [Identity provisioning](../docs/identities.md) for Git and credential setup,
@@ -43,13 +47,15 @@ and [User profiles](../docs/profiles.md) for role boundaries.
 ## Global Agent Setup
 
 ```zsh
+./dotfiles diff workstation
+./dotfiles apply workstation
 mise run agents:sync
-mise run agents:sync -- --update
+mise run agents:update
 ```
 
-The direct entrypoint is `./scripts/agents/sync.ts`. See
-[Agent setup](../docs/agents.md) for sources, generated output, local
-overrides, and the optional `--update` global skill refresh.
+Chezmoi owns global rules and links. The direct skill entrypoint is
+`./scripts/agents/sync.ts`. See [Agent setup](../docs/agents.md) for the optional
+private rule layer and `--update` global skill refresh.
 
 ## Live Audits
 

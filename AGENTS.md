@@ -48,7 +48,7 @@ repository.
 3. Read the smallest owning guide from the table above.
 4. Change tracked sources, not generated home-directory state.
 5. Update the owning documentation when behavior, paths, or commands change.
-6. Run focused proof, then the full repository gate before committing.
+6. Run the focused domain that owns the change. CI runs the complete graph.
 
 Prefer repository scripts over one-off shell snippets. If automation requires
 opaque app-state edits or machine-specific credential juggling, document the
@@ -57,8 +57,9 @@ manual step in the owning guide instead.
 ## Verify
 
 ```zsh
-./scripts/verify/repo.sh --skip-security # local iteration
-./scripts/verify/repo.sh                 # required before commit
+mise run verify:domain config # example; select the owning domain
+mise run verify:fast          # complete deterministic graph
+mise run verify               # complete graph plus secret scans
 ```
 
 Run live checks only on a machine that should satisfy the selected profile:

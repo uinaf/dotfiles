@@ -61,8 +61,11 @@ assert_eq service "$(dotfiles_normalize_profile service)" "service profile"
 if dotfiles_normalize_profile unsupported >/dev/null 2>&1; then
   fail "unsupported profile was accepted"
 fi
-if dotfiles_normalize_profile personal >/dev/null 2>&1; then
-  fail "retired personal profile was accepted"
+if "$repo_root/scripts/bootstrap/configure-power.sh" workstation devbox >/dev/null 2>&1; then
+  fail "configure-power accepted duplicate profile arguments"
+fi
+if "$repo_root/scripts/verify/bootstrap.sh" workstation devbox >/dev/null 2>&1; then
+  fail "bootstrap verification accepted duplicate profile arguments"
 fi
 
 for supported_profile in $(dotfiles_profiles); do
@@ -192,11 +195,16 @@ fi
   || fail "rejected canonical config directory received managed files"
 
 task_home="$tmp_root/task-profile"
+mise_global_config="${MISE_GLOBAL_CONFIG_FILE:-${XDG_CONFIG_HOME:-$HOME/.config}/mise/config.toml}"
 mkdir -p "$task_home"
 (
   cd "$repo_root"
-  HOME="$task_home" ./.mise/tasks/dotfiles/diff --profile assistant >/dev/null
-  HOME="$task_home" ./.mise/tasks/dotfiles/apply --profile assistant >/dev/null
+  HOME="$task_home" MISE_IGNORED_CONFIG_PATHS="$mise_global_config" MISE_TRUSTED_CONFIG_PATHS="$repo_root" \
+    ./dotfiles diff assistant >/dev/null
+  [ ! -e "$task_home/.config/dotfiles/profile" ] \
+    || fail "operator diff mutated the disposable home"
+  HOME="$task_home" MISE_IGNORED_CONFIG_PATHS="$mise_global_config" MISE_TRUSTED_CONFIG_PATHS="$repo_root" \
+    mise run dotfiles:apply assistant >/dev/null
 )
 assert_eq assistant "$(sed -n '1p' "$task_home/.config/dotfiles/profile")" \
   "dotfiles task profile forwarding"
@@ -340,11 +348,11 @@ for file in Brewfile Brewfile.developer Brewfile.workstation Brewfile.devbox Bre
 done
 
 assistant_steps="$("$repo_root/scripts/bootstrap/install.sh" --print-steps --profile assistant)"
-assert_eq "$(printf 'apply-dotfiles\ninstall-gh-app-auth')" "$assistant_steps" "assistant install steps"
+assert_eq "$(printf 'apply-dotfiles\ninstall-runtimes\ninstall-gh-app-auth')" "$assistant_steps" "assistant install steps"
 service_steps="$("$repo_root/scripts/bootstrap/install.sh" --print-steps --profile service)"
 assert_eq "apply-dotfiles" "$service_steps" "service install steps"
 developer_steps="$("$repo_root/scripts/bootstrap/install.sh" --print-steps --profile workstation)"
-for step in apply-dotfiles install-cursor-agent trust-agent-worktrees install-gh-extensions remove-global-vite-plus install-pnpm configure-codex sync-agents; do
+for step in apply-dotfiles install-runtimes install-cursor-agent trust-agent-worktrees install-gh-extensions configure-codex sync-agents; do
   printf '%s\n' "$developer_steps" | grep -Fqx "$step" || fail "workstation install missed $step"
 done
 devbox_steps="$("$repo_root/scripts/bootstrap/install.sh" --print-steps --profile devbox)"
@@ -356,11 +364,12 @@ assert_eq "$developer_steps" "$personal_workstation_steps" "personal workstation
 
 install_fixture="$tmp_root/install-fixture"
 install_log="$tmp_root/install-fixture.log"
-active_node_bin="$(dirname "$(mise which node)")"
-install_fixture_path="$install_fixture/bin:$active_node_bin:$PATH"
-mkdir -p "$install_fixture/scripts/agents" "$install_fixture/scripts/bootstrap" "$install_fixture/scripts/lib" "$install_fixture/bin"
+install_fixture_path="$install_fixture/bin:$PATH"
+mkdir -p "$install_fixture/scripts/agents" "$install_fixture/scripts/bootstrap" "$install_fixture/scripts/lib" \
+  "$install_fixture/chezmoi/.chezmoidata" "$install_fixture/bin"
 cp "$repo_root/scripts/bootstrap/install.sh" "$install_fixture/scripts/bootstrap/install.sh"
 cp "$repo_root/scripts/lib/profile.sh" "$install_fixture/scripts/lib/profile.sh"
+cp "$repo_root/chezmoi/.chezmoidata/profiles.json" "$install_fixture/chezmoi/.chezmoidata/profiles.json"
 for helper in apply-dotfiles.sh install-gh-app-auth.sh install-cursor-agent.sh trust-agent-worktrees.sh install-gh-extensions.sh configure-codex.sh; do
 cat > "$install_fixture/scripts/bootstrap/$helper" <<'EOF'
 #!/usr/bin/env bash
@@ -381,29 +390,12 @@ printf 'sync.ts' >> "${DOTFILES_INSTALL_LOG:?}"
 printf '\n' >> "${DOTFILES_INSTALL_LOG:?}"
 EOF
 chmod 0700 "$install_fixture/scripts/agents/sync.ts"
-for command_name in corepack mise npm codex; do
+for command_name in mise codex; do
 cat > "$install_fixture/bin/$command_name" <<'EOF'
 #!/usr/bin/env bash
 printf '%s' "$(basename "$0")" >> "${DOTFILES_INSTALL_LOG:?}"
 [ "$#" -eq 0 ] || printf ' %s' "$@" >> "${DOTFILES_INSTALL_LOG:?}"
 printf '\n' >> "${DOTFILES_INSTALL_LOG:?}"
-if [ "$(basename "$0")" = npm ] && [ -n "${npm_config_prefix:-}" ]; then
-  printf 'npm_config_prefix %s\n' "$npm_config_prefix" >> "${DOTFILES_INSTALL_LOG:?}"
-fi
-if [ "$(basename "$0")" = mise ]; then
-  case "$*" in
-    "ls npm:vite-plus --installed --json")
-      if [ "${DOTFILES_INSTALL_VITE_PLUS_INSTALLED:-1}" = 1 ]; then
-        printf '[{"installed": true}]\n'
-      else
-        printf '[]\n'
-      fi
-      ;;
-    "ls node --installed --json")
-      printf '[{"install_path":"%s"}]\n' "${DOTFILES_INSTALL_NODE_ROOT:?}"
-      ;;
-  esac
-fi
 EOF
   chmod 0700 "$install_fixture/bin/$command_name"
 done
@@ -413,7 +405,7 @@ PATH="$install_fixture_path" \
 DOTFILES_INSTALL_LOG="$install_log" \
 HOME="$tmp_root/install-assistant-home" \
   "$install_fixture/scripts/bootstrap/install.sh" --profile assistant
-assert_eq "$(printf 'apply-dotfiles.sh --profile assistant\ninstall-gh-app-auth.sh')" "$(cat "$install_log")" \
+assert_eq "$(printf 'apply-dotfiles.sh --profile assistant\nmise install\ninstall-gh-app-auth.sh')" "$(cat "$install_log")" \
   "assistant install execution"
 
 : > "$install_log"
@@ -426,50 +418,21 @@ assert_eq "apply-dotfiles.sh --profile service" "$(cat "$install_log")" \
 
 : > "$install_log"
 install_devbox_home="$tmp_root/install-devbox-home"
-install_node_root="$install_fixture/node-root"
-mkdir -p "$install_devbox_home/.vite-plus"
-mkdir -p "$install_node_root/bin" "$install_node_root/lib/node_modules/vite-plus"
-touch "$install_devbox_home/.vite-plus/project-cache"
-touch "$install_node_root/lib/node_modules/vite-plus/package.json"
-cp "$install_fixture/bin/npm" "$install_node_root/bin/npm"
 PATH="$install_fixture_path" \
 DOTFILES_INSTALL_LOG="$install_log" \
-DOTFILES_INSTALL_NODE_ROOT="$install_node_root" \
 HOME="$install_devbox_home" \
   "$install_fixture/scripts/bootstrap/install.sh" --profile devbox
 expected_install_log="$(cat <<EOF
 apply-dotfiles.sh --profile devbox
+mise install
 install-cursor-agent.sh
 trust-agent-worktrees.sh
 install-gh-extensions.sh
-mise ls npm:vite-plus --installed --json
-mise uninstall --all --yes npm:vite-plus
-mise ls node --installed --json
-npm uninstall --global vite-plus
-npm_config_prefix $install_node_root
-mise reshim --force
-corepack enable pnpm
-corepack install --global pnpm@11.20.0
 configure-codex.sh
 sync.ts --profile devbox
 EOF
 )"
 assert_eq "$expected_install_log" "$(cat "$install_log")" "devbox install execution"
-
-: > "$install_log"
-PATH="$install_fixture_path" \
-DOTFILES_INSTALL_LOG="$install_log" \
-DOTFILES_INSTALL_NODE_ROOT="$install_node_root" \
-DOTFILES_INSTALL_VITE_PLUS_INSTALLED=0 \
-HOME="$install_devbox_home" \
-  "$install_fixture/scripts/bootstrap/install.sh" --profile devbox
-grep -Fqx 'mise ls npm:vite-plus --installed --json' "$install_log" \
-  || fail "devbox install did not inspect the mise Vite+ installation"
-if grep -Fqx 'mise uninstall --all --yes npm:vite-plus' "$install_log"; then
-  fail "devbox install asked mise to uninstall an absent Vite+ installation"
-fi
-[ -f "$install_devbox_home/.vite-plus/project-cache" ] \
-  || fail "devbox install removed repository-local Vite+ cache"
 
 : > "$install_log"
 printf 'caller-input\n' | \
@@ -478,7 +441,7 @@ printf 'caller-input\n' | \
   DOTFILES_INSTALL_READ_STDIN=apply-dotfiles.sh \
   HOME="$tmp_root/install-stdin-home" \
     "$install_fixture/scripts/bootstrap/install.sh" --profile assistant
-assert_eq "$(printf 'apply-dotfiles.sh --profile assistant\nstdin caller-input\ninstall-gh-app-auth.sh')" \
+assert_eq "$(printf 'apply-dotfiles.sh --profile assistant\nstdin caller-input\nmise install\ninstall-gh-app-auth.sh')" \
   "$(cat "$install_log")" \
   "install step caller stdin"
 
@@ -515,7 +478,7 @@ for rejected in 'node =' 'python =' 'uv =' 'bun =' 'java =' 'go =' 'playwright' 
 done
 
 workstation_mise="$(render_target workstation .config/mise/config.toml)"
-for expected in 'bun = "1.3.10"' 'java = "temurin-21"' 'go = "1.26.2"' 'trusted_config_paths'; do
+for expected in 'node = { version = "24.18.0"' 'npm@12.0.2' 'pnpm@11.20.0' 'bun = "1.3.10"' 'java = "temurin-21"' 'go = "1.26.2"' '"npm:@playwright/cli" = "0.1.17"' 'trusted_config_paths'; do
   printf '%s\n' "$workstation_mise" | grep -Fq "$expected" || fail "workstation mise config missed $expected"
 done
 for rejected in 'pnpm@12.0.0-beta.2' 'npm:vite-plus'; do
@@ -634,10 +597,10 @@ preservation_home="$tmp_root/assistant-preserves-developer-state"
 mkdir -p \
   "$preservation_home/.config/1Password/ssh" \
   "$preservation_home/.codex/browser"
-ln -s "$repo_root/home/.config/1Password/ssh/agent.toml" \
+ln -s "$tmp_root/external/agent.toml" \
   "$preservation_home/.config/1Password/ssh/agent.toml"
-ln -s "$repo_root/home/.codex/config.toml" "$preservation_home/.codex/config.toml"
-ln -s "$repo_root/home/.codex/browser/config.toml" \
+ln -s "$tmp_root/external/codex.toml" "$preservation_home/.codex/config.toml"
+ln -s "$tmp_root/external/browser.toml" \
   "$preservation_home/.codex/browser/config.toml"
 HOME="$preservation_home" "$repo_root/scripts/bootstrap/apply-dotfiles.sh" --profile assistant >/dev/null
 for preserved_path in \

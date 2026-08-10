@@ -77,71 +77,13 @@ backup_path() {
   fi
 }
 
-remove_obsolete_repo_link() {
-  local target="$1"
-  local current="$2"
-  local backup
-
-  if ! [[ "$current" = "$repo_root"/home/* || "$current" = */dotfiles/home/* ]]; then
-    return 1
-  fi
-
-  if [ -e "$target" ] && ! "${chezmoi_base[@]}" cat "$target" | cmp -s - "$target"; then
-    backup="$target.backup.$(date +%Y%m%d%H%M%S)"
-    if [ "$dry_run" -eq 1 ]; then
-      printf 'would back up obsolete link content %s -> %s\n' "$target" "$backup"
-    else
-      cp -p "$target" "$backup"
-      printf 'backed up obsolete link content %s -> %s\n' "$target" "$backup"
-    fi
-  fi
-
-  if [ "$dry_run" -eq 1 ]; then
-    printf 'would remove obsolete link %s -> %s\n' "$target" "$current"
-  else
-    unlink "$target"
-    printf 'removed obsolete link %s -> %s\n' "$target" "$current"
-  fi
-
-  return 0
-}
-
 backup_preexisting_targets() {
   local target
-  local current
 
   while IFS= read -r target; do
     [ -n "$target" ] || continue
-
-    if [ -L "$target" ]; then
-      current="$(readlink "$target")"
-      if remove_obsolete_repo_link "$target" "$current"; then
-        continue
-      fi
-    fi
-
     backup_path "$target"
   done < <("${chezmoi_base[@]}" managed --include=files,symlinks --path-style absolute)
-}
-
-remove_obsolete_link_suffix() {
-  local target="$1"
-  local suffix="$2"
-  local current
-
-  if [ ! -L "$target" ]; then
-    return
-  fi
-
-  current="$(readlink "$target")"
-  if [[ "$current" = *"$suffix" ]]; then
-    if [ "$dry_run" -eq 1 ]; then
-      printf 'would remove obsolete link %s -> %s\n' "$target" "$current"
-    else
-      unlink "$target"
-      printf 'removed obsolete link %s -> %s\n' "$target" "$current"
-    fi
-  fi
 }
 
 [ -d "$source_dir" ] || fail "missing chezmoi source directory: $source_dir"
@@ -163,12 +105,6 @@ config_dir="$HOME/.config/dotfiles"
 [ ! -e "$config_dir" ] || [ -d "$config_dir" ] \
   || fail "canonical config path must be a directory: $config_dir"
 
-remove_obsolete_link_suffix "$HOME/.zlogin" "/home/.zlogin"
-if dotfiles_profile_is_developer "$profile"; then
-  remove_obsolete_link_suffix "$HOME/.config/1Password/ssh/agent.toml" "/home/.config/1Password/ssh/agent.toml"
-  remove_obsolete_link_suffix "$HOME/.codex/config.toml" "/home/.codex/config.toml"
-  remove_obsolete_link_suffix "$HOME/.codex/browser/config.toml" "/home/.codex/browser/config.toml"
-fi
 backup_preexisting_targets
 
 cmd=("${chezmoi_base[@]}" --force apply)

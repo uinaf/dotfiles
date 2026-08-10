@@ -39,16 +39,14 @@ done
 if ! profile="$(dotfiles_resolve_profile "$profile")"; then
   fail "a persisted assistant or service profile is required"
 fi
-case "$profile" in
-  assistant|service) ;;
-  *) fail "workload Git verification does not support profile: $profile" ;;
-esac
+dotfiles_profile_is_workload "$profile" \
+  || fail "workload Git verification does not support profile: $profile"
 
 tracked_config="$HOME/.gitconfig"
 workload_config="$HOME/.gitconfig.local"
 tilde='~'
 expected_includes="$tilde/.gitconfig.local"
-if [ "$profile" = assistant ]; then
+if dotfiles_profile_has_capability "$profile" githubAppAuth; then
   expected_includes="$(printf '%s\n' \
     "$expected_includes" \
     "$tilde/.config/dotfiles/github-app.gitconfig")"

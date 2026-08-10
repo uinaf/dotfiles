@@ -50,18 +50,7 @@ if ! profile="$(dotfiles_resolve_profile "$profile")"; then
 fi
 
 install_steps() {
-  printf 'apply-dotfiles\n'
-  if [ "$profile" = "assistant" ]; then
-    printf 'install-gh-app-auth\n'
-  elif dotfiles_profile_is_developer "$profile"; then
-    printf 'install-cursor-agent\n'
-    printf 'trust-agent-worktrees\n'
-    printf 'install-gh-extensions\n'
-    printf 'remove-global-vite-plus\n'
-    printf 'install-pnpm\n'
-    printf 'configure-codex\n'
-    printf 'sync-agents\n'
-  fi
+  dotfiles_profile_install_steps "$profile"
 }
 
 run_step() {
@@ -81,32 +70,12 @@ run_step() {
     install-gh-extensions)
       "$repo_root/scripts/bootstrap/install-gh-extensions.sh"
       ;;
-    remove-global-vite-plus)
-      if command -v mise >/dev/null 2>&1; then
-        installed_vite_plus="$(mise ls npm:vite-plus --installed --json)"
-        if printf '%s\n' "$installed_vite_plus" | grep -Eq '"installed":[[:space:]]*true'; then
-          mise uninstall --all --yes npm:vite-plus
-        fi
-        installed_nodes="$(mise ls node --installed --json)"
-        if [ -n "$installed_nodes" ] && command -v node >/dev/null 2>&1; then
-          printf '%s\n' "$installed_nodes" \
-            | node -e 'for (const tool of JSON.parse(require("node:fs").readFileSync(0, "utf8"))) console.log(tool.install_path)' \
-            | while IFS= read -r node_root; do
-                if [ -f "$node_root/lib/node_modules/vite-plus/package.json" ]; then
-                  npm_config_prefix="$node_root" "$node_root/bin/npm" uninstall --global vite-plus
-                fi
-              done
-        fi
-        mise reshim --force
-      fi
-      ;;
-    install-pnpm)
-      if command -v corepack >/dev/null 2>&1; then
-        corepack enable pnpm
-        corepack install --global pnpm@11.20.0
-      else
-        printf 'skipped pnpm setup; install the pinned Node runtime with Corepack support\n' >&2
-      fi
+    install-runtimes)
+      command -v mise >/dev/null 2>&1 || {
+        printf 'mise is required to install the %s runtime group\n' "$(dotfiles_profile_runtime_group "$profile")" >&2
+        return 1
+      }
+      mise install
       ;;
     configure-codex)
       if command -v codex >/dev/null 2>&1; then

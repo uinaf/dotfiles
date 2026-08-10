@@ -8,8 +8,8 @@ local Gitleaks scans write an owner-only temporary report (outside the staged
 scan tree) and print only sanitized locators in prose mode (`rule` and staged
 relative `path`). Compact `--json` mode exposes aggregate finding counts by
 rule ID and never includes matched secret material. Sanitized locators and rule
-aggregates require `python3`; without it the scan still fails closed on a
-non-zero Gitleaks status but omits locators. Other maintained scanners can
+aggregates use the repository's typed Node tooling; without Node the scan still
+fails closed on a non-zero Gitleaks status but omits locators. Other maintained scanners can
 still include matched material in their own prose output; use `--json` for
 remote collection, and do not paste raw scanner output into issues, pull
 requests, or chat.
@@ -35,13 +35,13 @@ Gitleaks run does not prove launchd state is safe.
 Run locally before committing security-sensitive setup changes:
 
 ```zsh
-./scripts/verify/repo.sh
+mise run verify
 ```
 
 That command runs the repository secret scan through
-`./scripts/audit/repo.sh --skip-mscp` after the normal shell, workflow, and
-diff checks. Run `./scripts/audit/repo.sh --skip-mscp` directly when you
-only need the secret scanners.
+`./scripts/audit/repo.sh --skip-mscp` after the complete deterministic graph.
+Run `./scripts/audit/repo.sh --skip-mscp` directly when you only need the
+secret scanners.
 
 For agent or dashboard consumption, add `--json`:
 
@@ -175,7 +175,7 @@ It checks:
   of failing when the physical file is large but live data is modest. Live and
   reclaimable sizes are derived from the SQLite database header (no engine open
   / no VACUUM); if header stats are unavailable the check falls back to
-  physical file size
+  physical file size. Typed tooling reads the header without opening the engine
 - Tailscale CLI status works when installed
 
 Warnings are normal when a workstation intentionally keeps optional services or

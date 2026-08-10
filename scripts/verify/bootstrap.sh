@@ -2,6 +2,7 @@
 set -euo pipefail
 
 profile=""
+profile_set=0
 desktop_baseline=0
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 ghostty_config="$HOME/Library/Application Support/com.mitchellh.ghostty/config"
@@ -32,10 +33,12 @@ while [ "$#" -gt 0 ]; do
         usage >&2
         exit 2
       fi
+      if [ "$profile_set" -eq 1 ]; then
+        usage >&2
+        exit 2
+      fi
       profile="$1"
-      ;;
-    personal-workstation|personal-devbox|workstation|devbox|assistant|service)
-      profile="$1"
+      profile_set=1
       ;;
     --desktop)
       desktop_baseline=1
@@ -44,9 +47,17 @@ while [ "$#" -gt 0 ]; do
       usage
       exit 0
       ;;
-    *)
+    -*)
       usage >&2
       exit 2
+      ;;
+    *)
+      if [ "$profile_set" -eq 1 ]; then
+        usage >&2
+        exit 2
+      fi
+      profile="$1"
+      profile_set=1
       ;;
   esac
   shift
@@ -154,37 +165,6 @@ run_zsh_check() {
   zsh -lic "$command" || fail "$command"
 }
 
-check_exact_version() {
-  local label="$1"
-  local expected="$2"
-  local command="$3"
-  local actual
-
-  section "$label version"
-  actual="$(zsh -lic "$command")" || fail "$label version"
-  printf '%s\n' "$actual"
-  if [ "$actual" != "$expected" ]; then
-    fail "$label version is $actual; expected $expected"
-  fi
-}
-
-check_default_pnpm_version() {
-  local expected="$1"
-  local actual
-
-  section "pnpm version"
-  actual="$(
-    probe_dir="$(mktemp -d)"
-    trap 'rmdir "$probe_dir"' EXIT
-    cd "$probe_dir"
-    zsh -lic 'pnpm --version'
-  )" || fail "pnpm version"
-  printf '%s\n' "$actual"
-  if [ "$actual" != "$expected" ]; then
-    fail "pnpm version is $actual; expected $expected"
-  fi
-}
-
 check_mise_tool_owner() {
   local label="$1"
   local command="$2"
@@ -206,25 +186,30 @@ check_mise_tool_owner() {
 }
 
 check_runtime_versions() {
+  local missing
   local node_root
   local npm_prefix
   local npm_global_root
   local npm_exec_node
 
-  if [ "$profile" = "service" ]; then
+  if [ "$(dotfiles_profile_runtime_group "$profile")" = "none" ]; then
     return
   fi
 
-  check_exact_version "Node" "v24.18.0" "node --version"
+  section "mise runtime convergence"
+  missing="$(zsh -lic 'mise ls --current --missing --no-header')" || fail "mise runtime convergence"
+  [ -z "$missing" ] || fail "mise still reports missing configured tools: $missing"
+
+  run_zsh_check "node --version"
   check_mise_tool_owner "Node" "node" "node"
 
   if ! dotfiles_profile_is_developer "$profile"; then
     return
   fi
 
-  check_default_pnpm_version "11.20.0"
-  check_exact_version "npm" "12.0.2" "npm --version"
-  check_exact_version "Playwright CLI" "0.1.17" "playwright-cli --version"
+  run_zsh_check "pnpm --version"
+  run_zsh_check "npm --version"
+  run_zsh_check "playwright-cli --version"
   check_mise_tool_owner "pnpm" "pnpm" "node"
   check_mise_tool_owner "npm" "npm" "node"
   check_mise_tool_owner "Playwright CLI" "playwright-cli" "npm:@playwright/cli"
@@ -251,39 +236,12 @@ check_runtime_versions() {
   printf 'ok npm prefix, global root, and child Node stay inside mise Node\n'
 }
 
-# Behavior and failure text are mirrored in scripts/verify/mise-path-isolation.sh.
-# Keep the PATH-ordering branch ahead of the generic non-zero probe failure.
 check_mise_doctor() {
   local label="$1"
   local shell_flags="$2"
-  local output
-  local probe_status
 
   section "mise doctor ($label)"
-  # Resolve the probe shell before capturing stdout/stderr so a missing zsh
-  # diagnostic is not swallowed by command substitution + set -e.
-  dotfiles_probe_zsh_bin >/dev/null
-  # Probe the target shell startup, not an already-activated caller session.
-  if output="$(dotfiles_run_clean_zsh "$shell_flags" 'mise doctor' 2>&1)"; then
-    probe_status=0
-  else
-    probe_status=$?
-  fi
-  printf '%s\n' "$output"
-
-  # Prefer the PATH-ordering diagnostic even when mise doctor exits non-zero.
-  if grep -q 'tool paths are not first in PATH' <<< "$output"; then
-    printf '\n## PATH (%s)\n' "$label" >&2
-    # shellcheck disable=SC2016 # zsh code evaluated by the probe shell
-    dotfiles_run_clean_zsh "$shell_flags" 'print -l ${(s/:/)PATH} | nl -ba | sed -n "1,60p"' >&2 \
-      || true
-    printf 'FAILED: mise tool paths are not first in PATH (%s)\n' "$label" >&2
-    exit 1
-  fi
-  if [ "$probe_status" -ne 0 ]; then
-    printf 'FAILED: mise doctor probe exited non-zero (%s)\n' "$label" >&2
-    exit 1
-  fi
+  dotfiles_check_mise_doctor "$label" "$shell_flags"
 }
 
 check_no_legacy_tool_versions() {
@@ -342,10 +300,7 @@ check_truecolor_shell() {
 }
 
 check_ghostty_ssh_integration() {
-  case "$profile" in
-    personal-workstation|workstation) ;;
-    *) return ;;
-  esac
+  dotfiles_profile_is_workstation "$profile" || return
 
   section "Ghostty SSH integration"
   grep -Fqx 'shell-integration-features = ssh-env,ssh-terminfo' "$ghostty_config" ||
@@ -377,36 +332,31 @@ check_cli_tools() {
     done
   fi
 
-  case "$profile" in
-    personal-workstation|personal-devbox)
-      for check in "${personal_common_cli_checks[@]}"; do
-        run_zsh_check "$check"
-      done
-      ;;
-  esac
-
-  case "$profile" in
-    personal-workstation|workstation)
-      for check in "${human_workstation_cli_checks[@]}"; do
-        run_zsh_check "$check"
-      done
-      if [ "$profile" = personal-workstation ]; then
-        for check in "${personal_workstation_cli_checks[@]}"; do
-          run_zsh_check "$check"
-        done
-      fi
-      ;;
-    personal-devbox|devbox)
-      for check in "${devbox_cli_checks[@]}"; do
-        run_zsh_check "$check"
-      done
-      ;;
-    assistant)
-      for check in "${assistant_cli_checks[@]}"; do
-        run_zsh_check "$check"
-      done
-      ;;
-  esac
+  if dotfiles_profile_is_personal "$profile"; then
+    for check in "${personal_common_cli_checks[@]}"; do
+      run_zsh_check "$check"
+    done
+  fi
+  if dotfiles_profile_is_workstation "$profile"; then
+    for check in "${human_workstation_cli_checks[@]}"; do
+      run_zsh_check "$check"
+    done
+  fi
+  if dotfiles_profile_has_capability "$profile" zed; then
+    for check in "${personal_workstation_cli_checks[@]}"; do
+      run_zsh_check "$check"
+    done
+  fi
+  if dotfiles_profile_is_devbox "$profile"; then
+    for check in "${devbox_cli_checks[@]}"; do
+      run_zsh_check "$check"
+    done
+  fi
+  if dotfiles_profile_has_capability "$profile" githubAppAuth; then
+    for check in "${assistant_cli_checks[@]}"; do
+      run_zsh_check "$check"
+    done
+  fi
 }
 
 check_brew_bundle() {
@@ -452,19 +402,17 @@ check_config_paths() {
     done
   fi
 
-  case "$profile" in
-    personal-workstation|workstation)
-      for path in "${workstation_config_paths[@]}"; do
-        if [ -e "$path" ]; then
-          printf 'ok %s\n' "$path"
-        else
-          fail "missing $path"
-        fi
-      done
-      ;;
-  esac
+  if dotfiles_profile_is_workstation "$profile"; then
+    for path in "${workstation_config_paths[@]}"; do
+      if [ -e "$path" ]; then
+        printf 'ok %s\n' "$path"
+      else
+        fail "missing $path"
+      fi
+    done
+  fi
 
-  if [ "$profile" = "personal-workstation" ]; then
+  if dotfiles_profile_has_capability "$profile" zed; then
     for path in "${personal_config_paths[@]}"; do
       if [ -e "$path" ]; then
         printf 'ok %s\n' "$path"

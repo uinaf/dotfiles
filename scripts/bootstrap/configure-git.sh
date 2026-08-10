@@ -265,16 +265,11 @@ if ! profile="$(dotfiles_normalize_profile "$profile")"; then
   exit 2
 fi
 
-case "$profile" in
-  personal-devbox|devbox)
-    sign_commits="${sign_commits:-true}"
-    ;;
-  assistant|service)
-    sign_commits="${sign_commits:-false}"
-    ;;
-  personal-workstation|workstation)
-    ;;
-esac
+if dotfiles_profile_is_devbox "$profile"; then
+  sign_commits="${sign_commits:-true}"
+elif dotfiles_profile_is_workload "$profile"; then
+  sign_commits="${sign_commits:-false}"
+fi
 
 if dotfiles_profile_is_workload "$profile"; then
   if [ "$sign_commits" != "false" ] || [ -n "$signing_key" ]; then
