@@ -41,7 +41,7 @@
       "id": "profile-model",
       "domain": "profiles",
       "command": ["node", "--test", "scripts/profiles/model.test.ts"],
-      "inputs": ["chezmoi/.chezmoidata/profiles.json", "chezmoi/.chezmoitemplates/profile", "scripts/profiles/**", "scripts/lib/profile.sh"],
+      "inputs": ["Brewfile.personal", "chezmoi/.chezmoidata/profiles.json", "chezmoi/.chezmoitemplates/profile", "scripts/profiles/**", "scripts/lib/profile.sh"],
       "output": "Strict profile model parsing and chezmoi consumption"
     },
     {
