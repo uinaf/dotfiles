@@ -18,8 +18,8 @@
     {
       "id": "dotfiles",
       "domain": "config",
-      "command": ["node", "--test", "scripts/verify/home-fixture.test.ts"],
-      "inputs": ["chezmoi/**", "scripts/bootstrap/apply-dotfiles.sh", "scripts/lib/profile.sh"],
+      "command": ["node", "scripts/verify/home-fixture.test.ts"],
+      "inputs": ["chezmoi/**"],
       "output": "All profiles apply in isolated disposable homes"
     },
     {

@@ -7,7 +7,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
-const applyScript = resolve(repoRoot, "scripts/bootstrap/apply-dotfiles.sh");
+const sourceDir = resolve(repoRoot, "chezmoi");
 const profiles = [
   "personal-workstation",
   "personal-devbox",
@@ -27,18 +27,25 @@ function runApply(profile: (typeof profiles)[number], fixtureRoot: string): Prom
     temp: join(fixtureRoot, "tmp"),
     git: join(fixtureRoot, "gitconfig"),
   };
-  for (const path of Object.values(paths)) {
-    if (path !== paths.git) {
-      mkdirSync(path, { recursive: true });
-    }
-  }
+  mkdirSync(paths.home, { recursive: true });
+  mkdirSync(paths.temp, { recursive: true });
 
   for (const path of Object.values(paths)) {
     assert.ok(resolve(path).startsWith(`${resolve(fixtureRoot)}/`));
   }
 
   return new Promise((finish, reject) => {
-    const child = spawn("bash", [applyScript, "--profile", profile], {
+    const data = JSON.stringify({ dotfilesProfile: profile });
+    const child = spawn("chezmoi", [
+      "--source",
+      sourceDir,
+      "--destination",
+      paths.home,
+      "--override-data",
+      data,
+      "--force",
+      "apply",
+    ], {
       cwd: repoRoot,
       env: {
         ...process.env,
