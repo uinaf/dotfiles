@@ -57,15 +57,13 @@ personal_task_json="$(
 printf '%s\n' "$personal_task_json" | grep -Fq '"audit":"personal-security"' \
   || fail "personal compatibility task bypassed the personal audit wrapper"
 
-# shellcheck disable=SC3043
-eval "$(sed -n '/^print_json_summary()/,/^}/p' "$repo_root/scripts/audit/workstation.sh")"
 workstation_summary="$(
   fail_count=1
   warn_count=0
   secret_scan_count=2
   secret_scan_finding_count=2
   secret_scan_rules_json='{"private-key":2}'
-  print_json_summary
+  print_audit_json_summary workstation-security
 )"
 [ "$(printf '%s' "$workstation_summary" | /usr/bin/plutil -extract secret_scan_finding_count raw -o - -)" = 2 ] \
   || fail "workstation --json summary finding count changed"
@@ -77,17 +75,25 @@ empty_summary="$(
   secret_scan_count=0
   secret_scan_finding_count=0
   secret_scan_rules_json=
-  print_json_summary
+  print_audit_json_summary workstation-security
 )"
 [ "$(printf '%s' "$empty_summary" | /usr/bin/plutil -extract secret_scan_finding_count raw -o - -)" = 0 ] \
   || fail "workstation --json summary default finding count changed"
 [ "$(printf '%s' "$empty_summary" | /usr/bin/plutil -extract secret_scan_rules json -o - -)" = '{}' ] \
   || fail "workstation --json summary default rules object is invalid"
 
-grep -Fq 'secret_scan_finding_count' "$repo_root/scripts/audit/devbox.sh" \
-  || fail "devbox JSON summary missing secret_scan_finding_count"
-grep -Fq 'secret_scan_rules_json_or_empty_object' "$repo_root/scripts/audit/devbox.sh" \
-  || fail "devbox JSON summary missing brace-safe rules helper"
+devbox_summary="$(
+  fail_count=1
+  warn_count=0
+  secret_scan_count=2
+  secret_scan_finding_count=2
+  secret_scan_rules_json='{"private-key":2}'
+  print_audit_json_summary devbox-security fixture fixture
+)"
+[ "$(printf '%s' "$devbox_summary" | /usr/bin/plutil -extract secret_scan_finding_count raw -o - -)" = 2 ] \
+  || fail "devbox --json summary finding count changed"
+[ "$(printf '%s' "$devbox_summary" | /usr/bin/plutil -extract secret_scan_rules.private-key raw -o - -)" = 2 ] \
+  || fail "devbox --json summary rule aggregate changed"
 
 if ! command -v sqlite3 >/dev/null 2>&1; then
   printf 'ok sqlite Codex log size contracts skipped (sqlite3 unavailable)\n'
@@ -244,41 +250,20 @@ SQL
     || fail "WAL physical-size check did not warn"
 fi
 
-# Secret-scan cleanup must not install EXIT/INT/TERM traps (caller owns those).
-grep -Fq 'secret_scan_prev_return' "$repo_root/scripts/lib/audit.sh" \
-  || fail "secret scan cleanup must save the caller RETURN trap"
-if grep -n 'trap cleanup_secret_scan_tmp' "$repo_root/scripts/lib/audit.sh" \
-  | grep -Eq 'EXIT|INT|TERM'; then
-  fail "secret scan cleanup must not take over caller EXIT/INT/TERM traps"
-fi
-grep -Fq 'gitleaks local config scan failed' "$repo_root/scripts/lib/audit.sh" \
-  || fail "status-only gitleaks fallback must distinguish tool failures from leaks"
-# Status 183 (findings) and other nonzero statuses must be separate branches in the fallback.
-awk '
-  /have_audit_data/ { in_fallback = 0 }
-  /else$/ { maybe = 1; next }
-  maybe && /gitleaks_status/ { in_fallback = 1; maybe = 0 }
-  !maybe { maybe = 0 }
-  in_fallback && /gitleaks_status" -eq 183/ { found_leaks = 1 }
-  in_fallback && /local config scan failed/ { found_fail = 1 }
-  END { exit (found_leaks && found_fail) ? 0 : 1 }
-' "$repo_root/scripts/lib/audit.sh" \
-  || fail "status-only gitleaks fallback must treat status 183 as leaks and other nonzero statuses as scan failure"
-
 if ! command -v gitleaks >/dev/null 2>&1 \
   || ! command -v trufflehog >/dev/null 2>&1; then
   printf 'ok audit output privacy and recursive SSH private-key classification\n'
   exit 0
 fi
 
-# Live proof: caller EXIT trap is never replaced by secret-scan cleanup.
-caller_exit_before="$(trap -p EXIT || true)"
-set +e
-scan_files_for_secrets </dev/null >/dev/null 2>&1
-set -e
-caller_exit_after="$(trap -p EXIT || true)"
-[ "$caller_exit_before" = "$caller_exit_after" ] \
-  || fail "secret scan cleanup mutated the caller EXIT trap"
+(
+  trap ':' EXIT INT TERM RETURN
+  caller_traps_before="$(trap -p EXIT INT TERM RETURN)"
+  scan_files_for_secrets </dev/null >/dev/null 2>&1
+  caller_traps_after="$(trap -p EXIT INT TERM RETURN)"
+  [ "$caller_traps_before" = "$caller_traps_after" ] \
+    || fail "secret scan cleanup mutated caller traps"
+)
 
 secret_fixture="$tmp_root/secret-home"
 mkdir -p "$secret_fixture"
@@ -420,6 +405,8 @@ fi
 grep -Fq 'audit data tooling failed' "$missing_node_log" \
   || grep -Fq 'node is missing' "$missing_node_log" \
   || fail "node-absent degrade path did not warn"
+grep -Fq 'gitleaks reported possible leaks' "$missing_node_log" \
+  || fail "status-only gitleaks findings were reported as a scanner failure"
 
 clean_fixture="$tmp_root/clean-home"
 clean_log="$tmp_root/clean-secret-scan.log"

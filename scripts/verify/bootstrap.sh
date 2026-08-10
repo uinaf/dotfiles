@@ -236,39 +236,12 @@ check_runtime_versions() {
   printf 'ok npm prefix, global root, and child Node stay inside mise Node\n'
 }
 
-# Behavior and failure text are mirrored in scripts/verify/mise-path-isolation.sh.
-# Keep the PATH-ordering branch ahead of the generic non-zero probe failure.
 check_mise_doctor() {
   local label="$1"
   local shell_flags="$2"
-  local output
-  local probe_status
 
   section "mise doctor ($label)"
-  # Resolve the probe shell before capturing stdout/stderr so a missing zsh
-  # diagnostic is not swallowed by command substitution + set -e.
-  dotfiles_probe_zsh_bin >/dev/null
-  # Probe the target shell startup, not an already-activated caller session.
-  if output="$(dotfiles_run_clean_zsh "$shell_flags" 'mise doctor' 2>&1)"; then
-    probe_status=0
-  else
-    probe_status=$?
-  fi
-  printf '%s\n' "$output"
-
-  # Prefer the PATH-ordering diagnostic even when mise doctor exits non-zero.
-  if grep -q 'tool paths are not first in PATH' <<< "$output"; then
-    printf '\n## PATH (%s)\n' "$label" >&2
-    # shellcheck disable=SC2016 # zsh code evaluated by the probe shell
-    dotfiles_run_clean_zsh "$shell_flags" 'print -l ${(s/:/)PATH} | nl -ba | sed -n "1,60p"' >&2 \
-      || true
-    printf 'FAILED: mise tool paths are not first in PATH (%s)\n' "$label" >&2
-    exit 1
-  fi
-  if [ "$probe_status" -ne 0 ]; then
-    printf 'FAILED: mise doctor probe exited non-zero (%s)\n' "$label" >&2
-    exit 1
-  fi
+  dotfiles_check_mise_doctor "$label" "$shell_flags"
 }
 
 check_no_legacy_tool_versions() {

@@ -43,6 +43,35 @@ json_string() {
   printf '"%s"' "$value"
 }
 
+print_audit_json_summary() {
+  local audit_name="$1"
+  local status="pass"
+
+  if [ "$#" -ne 1 ] && [ "$#" -ne 3 ]; then
+    return 2
+  fi
+  if [ "$fail_count" -gt 0 ]; then
+    status="fail"
+  elif [ "$warn_count" -gt 0 ]; then
+    status="warn"
+  fi
+
+  printf '{"audit":'
+  json_string "$audit_name"
+  printf ',"status":'
+  json_string "$status"
+  printf ',"failed":%s,"warnings":%s' "$fail_count" "$warn_count"
+  if [ "$#" -eq 3 ]; then
+    printf ',"user":'
+    json_string "$2"
+    printf ',"devbox_user":'
+    json_string "$3"
+  fi
+  printf ',"secret_scan_count":%s' "$secret_scan_count"
+  printf ',"secret_scan_finding_count":%s' "$secret_scan_finding_count"
+  printf ',"secret_scan_rules":%s}\n' "$(secret_scan_rules_json_or_empty_object)"
+}
+
 mode_of() {
   if stat -c '%a' "$1" >/dev/null 2>&1; then
     stat -c '%a' "$1"
@@ -368,7 +397,6 @@ scan_files_for_secrets() {
   local rule
   local staged_path
   local have_audit_data=0
-  local secret_scan_prev_return
 
   if ! command -v gitleaks >/dev/null 2>&1; then
     fail_check "gitleaks is missing for local secret scan"
@@ -392,18 +420,9 @@ scan_files_for_secrets() {
   report_path="$report_dir/gitleaks-report.json"
   : >"$report_path"
   chmod 600 "$report_path"
-  # Only RETURN is trapped so caller EXIT/INT/TERM handlers stay untouched.
-  # Explicit cleanup calls cover normal paths; RETURN covers early returns.
-  secret_scan_prev_return="$(trap -p RETURN)"
   cleanup_secret_scan_tmp() {
     rm -rf "${scan_root:-}" "${report_dir:-}"
-    if [ -n "${secret_scan_prev_return:-}" ]; then
-      eval "$secret_scan_prev_return"
-    else
-      trap - RETURN
-    fi
   }
-  trap cleanup_secret_scan_tmp RETURN
 
   while IFS= read -r path; do
     [ -n "$path" ] || continue
