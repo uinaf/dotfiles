@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -44,13 +45,28 @@ test("gitleaks data exposes only safe locators and aggregate counts", () => {
       JSON.stringify([
         { RuleID: "private-key", File: join(root, "home/.ssh/id"), Secret: "hidden" },
         { RuleID: "token", File: "/outside/path", Match: "hidden" },
+        { RuleID: "relative", File: "home/.ssh/id" },
+        { RuleID: "empty", File: "" },
       ]),
     );
-    assert.deepEqual(findingLocators(root, report), ["private-key\thome/.ssh/id", "token\tunknown"]);
-    assert.deepEqual(mergeRuleCounts('{"private-key":2}', report), { "private-key": 3, token: 1 });
+    assert.deepEqual(findingLocators(root, report), [
+      "private-key\thome/.ssh/id",
+      "token\tunknown",
+      "relative\tunknown",
+      "empty\tunknown",
+    ]);
+    assert.deepEqual(mergeRuleCounts('{"private-key":2}', report), { empty: 1, "private-key": 3, relative: 1, token: 1 });
+    const missingRoot = join(root, "missing");
+    writeFileSync(report, JSON.stringify([{ RuleID: "token", File: join(missingRoot, "home/token") }]));
+    assert.deepEqual(findingLocators(missingRoot, report), ["token\thome/token"]);
     writeFileSync(report, "not json");
     assert.deepEqual(findingLocators(root, report), []);
     assert.deepEqual(mergeRuleCounts("", report), {});
+    const cli = spawnSync(process.execPath, [join(import.meta.dirname, "data.ts"), "gitleaks-locators", root, report], {
+      encoding: "utf8",
+    });
+    assert.equal(cli.status, 0, cli.stderr);
+    assert.equal(cli.stdout, "");
   } finally {
     rmSync(root, { force: true, recursive: true });
   }

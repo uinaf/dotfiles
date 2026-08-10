@@ -81,6 +81,8 @@ empty_summary="$(
 )"
 [ "$(printf '%s' "$empty_summary" | /usr/bin/plutil -extract secret_scan_finding_count raw -o - -)" = 0 ] \
   || fail "workstation --json summary default finding count changed"
+[ "$(printf '%s' "$empty_summary" | /usr/bin/plutil -type secret_scan_rules -o - -)" = dictionary ] \
+  || fail "workstation --json summary default rules value is not an object"
 [ -z "$(printf '%s' "$empty_summary" | /usr/bin/plutil -extract secret_scan_rules raw -o - -)" ] \
   || fail "workstation --json summary default rules object is invalid"
 
@@ -98,6 +100,8 @@ else
   heavy_db="$sqlite_fixture/logs_heavy.sqlite"
   wal_mode_db="$sqlite_fixture/logs_wal.sqlite"
   junk_db="$sqlite_fixture/logs_junk.sqlite"
+  broken_header_db="$sqlite_fixture/logs_broken_header.sqlite"
+  bad_freelist_db="$sqlite_fixture/logs_bad_freelist.sqlite"
   wal_file="$sqlite_fixture/logs_sparse.sqlite-wal"
 
   # auto_vacuum=NONE keeps deleted pages on the freelist. FULL would shrink the
@@ -131,6 +135,10 @@ SQL
   rm -f "${wal_mode_db}-wal" "${wal_mode_db}-shm"
   printf 'not a sqlite database\n' >"$junk_db"
   printf 'wal-bytes\n' >"$wal_file"
+  cp "$heavy_db" "$broken_header_db"
+  printf '\000\000' | dd of="$broken_header_db" bs=1 seek=16 conv=notrunc 2>/dev/null
+  cp "$heavy_db" "$bad_freelist_db"
+  printf '\377\377\377\377' | dd of="$bad_freelist_db" bs=1 seek=36 conv=notrunc 2>/dev/null
   sparse_cksum_before="$(cksum "$sparse_db")"
   wal_cksum_before="$(cksum "$wal_mode_db")"
 
@@ -204,6 +212,28 @@ SQL
     || fail "invalid non-SQLite input did not report physical-size failure"
   [ "$(cat "$junk_db")" = "not a sqlite database" ] \
     || fail "invalid non-SQLite probe modified the input file"
+
+  broken_log="$sqlite_fixture/broken-header.log"
+  warn_count=0
+  fail_count=0
+  CODEX_LOG_FAIL_BYTES=10 \
+    CODEX_LOG_WARN_BYTES=5 \
+    check_codex_log_file_size "$broken_header_db" >"$broken_log" 2>&1
+  [ "$fail_count" -ge 1 ] || fail "broken SQLite header did not fall back to physical fail"
+  grep -Fq 'SQLite stats unavailable' "$broken_log" \
+    || fail "broken SQLite header did not report physical-size fallback"
+
+  bad_freelist_log="$sqlite_fixture/bad-freelist.log"
+  warn_count=0
+  fail_count=0
+  CODEX_LOG_FAIL_BYTES=100000 \
+    CODEX_LOG_WARN_BYTES=50000 \
+    check_codex_log_file_size "$bad_freelist_db" >"$bad_freelist_log" 2>&1
+  [ "$fail_count" -ge 1 ] || fail "freelist larger than page count did not use physical size"
+  grep -Fq 'SQLite stats unavailable' "$bad_freelist_log" \
+    || fail "invalid freelist did not report physical-size fallback"
+  grep -Fq 'live data is larger than' "$bad_freelist_log" \
+    && fail "invalid freelist used a clamped live size"
 
   wal_sidecar_log="$sqlite_fixture/wal-sidecar.log"
   warn_count=0

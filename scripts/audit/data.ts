@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { closeSync, existsSync, openSync, readFileSync, readSync, realpathSync, statSync } from "node:fs";
-import { relative, resolve } from "node:path";
+import { isAbsolute, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 type Finding = Record<string, unknown>;
@@ -18,7 +18,10 @@ function readFindings(path: string): Finding[] {
 }
 
 function rootVariants(root: string): string[] {
-  const roots = new Set([resolve(root), realpathSync(root)]);
+  const roots = new Set([resolve(root)]);
+  try {
+    roots.add(realpathSync(root));
+  } catch {}
   for (const candidate of [...roots]) {
     if (candidate.startsWith("/private/")) roots.add(candidate.slice(8));
     else if (candidate.startsWith("/var/")) roots.add(`/private${candidate}`);
@@ -27,6 +30,7 @@ function rootVariants(root: string): string[] {
 }
 
 function safeRelative(root: string, locator: string): string {
+  if (!locator || !isAbsolute(locator)) return "unknown";
   for (const candidate of rootVariants(root)) {
     const path = relative(candidate, locator);
     if (path && path !== ".." && !path.startsWith("../") && !path.startsWith("/")) return path;
@@ -104,7 +108,10 @@ function usage(): never {
 function main(args: string[]): void {
   const [command, ...values] = args;
   if (command === "sqlite-stats" && values.length === 1) process.stdout.write(`${sqlitePageStats(values[0]).join(" ")}\n`);
-  else if (command === "gitleaks-locators" && values.length === 2) process.stdout.write(`${findingLocators(values[0], values[1]).join("\n")}\n`);
+  else if (command === "gitleaks-locators" && values.length === 2) {
+    const locators = findingLocators(values[0], values[1]);
+    if (locators.length > 0) process.stdout.write(`${locators.join("\n")}\n`);
+  }
   else if (command === "gitleaks-merge" && values.length === 2) process.stdout.write(`${JSON.stringify(mergeRuleCounts(values[0], values[1]))}\n`);
   else if (command === "gitleaks-count" && values.length === 1) process.stdout.write(`${readFindings(values[0]).length}\n`);
   else usage();
