@@ -107,9 +107,9 @@ repository-local and is invoked through the owning package manager.
 
 `scripts/bootstrap/install.sh` calls `mise install` once for every profile with
 a runtime group. Mise owns the Node postinstall that pins npm and the stable
-pnpm default. The installer then removes retired Vite+ packages from the mise
-npm backend and installed Node versions, preserves the user-level
-`~/.vite-plus` cache, and rebuilds mise shims.
+pnpm default. For developer profiles, the installer then removes retired Vite+
+packages from the mise npm backend and installed Node versions, preserves the
+user-level `~/.vite-plus` cache, and rebuilds mise shims.
 The assistant profile intentionally contains only Node. The service profile
 declares no language runtime. Additional runtimes belong to the workload that
 requires them.
