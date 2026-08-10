@@ -128,11 +128,9 @@ human_bytes() {
 # True when path begins with the SQLite database header magic.
 is_sqlite_database_file() {
   local path="$1"
-  local magic
 
   [ -r "$path" ] || return 1
-  magic="$(dd if="$path" bs=1 count=15 2>/dev/null || true)"
-  [ "$magic" = "SQLite format 3" ]
+  printf 'SQLite format 3' | cmp -s - <(dd if="$path" bs=1 count=15 2>/dev/null)
 }
 
 # Read SQLite page stats from the 100-byte DB header without opening the

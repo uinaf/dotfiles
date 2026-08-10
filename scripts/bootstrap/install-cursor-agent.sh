@@ -27,11 +27,6 @@ if [ ! -x "$agent_path" ]; then
   exit 1
 fi
 
-if [ ! -x "$HOME/.local/bin/agent" ]; then
-  printf 'Cursor Agent compatibility command is missing at %s\n' "$HOME/.local/bin/agent" >&2
-  exit 1
-fi
-
 if [ -r "$devbox_config" ]; then
   env AGENT_CLI_CREDENTIAL_STORE=file "$agent_path" --version
 else

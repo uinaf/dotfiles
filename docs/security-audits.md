@@ -35,7 +35,7 @@ Gitleaks run does not prove launchd state is safe.
 Run locally before committing security-sensitive setup changes:
 
 ```zsh
-./scripts/verify/repo.sh
+mise run verify
 ```
 
 That command runs the repository secret scan through

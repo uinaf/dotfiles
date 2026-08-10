@@ -13,10 +13,9 @@ gh auth login
 gh repo clone uinaf/dotfiles ~/projects/dotfiles
 cd ~/projects/dotfiles
 ./scripts/bootstrap/brew-bundle.sh workstation
-./scripts/bootstrap/apply-dotfiles.sh --profile workstation
 mise trust
 mise install
-./scripts/bootstrap/install.sh --profile workstation
+mise run verify:domain static
 ```
 
 Use the [Bootstrap guide](docs/bootstrap.md) for a different profile or a Mac
@@ -27,13 +26,13 @@ that does not yet have Homebrew, Git, or GitHub CLI.
 List the domains and run the focused check that owns the change:
 
 ```zsh
-./scripts/verify/repo.sh --list
-./scripts/verify/repo.sh --domain config # example; select the owning domain
+mise run verify:domain config # example; select the owning domain
+mise run verify:fast
+mise run verify
 ```
 
-`./scripts/verify/repo.sh --skip-security` runs every deterministic check in
-parallel. The same complete graph runs in CI. Run `./scripts/verify/repo.sh`
-when the local full-history secret scan is useful.
+`verify:fast` runs every deterministic check in parallel. The same graph runs
+in CI. `verify` also runs the local full-history secret scan.
 
 Live bootstrap checks inspect the active home directory. Run them only when
 the current machine should satisfy that profile.

@@ -253,7 +253,6 @@ dotfiles_homebrew_configure_external_capabilities() {
   local repo_root="$1"
   local profile="$2"
   local default_file="$HOME/.config/dotfiles/external-homebrew.plist"
-  local legacy_file="$HOME/.config/dotfiles/external-homebrew"
   local config_file="${DOTFILES_EXTERNAL_HOMEBREW_FILE:-$default_file}"
   local first_line
   local version
@@ -281,10 +280,6 @@ dotfiles_homebrew_configure_external_capabilities() {
     return 1
   fi
   if [ ! -e "$config_file" ] && [ ! -L "$config_file" ]; then
-    if [ -z "${DOTFILES_EXTERNAL_HOMEBREW_FILE:-}" ] && { [ -e "$legacy_file" ] || [ -L "$legacy_file" ]; }; then
-      dotfiles_homebrew_fail_external "legacy pipe-delimited file found at $legacy_file; migrate it to $default_file"
-      return 1
-    fi
     return 0
   fi
   dotfiles_homebrew_validate_external_file "$config_file" || return 1

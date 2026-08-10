@@ -39,7 +39,7 @@
     },
     {
       "id": "agent-rules",
-      "domain": "config",
+      "domain": "agents",
       "command": ["node", "--test", "scripts/verify/agent-rules.test.ts"],
       "inputs": ["chezmoi/private_dot_agents/**", "chezmoi/private_dot_claude/symlink_CLAUDE.md", "chezmoi/private_dot_codex/**", "chezmoi/.chezmoiignore.tmpl", "chezmoi/.chezmoidata/profiles.json", "chezmoi/.chezmoitemplates/profile", "scripts/bootstrap/apply-dotfiles.sh", "scripts/verify/agent-rules.test.ts"],
       "output": "Global agent rules, local data, links, conflicts, and explicit apply behavior"

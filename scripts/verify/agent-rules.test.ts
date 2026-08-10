@@ -181,15 +181,15 @@ test("backs up a broken rule link before convergence", () => {
   assert.equal(readlinkSync(join(home, ".codex", backup)), "../missing/AGENTS.md");
 });
 
-test("backs up links to the previous generated rules before convergence", () => {
+test("backs up a conflicting rule link before convergence", () => {
   const { home, root } = createFixture();
-  const previousRules = join(root, "checkout/scripts/agents/rules/final.md");
-  mkdirSync(dirname(previousRules), { recursive: true });
+  const externalRules = join(root, "external/rules.md");
+  mkdirSync(dirname(externalRules), { recursive: true });
   mkdirSync(join(home, ".claude"), { recursive: true });
   mkdirSync(join(home, ".codex"), { recursive: true });
-  writeFileSync(previousRules, "previous generated fixture rules\n");
-  symlinkSync(previousRules, join(home, ".claude/CLAUDE.md"));
-  symlinkSync(previousRules, join(home, ".codex/AGENTS.md"));
+  writeFileSync(externalRules, "external fixture rules\n");
+  symlinkSync(externalRules, join(home, ".claude/CLAUDE.md"));
+  symlinkSync(externalRules, join(home, ".codex/AGENTS.md"));
 
   runWrapper(home);
 
@@ -197,7 +197,7 @@ test("backs up links to the previous generated rules before convergence", () => 
   for (const [directory, filename] of [[".claude", "CLAUDE.md"], [".codex", "AGENTS.md"]]) {
     const backup = readdirSync(join(home, directory)).find((name) => name.startsWith(`${filename}.backup.`));
     assert.ok(backup);
-    assert.equal(readlinkSync(join(home, directory, backup)), previousRules);
+    assert.equal(readlinkSync(join(home, directory, backup)), externalRules);
   }
 });
 

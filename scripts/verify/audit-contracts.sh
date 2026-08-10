@@ -3,7 +3,6 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 tmp_root="$(mktemp -d)"
-mise_global_config="${MISE_GLOBAL_CONFIG_FILE:-${XDG_CONFIG_HOME:-$HOME/.config}/mise/config.toml}"
 trap 'rm -rf "$tmp_root"' EXIT
 mkdir -p "$tmp_root/tmp"
 export TMPDIR="$tmp_root/tmp"
@@ -40,24 +39,12 @@ chmod 0600 "$HOME/.ssh/nested/id_ed25519" "$HOME/.ssh/nested/id_ssh2" "$HOME/.ss
 check_ssh_private_key_modes
 [ "$fail_count" -eq 0 ] || fail "owner-only private keys or authorized_keys were misclassified"
 
-workstation_json="$(DOTFILES_AUDIT_NAME=workstation-security HOME="$HOME" SHELL=/bin/sh "$repo_root/scripts/audit/workstation.sh" --json 2>/dev/null || true)"
+workstation_json="$(HOME="$HOME" SHELL=/bin/sh "$repo_root/scripts/audit/workstation.sh" --json 2>/dev/null || true)"
 printf '%s\n' "$workstation_json" | grep -Fq '"audit":"workstation-security"' \
   || fail "workstation JSON audit name changed"
 if printf '%s\n' "$workstation_json" | grep -Fq '"user":'; then
   fail "workstation JSON exposed the Unix user"
 fi
-
-personal_json="$(HOME="$HOME" SHELL=/bin/sh "$repo_root/scripts/audit/personal.sh" --json 2>/dev/null || true)"
-printf '%s\n' "$personal_json" | grep -Fq '"audit":"personal-security"' \
-  || fail "personal compatibility audit name changed"
-
-personal_task_json="$(
-  cd "$repo_root"
-  HOME="$HOME" SHELL=/bin/sh MISE_IGNORED_CONFIG_PATHS="$mise_global_config" MISE_TRUSTED_CONFIG_PATHS="$repo_root" \
-    mise run audit personal --format json 2>/dev/null || true
-)"
-printf '%s\n' "$personal_task_json" | grep -Fq '"audit":"personal-security"' \
-  || fail "personal compatibility task bypassed the personal audit wrapper"
 
 workstation_summary="$(
   fail_count=1

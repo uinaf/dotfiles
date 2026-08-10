@@ -53,24 +53,6 @@ install_steps() {
   dotfiles_profile_install_steps "$profile"
 }
 
-cleanup_retired_vite_plus() {
-  local tool
-  local version
-  local node_root
-
-  if mise ls npm:vite-plus --installed --no-header | grep -q '^npm:vite-plus[[:space:]]'; then
-    mise uninstall --all --yes npm:vite-plus
-  fi
-  while read -r tool version _; do
-    [ "$tool" = node ] && [ -n "$version" ] || continue
-    node_root="$(mise where "node@$version")"
-    if [ -f "$node_root/lib/node_modules/vite-plus/package.json" ]; then
-      npm_config_prefix="$node_root" "$node_root/bin/npm" uninstall --global vite-plus
-    fi
-  done < <(mise ls node --installed --no-header)
-  mise reshim --force
-}
-
 run_step() {
   case "$1" in
     apply-dotfiles)
@@ -94,9 +76,6 @@ run_step() {
         return 1
       }
       mise install
-      if dotfiles_profile_is_developer "$profile"; then
-        cleanup_retired_vite_plus
-      fi
       ;;
     configure-codex)
       if command -v codex >/dev/null 2>&1; then

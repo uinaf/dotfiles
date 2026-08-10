@@ -18,11 +18,10 @@ task graph; reusable behavior stays here.
 ## Repository Checks
 
 ```zsh
-./scripts/verify/repo.sh --list
-./scripts/verify/repo.sh --domain config # example; select the owning domain
-./scripts/verify/repo.sh --skip-security
-./scripts/verify/repo.sh
-./scripts/audit/repo.sh --skip-mscp --json
+mise run verify:domain config # example; select the owning domain
+mise run verify:fast
+mise run verify
+mise run audit repo --format json
 ```
 
 ## Bootstrap
@@ -48,8 +47,8 @@ and [User profiles](../docs/profiles.md) for role boundaries.
 ## Global Agent Setup
 
 ```zsh
-mise run dotfiles:diff workstation
-mise run dotfiles:apply workstation
+./dotfiles diff workstation
+./dotfiles apply workstation
 mise run agents:sync
 mise run agents:update
 ```

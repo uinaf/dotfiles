@@ -198,19 +198,6 @@ assert_rejected_without_mutation \
   "$missing_signer_home" 'agentless signer is missing or not executable' \
   "$missing_signer_home" personal-workstation "$missing_signer_home/.ssh/signing"
 
-legacy_marker_home="$tmp_root/legacy-marker"
-make_home "$legacy_marker_home"
-make_key "$legacy_marker_home/.ssh/signing"
-cat > "$legacy_marker_home/.ssh/config.local" <<'EOF'
-# uinaf-dotfiles: github-ssh begin
-Host github.com
-  IdentityAgent none
-# uinaf-dotfiles: github-ssh end
-EOF
-assert_rejected_without_mutation \
-  "$legacy_marker_home" 'unmanaged Host github.com entry exists' \
-  "$legacy_marker_home" personal-workstation "$legacy_marker_home/.ssh/signing" "$legacy_marker_home/.ssh/signing"
-
 devbox_home="$tmp_root/devbox"
 make_home "$devbox_home"
 make_key "$devbox_home/.ssh/signing"

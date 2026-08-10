@@ -61,9 +61,6 @@ assert_eq service "$(dotfiles_normalize_profile service)" "service profile"
 if dotfiles_normalize_profile unsupported >/dev/null 2>&1; then
   fail "unsupported profile was accepted"
 fi
-if dotfiles_normalize_profile personal >/dev/null 2>&1; then
-  fail "retired personal profile was accepted"
-fi
 if "$repo_root/scripts/bootstrap/configure-power.sh" workstation devbox >/dev/null 2>&1; then
   fail "configure-power accepted duplicate profile arguments"
 fi
@@ -393,35 +390,12 @@ printf 'sync.ts' >> "${DOTFILES_INSTALL_LOG:?}"
 printf '\n' >> "${DOTFILES_INSTALL_LOG:?}"
 EOF
 chmod 0700 "$install_fixture/scripts/agents/sync.ts"
-for command_name in mise npm codex; do
+for command_name in mise codex; do
 cat > "$install_fixture/bin/$command_name" <<'EOF'
 #!/usr/bin/env bash
 printf '%s' "$(basename "$0")" >> "${DOTFILES_INSTALL_LOG:?}"
 [ "$#" -eq 0 ] || printf ' %s' "$@" >> "${DOTFILES_INSTALL_LOG:?}"
 printf '\n' >> "${DOTFILES_INSTALL_LOG:?}"
-if [ "$(basename "$0")" = npm ] && [ -n "${npm_config_prefix:-}" ]; then
-  printf 'npm_config_prefix %s\n' "$npm_config_prefix" >> "${DOTFILES_INSTALL_LOG:?}"
-  rm -f "$npm_config_prefix/lib/node_modules/vite-plus/package.json"
-fi
-if [ "$(basename "$0")" = mise ]; then
-  case "$*" in
-    "ls npm:vite-plus --installed --no-header")
-      if [ "${DOTFILES_INSTALL_VITE_PLUS_INSTALLED:-1}" = 1 ]; then
-        printf 'npm:vite-plus  0.0.0\n'
-      fi
-      ;;
-    "ls node --installed --no-header")
-      [ -z "${DOTFILES_INSTALL_OLD_NODE_ROOT:-}" ] || printf 'node  24.14.0\n'
-      [ -z "${DOTFILES_INSTALL_NODE_ROOT:-}" ] || printf 'node  24.18.0\n'
-      ;;
-    "where node@24.14.0")
-      printf '%s\n' "${DOTFILES_INSTALL_OLD_NODE_ROOT:?}"
-      ;;
-    "where node@24.18.0")
-      printf '%s\n' "${DOTFILES_INSTALL_NODE_ROOT:?}"
-      ;;
-  esac
-fi
 EOF
   chmod 0700 "$install_fixture/bin/$command_name"
 done
@@ -444,35 +418,13 @@ assert_eq "apply-dotfiles.sh --profile service" "$(cat "$install_log")" \
 
 : > "$install_log"
 install_devbox_home="$tmp_root/install-devbox-home"
-install_node_root="$install_fixture/node-root"
-install_old_node_root="$install_fixture/old-node-root"
-mkdir -p "$install_devbox_home/.vite-plus"
-mkdir -p "$install_node_root/bin" "$install_node_root/lib/node_modules/vite-plus"
-mkdir -p "$install_old_node_root/bin" "$install_old_node_root/lib/node_modules/vite-plus"
-touch "$install_devbox_home/.vite-plus/project-cache"
-touch "$install_node_root/lib/node_modules/vite-plus/package.json"
-touch "$install_old_node_root/lib/node_modules/vite-plus/package.json"
-cp "$install_fixture/bin/npm" "$install_node_root/bin/npm"
-cp "$install_fixture/bin/npm" "$install_old_node_root/bin/npm"
 PATH="$install_fixture_path" \
 DOTFILES_INSTALL_LOG="$install_log" \
-DOTFILES_INSTALL_NODE_ROOT="$install_node_root" \
-DOTFILES_INSTALL_OLD_NODE_ROOT="$install_old_node_root" \
 HOME="$install_devbox_home" \
   "$install_fixture/scripts/bootstrap/install.sh" --profile devbox
 expected_install_log="$(cat <<EOF
 apply-dotfiles.sh --profile devbox
 mise install
-mise ls npm:vite-plus --installed --no-header
-mise uninstall --all --yes npm:vite-plus
-mise ls node --installed --no-header
-mise where node@24.14.0
-npm uninstall --global vite-plus
-npm_config_prefix $install_old_node_root
-mise where node@24.18.0
-npm uninstall --global vite-plus
-npm_config_prefix $install_node_root
-mise reshim --force
 install-cursor-agent.sh
 trust-agent-worktrees.sh
 install-gh-extensions.sh
@@ -481,36 +433,6 @@ sync.ts --profile devbox
 EOF
 )"
 assert_eq "$expected_install_log" "$(cat "$install_log")" "devbox install execution"
-
-: > "$install_log"
-PATH="$install_fixture_path" \
-DOTFILES_INSTALL_LOG="$install_log" \
-DOTFILES_INSTALL_NODE_ROOT="$install_node_root" \
-DOTFILES_INSTALL_VITE_PLUS_INSTALLED=0 \
-HOME="$install_devbox_home" \
-  "$install_fixture/scripts/bootstrap/install.sh" --profile devbox
-grep -Fqx 'mise ls npm:vite-plus --installed --no-header' "$install_log" \
-  || fail "devbox install did not inspect the mise Vite+ installation"
-if grep -Fqx 'mise uninstall --all --yes npm:vite-plus' "$install_log"; then
-  fail "devbox install asked mise to uninstall an absent Vite+ installation"
-fi
-if grep -Fq 'npm uninstall --global vite-plus' "$install_log"; then
-  fail "second devbox install repeated retired npm package cleanup"
-fi
-[ -f "$install_devbox_home/.vite-plus/project-cache" ] \
-  || fail "devbox install removed repository-local Vite+ cache"
-
-: > "$install_log"
-PATH="$install_fixture_path" \
-DOTFILES_INSTALL_LOG="$install_log" \
-DOTFILES_INSTALL_VITE_PLUS_INSTALLED=0 \
-HOME="$install_devbox_home" \
-  "$install_fixture/scripts/bootstrap/install.sh" --profile devbox
-grep -Fqx 'mise ls node --installed --no-header' "$install_log" \
-  || fail "devbox install did not handle zero installed Node versions"
-if grep -Eq '^mise where node@|^npm uninstall' "$install_log"; then
-  fail "zero-version cleanup attempted a Node package operation"
-fi
 
 : > "$install_log"
 printf 'caller-input\n' | \
@@ -675,10 +597,10 @@ preservation_home="$tmp_root/assistant-preserves-developer-state"
 mkdir -p \
   "$preservation_home/.config/1Password/ssh" \
   "$preservation_home/.codex/browser"
-ln -s "$repo_root/home/.config/1Password/ssh/agent.toml" \
+ln -s "$tmp_root/external/agent.toml" \
   "$preservation_home/.config/1Password/ssh/agent.toml"
-ln -s "$repo_root/home/.codex/config.toml" "$preservation_home/.codex/config.toml"
-ln -s "$repo_root/home/.codex/browser/config.toml" \
+ln -s "$tmp_root/external/codex.toml" "$preservation_home/.codex/config.toml"
+ln -s "$tmp_root/external/browser.toml" \
   "$preservation_home/.codex/browser/config.toml"
 HOME="$preservation_home" "$repo_root/scripts/bootstrap/apply-dotfiles.sh" --profile assistant >/dev/null
 for preserved_path in \

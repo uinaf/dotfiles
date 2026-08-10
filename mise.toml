@@ -39,7 +39,7 @@ run = "./scripts/verify/devbox-services.sh"
 description = "Run one repository or live-host audit"
 usage = '''
 arg "<scope>" help="Audit scope" {
-  choices "repo" "mscp" "host" "personal" "workstation" "devbox"
+  choices "repo" "mscp" "host" "workstation" "devbox"
 }
 flag "--format <format>" help="Output format" default="text" {
   choices "text" "json"

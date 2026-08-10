@@ -57,10 +57,9 @@ manual step in the owning guide instead.
 ## Verify
 
 ```zsh
-./scripts/verify/repo.sh --list
-./scripts/verify/repo.sh --domain config   # example; select the owning domain
-./scripts/verify/repo.sh --skip-security # complete deterministic graph
-./scripts/verify/repo.sh                 # complete graph plus secret scans
+mise run verify:domain config # example; select the owning domain
+mise run verify:fast          # complete deterministic graph
+mise run verify               # complete graph plus secret scans
 ```
 
 Run live checks only on a machine that should satisfy the selected profile:

@@ -12,20 +12,8 @@ secret values remain local or in an approved recovery system.
 
 Profiles apply to one Unix user. Host-wide Homebrew, power, Spotlight,
 Tailscale, and LaunchDaemon state still requires an authorized administrator.
-
-| Profile | Use it for | Software layers |
-| --- | --- | --- |
-| `workstation` | Interactive human development on a laptop or desktop | Base + developer + workstation |
-| `personal-workstation` | Owner-operated Mac with the workstation shape plus personal apps, tools, skills, and preferences | Base + developer + workstation + personal |
-| `personal-devbox` | Owner-operated remote Mac with the devbox shape plus headless personal tools and skills | Base + developer + devbox + personal |
-| `devbox` | Remote coding on an SSH-first host | Base + developer + devbox |
-| `assistant` | Unattended persona or agent workload | Base + assistant |
-| `service` | Non-persona managed platform workload | Base + service |
-
-Read [User profiles](docs/profiles.md) before configuring multiple users on one
-Mac. Existing installations that still use the former owner-specific layout
-should follow [Migrating to role profiles](docs/migrating-to-role-profiles.md)
-before applying a profile.
+Choose the profile and software layers in [User profiles](docs/profiles.md)
+before configuring one or more users on a Mac.
 
 ## Install
 
