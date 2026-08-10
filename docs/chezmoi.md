@@ -17,6 +17,7 @@ Use chezmoi source attributes instead of literal target filenames:
 | `chezmoi/private_dot_ssh/private_config` | `~/.ssh/config` |
 | `chezmoi/private_dot_local/private_libexec/private_dotfiles/private_executable_git-ssh-sign-agentless` | `~/.local/libexec/dotfiles/git-ssh-sign-agentless` |
 | `chezmoi/private_dot_config/zed/private_settings.json` | `~/.config/zed/settings.json` for personal-workstation users |
+| `chezmoi/private_dot_claude/modify_private_settings.json` | Selected values inside `~/.claude/settings.json` for developer profiles |
 
 The `private_` attribute is used for parent config directories and files that
 should land as owner-only local config.
@@ -26,6 +27,12 @@ manage Ghostty settings. All four developer profiles share GitHub authentication
 outbound SSH, signing-helper, and allowed-signers sources. Assistant and service profiles render a
 minimal Git base with a local workload-identity include and exclude those
 developer surfaces; only assistant includes the optional GitHub App helper.
+
+All four developer profiles set `CLAUDE_CODE_DISABLE_1M_CONTEXT=1` in the `env`
+object of the Claude Code user settings. The modify template preserves unrelated
+settings and sibling environment values. User settings are the lowest-precedence
+Claude Code scope; project, local, command-line, and managed settings can override
+this default. The repository does not manage `~/.claude.json`.
 
 Use attributes deliberately:
 
