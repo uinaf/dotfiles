@@ -5,23 +5,29 @@ a real macOS user, home directory, or service runtime.
 
 ## Repository Proof
 
-Run the full gate before committing:
+List the verification domains and run the one that owns the change:
 
 ```zsh
-mise run verify
+./scripts/verify/repo.sh --list
+./scripts/verify/repo.sh --domain config
 ```
 
-It checks shell syntax and ShellCheck, GitHub Actions, profile rendering,
-agent-sync contracts, SOPS and Git configuration, vendor-neutral interfaces,
-diff hygiene, agent entrypoints, and repository secret scans. Use
-`mise run verify:fast` during local iteration; it omits Gitleaks and
-TruffleHog.
+Each domain declares its inputs and proof in the
+[verification registry](../scripts/verify/checks.json).
+`mise run verify:fast` runs every deterministic check in parallel. `mise run
+verify` also runs Gitleaks and TruffleHog against full history. CI always runs
+the complete deterministic graph.
 
-Install the fast gate as a pre-push hook with:
+Install the focused commit-hygiene hook with:
 
 ```zsh
 ./scripts/bootstrap/install-git-hooks.sh
 ```
+
+The hook reads the ref updates supplied by Git and checks only outgoing commit
+objects for whitespace and conflict-marker errors. It does not inspect the
+working tree or run repository domains. Like every local hook, it can be
+bypassed with `git push --no-verify`; CI is the enforcement boundary.
 
 ## Live Proof
 
@@ -53,7 +59,7 @@ For a repository change:
    contract.
 2. Preserve unrelated worktree changes.
 3. Make the smallest scoped change.
-4. Run focused proof and `mise run verify`.
+4. Run the focused verification domain for the changed contract.
 5. Commit only the verified diff.
 
 For live setup, confirm the target profile, follow

@@ -1,0 +1,139 @@
+{
+  "version": 1,
+  "checks": [
+    {
+      "id": "static",
+      "domain": "static",
+      "command": ["node", "scripts/verify/static.ts"],
+      "inputs": ["scripts/**", ".mise/tasks/**", ".github/workflows/**", "AGENTS.md", "CLAUDE.md"],
+      "output": "Syntax, lint, workflow, entrypoint, and Git diff hygiene"
+    },
+    {
+      "id": "vendor-neutral",
+      "domain": "static",
+      "command": ["scripts/verify/vendor-neutral.sh"],
+      "inputs": ["scripts/**", "chezmoi/**", "docs/**"],
+      "output": "Portable public interfaces"
+    },
+    {
+      "id": "dotfiles",
+      "domain": "config",
+      "command": ["node", "--test", "scripts/verify/home-fixture.test.ts"],
+      "inputs": ["chezmoi/**", "scripts/bootstrap/apply-dotfiles.sh", "scripts/lib/profile.sh"],
+      "output": "All profiles apply in isolated disposable homes"
+    },
+    {
+      "id": "profiles",
+      "domain": "profiles",
+      "command": ["scripts/verify/profiles.sh"],
+      "inputs": ["Brewfile*", "chezmoi/**", "scripts/bootstrap/**", "scripts/lib/profile.sh"],
+      "output": "Profile package, install, and managed-path contracts"
+    },
+    {
+      "id": "brew-devbox",
+      "domain": "profiles",
+      "command": ["scripts/verify/brew-devbox.sh"],
+      "inputs": ["scripts/bootstrap/brew-devbox.sh", "scripts/lib/homebrew.sh"],
+      "output": "Devbox Homebrew behavior"
+    },
+    {
+      "id": "external-homebrew",
+      "domain": "profiles",
+      "command": ["scripts/verify/external-homebrew.sh"],
+      "inputs": ["scripts/lib/homebrew.sh", "scripts/bootstrap/brew-bundle.sh"],
+      "output": "External Homebrew capability boundary"
+    },
+    {
+      "id": "mise-path",
+      "domain": "profiles",
+      "command": ["scripts/verify/mise-path-isolation.sh"],
+      "inputs": ["chezmoi/private_dot_config/mise/**", "scripts/lib/shell-probe.sh"],
+      "output": "Mise runtime path isolation"
+    },
+    {
+      "id": "sops-age",
+      "domain": "identity",
+      "command": ["scripts/verify/sops-age-identity.sh"],
+      "inputs": ["scripts/secrets/configure-sops-age-identity.sh", "scripts/lib/sudo-age.sh"],
+      "output": "SOPS age identity boundary"
+    },
+    {
+      "id": "sops-sudo",
+      "domain": "identity",
+      "command": ["scripts/verify/sops-devbox-sudo.sh"],
+      "inputs": ["scripts/secrets/sops-devbox-sudo.sh", "scripts/lib/sudo-age*.sh"],
+      "output": "SOPS-backed sudo boundary"
+    },
+    {
+      "id": "git-bootstrap",
+      "domain": "identity",
+      "command": ["scripts/verify/configure-git.sh"],
+      "inputs": ["scripts/bootstrap/configure-git.sh", "chezmoi/dot_gitconfig.tmpl", "chezmoi/private_dot_config/git/**"],
+      "output": "Git identity and signing behavior"
+    },
+    {
+      "id": "service-labels",
+      "domain": "services",
+      "command": ["scripts/verify/service-labels.sh"],
+      "inputs": ["scripts/bootstrap/install-devbox-service-daemons.sh", "scripts/lib/launchd.sh"],
+      "output": "Launchd service labels"
+    },
+    {
+      "id": "audit-contracts",
+      "domain": "audit",
+      "command": ["scripts/verify/audit-contracts.sh"],
+      "inputs": ["scripts/audit/**", "scripts/lib/audit.sh"],
+      "output": "Audit output and failure contracts"
+    },
+    {
+      "id": "agent-sync",
+      "domain": "agents",
+      "command": ["node", "--test", "scripts/agents/sync.test.ts"],
+      "inputs": ["scripts/agents/**"],
+      "output": "Global agent rule and skill synchronization"
+    },
+    {
+      "id": "gh-extensions",
+      "domain": "agents",
+      "command": ["scripts/verify/gh-extensions.sh"],
+      "inputs": ["scripts/bootstrap/install-gh-extensions.sh"],
+      "output": "GitHub CLI extension installation"
+    },
+    {
+      "id": "gh-app-auth",
+      "domain": "agents",
+      "command": ["scripts/verify/gh-app-auth.sh"],
+      "inputs": ["scripts/bootstrap/install-gh-app-auth.sh"],
+      "output": "GitHub App authentication helper"
+    },
+    {
+      "id": "assistant-gh-app",
+      "domain": "agents",
+      "command": ["scripts/verify/configure-assistant-github-app.sh"],
+      "inputs": ["scripts/bootstrap/configure-assistant-github-app.sh"],
+      "output": "Assistant GitHub App configuration"
+    },
+    {
+      "id": "zsh-prompt",
+      "domain": "config",
+      "command": ["scripts/verify/zsh-prompt.sh"],
+      "inputs": ["chezmoi/dot_zshrc"],
+      "output": "Managed zsh prompt behavior"
+    },
+    {
+      "id": "pre-push",
+      "domain": "git",
+      "command": ["node", "--test", "scripts/verify/pre-push.test.ts"],
+      "inputs": ["scripts/verify/pre-push.ts", "scripts/bootstrap/install-git-hooks.sh"],
+      "output": "Outgoing commit hygiene across Git ref update shapes"
+    },
+    {
+      "id": "history-secrets",
+      "domain": "security",
+      "gate": "history",
+      "command": ["scripts/audit/repo.sh", "--skip-mscp"],
+      "inputs": ["**/*"],
+      "output": "Fail-closed full-history secret scan"
+    }
+  ]
+}

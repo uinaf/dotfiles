@@ -77,14 +77,16 @@ standalone starting point for encrypted capability-scoped repositories.
 
 ## Verify
 
-Run the full repository gate before committing:
+List the verification domains and run the one that owns the change:
 
 ```zsh
-./scripts/verify/repo.sh
+./scripts/verify/repo.sh --list
+./scripts/verify/repo.sh --domain config
 ```
 
-Use `mise run verify:fast` for local iteration and `mise run verify` for the
-full equivalent task. Live profile and host checks are documented in
+Use `mise run verify:fast` for the complete deterministic graph and `mise run
+verify` to include full-history secret scans. CI always runs the complete
+deterministic graph. Live profile and host checks are documented in
 [Agent readiness](docs/agent-readiness.md) and
 [Security audits](docs/security-audits.md).
 

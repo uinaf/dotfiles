@@ -52,11 +52,16 @@ mise trust
 mise tasks --json
 ```
 
-Run the changed task directly, then run:
+Run the changed task directly, then use the verification registry to select
+the owning domain:
 
 ```zsh
-mise run verify
+./scripts/verify/repo.sh --list
+./scripts/verify/repo.sh --domain config
 ```
+
+`mise run verify:fast` runs the complete deterministic graph in parallel.
+`mise run verify` also runs the full-history secret scan.
 
 ## Task Namespaces
 

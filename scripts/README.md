@@ -17,6 +17,8 @@ discoverable wrappers; reusable behavior stays here.
 ## Repository Checks
 
 ```zsh
+./scripts/verify/repo.sh --list
+./scripts/verify/repo.sh --domain config
 ./scripts/verify/repo.sh --skip-security
 ./scripts/verify/repo.sh
 ./scripts/audit/repo.sh --skip-mscp --json
