@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 
 import assert from "node:assert/strict";
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -39,6 +40,22 @@ test("Chrome state creates safely and rejects malformed input without overwrite"
     assert.equal(readFileSync(path, "utf8"), "not json\n");
     writeFileSync(path, '{"browser":{"enabled_labs_experiments":{}}}\n');
     assert.throws(() => updateChromeState(path, "enable", "vertical-tabs", "vertical-tabs@1"), /must be a JSON array/);
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test("Chrome state CLI runs through a symlinked path", () => {
+  const root = mkdtempSync(join(tmpdir(), "dotfiles-chrome-state-"));
+  try {
+    const cliPath = join(root, "chrome-state.ts");
+    const statePath = join(root, "Local State");
+    symlinkSync(join(import.meta.dirname, "chrome-state.ts"), cliPath);
+    const result = spawnSync(process.execPath, [cliPath, statePath, "enable", "vertical-tabs", "vertical-tabs@1"], {
+      encoding: "utf8",
+    });
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(JSON.parse(readFileSync(statePath, "utf8")).browser.enabled_labs_experiments, ["vertical-tabs@1"]);
   } finally {
     rmSync(root, { force: true, recursive: true });
   }

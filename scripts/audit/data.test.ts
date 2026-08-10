@@ -2,7 +2,7 @@
 
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -62,7 +62,9 @@ test("gitleaks data exposes only safe locators and aggregate counts", () => {
     writeFileSync(report, "not json");
     assert.deepEqual(findingLocators(root, report), []);
     assert.deepEqual(mergeRuleCounts("", report), {});
-    const cli = spawnSync(process.execPath, [join(import.meta.dirname, "data.ts"), "gitleaks-locators", root, report], {
+    const cliPath = join(root, "data.ts");
+    symlinkSync(join(import.meta.dirname, "data.ts"), cliPath);
+    const cli = spawnSync(process.execPath, [cliPath, "gitleaks-locators", root, report], {
       encoding: "utf8",
     });
     assert.equal(cli.status, 0, cli.stderr);

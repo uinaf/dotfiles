@@ -81,9 +81,7 @@ empty_summary="$(
 )"
 [ "$(printf '%s' "$empty_summary" | /usr/bin/plutil -extract secret_scan_finding_count raw -o - -)" = 0 ] \
   || fail "workstation --json summary default finding count changed"
-[ "$(printf '%s' "$empty_summary" | /usr/bin/plutil -type secret_scan_rules -o - -)" = dictionary ] \
-  || fail "workstation --json summary default rules value is not an object"
-[ -z "$(printf '%s' "$empty_summary" | /usr/bin/plutil -extract secret_scan_rules raw -o - -)" ] \
+[ "$(printf '%s' "$empty_summary" | /usr/bin/plutil -extract secret_scan_rules json -o - -)" = '{}' ] \
   || fail "workstation --json summary default rules object is invalid"
 
 grep -Fq 'secret_scan_finding_count' "$repo_root/scripts/audit/devbox.sh" \
