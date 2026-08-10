@@ -50,18 +50,7 @@ if ! profile="$(dotfiles_resolve_profile "$profile")"; then
 fi
 
 install_steps() {
-  printf 'apply-dotfiles\n'
-  if [ "$profile" = "assistant" ]; then
-    printf 'install-gh-app-auth\n'
-  elif dotfiles_profile_is_developer "$profile"; then
-    printf 'install-cursor-agent\n'
-    printf 'trust-agent-worktrees\n'
-    printf 'install-gh-extensions\n'
-    printf 'remove-global-vite-plus\n'
-    printf 'install-pnpm\n'
-    printf 'configure-codex\n'
-    printf 'sync-agents\n'
-  fi
+  dotfiles_profile_install_steps "$profile"
 }
 
 run_step() {

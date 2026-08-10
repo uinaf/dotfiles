@@ -15,7 +15,11 @@ import { dirname, join, resolve } from "node:path";
 import { afterEach, test } from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { main, PROFILE_SKILL_LAYERS, type Profile, type Runtime } from "./sync.ts";
+import { readProfileModel } from "../profiles/model.ts";
+import { main, type Runtime } from "./sync.ts";
+
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+const profileModel = readProfileModel(join(repoRoot, "chezmoi/.chezmoidata/profiles.json"));
 
 type CommandCall = {
   command: string;
@@ -29,7 +33,8 @@ type FixtureOptions = {
   failures?: ReadonlyMap<string, FixtureFailure>;
   gitDir?: string;
   head?: string;
-  profile?: Profile;
+  profile?: string;
+  profileModelAfterPull?: string;
   removalFailures?: ReadonlyMap<string, FixtureFailure>;
   trackedChanges?: string;
   updateFailure?: FixtureFailure;
@@ -62,7 +67,8 @@ class FixtureRuntime implements Runtime {
   readonly gitDir: string;
   readonly head: string;
   readonly home: string;
-  readonly profile: Profile;
+  readonly profile: string;
+  readonly profileModelAfterPull: string | undefined;
   readonly repoDir: string;
   readonly removalFailures: ReadonlyMap<string, FixtureFailure>;
   readonly trackedChanges: string;
@@ -80,6 +86,7 @@ class FixtureRuntime implements Runtime {
     this.head = options.head ?? "same-head";
     this.home = home;
     this.profile = options.profile ?? "workstation";
+    this.profileModelAfterPull = options.profileModelAfterPull;
     this.trackedChanges = options.trackedChanges ?? "";
     this.updateFailure = options.updateFailure;
     this.upstream = options.upstream ?? this.head;
@@ -99,7 +106,7 @@ class FixtureRuntime implements Runtime {
       if (expected !== undefined && expected !== this.profile) {
         return { status: 3, stdout: "", stderr: "profile mismatch" };
       }
-      if (PROFILE_SKILL_LAYERS[this.profile] === undefined) {
+      if ((profileModel.profiles[this.profile]?.skillLayers.length ?? 0) === 0) {
         return { status: 3, stdout: "", stderr: "profile does not manage agents" };
       }
       return { status: 0, stdout: `${this.profile}\n`, stderr: "" };
@@ -130,6 +137,12 @@ class FixtureRuntime implements Runtime {
       return { status: 0, stdout: this.trackedChanges, stderr: "" };
     }
     if (command === "git" && args.includes("pull")) {
+      if (this.profileModelAfterPull !== undefined) {
+        writeFileSync(
+          join(this.repoDir, "chezmoi", ".chezmoidata", "profiles.json"),
+          this.profileModelAfterPull,
+        );
+      }
       return { status: 0, stdout: "", stderr: "" };
     }
     if (command === "pnpm" && args[0] === "dlx" && args[2] === "add") {
@@ -202,7 +215,12 @@ function createFixture(): { repoDir: string; home: string } {
 
   mkdirSync(join(repoDir, "scripts", "agents", "rules"), { recursive: true });
   mkdirSync(join(repoDir, "scripts", "agents", "skills"), { recursive: true });
+  mkdirSync(join(repoDir, "chezmoi", ".chezmoidata"), { recursive: true });
   mkdirSync(home, { recursive: true });
+  writeFileSync(
+    join(repoDir, "chezmoi", ".chezmoidata", "profiles.json"),
+    readFileSync(join(repoRoot, "chezmoi", ".chezmoidata", "profiles.json")),
+  );
   writeFileSync(join(repoDir, "scripts", "agents", "rules", "base.md"), "# Fixture agent rules\n");
   writeFileSync(
     join(repoDir, "scripts", "agents", "skills", "shared.json"),
@@ -403,6 +421,17 @@ test("completes a successful sync and preserves rules links", () => {
   const finalRules = join(repoDir, "scripts", "agents", "rules", "final.md");
   assert.equal(readlinkSync(join(home, ".claude", "CLAUDE.md")), finalRules);
   assert.equal(readlinkSync(join(home, ".codex", "AGENTS.md")), finalRules);
+});
+
+test("reads profile skill layers after pulling the repository", () => {
+  const { repoDir, home } = createFixture();
+  const modelPath = join(repoDir, "chezmoi", ".chezmoidata", "profiles.json");
+  const refreshedModel = readFileSync(modelPath, "utf8");
+  writeFileSync(modelPath, '{"profileModel":');
+  const runtime = new FixtureRuntime(repoDir, home, { profileModelAfterPull: refreshedModel });
+
+  assert.equal(main([], runtime), 0);
+  assert.deepEqual(installedSkillNames(runtime), fixtureSkills.map((skill) => skill.name));
 });
 
 test("installs the personal layer only for personal profiles", () => {
@@ -853,13 +882,12 @@ test("uses the current first-party skill sources", () => {
   );
 });
 
-test("shell and TypeScript profile contracts stay aligned", () => {
-  const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+test("shell reads the canonical profile model", () => {
   const result = spawnSync(
     "bash",
     [
       "-c",
-      '. "$1/scripts/lib/profile.sh"; dotfiles_profiles; printf "%s\\n" --developers--; for profile in $DOTFILES_PROFILES; do if dotfiles_profile_is_developer "$profile"; then printf "%s\\n" "$profile"; elif [ "$?" -eq 2 ]; then exit 9; fi; done',
+      '. "$1/scripts/lib/profile.sh"; dotfiles_profiles; printf "%s\\n" --developers--; for profile in $(dotfiles_profiles); do if dotfiles_profile_is_developer "$profile"; then printf "%s\\n" "$profile"; elif [ "$?" -eq 2 ]; then exit 9; fi; done',
       "profile-contract",
       repoRoot,
     ],
@@ -867,11 +895,11 @@ test("shell and TypeScript profile contracts stay aligned", () => {
   );
   assert.equal(result.status, 0, result.stderr);
   const [profilesOutput, developersOutput] = result.stdout.split("--developers--\n");
-  assert.deepEqual(profilesOutput?.trim().split("\n").sort(), Object.keys(PROFILE_SKILL_LAYERS).sort());
+  assert.deepEqual(profilesOutput?.trim().split("\n").sort(), Object.keys(profileModel.profiles).sort());
   assert.deepEqual(
     developersOutput?.trim().split("\n").sort(),
-    Object.entries(PROFILE_SKILL_LAYERS)
-      .filter(([, layers]) => layers !== undefined)
+    Object.entries(profileModel.profiles)
+      .filter(([, profile]) => profile.capabilities.developer)
       .map(([profile]) => profile)
       .sort(),
   );

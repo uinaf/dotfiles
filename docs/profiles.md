@@ -35,6 +35,15 @@ service configuration.
 
 ## Software Layers
 
+[`chezmoi/.chezmoidata/profiles.json`](../chezmoi/.chezmoidata/profiles.json)
+is the versioned source of truth for profile capabilities, Brewfile order,
+runtime groups, skill layers, and per-user install steps. Chezmoi reads it as
+template data, TypeScript uses the strict parser in `scripts/profiles/model.ts`,
+and shell reads typed values through the small `plutil` boundary in
+`scripts/lib/profile.sh`. These consumers reject unsupported versions, unknown
+profiles, missing fields, and wrong value types. No generated profile adapters
+exist.
+
 All profiles install the shared `Brewfile` base, including Chrome and `gh`.
 Personal-workstation, personal-devbox, workstation, and devbox also install
 `Brewfile.developer`. Workstation installs

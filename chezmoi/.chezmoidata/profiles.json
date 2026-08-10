@@ -1,0 +1,109 @@
+{
+  "profileModel": {
+    "version": 1,
+    "profiles": {
+      "personal-workstation": {
+        "capabilities": {
+          "developer": true,
+          "workload": false,
+          "sharedHomebrew": false,
+          "requiresSopsIdentity": false,
+          "devbox": false,
+          "workstation": true,
+          "personal": true,
+          "zed": true,
+          "githubAppAuth": false
+        },
+        "brewfiles": ["Brewfile", "Brewfile.developer", "Brewfile.workstation", "Brewfile.personal"],
+        "runtimeGroup": "developer",
+        "skillLayers": ["shared", "personal"],
+        "installSteps": ["apply-dotfiles", "install-cursor-agent", "trust-agent-worktrees", "install-gh-extensions", "remove-global-vite-plus", "install-pnpm", "configure-codex", "sync-agents"]
+      },
+      "personal-devbox": {
+        "capabilities": {
+          "developer": true,
+          "workload": false,
+          "sharedHomebrew": true,
+          "requiresSopsIdentity": true,
+          "devbox": true,
+          "workstation": false,
+          "personal": true,
+          "zed": false,
+          "githubAppAuth": false
+        },
+        "brewfiles": ["Brewfile", "Brewfile.developer", "Brewfile.devbox", "Brewfile.personal"],
+        "runtimeGroup": "developer",
+        "skillLayers": ["shared", "personal"],
+        "installSteps": ["apply-dotfiles", "install-cursor-agent", "trust-agent-worktrees", "install-gh-extensions", "remove-global-vite-plus", "install-pnpm", "configure-codex", "sync-agents"]
+      },
+      "workstation": {
+        "capabilities": {
+          "developer": true,
+          "workload": false,
+          "sharedHomebrew": false,
+          "requiresSopsIdentity": false,
+          "devbox": false,
+          "workstation": true,
+          "personal": false,
+          "zed": false,
+          "githubAppAuth": false
+        },
+        "brewfiles": ["Brewfile", "Brewfile.developer", "Brewfile.workstation"],
+        "runtimeGroup": "developer",
+        "skillLayers": ["shared"],
+        "installSteps": ["apply-dotfiles", "install-cursor-agent", "trust-agent-worktrees", "install-gh-extensions", "remove-global-vite-plus", "install-pnpm", "configure-codex", "sync-agents"]
+      },
+      "devbox": {
+        "capabilities": {
+          "developer": true,
+          "workload": false,
+          "sharedHomebrew": true,
+          "requiresSopsIdentity": true,
+          "devbox": true,
+          "workstation": false,
+          "personal": false,
+          "zed": false,
+          "githubAppAuth": false
+        },
+        "brewfiles": ["Brewfile", "Brewfile.developer", "Brewfile.devbox"],
+        "runtimeGroup": "developer",
+        "skillLayers": ["shared"],
+        "installSteps": ["apply-dotfiles", "install-cursor-agent", "trust-agent-worktrees", "install-gh-extensions", "remove-global-vite-plus", "install-pnpm", "configure-codex", "sync-agents"]
+      },
+      "assistant": {
+        "capabilities": {
+          "developer": false,
+          "workload": true,
+          "sharedHomebrew": true,
+          "requiresSopsIdentity": true,
+          "devbox": false,
+          "workstation": false,
+          "personal": false,
+          "zed": false,
+          "githubAppAuth": true
+        },
+        "brewfiles": ["Brewfile", "Brewfile.assistant"],
+        "runtimeGroup": "assistant",
+        "skillLayers": [],
+        "installSteps": ["apply-dotfiles", "install-gh-app-auth"]
+      },
+      "service": {
+        "capabilities": {
+          "developer": false,
+          "workload": true,
+          "sharedHomebrew": true,
+          "requiresSopsIdentity": true,
+          "devbox": false,
+          "workstation": false,
+          "personal": false,
+          "zed": false,
+          "githubAppAuth": false
+        },
+        "brewfiles": ["Brewfile", "Brewfile.service"],
+        "runtimeGroup": "none",
+        "skillLayers": [],
+        "installSteps": ["apply-dotfiles"]
+      }
+    }
+  }
+}

@@ -10,6 +10,7 @@ Use chezmoi source attributes instead of literal target filenames:
 
 | Source | Target |
 | --- | --- |
+| `chezmoi/.chezmoidata/profiles.json` | Versioned template data for profile capabilities and composition |
 | `chezmoi/dot_zshrc` | `~/.zshrc` |
 | `chezmoi/dot_gitconfig.tmpl` | `~/.gitconfig` |
 | `chezmoi/private_dot_config/mise/config.toml.tmpl` | `~/.config/mise/config.toml` |

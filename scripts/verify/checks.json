@@ -20,14 +20,14 @@
       "domain": "config",
       "scope": "complete",
       "command": ["node", "scripts/verify/home-fixture.ts"],
-      "inputs": ["chezmoi/**"],
+      "inputs": ["chezmoi/**", "scripts/profiles/model.ts", "scripts/verify/home-fixture.ts"],
       "output": "All profiles apply in isolated disposable homes"
     },
     {
       "id": "claude-settings",
       "domain": "config",
       "command": ["node", "scripts/verify/claude-settings.ts"],
-      "inputs": ["chezmoi/private_dot_claude/**", "chezmoi/.chezmoiignore.tmpl", "scripts/verify/claude-settings.ts", "scripts/verify/home-fixture.ts"],
+      "inputs": ["chezmoi/private_dot_claude/**", "chezmoi/.chezmoiignore.tmpl", "chezmoi/.chezmoidata/profiles.json", "chezmoi/.chezmoitemplates/profile", "scripts/profiles/model.ts", "scripts/verify/claude-settings.ts", "scripts/verify/home-fixture.ts"],
       "output": "Claude user settings preserve unrelated keys, mode, and malformed input"
     },
     {
@@ -38,24 +38,31 @@
       "output": "Profile package, install, and managed-path contracts"
     },
     {
+      "id": "profile-model",
+      "domain": "profiles",
+      "command": ["node", "--test", "scripts/profiles/model.test.ts"],
+      "inputs": ["Brewfile.personal", "chezmoi/.chezmoidata/profiles.json", "chezmoi/.chezmoitemplates/profile", "scripts/profiles/**", "scripts/lib/profile.sh"],
+      "output": "Strict profile model parsing and chezmoi consumption"
+    },
+    {
       "id": "brew-devbox",
       "domain": "profiles",
       "command": ["scripts/verify/brew-devbox.sh"],
-      "inputs": ["scripts/bootstrap/brew-devbox.sh", "scripts/lib/homebrew.sh"],
+      "inputs": ["chezmoi/.chezmoidata/profiles.json", "scripts/bootstrap/brew-bundle.sh", "scripts/bootstrap/brew-devbox.sh", "scripts/lib/homebrew.sh", "scripts/lib/profile.sh"],
       "output": "Devbox Homebrew behavior"
     },
     {
       "id": "external-homebrew",
       "domain": "profiles",
       "command": ["scripts/verify/external-homebrew.sh"],
-      "inputs": ["scripts/lib/homebrew.sh", "scripts/bootstrap/brew-bundle.sh"],
+      "inputs": ["chezmoi/.chezmoidata/profiles.json", "scripts/lib/homebrew.sh", "scripts/lib/profile.sh", "scripts/bootstrap/brew-bundle.sh"],
       "output": "External Homebrew capability boundary"
     },
     {
       "id": "mise-path",
       "domain": "profiles",
       "command": ["scripts/verify/mise-path-isolation.sh"],
-      "inputs": ["chezmoi/private_dot_config/mise/**", "scripts/lib/shell-probe.sh"],
+      "inputs": ["chezmoi/private_dot_config/mise/**", "chezmoi/.chezmoidata/profiles.json", "chezmoi/.chezmoitemplates/profile", "scripts/lib/shell-probe.sh"],
       "output": "Mise runtime path isolation"
     },
     {
@@ -76,7 +83,7 @@
       "id": "git-bootstrap",
       "domain": "identity",
       "command": ["scripts/verify/configure-git.sh"],
-      "inputs": ["scripts/bootstrap/configure-git.sh", "chezmoi/dot_gitconfig.tmpl", "chezmoi/private_dot_config/git/**"],
+      "inputs": ["scripts/bootstrap/configure-git.sh", "scripts/lib/profile.sh", "chezmoi/.chezmoidata/profiles.json", "chezmoi/.chezmoitemplates/profile", "chezmoi/dot_gitconfig.tmpl", "chezmoi/private_dot_config/git/**"],
       "output": "Git identity and signing behavior"
     },
     {
@@ -97,7 +104,7 @@
       "id": "agent-sync",
       "domain": "agents",
       "command": ["node", "--test", "scripts/agents/sync.test.ts"],
-      "inputs": ["scripts/agents/**"],
+      "inputs": ["scripts/agents/**", "scripts/profiles/model.ts", "chezmoi/.chezmoidata/profiles.json"],
       "output": "Global agent rule and skill synchronization"
     },
     {

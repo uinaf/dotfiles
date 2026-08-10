@@ -10,6 +10,7 @@ discoverable wrappers; reusable behavior stays here.
 | `audit/` | Run non-destructive repository, host, workstation, and devbox audits. |
 | `bootstrap/` | Install packages and configure dotfiles, Git, coding tools, and host policy. |
 | `lib/` | Shared shell helpers. |
+| `profiles/` | Strict TypeScript parsing and tests for the canonical profile model. |
 | `secrets/` | Provision SOPS age identities and expose narrow sudo boundaries. |
 | `tizen/` | Install Tizen Studio and manage local certificate/profile archives. |
 | `verify/` | Check repository contracts and live profile/service state. |

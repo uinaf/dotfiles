@@ -2,6 +2,7 @@
 set -euo pipefail
 
 profile=""
+profile_set=0
 desktop_baseline=0
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 ghostty_config="$HOME/Library/Application Support/com.mitchellh.ghostty/config"
@@ -32,10 +33,12 @@ while [ "$#" -gt 0 ]; do
         usage >&2
         exit 2
       fi
+      if [ "$profile_set" -eq 1 ]; then
+        usage >&2
+        exit 2
+      fi
       profile="$1"
-      ;;
-    personal-workstation|personal-devbox|workstation|devbox|assistant|service)
-      profile="$1"
+      profile_set=1
       ;;
     --desktop)
       desktop_baseline=1
@@ -44,9 +47,17 @@ while [ "$#" -gt 0 ]; do
       usage
       exit 0
       ;;
-    *)
+    -*)
       usage >&2
       exit 2
+      ;;
+    *)
+      if [ "$profile_set" -eq 1 ]; then
+        usage >&2
+        exit 2
+      fi
+      profile="$1"
+      profile_set=1
       ;;
   esac
   shift
@@ -211,7 +222,7 @@ check_runtime_versions() {
   local npm_global_root
   local npm_exec_node
 
-  if [ "$profile" = "service" ]; then
+  if [ "$(dotfiles_profile_runtime_group "$profile")" = "none" ]; then
     return
   fi
 
@@ -342,10 +353,7 @@ check_truecolor_shell() {
 }
 
 check_ghostty_ssh_integration() {
-  case "$profile" in
-    personal-workstation|workstation) ;;
-    *) return ;;
-  esac
+  dotfiles_profile_is_workstation "$profile" || return
 
   section "Ghostty SSH integration"
   grep -Fqx 'shell-integration-features = ssh-env,ssh-terminfo' "$ghostty_config" ||
@@ -377,36 +385,31 @@ check_cli_tools() {
     done
   fi
 
-  case "$profile" in
-    personal-workstation|personal-devbox)
-      for check in "${personal_common_cli_checks[@]}"; do
-        run_zsh_check "$check"
-      done
-      ;;
-  esac
-
-  case "$profile" in
-    personal-workstation|workstation)
-      for check in "${human_workstation_cli_checks[@]}"; do
-        run_zsh_check "$check"
-      done
-      if [ "$profile" = personal-workstation ]; then
-        for check in "${personal_workstation_cli_checks[@]}"; do
-          run_zsh_check "$check"
-        done
-      fi
-      ;;
-    personal-devbox|devbox)
-      for check in "${devbox_cli_checks[@]}"; do
-        run_zsh_check "$check"
-      done
-      ;;
-    assistant)
-      for check in "${assistant_cli_checks[@]}"; do
-        run_zsh_check "$check"
-      done
-      ;;
-  esac
+  if dotfiles_profile_is_personal "$profile"; then
+    for check in "${personal_common_cli_checks[@]}"; do
+      run_zsh_check "$check"
+    done
+  fi
+  if dotfiles_profile_is_workstation "$profile"; then
+    for check in "${human_workstation_cli_checks[@]}"; do
+      run_zsh_check "$check"
+    done
+  fi
+  if dotfiles_profile_has_capability "$profile" zed; then
+    for check in "${personal_workstation_cli_checks[@]}"; do
+      run_zsh_check "$check"
+    done
+  fi
+  if dotfiles_profile_is_devbox "$profile"; then
+    for check in "${devbox_cli_checks[@]}"; do
+      run_zsh_check "$check"
+    done
+  fi
+  if dotfiles_profile_has_capability "$profile" githubAppAuth; then
+    for check in "${assistant_cli_checks[@]}"; do
+      run_zsh_check "$check"
+    done
+  fi
 }
 
 check_brew_bundle() {
@@ -452,19 +455,17 @@ check_config_paths() {
     done
   fi
 
-  case "$profile" in
-    personal-workstation|workstation)
-      for path in "${workstation_config_paths[@]}"; do
-        if [ -e "$path" ]; then
-          printf 'ok %s\n' "$path"
-        else
-          fail "missing $path"
-        fi
-      done
-      ;;
-  esac
+  if dotfiles_profile_is_workstation "$profile"; then
+    for path in "${workstation_config_paths[@]}"; do
+      if [ -e "$path" ]; then
+        printf 'ok %s\n' "$path"
+      else
+        fail "missing $path"
+      fi
+    done
+  fi
 
-  if [ "$profile" = "personal-workstation" ]; then
+  if dotfiles_profile_has_capability "$profile" zed; then
     for path in "${personal_config_paths[@]}"; do
       if [ -e "$path" ]; then
         printf 'ok %s\n' "$path"
