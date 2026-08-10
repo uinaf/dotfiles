@@ -42,6 +42,7 @@ test("operator command validates and delegates every profile", () => {
     mkdirSync(join(fixture, "repo/chezmoi/.chezmoidata"), { recursive: true });
     mkdirSync(home);
     cpSync(join(repoRoot, "dotfiles"), command);
+    chmodSync(command, 0o755);
     cpSync(join(repoRoot, "scripts/lib/profile.sh"), join(fixture, "repo/scripts/lib/profile.sh"));
     cpSync(modelPath, join(fixture, "repo/chezmoi/.chezmoidata/profiles.json"));
     writeDelegate(join(fixture, "repo/scripts/bootstrap/install.sh"), "install.sh");
