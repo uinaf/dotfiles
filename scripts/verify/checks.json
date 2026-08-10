@@ -24,6 +24,13 @@
       "output": "All profiles apply in isolated disposable homes"
     },
     {
+      "id": "claude-settings",
+      "domain": "config",
+      "command": ["node", "scripts/verify/claude-settings.ts"],
+      "inputs": ["chezmoi/private_dot_claude/**", "chezmoi/.chezmoiignore.tmpl", "scripts/verify/claude-settings.ts", "scripts/verify/home-fixture.ts"],
+      "output": "Claude user settings preserve unrelated keys, mode, and malformed input"
+    },
+    {
       "id": "profiles",
       "domain": "profiles",
       "command": ["scripts/verify/profiles.sh"],
