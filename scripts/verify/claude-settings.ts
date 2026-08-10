@@ -46,8 +46,12 @@ function writeSettings(root: string, contents: string, mode = 0o600): void {
   chmodSync(path, mode);
 }
 
-function renderFixture(fixture: Fixture): Promise<void> {
+function renderFixture(fixture: Fixture, root: string): Promise<void> {
   return new Promise((finish, reject) => {
+    const home = join(root, "home");
+    const temp = join(root, "tmp");
+    mkdirSync(home, { recursive: true });
+    mkdirSync(temp, { recursive: true });
     const child = spawn("chezmoi", [
       "--source",
       sourceDir,
@@ -57,7 +61,22 @@ function renderFixture(fixture: Fixture): Promise<void> {
       "--with-stdin",
       "--file",
       templatePath,
-    ], { cwd: repoRoot, stdio: ["pipe", "pipe", "pipe"] });
+    ], {
+      cwd: repoRoot,
+      env: {
+        ...process.env,
+        HOME: home,
+        XDG_CONFIG_HOME: join(root, "xdg/config"),
+        XDG_CACHE_HOME: join(root, "xdg/cache"),
+        XDG_DATA_HOME: join(root, "xdg/data"),
+        XDG_STATE_HOME: join(root, "xdg/state"),
+        TMPDIR: temp,
+        GIT_CONFIG_GLOBAL: join(root, "gitconfig"),
+        GIT_CONFIG_NOSYSTEM: "1",
+        NO_COLOR: "1",
+      },
+      stdio: ["pipe", "pipe", "pipe"],
+    });
     const stdout: Buffer[] = [];
     const stderr: Buffer[] = [];
     child.stdout.on("data", (chunk: Buffer) => stdout.push(chunk));
@@ -138,7 +157,7 @@ async function main(): Promise<void> {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-claude-settings-"));
   try {
     const results = await Promise.allSettled([
-      ...fixtures.map(renderFixture),
+      ...fixtures.map((fixture) => renderFixture(fixture, join(root, "render"))),
       verifyMissingFile(root),
       verifyMalformedFile(root),
       verifyModeAndIdempotence(root),

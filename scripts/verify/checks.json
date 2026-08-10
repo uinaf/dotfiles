@@ -27,7 +27,7 @@
       "id": "claude-settings",
       "domain": "config",
       "command": ["node", "scripts/verify/claude-settings.ts"],
-      "inputs": ["chezmoi/private_dot_claude/**", "chezmoi/.chezmoiignore.tmpl", "scripts/verify/home-fixture.ts"],
+      "inputs": ["chezmoi/private_dot_claude/**", "chezmoi/.chezmoiignore.tmpl", "scripts/verify/claude-settings.ts", "scripts/verify/home-fixture.ts"],
       "output": "Claude user settings preserve unrelated keys, mode, and malformed input"
     },
     {
