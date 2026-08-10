@@ -113,53 +113,8 @@ sqlite_page_stats() {
   local path="$1"
 
   [ -r "$path" ] || return 1
-  command -v python3 >/dev/null 2>&1 || return 1
-
-  python3 - "$path" <<'PY'
-import struct
-import sys
-from pathlib import Path
-
-path = Path(sys.argv[1])
-try:
-    with path.open("rb") as handle:
-        header = handle.read(100)
-        file_size = path.stat().st_size
-except OSError:
-    raise SystemExit(1)
-
-if len(header) < 100 or header[:16] != b"SQLite format 3\x00":
-    raise SystemExit(1)
-
-page_size = struct.unpack(">H", header[16:18])[0]
-if page_size == 1:
-    page_size = 65536
-if page_size < 512 or (page_size & (page_size - 1)) != 0:
-    raise SystemExit(1)
-
-change_counter = struct.unpack(">I", header[24:28])[0]
-page_count = struct.unpack(">I", header[28:32])[0]
-freelist_count = struct.unpack(">I", header[36:40])[0]
-valid_for = struct.unpack(">I", header[92:96])[0]
-sqlite_version_number = struct.unpack(">I", header[96:100])[0]
-
-# The in-header page count is only authoritative when these match.
-if change_counter != valid_for or sqlite_version_number < 3007000:
-    raise SystemExit(1)
-if page_count == 0:
-    raise SystemExit(1)
-# Freelist larger than the database is corrupt; do not invent live_bytes=0.
-if freelist_count > page_count:
-    raise SystemExit(1)
-
-expected_size = page_count * page_size
-# Reject when the file is shorter than the accounted pages, or has more than
-# one trailing page of unaccounted bytes.
-if expected_size > file_size or file_size > expected_size + page_size:
-    raise SystemExit(1)
-
-print(page_size, page_count, freelist_count)
-PY
+  command -v node >/dev/null 2>&1 || return 1
+  node "$audit_lib_dir/../audit/data.ts" sqlite-stats "$path"
 }
 
 # Check a Codex/log SQLite database against live-data thresholds, with a
@@ -362,68 +317,15 @@ emit_gitleaks_finding_locators() {
   local scan_root="$1"
   local report_path="$2"
 
-  command -v python3 >/dev/null 2>&1 || return 1
-  python3 - "$scan_root" "$report_path" <<'PY'
-import json
-import sys
-from pathlib import Path
-
-scan_root = Path(sys.argv[1])
-report_path = Path(sys.argv[2])
-raw = report_path.read_text(encoding="utf-8") if report_path.is_file() else "[]"
-try:
-    findings = json.loads(raw or "[]")
-except json.JSONDecodeError:
-    findings = []
-
-if not isinstance(findings, list):
-    findings = []
-
-
-def root_prefixes(root):
-    prefixes = []
-    for candidate in (root, root.resolve()):
-        text = str(candidate).rstrip("/")
-        prefixes.append(text)
-        if text.startswith("/private/"):
-            prefixes.append(text[len("/private") :])
-        elif text.startswith("/var/"):
-            prefixes.append("/private" + text)
-    # Preserve order while deduplicating.
-    seen = set()
-    ordered = []
-    for prefix in prefixes:
-        if prefix not in seen:
-            seen.add(prefix)
-            ordered.append(prefix)
-    return ordered
-
-
-def staged_relative(locator):
-    if not locator:
-        return "unknown"
-    for prefix in root_prefixes(scan_root):
-        marker = prefix + "/"
-        if locator.startswith(marker):
-            relative = locator[len(marker) :]
-            if relative and not relative.startswith("/") and ".." not in Path(relative).parts:
-                return relative
-    return "unknown"
-
-
-for finding in findings:
-    rule = str(finding.get("RuleID") or "unknown")
-    # With --follow-symlinks, File is the target; SymlinkFile is the staged path.
-    locator = str(finding.get("SymlinkFile") or finding.get("File") or "")
-    print(f"{rule}\t{staged_relative(locator)}")
-PY
+  command -v node >/dev/null 2>&1 || return 1
+  node "$audit_lib_dir/../audit/data.ts" gitleaks-locators "$scan_root" "$report_path"
 }
 
 merge_secret_scan_rule_counts() {
   local existing_json="$1"
   local report_path="$2"
 
-  command -v python3 >/dev/null 2>&1 || {
+  command -v node >/dev/null 2>&1 || {
     if [ -n "$existing_json" ]; then
       printf '%s\n' "$existing_json"
     else
@@ -431,54 +333,17 @@ merge_secret_scan_rule_counts() {
     fi
     return 1
   }
-  python3 - "$existing_json" "$report_path" <<'PY'
-import json
-import sys
-from collections import Counter
-from pathlib import Path
-
-existing_raw = sys.argv[1] or "{}"
-report_path = Path(sys.argv[2])
-try:
-    existing = json.loads(existing_raw)
-except json.JSONDecodeError:
-    existing = {}
-if not isinstance(existing, dict):
-    existing = {}
-
-raw = report_path.read_text(encoding="utf-8") if report_path.is_file() else "[]"
-try:
-    findings = json.loads(raw or "[]")
-except json.JSONDecodeError:
-    findings = []
-if not isinstance(findings, list):
-    findings = []
-
-counts = Counter({str(key): int(value) for key, value in existing.items()})
-counts.update(str(item.get("RuleID") or "unknown") for item in findings)
-print(json.dumps(dict(sorted(counts.items())), separators=(",", ":")))
-PY
+  node "$audit_lib_dir/../audit/data.ts" gitleaks-merge "$existing_json" "$report_path"
 }
 
 count_gitleaks_findings() {
   local report_path="$1"
 
-  command -v python3 >/dev/null 2>&1 || {
+  command -v node >/dev/null 2>&1 || {
     printf '0\n'
     return 1
   }
-  python3 - "$report_path" <<'PY'
-import json
-import sys
-from pathlib import Path
-
-raw = Path(sys.argv[1]).read_text(encoding="utf-8") if Path(sys.argv[1]).is_file() else "[]"
-try:
-    findings = json.loads(raw or "[]")
-except json.JSONDecodeError:
-    findings = []
-print(len(findings) if isinstance(findings, list) else 0)
-PY
+  node "$audit_lib_dir/../audit/data.ts" gitleaks-count "$report_path"
 }
 
 secret_scan_rules_json_or_empty_object() {
@@ -502,7 +367,7 @@ scan_files_for_secrets() {
   local finding_count=0
   local rule
   local staged_path
-  local have_python=0
+  local have_audit_data=0
   local secret_scan_prev_return
 
   if ! command -v gitleaks >/dev/null 2>&1; then
@@ -515,10 +380,10 @@ scan_files_for_secrets() {
     return
   fi
 
-  if command -v python3 >/dev/null 2>&1; then
-    have_python=1
+  if command -v node >/dev/null 2>&1; then
+    have_audit_data=1
   else
-    warn "python3 is missing; gitleaks locators and rule aggregates are unavailable"
+    warn "node is missing; gitleaks locators and rule aggregates are unavailable"
   fi
 
   scan_root="$(mktemp -d "${TMPDIR:-/tmp}/dotfiles-secret-scan.XXXXXX")"
@@ -573,6 +438,7 @@ scan_files_for_secrets() {
   gitleaks dir \
     --follow-symlinks \
     --redact \
+    --exit-code 183 \
     --no-banner \
     --log-level error \
     --report-format json \
@@ -580,23 +446,26 @@ scan_files_for_secrets() {
     "$scan_root" >/dev/null 2>&1 || gitleaks_status=$?
   chmod 600 "$report_path" 2>/dev/null || true
 
-  if [ "$have_python" -eq 1 ]; then
-    if ! secret_scan_rules_json="$(
+  if [ "$have_audit_data" -eq 1 ]; then
+    local next_rules_json
+    local next_finding_count
+    if ! next_rules_json="$(
       merge_secret_scan_rule_counts "$(secret_scan_rules_json_or_empty_object)" "$report_path"
     )"; then
-      have_python=0
-      warn "python3 failed while summarizing gitleaks findings; falling back to status-only reporting"
-    elif ! finding_count="$(count_gitleaks_findings "$report_path")" \
-      || ! [[ "$finding_count" =~ ^[0-9]+$ ]]; then
-      have_python=0
-      finding_count=0
-      warn "python3 failed while counting gitleaks findings; falling back to status-only reporting"
+      have_audit_data=0
+      warn "audit data tooling failed while summarizing gitleaks findings; falling back to status-only reporting"
+    elif ! next_finding_count="$(count_gitleaks_findings "$report_path")" \
+      || ! [[ "$next_finding_count" =~ ^[0-9]+$ ]]; then
+      have_audit_data=0
+      warn "audit data tooling failed while counting gitleaks findings; falling back to status-only reporting"
     else
+      secret_scan_rules_json="$next_rules_json"
+      finding_count="$next_finding_count"
       secret_scan_finding_count=$((secret_scan_finding_count + finding_count))
     fi
   fi
 
-  if [ "$have_python" -eq 1 ]; then
+  if [ "$have_audit_data" -eq 1 ]; then
     if [ "$finding_count" -eq 0 ] && [ "$gitleaks_status" -eq 0 ]; then
       ok "gitleaks found no leaks in $linked_count local config files"
     elif [ "$finding_count" -gt 0 ]; then
@@ -611,10 +480,10 @@ scan_files_for_secrets() {
       fail_check "gitleaks local config scan failed"
     fi
   else
-    # Without python, status is the only signal: 1 = findings, >1 = tool error.
+    # Without the typed data tool, status is the only signal: 183 = findings, other nonzero = tool error.
     if [ "$gitleaks_status" -eq 0 ]; then
       ok "gitleaks found no leaks in $linked_count local config files"
-    elif [ "$gitleaks_status" -eq 1 ]; then
+    elif [ "$gitleaks_status" -eq 183 ]; then
       fail_check "gitleaks reported possible leaks in local config files"
     else
       fail_check "gitleaks local config scan failed"

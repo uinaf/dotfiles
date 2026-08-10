@@ -73,6 +73,13 @@
       "output": "External Homebrew capability boundary"
     },
     {
+      "id": "chrome-state",
+      "domain": "profiles",
+      "command": ["node", "--test", "scripts/bootstrap/chrome-state.test.ts"],
+      "inputs": ["scripts/bootstrap/configure-chrome.sh", "scripts/bootstrap/chrome-state.ts", "scripts/bootstrap/chrome-state.test.ts"],
+      "output": "Atomic Chrome Local State updates and malformed-input preservation"
+    },
+    {
       "id": "mise-path",
       "domain": "profiles",
       "command": ["scripts/verify/mise-path-isolation.sh"],
@@ -113,6 +120,13 @@
       "command": ["scripts/verify/audit-contracts.sh"],
       "inputs": ["scripts/audit/**", "scripts/lib/audit.sh"],
       "output": "Audit output and failure contracts"
+    },
+    {
+      "id": "audit-data",
+      "domain": "audit",
+      "command": ["node", "--test", "scripts/audit/data.test.ts"],
+      "inputs": ["scripts/audit/data.ts", "scripts/audit/data.test.ts", "scripts/lib/audit.sh"],
+      "output": "Typed SQLite header and sanitized Gitleaks report handling"
     },
     {
       "id": "agent-sync",
