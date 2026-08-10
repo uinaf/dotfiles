@@ -181,6 +181,26 @@ test("backs up a broken rule link before convergence", () => {
   assert.equal(readlinkSync(join(home, ".codex", backup)), "../missing/AGENTS.md");
 });
 
+test("backs up links to the previous generated rules before convergence", () => {
+  const { home, root } = createFixture();
+  const previousRules = join(root, "checkout/scripts/agents/rules/final.md");
+  mkdirSync(dirname(previousRules), { recursive: true });
+  mkdirSync(join(home, ".claude"), { recursive: true });
+  mkdirSync(join(home, ".codex"), { recursive: true });
+  writeFileSync(previousRules, "previous generated fixture rules\n");
+  symlinkSync(previousRules, join(home, ".claude/CLAUDE.md"));
+  symlinkSync(previousRules, join(home, ".codex/AGENTS.md"));
+
+  runWrapper(home);
+
+  assertManagedRules(home);
+  for (const [directory, filename] of [[".claude", "CLAUDE.md"], [".codex", "AGENTS.md"]]) {
+    const backup = readdirSync(join(home, directory)).find((name) => name.startsWith(`${filename}.backup.`));
+    assert.ok(backup);
+    assert.equal(readlinkSync(join(home, directory, backup)), previousRules);
+  }
+});
+
 test("rejects a non-string private rule layer", () => {
   const { config, home } = createFixture();
   writeFileSync(config, "[data]\nagentRulesPrivate = true\n");

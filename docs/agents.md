@@ -1,6 +1,6 @@
 # Agent Setup
 
-Personal-workstation, personal-devbox, workstation, and devbox profiles install
+personal-workstation, personal-devbox, workstation, and devbox profiles install
 machine-global instructions and skills. Assistant and service profiles install
 neither.
 
