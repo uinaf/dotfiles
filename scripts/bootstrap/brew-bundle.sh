@@ -28,7 +28,7 @@ Usage:
 
 Installs the shared base first, the developer layer for personal-workstation/personal-devbox/workstation/devbox,
 then the selected profile layers. --shared-only installs only the base.
-An owner-controlled external-homebrew file can validate and skip entries
+An owner-controlled external-homebrew.plist can validate and skip entries
 supplied by another trusted installer.
 Devbox, assistant, and service host changes use the group-safe Homebrew wrapper.
 USAGE

@@ -69,8 +69,10 @@ mkdir "$fake_prefix"
 
 # Repository fixtures must never read the caller's per-user external-homebrew
 # declarations or ambient Homebrew Bundle skip variables.
-isolated_external="$tmp_dir/external-homebrew.empty"
-: >"$isolated_external"
+isolated_external="$tmp_dir/external-homebrew.empty.plist"
+/usr/bin/plutil -create xml1 "$isolated_external"
+/usr/bin/plutil -insert version -integer 1 "$isolated_external"
+/usr/bin/plutil -insert capabilities -array "$isolated_external"
 chmod 600 "$isolated_external"
 
 run_brew_bundle() {
@@ -247,8 +249,17 @@ grep -Fqx "arg=$repo_root/Brewfile" "$shared_log" || fail "devbox shared-only bu
 # repository fixture for a different profile.
 host_home="$tmp_dir/host-home"
 mkdir -p "$host_home/.config/dotfiles"
-printf 'cask|1password|command|/usr/bin/true\n' >"$host_home/.config/dotfiles/external-homebrew"
-chmod 600 "$host_home/.config/dotfiles/external-homebrew"
+host_external="$host_home/.config/dotfiles/external-homebrew.plist"
+/usr/bin/plutil -create xml1 "$host_external"
+/usr/bin/plutil -insert version -integer 1 "$host_external"
+/usr/bin/plutil -insert capabilities -array "$host_external"
+/usr/bin/plutil -insert capabilities.0 -dictionary "$host_external"
+/usr/bin/plutil -insert capabilities.0.packageType -string cask "$host_external"
+/usr/bin/plutil -insert capabilities.0.name -string 1password "$host_external"
+/usr/bin/plutil -insert capabilities.0.validator -string command "$host_external"
+/usr/bin/plutil -insert capabilities.0.path -string /usr/bin/true "$host_external"
+/usr/bin/plutil -insert capabilities.0.arguments -array "$host_external"
+chmod 600 "$host_external"
 set +e
 ambient_output="$(
   unset HOMEBREW_BUNDLE_BREW_SKIP \
