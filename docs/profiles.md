@@ -65,8 +65,8 @@ CLI, and 1Password CLI.
 The developer layer installs the autoreview and slopomatic CLIs. The personal
 layer installs the App Store Connect CLI, Attach, Crabbox, Gitcrawl, and Mole for both personal profiles,
 while personal GUI applications remain workstation-only. Developer-profile install
-flows also sync machine-global instructions and additive skills from
-`scripts/agents/`; see [Agent setup](agents.md). Zed and its managed settings
+flows apply machine-global instructions through chezmoi and sync additive skills
+from `scripts/agents/`; see [Agent setup](agents.md). Zed and its managed settings
 belong only to personal-workstation.
 The workstation layer supplies 1Password, Slack, Claude Desktop, ChatGPT, and
 Cursor and Ghostty desktop apps, plus YubiKey Manager, to both interactive

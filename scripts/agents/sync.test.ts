@@ -5,9 +5,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
-  readlinkSync,
   rmSync,
-  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -27,18 +25,11 @@ type CommandCall = {
 };
 
 type FixtureOptions = {
-  branch?: string;
-  commonDir?: string;
   falseSuccesses?: ReadonlySet<string>;
   failures?: ReadonlyMap<string, FixtureFailure>;
-  gitDir?: string;
-  head?: string;
   profile?: string;
-  profileModelAfterPull?: string;
   removalFailures?: ReadonlyMap<string, FixtureFailure>;
-  trackedChanges?: string;
   updateFailure?: FixtureFailure;
-  upstream?: string;
 };
 
 type FixtureFailure = {
@@ -60,36 +51,22 @@ class FixtureRuntime implements Runtime {
   readonly stderr = new BufferWriter();
   readonly calls: CommandCall[] = [];
   readonly installedCommands = new Set(["claude", "codex"]);
-  readonly branch: string;
-  readonly commonDir: string;
   readonly falseSuccesses: ReadonlySet<string>;
   readonly failures: ReadonlyMap<string, FixtureFailure>;
-  readonly gitDir: string;
-  readonly head: string;
   readonly home: string;
   readonly profile: string;
-  readonly profileModelAfterPull: string | undefined;
   readonly repoDir: string;
   readonly removalFailures: ReadonlyMap<string, FixtureFailure>;
-  readonly trackedChanges: string;
   readonly updateFailure: FixtureFailure | undefined;
-  readonly upstream: string;
 
   constructor(repoDir: string, home: string, options: FixtureOptions = {}) {
     this.repoDir = repoDir;
     this.removalFailures = options.removalFailures ?? new Map();
-    this.branch = options.branch ?? "main";
-    this.commonDir = options.commonDir ?? ".git";
     this.falseSuccesses = options.falseSuccesses ?? new Set();
     this.failures = options.failures ?? new Map();
-    this.gitDir = options.gitDir ?? ".git";
-    this.head = options.head ?? "same-head";
     this.home = home;
     this.profile = options.profile ?? "workstation";
-    this.profileModelAfterPull = options.profileModelAfterPull;
-    this.trackedChanges = options.trackedChanges ?? "";
     this.updateFailure = options.updateFailure;
-    this.upstream = options.upstream ?? this.head;
     this.env = { HOME: home, SKILLS_CLI_VERSION: "test-version" };
   }
 
@@ -112,39 +89,6 @@ class FixtureRuntime implements Runtime {
       return { status: 0, stdout: `${this.profile}\n`, stderr: "" };
     }
 
-    if (command === "git" && args.includes("rev-parse")) {
-      if (args.includes("--show-toplevel")) {
-        return { status: 0, stdout: `${this.repoDir}\n`, stderr: "" };
-      }
-      if (args.includes("--git-dir")) {
-        return { status: 0, stdout: `${this.gitDir}\n`, stderr: "" };
-      }
-      if (args.includes("--git-common-dir")) {
-        return { status: 0, stdout: `${this.commonDir}\n`, stderr: "" };
-      }
-      if (args.includes("--abbrev-ref")) {
-        return { status: 0, stdout: `${this.branch}\n`, stderr: "" };
-      }
-      if (args.includes("@{upstream}")) {
-        return { status: 0, stdout: `${this.upstream}\n`, stderr: "" };
-      }
-      if (args.includes("HEAD")) {
-        return { status: 0, stdout: `${this.head}\n`, stderr: "" };
-      }
-      return { status: 99, stdout: "", stderr: `Unexpected git rev-parse: ${args.join(" ")}` };
-    }
-    if (command === "git" && args.includes("status")) {
-      return { status: 0, stdout: this.trackedChanges, stderr: "" };
-    }
-    if (command === "git" && args.includes("pull")) {
-      if (this.profileModelAfterPull !== undefined) {
-        writeFileSync(
-          join(this.repoDir, "chezmoi", ".chezmoidata", "profiles.json"),
-          this.profileModelAfterPull,
-        );
-      }
-      return { status: 0, stdout: "", stderr: "" };
-    }
     if (command === "pnpm" && args[0] === "dlx" && args[2] === "add") {
       const skillFlag = args.indexOf("-s");
       const skill = skillFlag >= 0 ? args[skillFlag + 1] : undefined;
@@ -213,7 +157,6 @@ function createFixture(): { repoDir: string; home: string } {
   const repoDir = join(root, "repo");
   const home = join(root, "home");
 
-  mkdirSync(join(repoDir, "scripts", "agents", "rules"), { recursive: true });
   mkdirSync(join(repoDir, "scripts", "agents", "skills"), { recursive: true });
   mkdirSync(join(repoDir, "chezmoi", ".chezmoidata"), { recursive: true });
   mkdirSync(home, { recursive: true });
@@ -221,7 +164,6 @@ function createFixture(): { repoDir: string; home: string } {
     join(repoDir, "chezmoi", ".chezmoidata", "profiles.json"),
     readFileSync(join(repoRoot, "chezmoi", ".chezmoidata", "profiles.json")),
   );
-  writeFileSync(join(repoDir, "scripts", "agents", "rules", "base.md"), "# Fixture agent rules\n");
   writeFileSync(
     join(repoDir, "scripts", "agents", "skills", "shared.json"),
     JSON.stringify({ skills: fixtureSkills }, null, 2),
@@ -273,18 +215,6 @@ function updateCalls(runtime: FixtureRuntime): CommandCall[] {
 
 function skillLockPath(repoDir: string): string {
   return join(repoDir, "scripts", "agents", "skills.lock.json");
-}
-
-function finalRulesPath(repoDir: string): string {
-  return join(repoDir, "scripts", "agents", "rules", "final.md");
-}
-
-function createManagedRuleLinks(repoDir: string, home: string): void {
-  const finalRules = finalRulesPath(repoDir);
-  mkdirSync(join(home, ".claude"), { recursive: true });
-  mkdirSync(join(home, ".codex"), { recursive: true });
-  symlinkSync(finalRules, join(home, ".claude", "CLAUDE.md"));
-  symlinkSync(finalRules, join(home, ".codex", "AGENTS.md"));
 }
 
 test("reports every installer failure after attempting the full manifest", () => {
@@ -339,71 +269,12 @@ test("rejects a false-success installer result when the installed artifact is mi
   assert.doesNotMatch(runtime.stdout.value, /Done\./);
 });
 
-for (const scenario of [
-  {
-    name: "refuses a linked worktree before pulling or changing global state",
-    options: { commonDir: "/tmp/agents/.git", gitDir: "/tmp/agents/.git/worktrees/feature" },
-    message: /primary checkout, not a linked worktree/,
-  },
-  {
-    name: "refuses a non-main branch before pulling or changing global state",
-    options: { branch: "feature/sync" },
-    message: /main branch; current branch is feature\/sync/,
-  },
-]) {
-  test(scenario.name, () => {
-    const { repoDir, home } = createFixture();
-    const runtime = new FixtureRuntime(repoDir, home, scenario.options);
-
-    assert.equal(main([], runtime), 1);
-    assert.match(runtime.stderr.value, scenario.message);
-    assert.equal(
-      runtime.calls.some((call) => call.command === "git" && call.args.includes("pull")),
-      false,
-    );
-    assert.equal(installedSkillNames(runtime).length, 0);
-  });
-}
-
-for (const trackedChanges of ["M  scripts/agents/rules/base.md\n", " M scripts/agents/sync.ts\n"]) {
-  test(`refuses tracked checkout dirt before pulling: ${trackedChanges.trim()}`, () => {
-    const { repoDir, home } = createFixture();
-    writeFileSync(finalRulesPath(repoDir), "existing generated rules\n");
-    const runtime = new FixtureRuntime(repoDir, home, { trackedChanges });
-
-    assert.equal(main([], runtime), 1);
-    assert.match(runtime.stderr.value, /clean tracked checkout before pulling/);
-    assert.ok(runtime.stderr.value.includes(trackedChanges.trim()));
-    assert.equal(
-      runtime.calls.some((call) => call.command === "git" && call.args.includes("pull")),
-      false,
-    );
-    assert.equal(readFileSync(finalRulesPath(repoDir), "utf8"), "existing generated rules\n");
-    assert.equal(installedSkillNames(runtime).length, 0);
-  });
-}
-
-test("refuses a local main commit that is not published upstream", () => {
+test("completes a successful skill sync without Git or rule changes", () => {
   const { repoDir, home } = createFixture();
-  writeFileSync(finalRulesPath(repoDir), "existing generated rules\n");
-  const runtime = new FixtureRuntime(repoDir, home, {
-    head: "local-head",
-    upstream: "upstream-head",
-  });
-
-  assert.equal(main([], runtime), 1);
-  assert.match(runtime.stderr.value, /Local main must exactly match its upstream after pulling/);
-  assert.match(runtime.stderr.value, /local local-head, upstream upstream-head/);
-  assert.equal(
-    runtime.calls.some((call) => call.command === "git" && call.args.includes("pull")),
-    true,
-  );
-  assert.equal(readFileSync(finalRulesPath(repoDir), "utf8"), "existing generated rules\n");
-  assert.equal(installedSkillNames(runtime).length, 0);
-});
-
-test("completes a successful sync and preserves rules links", () => {
-  const { repoDir, home } = createFixture();
+  mkdirSync(join(home, ".claude"), { recursive: true });
+  mkdirSync(join(home, ".codex"), { recursive: true });
+  writeFileSync(join(home, ".claude", "CLAUDE.md"), "existing Claude rules\n");
+  writeFileSync(join(home, ".codex", "AGENTS.md"), "existing Codex rules\n");
   const runtime = new FixtureRuntime(repoDir, home);
   runtime.env.SKILLS_CLI_VERSION = "";
 
@@ -413,25 +284,9 @@ test("completes a successful sync and preserves rules links", () => {
     runtime.calls.find((call) => call.command === "pnpm" && call.args[0] === "dlx")?.args[1],
     "skills@1.5.7",
   );
-  assert.equal(
-    readFileSync(join(repoDir, "scripts", "agents", "rules", "final.md"), "utf8"),
-    "<!-- Generated by scripts/agents/sync.ts from scripts/agents/rules/base.md and optional scripts/agents/rules/local.md. Do not edit directly. -->\n\n" +
-      "# Fixture agent rules\n",
-  );
-  const finalRules = join(repoDir, "scripts", "agents", "rules", "final.md");
-  assert.equal(readlinkSync(join(home, ".claude", "CLAUDE.md")), finalRules);
-  assert.equal(readlinkSync(join(home, ".codex", "AGENTS.md")), finalRules);
-});
-
-test("reads profile skill layers after pulling the repository", () => {
-  const { repoDir, home } = createFixture();
-  const modelPath = join(repoDir, "chezmoi", ".chezmoidata", "profiles.json");
-  const refreshedModel = readFileSync(modelPath, "utf8");
-  writeFileSync(modelPath, '{"profileModel":');
-  const runtime = new FixtureRuntime(repoDir, home, { profileModelAfterPull: refreshedModel });
-
-  assert.equal(main([], runtime), 0);
-  assert.deepEqual(installedSkillNames(runtime), fixtureSkills.map((skill) => skill.name));
+  assert.equal(runtime.calls.some((call) => call.command === "git"), false);
+  assert.equal(readFileSync(join(home, ".claude", "CLAUDE.md"), "utf8"), "existing Claude rules\n");
+  assert.equal(readFileSync(join(home, ".codex", "AGENTS.md"), "utf8"), "existing Codex rules\n");
 });
 
 test("installs the personal layer only for personal profiles", () => {
@@ -444,10 +299,8 @@ test("installs the personal layer only for personal profiles", () => {
   assert.match(runtime.stdout.value, /Skill layers: shared, personal/);
 });
 
-test("rejects duplicate names across selected layers before changing rules", () => {
+test("rejects duplicate names across selected layers before installing skills", () => {
   const { repoDir, home } = createFixture();
-  writeFileSync(finalRulesPath(repoDir), "old generated rules\n");
-  createManagedRuleLinks(repoDir, home);
   writeFileSync(
     join(repoDir, "scripts", "agents", "skills", "personal.json"),
     JSON.stringify({ skills: [{ name: fixtureSkills[0]?.name, source: "fixture/conflict" }] }),
@@ -456,11 +309,10 @@ test("rejects duplicate names across selected layers before changing rules", () 
 
   assert.equal(main([], runtime), 1);
   assert.match(runtime.stderr.value, /Invalid layered skills/);
-  assert.equal(readFileSync(finalRulesPath(repoDir), "utf8"), "old generated rules\n");
   assert.equal(installedSkillNames(runtime).length, 0);
 });
 
-test("refuses profiles without agent setup before touching Git", () => {
+test("refuses profiles without agent setup before managing skills", () => {
   const { repoDir, home } = createFixture();
   const runtime = new FixtureRuntime(repoDir, home, { profile: "assistant" });
 
@@ -585,7 +437,7 @@ test("does not advance ownership when a managed removal fails", () => {
   assert.match(runtime.stderr.value, /Managed skill removal failed for 1 skill/);
 });
 
-test("rejects unsafe ownership lock names before changing global state", () => {
+test("rejects unsafe ownership lock names before changing skills", () => {
   const { repoDir, home } = createFixture();
   writeFileSync(
     skillLockPath(repoDir),
@@ -599,138 +451,11 @@ test("rejects unsafe ownership lock names before changing global state", () => {
   assert.match(runtime.stderr.value, /Invalid managed skills lock/);
   assert.equal(installedSkillNames(runtime).length, 0);
   assert.equal(removedSkillNames(runtime).length, 0);
-  assert.equal(existsSync(finalRulesPath(repoDir)), false);
   assert.equal(existsSync(manualDirectory), true);
 });
 
-test("includes ignored local overrides in generated rules", () => {
+test("rejects an invalid manifest before changing skills", () => {
   const { repoDir, home } = createFixture();
-  writeFileSync(
-    join(repoDir, "scripts", "agents", "rules", "local.md"),
-    "### Private machine override\n",
-  );
-  const runtime = new FixtureRuntime(repoDir, home);
-
-  assert.equal(main([], runtime), 0);
-  assert.match(
-    readFileSync(finalRulesPath(repoDir), "utf8"),
-    /## Local Overrides\n\n### Private machine override/,
-  );
-  const statusCall = runtime.calls.find(
-    (call) => call.command === "git" && call.args.includes("status"),
-  );
-  assert.deepEqual(statusCall?.args.slice(-2), ["--porcelain=v1", "--untracked-files=no"]);
-});
-
-test("migrates local overrides from the previous flat rule layout", () => {
-  const { repoDir, home } = createFixture();
-  const previousLocalRules = join(repoDir, "scripts", "agents", "rules.local.md");
-  const localRules = join(repoDir, "scripts", "agents", "rules", "local.md");
-  writeFileSync(previousLocalRules, "### Previous private machine override\n");
-  const runtime = new FixtureRuntime(repoDir, home);
-
-  assert.equal(main([], runtime), 0);
-  assert.equal(existsSync(previousLocalRules), false);
-  assert.equal(readFileSync(localRules, "utf8"), "### Previous private machine override\n");
-  assert.match(
-    readFileSync(finalRulesPath(repoDir), "utf8"),
-    /## Local Overrides\n\n### Previous private machine override/,
-  );
-  assert.match(
-    runtime.stdout.value,
-    /Migrated: scripts\/agents\/rules\.local\.md -> scripts\/agents\/rules\/local\.md/,
-  );
-});
-
-test("rejects ambiguous local overrides before generating or linking rules", () => {
-  const { repoDir, home } = createFixture();
-  const previousLocalRules = join(repoDir, "scripts", "agents", "rules.local.md");
-  const localRules = join(repoDir, "scripts", "agents", "rules", "local.md");
-  writeFileSync(previousLocalRules, "### Previous override\n");
-  writeFileSync(localRules, "### Current override\n");
-  const runtime = new FixtureRuntime(repoDir, home);
-
-  assert.equal(main([], runtime), 1);
-  assert.match(runtime.stderr.value, /Both .*rules\/local\.md and legacy .*rules\.local\.md exist/);
-  assert.equal(existsSync(finalRulesPath(repoDir)), false);
-  assert.equal(existsSync(join(home, ".claude", "CLAUDE.md")), false);
-  assert.equal(existsSync(join(home, ".codex", "AGENTS.md")), false);
-});
-
-test("replaces links already managed by this sync target", () => {
-  const { repoDir, home } = createFixture();
-  writeFileSync(finalRulesPath(repoDir), "old generated rules\n");
-  createManagedRuleLinks(repoDir, home);
-  writeFileSync(
-    join(repoDir, "scripts", "agents", "rules", "base.md"),
-    "# Updated fixture agent rules\n",
-  );
-  const runtime = new FixtureRuntime(repoDir, home);
-
-  assert.equal(main([], runtime), 0);
-  assert.match(readFileSync(finalRulesPath(repoDir), "utf8"), /# Updated fixture agent rules/);
-  assert.equal(readlinkSync(join(home, ".claude", "CLAUDE.md")), finalRulesPath(repoDir));
-  assert.equal(readlinkSync(join(home, ".codex", "AGENTS.md")), finalRulesPath(repoDir));
-});
-
-test("refuses every unmanaged global destination without partial mutation", () => {
-  const { repoDir, home } = createFixture();
-  writeFileSync(finalRulesPath(repoDir), "old generated rules\n");
-  mkdirSync(join(home, ".claude"), { recursive: true });
-  mkdirSync(join(home, ".codex"), { recursive: true });
-  writeFileSync(join(home, ".claude", "CLAUDE.md"), "hand-written Claude rules\n");
-  symlinkSync("../other/AGENTS.md", join(home, ".codex", "AGENTS.md"));
-  const runtime = new FixtureRuntime(repoDir, home);
-
-  assert.equal(main([], runtime), 1);
-  assert.match(runtime.stderr.value, /Refusing to replace unmanaged global agent rules/);
-  assert.match(runtime.stderr.value, /\.claude\/CLAUDE\.md: it is not a symbolic link/);
-  assert.match(runtime.stderr.value, /\.codex\/AGENTS\.md: it points to \.\.\/other\/AGENTS\.md/);
-  assert.equal(readFileSync(finalRulesPath(repoDir), "utf8"), "old generated rules\n");
-  assert.equal(
-    readFileSync(join(home, ".claude", "CLAUDE.md"), "utf8"),
-    "hand-written Claude rules\n",
-  );
-  assert.equal(readlinkSync(join(home, ".codex", "AGENTS.md")), "../other/AGENTS.md");
-  assert.equal(installedSkillNames(runtime).length, 0);
-});
-
-test("migrates links managed by the former agents checkout", () => {
-  const { repoDir, home } = createFixture();
-  const legacyRules = join(dirname(repoDir), "agents", "rules", "agents.final.md");
-  mkdirSync(dirname(legacyRules), { recursive: true });
-  writeFileSync(legacyRules, "legacy generated rules\n");
-  mkdirSync(join(home, ".claude"), { recursive: true });
-  mkdirSync(join(home, ".codex"), { recursive: true });
-  symlinkSync(legacyRules, join(home, ".claude", "CLAUDE.md"));
-  symlinkSync(legacyRules, join(home, ".codex", "AGENTS.md"));
-  const runtime = new FixtureRuntime(repoDir, home);
-
-  assert.equal(main([], runtime), 0);
-  assert.equal(readlinkSync(join(home, ".claude", "CLAUDE.md")), finalRulesPath(repoDir));
-  assert.equal(readlinkSync(join(home, ".codex", "AGENTS.md")), finalRulesPath(repoDir));
-});
-
-test("migrates links and generated output from the previous flat rule layout", () => {
-  const { repoDir, home } = createFixture();
-  const previousFinalRules = join(repoDir, "scripts", "agents", "rules.final.md");
-  writeFileSync(previousFinalRules, "previous generated rules\n");
-  mkdirSync(join(home, ".claude"), { recursive: true });
-  mkdirSync(join(home, ".codex"), { recursive: true });
-  symlinkSync(previousFinalRules, join(home, ".claude", "CLAUDE.md"));
-  symlinkSync(previousFinalRules, join(home, ".codex", "AGENTS.md"));
-  const runtime = new FixtureRuntime(repoDir, home);
-
-  assert.equal(main([], runtime), 0);
-  assert.equal(existsSync(previousFinalRules), false);
-  assert.equal(readlinkSync(join(home, ".claude", "CLAUDE.md")), finalRulesPath(repoDir));
-  assert.equal(readlinkSync(join(home, ".codex", "AGENTS.md")), finalRulesPath(repoDir));
-});
-
-test("rejects an invalid manifest before changing generated or global rules", () => {
-  const { repoDir, home } = createFixture();
-  writeFileSync(finalRulesPath(repoDir), "old generated rules\n");
-  createManagedRuleLinks(repoDir, home);
   writeFileSync(
     join(repoDir, "scripts", "agents", "skills", "shared.json"),
     '{"skills":[{"name":"missing-source"}]}',
@@ -740,9 +465,6 @@ test("rejects an invalid manifest before changing generated or global rules", ()
   assert.equal(main([], runtime), 1);
   assert.match(runtime.stderr.value, /Invalid skills manifest/);
   assert.match(runtime.stderr.value, /expected non-empty name\/source strings/);
-  assert.equal(readFileSync(finalRulesPath(repoDir), "utf8"), "old generated rules\n");
-  assert.equal(readlinkSync(join(home, ".claude", "CLAUDE.md")), finalRulesPath(repoDir));
-  assert.equal(readlinkSync(join(home, ".codex", "AGENTS.md")), finalRulesPath(repoDir));
   assert.equal(installedSkillNames(runtime).length, 0);
 });
 
@@ -754,7 +476,6 @@ test("rejects unknown sync arguments without changing state", () => {
   assert.match(runtime.stderr.value, /Usage: \.\/scripts\/agents\/sync\.ts \[--profile PROFILE\] \[--update\]/);
   assert.match(runtime.stderr.value, /Unknown argument: --refresh/);
   assert.equal(runtime.calls.length, 0);
-  assert.equal(existsSync(finalRulesPath(repoDir)), false);
 });
 
 test("prints help without syncing", () => {
@@ -764,7 +485,6 @@ test("prints help without syncing", () => {
   assert.equal(main(["--help"], runtime), 0);
   assert.match(runtime.stdout.value, /Usage: \.\/scripts\/agents\/sync\.ts \[--profile PROFILE\] \[--update\]/);
   assert.equal(runtime.calls.length, 0);
-  assert.equal(existsSync(finalRulesPath(repoDir)), false);
 });
 
 test("does not run the global updater unless --update is passed", () => {

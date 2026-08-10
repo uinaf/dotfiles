@@ -19,6 +19,9 @@ Use chezmoi source attributes instead of literal target filenames:
 | `chezmoi/private_dot_local/private_libexec/private_dotfiles/private_executable_git-ssh-sign-agentless` | `~/.local/libexec/dotfiles/git-ssh-sign-agentless` |
 | `chezmoi/private_dot_config/zed/private_settings.json` | `~/.config/zed/settings.json` for personal-workstation users |
 | `chezmoi/private_dot_claude/modify_private_settings.json` | Selected values inside `~/.claude/settings.json` for developer profiles |
+| `chezmoi/private_dot_agents/AGENTS.md.tmpl` | Shared global agent rules with optional local data |
+| `chezmoi/private_dot_claude/symlink_CLAUDE.md` | `~/.claude/CLAUDE.md` link to the shared rules |
+| `chezmoi/private_dot_codex/symlink_AGENTS.md` | `~/.codex/AGENTS.md` link to the shared rules |
 
 The `private_` attribute is used for parent config directories and files that
 should land as owner-only local config.

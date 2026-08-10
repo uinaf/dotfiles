@@ -1,3 +1,10 @@
+{{- $privateRules := "" -}}
+{{- if hasKey . "agentRulesPrivate" -}}
+{{- if not (kindIs "string" .agentRulesPrivate) -}}
+{{- fail "agentRulesPrivate must be a string" -}}
+{{- end -}}
+{{- $privateRules = trim .agentRulesPrivate -}}
+{{- end -}}
 # Agent Guidelines
 
 General guidelines for agents.
@@ -104,3 +111,11 @@ General guidelines for agents.
 
 - While addressing feedback on PR, prefer follow-up commits over amending and force-pushing
 - Keep each inline review comment to one actionable concern and short
+{{- if ne $privateRules "" }}
+
+---
+
+## Local Overrides
+
+{{ $privateRules }}
+{{- end }}

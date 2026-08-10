@@ -5,7 +5,7 @@ discoverable wrappers; reusable behavior stays here.
 
 | Directory | Purpose |
 | --- | --- |
-| `agents/` | Generate global agent rules and install additive skill selections. |
+| `agents/` | Install additive global skill selections. |
 | `app-store/` | Manage workstation Mac App Store applications through `mas`. |
 | `audit/` | Run non-destructive repository, host, workstation, and devbox audits. |
 | `bootstrap/` | Install packages and configure dotfiles, Git, coding tools, and host policy. |
@@ -46,13 +46,15 @@ and [User profiles](../docs/profiles.md) for role boundaries.
 ## Global Agent Setup
 
 ```zsh
+mise run dotfiles:diff
+mise run dotfiles:apply
 mise run agents:sync
 mise run agents:sync -- --update
 ```
 
-The direct entrypoint is `./scripts/agents/sync.ts`. See
-[Agent setup](../docs/agents.md) for sources, generated output, local
-overrides, and the optional `--update` global skill refresh.
+Chezmoi owns global rules and links. The direct skill entrypoint is
+`./scripts/agents/sync.ts`. See [Agent setup](../docs/agents.md) for the optional
+private rule layer and `--update` global skill refresh.
 
 ## Live Audits
 
