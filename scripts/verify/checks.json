@@ -31,6 +31,13 @@
       "output": "Claude user settings preserve unrelated keys, mode, and malformed input"
     },
     {
+      "id": "agent-rules",
+      "domain": "config",
+      "command": ["node", "--test", "scripts/verify/agent-rules.test.ts"],
+      "inputs": ["chezmoi/private_dot_agents/**", "chezmoi/private_dot_claude/symlink_CLAUDE.md", "chezmoi/private_dot_codex/**", "chezmoi/.chezmoiignore.tmpl", "scripts/bootstrap/apply-dotfiles.sh", "scripts/verify/agent-rules.test.ts"],
+      "output": "Global agent rules, local data, links, conflicts, and explicit apply behavior"
+    },
+    {
       "id": "profiles",
       "domain": "profiles",
       "command": ["scripts/verify/profiles.sh"],
@@ -105,7 +112,7 @@
       "domain": "agents",
       "command": ["node", "--test", "scripts/agents/sync.test.ts"],
       "inputs": ["scripts/agents/**", "scripts/profiles/model.ts", "chezmoi/.chezmoidata/profiles.json"],
-      "output": "Global agent rule and skill synchronization"
+      "output": "External agent skill installation and ownership"
     },
     {
       "id": "gh-extensions",

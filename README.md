@@ -67,7 +67,8 @@ troubleshooting.
 | Dotfiles | `chezmoi/` through `scripts/bootstrap/apply-dotfiles.sh` |
 | Runtimes and CLIs | `chezmoi/private_dot_config/mise/config.toml.tmpl` |
 | Git, SSH, age, and GitHub App setup | `scripts/bootstrap/`, `scripts/secrets/`, and [Identity provisioning](docs/identities.md) |
-| Global coding-agent rules and skills | `scripts/agents/` for developer profiles, with personal additions selected by profile |
+| Global coding-agent rules | `chezmoi/`, with optional private text from local chezmoi data |
+| Global coding-agent skills | `scripts/agents/`, with personal additions selected by profile |
 | Repository and host checks | `scripts/verify/` and `scripts/audit/` |
 
 Consumer repositories own project dependencies, encrypted payloads, runtime
@@ -98,7 +99,7 @@ deterministic graph. Live profile and host checks are documented in
 | Choose a per-user role | [User profiles](docs/profiles.md) |
 | Provision age, Git, SSH, or GitHub identity | [Identity provisioning](docs/identities.md) |
 | Run services on a shared host | [Devbox setup](docs/devbox.md) |
-| Sync global coding-agent rules and skills | [Agent setup](docs/agents.md) |
+| Apply global coding-agent rules or sync skills | [Agent setup](docs/agents.md) |
 | Edit chezmoi source state | [Chezmoi](docs/chezmoi.md) |
 | Use repo tasks or change runtime pins | [Mise](docs/mise.md) |
 | Understand local and CI proof | [Agent readiness](docs/agent-readiness.md) |
