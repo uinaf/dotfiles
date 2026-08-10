@@ -81,13 +81,13 @@ standalone starting point for encrypted capability-scoped repositories.
 List the verification domains and run the one that owns the change:
 
 ```zsh
-./scripts/verify/repo.sh --list
-./scripts/verify/repo.sh --domain config # example; select the owning domain
+mise run verify:domain config # example; select the owning domain
+mise run verify:fast
+mise run verify
 ```
 
-Use `mise run verify:fast` for the complete deterministic graph and `mise run
-verify` to include full-history secret scans. CI always runs the complete
-deterministic graph. Live profile and host checks are documented in
+The fast task runs the deterministic graph. The complete task also scans full
+Git history. CI always runs the deterministic graph. Live profile and host checks are documented in
 [Agent readiness](docs/agent-readiness.md) and
 [Security audits](docs/security-audits.md).
 

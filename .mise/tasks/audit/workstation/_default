@@ -1,5 +1,0 @@
-#!/usr/bin/env bash
-#MISE description="Run the live workstation drift and secret-boundary audit"
-set -euo pipefail
-
-./scripts/audit/workstation.sh

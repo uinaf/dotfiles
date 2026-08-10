@@ -1,16 +1,14 @@
 # Mise Tasks
 
-This repo uses mise in two different scopes:
+This repo uses mise in two scopes:
 
-- `.mise/tasks/` defines repo tasks for humans and agents.
-- Root `mise.toml` is the repo-level mise config and documents that task
-  entrypoints live in `.mise/tasks/`.
-- `chezmoi/private_dot_config/mise/config.toml.tmpl` defines profile runtime pins,
-  Corepack-managed pnpm setup, shared npm CLIs, and trusted generated worktree roots
-  applied into `~/.config/mise/config.toml`.
+- Root `mise.toml` defines the repository task graph.
+- `chezmoi/private_dot_config/mise/config.toml.tmpl` defines profile runtime
+  pins, shared CLIs, and trusted generated worktree roots applied to the home
+  config.
 
-Do not mix those scopes. A repo command belongs in `.mise/tasks/`; a profile
-runtime pin belongs in the chezmoi-managed home config.
+Keep task entries as single-command delegations. Parsing, validation, and
+business logic belong in lintable files under `scripts/`.
 
 Trust the repo config once per checkout before using repo tasks or installing
 runtime pins:
@@ -24,44 +22,25 @@ Without that local trust record, mise refuses to parse `mise.toml`, so
 
 ## Tasks
 
-Keep task wrappers deterministic and non-interactive:
-
-- Use explicit repo-relative commands such as `./scripts/verify/repo.sh`.
-- Add a concise `#MISE description="..."` header for every task.
-- Prefer task names users can guess: `verify`, `verify:fast`,
-  `dotfiles:diff`, `dotfiles:apply`.
-- Do not embed secrets, hostnames, personal paths, or environment-specific
-  credentials.
-- Do not replace repo scripts with long wrapper logic when a script already
-  owns the behavior.
-- Keep task files executable so mise can discover them.
-
-Nested file tasks define the visible task namespace:
-
-```text
-.mise/tasks/verify/_default        -> mise run verify
-.mise/tasks/verify/fast            -> mise run verify:fast
-.mise/tasks/audit/repo/_default    -> mise run audit:repo
-.mise/tasks/audit/repo/json        -> mise run audit:repo:json
-```
-
-Inspect tasks with:
+Inspect and validate the graph with:
 
 ```zsh
 mise trust
 mise tasks --json
+mise tasks validate
+mise tasks deps verify
 ```
 
-Run the changed task directly, then use the verification registry to select
-the owning domain:
+Use the smallest verification task that owns the change:
 
 ```zsh
-./scripts/verify/repo.sh --list
-./scripts/verify/repo.sh --domain config # example; select the owning domain
+mise run verify:domain config # focused domain
+mise run verify:fast          # complete deterministic graph
+mise run verify               # deterministic graph plus history scan
 ```
 
-`mise run verify:fast` runs the complete deterministic graph in parallel.
-`mise run verify` also runs the full-history secret scan.
+The complete task depends on `verify:fast` and the hidden history scan. Mise
+runs those independent dependencies in parallel and returns a failing status.
 
 ## Task Namespaces
 
@@ -69,29 +48,26 @@ Repository checks:
 
 ```zsh
 mise run verify
-mise run verify:repo
 mise run verify:fast
-mise run audit:repo
-mise run audit:repo:json
-mise run audit:mscp
+mise run verify:domain profiles
+mise run audit repo
+mise run audit repo --format json
+mise run audit mscp
 ```
 
 Live host checks:
 
 ```zsh
-mise run verify:bootstrap:personal-workstation
-mise run verify:bootstrap:personal-devbox
-mise run verify:bootstrap:workstation
-mise run verify:bootstrap:devbox
-mise run verify:bootstrap:assistant
-mise run verify:bootstrap:service
+mise run verify:bootstrap personal-workstation
+mise run verify:bootstrap personal-devbox
+mise run verify:bootstrap workstation
+mise run verify:bootstrap devbox
+mise run verify:bootstrap assistant
+mise run verify:bootstrap service
 mise run verify:devbox-services
-mise run audit:host
-mise run audit:host:json
-mise run audit:workstation
-mise run audit:workstation:json
-mise run audit:devbox
-mise run audit:devbox:json
+mise run audit host
+mise run audit workstation --format json
+mise run audit devbox --format json
 ```
 
 Use repo checks for ordinary PR work. Use live host checks only on a machine
@@ -100,13 +76,12 @@ Bootstrap helpers:
 
 ```zsh
 mise run agents:sync
-mise run agents:sync -- --update
+mise run agents:update
 mise run bootstrap:trust-agent-worktrees
 ```
 
-`agents:sync` refreshes developer-profile global instructions and the
-profile-selected skills described in [Agent setup](agents.md). Pass `--update` after
-`--` to also refresh every globally installed skill with `skills update -g`.
+`agents:sync` installs the profile-selected skills described in [Agent
+setup](agents.md). `agents:update` also refreshes globally installed skills.
 
 Workstation and devbox configs trust Codex and Claude generated worktree roots:
 `~/.codex/worktrees` and `~/.claude/worktrees`. The helper also refreshes trust
@@ -119,7 +94,7 @@ When changing `chezmoi/private_dot_config/mise/config.toml.tmpl`:
 
 1. Confirm which profiles should receive the pin.
 2. Keep exact versions where practical.
-3. Preview dotfile output with `mise run dotfiles:diff`.
+3. Preview dotfile output with `mise run dotfiles:diff <profile>`.
 4. Run `mise run verify`.
 
 Avoid floating runtime versions such as `latest` in profile machine config.

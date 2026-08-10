@@ -1,4 +1,78 @@
-# Repo task entrypoints live in .mise/tasks so wrappers stay executable,
-# shell-lintable, and easy to discover with `mise tasks`.
-#
-# Profile-aware machine runtime pins live in chezmoi/private_dot_config/mise/config.toml.tmpl.
+# Profile-aware runtime pins live in chezmoi/private_dot_config/mise/config.toml.tmpl.
+
+[tasks.verify]
+description = "Run the complete repository gate"
+depends = ["verify:fast", "verify:history"]
+
+[tasks."verify:fast"]
+description = "Run every deterministic repository check"
+run = "./scripts/verify/repo.sh --skip-security"
+
+[tasks."verify:history"]
+description = "Scan the full Git history for secrets"
+hide = true
+run = "./scripts/audit/repo.sh --skip-mscp"
+
+[tasks."verify:domain"]
+description = "Run one focused verification domain"
+usage = '''
+arg "<domain>" help="Verification domain" {
+  choices "agents" "audit" "config" "git" "identity" "profiles" "security" "services" "static"
+}
+'''
+run = './scripts/verify/repo.sh --domain "$usage_domain"'
+
+[tasks."verify:bootstrap"]
+description = "Verify one live profile"
+usage = '''
+arg "<profile>" help="Profile to verify" {
+  choices "personal-workstation" "personal-devbox" "workstation" "devbox" "assistant" "service"
+}
+'''
+run = './scripts/verify/bootstrap.sh --profile "$usage_profile"'
+
+[tasks."verify:devbox-services"]
+description = "Verify live devbox services"
+run = "./scripts/verify/devbox-services.sh"
+
+[tasks.audit]
+description = "Run one repository or live-host audit"
+usage = '''
+arg "<scope>" help="Audit scope" {
+  choices "repo" "mscp" "host" "personal" "workstation" "devbox"
+}
+flag "--format <format>" help="Output format" default="text" {
+  choices "text" "json"
+}
+'''
+run = 'node ./scripts/audit/run.ts "$usage_scope" "$usage_format"'
+
+[tasks."dotfiles:apply"]
+description = "Apply the repo-local chezmoi source state"
+usage = '''
+arg "<profile>" help="Profile to apply" {
+  choices "personal-workstation" "personal-devbox" "workstation" "devbox" "assistant" "service"
+}
+'''
+run = './scripts/bootstrap/apply-dotfiles.sh --profile "$usage_profile"'
+
+[tasks."dotfiles:diff"]
+description = "Preview the repo-local chezmoi source state"
+usage = '''
+arg "<profile>" help="Profile to preview" {
+  choices "personal-workstation" "personal-devbox" "workstation" "devbox" "assistant" "service"
+}
+'''
+run = './scripts/bootstrap/apply-dotfiles.sh --profile "$usage_profile" --dry-run --verbose'
+
+[tasks."agents:sync"]
+description = "Sync selected global coding-agent skills"
+run = "./scripts/agents/sync.ts"
+
+[tasks."agents:update"]
+description = "Update selected global coding-agent skills"
+run = "./scripts/agents/sync.ts --update"
+
+[tasks."bootstrap:trust-agent-worktrees"]
+description = "Trust mise configs in generated agent worktrees"
+run = "./scripts/bootstrap/trust-agent-worktrees.sh"

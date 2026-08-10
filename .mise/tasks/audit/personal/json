@@ -1,5 +1,0 @@
-#!/usr/bin/env bash
-#MISE description="Run the live personal workstation audit as JSON"
-set -euo pipefail
-
-./scripts/audit/personal.sh --json

@@ -3,6 +3,7 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 tmp_root="$(mktemp -d)"
+mise_global_config="${MISE_GLOBAL_CONFIG_FILE:-${XDG_CONFIG_HOME:-$HOME/.config}/mise/config.toml}"
 trap 'rm -rf "$tmp_root"' EXIT
 
 fail() {
@@ -48,12 +49,13 @@ personal_json="$(HOME="$HOME" SHELL=/bin/sh "$repo_root/scripts/audit/personal.s
 printf '%s\n' "$personal_json" | grep -Fq '"audit":"personal-security"' \
   || fail "personal compatibility audit name changed"
 
-personal_task_json="$(cd "$repo_root" && HOME="$HOME" SHELL=/bin/sh ./.mise/tasks/audit/personal/json 2>/dev/null || true)"
+personal_task_json="$(
+  cd "$repo_root"
+  HOME="$HOME" SHELL=/bin/sh MISE_IGNORED_CONFIG_PATHS="$mise_global_config" MISE_TRUSTED_CONFIG_PATHS="$repo_root" \
+    mise run audit personal --format json 2>/dev/null || true
+)"
 printf '%s\n' "$personal_task_json" | grep -Fq '"audit":"personal-security"' \
   || fail "personal compatibility task bypassed the personal audit wrapper"
-
-grep -Fqx './scripts/audit/personal.sh' "$repo_root/.mise/tasks/audit/personal/_default" \
-  || fail "personal default task bypassed the personal audit wrapper"
 
 command -v python3 >/dev/null 2>&1 \
   || fail "python3 required for audit contract JSON summary tests"

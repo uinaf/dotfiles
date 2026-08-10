@@ -198,11 +198,14 @@ fi
   || fail "rejected canonical config directory received managed files"
 
 task_home="$tmp_root/task-profile"
+mise_global_config="${MISE_GLOBAL_CONFIG_FILE:-${XDG_CONFIG_HOME:-$HOME/.config}/mise/config.toml}"
 mkdir -p "$task_home"
 (
   cd "$repo_root"
-  HOME="$task_home" ./.mise/tasks/dotfiles/diff --profile assistant >/dev/null
-  HOME="$task_home" ./.mise/tasks/dotfiles/apply --profile assistant >/dev/null
+  HOME="$task_home" MISE_IGNORED_CONFIG_PATHS="$mise_global_config" MISE_TRUSTED_CONFIG_PATHS="$repo_root" \
+    mise run dotfiles:diff assistant >/dev/null
+  HOME="$task_home" MISE_IGNORED_CONFIG_PATHS="$mise_global_config" MISE_TRUSTED_CONFIG_PATHS="$repo_root" \
+    mise run dotfiles:apply assistant >/dev/null
 )
 assert_eq assistant "$(sed -n '1p' "$task_home/.config/dotfiles/profile")" \
   "dotfiles task profile forwarding"
