@@ -94,6 +94,7 @@ General guidelines for agents.
 - Every non-trivial PR must include a `Review aids` section with the artifact that best explains the change
   - a focused Mermaid diagram for flows or architecture with a readable orientation
   - labeled screenshots or an existing preview/artifact link for visible UI
+  - put multiple related images or videos in a compact Markdown table with short labels; use two or three columns, place comparisons side by side, and leave a single artifact standalone
   - sanitized example input/output for behavior and contracts
 - Use before/after when comparison matters
 
