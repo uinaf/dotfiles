@@ -5,6 +5,8 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 tmp_root="$(mktemp -d)"
 mise_global_config="${MISE_GLOBAL_CONFIG_FILE:-${XDG_CONFIG_HOME:-$HOME/.config}/mise/config.toml}"
 trap 'rm -rf "$tmp_root"' EXIT
+mkdir -p "$tmp_root/tmp"
+export TMPDIR="$tmp_root/tmp"
 
 fail() {
   printf 'FAILED: %s\n' "$1" >&2
@@ -360,8 +362,6 @@ if printf '%s\n' "$secret_scan_rules_json" | grep -Eq 'BEGIN|MIIEowIBAAKCAQEA|Ma
   fail "json rule aggregates included secret material"
 fi
 
-before_scan_dirs="$(find "${TMPDIR:-/tmp}" -maxdepth 1 \( -name 'dotfiles-secret-scan.*' -o -name 'dotfiles-secret-report.*' \) 2>/dev/null | wc -l | tr -d ' ')"
-
 broken_gitleaks_bin="$tmp_root/broken-bin"
 broken_gitleaks_log="$tmp_root/broken-gitleaks.log"
 mkdir -p "$broken_gitleaks_bin"
@@ -449,8 +449,9 @@ if printf '%s\n' "$clean_output" | grep -Fq 'finding rule='; then
   fail "clean fixture emitted finding locators"
 fi
 
-after_scan_dirs="$(find "${TMPDIR:-/tmp}" -maxdepth 1 \( -name 'dotfiles-secret-scan.*' -o -name 'dotfiles-secret-report.*' \) 2>/dev/null | wc -l | tr -d ' ')"
-[ "$after_scan_dirs" -le "$before_scan_dirs" ] \
-  || fail "secret-scan temporary directories were left behind"
+if find "$TMPDIR" -maxdepth 1 \( -name 'dotfiles-secret-scan.*' -o -name 'dotfiles-secret-report.*' \) \
+  -print -quit | grep -q .; then
+  fail "secret-scan temporary directories were left behind"
+fi
 
 printf 'ok audit output privacy and recursive SSH private-key classification\n'
