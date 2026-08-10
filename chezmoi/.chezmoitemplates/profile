@@ -1,0 +1,40 @@
+{{- if not (kindIs "map" .profileModel) -}}
+{{- fail "profile model must be an object" -}}
+{{- end -}}
+{{- if ne .profileModel.version 1 -}}
+{{- fail "profile model version must be 1" -}}
+{{- end -}}
+{{- if not (kindIs "map" .profileModel.profiles) -}}
+{{- fail "profile model profiles must be an object" -}}
+{{- end -}}
+{{- range $name, $candidate := .profileModel.profiles -}}
+{{- if or (not (kindIs "map" $candidate)) (ne (len $candidate) 5) -}}
+{{- fail (printf "profile %s must contain capabilities, brewfiles, runtimeGroup, skillLayers, and installSteps" $name) -}}
+{{- end -}}
+{{- if or (not (kindIs "map" $candidate.capabilities)) (ne (len $candidate.capabilities) 9) -}}
+{{- fail (printf "profile %s capabilities have an invalid shape" $name) -}}
+{{- end -}}
+{{- range $capability := list "developer" "workload" "sharedHomebrew" "requiresSopsIdentity" "devbox" "workstation" "personal" "zed" "githubAppAuth" -}}
+{{- if or (not (hasKey $candidate.capabilities $capability)) (not (kindIs "bool" (index $candidate.capabilities $capability))) -}}
+{{- fail (printf "profile %s capability %s must be boolean" $name $capability) -}}
+{{- end -}}
+{{- end -}}
+{{- range $field := list "brewfiles" "skillLayers" "installSteps" -}}
+{{- $values := index $candidate $field -}}
+{{- if not (kindIs "slice" $values) -}}
+{{- fail (printf "profile %s field %s must be an array" $name $field) -}}
+{{- end -}}
+{{- range $value := $values -}}
+{{- if not (kindIs "string" $value) -}}
+{{- fail (printf "profile %s field %s must contain strings" $name $field) -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- if or (not (kindIs "string" $candidate.runtimeGroup)) (not (has $candidate.runtimeGroup (list "developer" "assistant" "none"))) -}}
+{{- fail (printf "profile %s runtimeGroup is invalid" $name) -}}
+{{- end -}}
+{{- end -}}
+{{- if not (hasKey .profileModel.profiles .dotfilesProfile) -}}
+{{- fail (printf "unknown dotfiles profile %s" .dotfilesProfile) -}}
+{{- end -}}
+{{- index .profileModel.profiles .dotfilesProfile | toJson -}}

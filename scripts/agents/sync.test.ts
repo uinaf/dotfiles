@@ -15,7 +15,11 @@ import { dirname, join, resolve } from "node:path";
 import { afterEach, test } from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { main, PROFILE_SKILL_LAYERS, type Profile, type Runtime } from "./sync.ts";
+import { readProfileModel } from "../profiles/model.ts";
+import { main, type Runtime } from "./sync.ts";
+
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+const profileModel = readProfileModel(join(repoRoot, "chezmoi/.chezmoidata/profiles.json"));
 
 type CommandCall = {
   command: string;
@@ -29,7 +33,7 @@ type FixtureOptions = {
   failures?: ReadonlyMap<string, FixtureFailure>;
   gitDir?: string;
   head?: string;
-  profile?: Profile;
+  profile?: string;
   removalFailures?: ReadonlyMap<string, FixtureFailure>;
   trackedChanges?: string;
   updateFailure?: FixtureFailure;
@@ -62,7 +66,7 @@ class FixtureRuntime implements Runtime {
   readonly gitDir: string;
   readonly head: string;
   readonly home: string;
-  readonly profile: Profile;
+  readonly profile: string;
   readonly repoDir: string;
   readonly removalFailures: ReadonlyMap<string, FixtureFailure>;
   readonly trackedChanges: string;
@@ -99,7 +103,7 @@ class FixtureRuntime implements Runtime {
       if (expected !== undefined && expected !== this.profile) {
         return { status: 3, stdout: "", stderr: "profile mismatch" };
       }
-      if (PROFILE_SKILL_LAYERS[this.profile] === undefined) {
+      if ((profileModel.profiles[this.profile]?.skillLayers.length ?? 0) === 0) {
         return { status: 3, stdout: "", stderr: "profile does not manage agents" };
       }
       return { status: 0, stdout: `${this.profile}\n`, stderr: "" };
@@ -853,13 +857,12 @@ test("uses the current first-party skill sources", () => {
   );
 });
 
-test("shell and TypeScript profile contracts stay aligned", () => {
-  const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+test("shell reads the canonical profile model", () => {
   const result = spawnSync(
     "bash",
     [
       "-c",
-      '. "$1/scripts/lib/profile.sh"; dotfiles_profiles; printf "%s\\n" --developers--; for profile in $DOTFILES_PROFILES; do if dotfiles_profile_is_developer "$profile"; then printf "%s\\n" "$profile"; elif [ "$?" -eq 2 ]; then exit 9; fi; done',
+      '. "$1/scripts/lib/profile.sh"; dotfiles_profiles; printf "%s\\n" --developers--; for profile in $(dotfiles_profiles); do if dotfiles_profile_is_developer "$profile"; then printf "%s\\n" "$profile"; elif [ "$?" -eq 2 ]; then exit 9; fi; done',
       "profile-contract",
       repoRoot,
     ],
@@ -867,11 +870,11 @@ test("shell and TypeScript profile contracts stay aligned", () => {
   );
   assert.equal(result.status, 0, result.stderr);
   const [profilesOutput, developersOutput] = result.stdout.split("--developers--\n");
-  assert.deepEqual(profilesOutput?.trim().split("\n").sort(), Object.keys(PROFILE_SKILL_LAYERS).sort());
+  assert.deepEqual(profilesOutput?.trim().split("\n").sort(), Object.keys(profileModel.profiles).sort());
   assert.deepEqual(
     developersOutput?.trim().split("\n").sort(),
-    Object.entries(PROFILE_SKILL_LAYERS)
-      .filter(([, layers]) => layers !== undefined)
+    Object.entries(profileModel.profiles)
+      .filter(([, profile]) => profile.capabilities.developer)
       .map(([profile]) => profile)
       .sort(),
   );

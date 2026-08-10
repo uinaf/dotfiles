@@ -358,9 +358,11 @@ install_fixture="$tmp_root/install-fixture"
 install_log="$tmp_root/install-fixture.log"
 active_node_bin="$(dirname "$(mise which node)")"
 install_fixture_path="$install_fixture/bin:$active_node_bin:$PATH"
-mkdir -p "$install_fixture/scripts/agents" "$install_fixture/scripts/bootstrap" "$install_fixture/scripts/lib" "$install_fixture/bin"
+mkdir -p "$install_fixture/scripts/agents" "$install_fixture/scripts/bootstrap" "$install_fixture/scripts/lib" \
+  "$install_fixture/chezmoi/.chezmoidata" "$install_fixture/bin"
 cp "$repo_root/scripts/bootstrap/install.sh" "$install_fixture/scripts/bootstrap/install.sh"
 cp "$repo_root/scripts/lib/profile.sh" "$install_fixture/scripts/lib/profile.sh"
+cp "$repo_root/chezmoi/.chezmoidata/profiles.json" "$install_fixture/chezmoi/.chezmoidata/profiles.json"
 for helper in apply-dotfiles.sh install-gh-app-auth.sh install-cursor-agent.sh trust-agent-worktrees.sh install-gh-extensions.sh configure-codex.sh; do
 cat > "$install_fixture/scripts/bootstrap/$helper" <<'EOF'
 #!/usr/bin/env bash

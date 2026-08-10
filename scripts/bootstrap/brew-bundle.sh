@@ -36,32 +36,13 @@ USAGE
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
-    personal-workstation|personal-devbox|workstation|devbox|assistant|service)
-      if [ -n "$profile" ]; then
+    --profile)
+      shift
+      if [ "$#" -eq 0 ] || [ -n "$profile" ]; then
         usage >&2
         exit 2
       fi
       profile="$1"
-      ;;
-    --profile)
-      shift
-      if [ "$#" -eq 0 ]; then
-        usage >&2
-        exit 2
-      fi
-      case "$1" in
-        personal-workstation|personal-devbox|workstation|devbox|assistant|service)
-          if [ -n "$profile" ]; then
-            usage >&2
-            exit 2
-          fi
-          profile="$1"
-          ;;
-        *)
-          usage >&2
-          exit 2
-          ;;
-      esac
       ;;
     --shared-only)
       if [ "$shared_only" -eq 1 ]; then
@@ -77,9 +58,16 @@ while [ "$#" -gt 0 ]; do
       usage
       exit 0
       ;;
-    *)
+    -*)
       usage >&2
       exit 2
+      ;;
+    *)
+      if [ -n "$profile" ]; then
+        usage >&2
+        exit 2
+      fi
+      profile="$1"
       ;;
   esac
   shift

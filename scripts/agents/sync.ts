@@ -18,30 +18,13 @@ import {
 import { delimiter, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { readProfileModel, type ProfileConfig, type ProfileModel, type SkillLayer } from "../profiles/model.ts";
+
 const DEFAULT_SKILLS_CLI_VERSION = "1.5.7";
 const MAX_DIAGNOSTIC_LENGTH = 600;
 const MAX_DIAGNOSTIC_LINES = 3;
 
 type Agent = "claude-code" | "codex";
-
-export type Profile =
-  | "personal-workstation"
-  | "personal-devbox"
-  | "workstation"
-  | "devbox"
-  | "assistant"
-  | "service";
-
-type SkillLayer = "shared" | "personal";
-
-export const PROFILE_SKILL_LAYERS: Record<Profile, readonly SkillLayer[] | undefined> = {
-  "personal-workstation": ["shared", "personal"],
-  "personal-devbox": ["shared", "personal"],
-  workstation: ["shared"],
-  devbox: ["shared"],
-  assistant: undefined,
-  service: undefined,
-};
 
 type Skill = {
   name: string;
@@ -268,15 +251,12 @@ function readSkills(manifestPath: string): Skill[] {
   return parsed.skills;
 }
 
-function isProfile(value: string): value is Profile {
-  return Object.hasOwn(PROFILE_SKILL_LAYERS, value);
-}
-
 function resolveProfile(
   runtime: Runtime,
   scriptDir: string,
   expectedProfile: string | undefined,
-): Profile {
+  model: ProfileModel,
+): { name: string; config: ProfileConfig } {
   const args = expectedProfile === undefined ? [] : ["--expected", expectedProfile];
   const result = runtime.run(join(scriptDir, "resolve-profile.sh"), args, {
     stdout: "capture",
@@ -288,18 +268,19 @@ function resolveProfile(
   }
 
   const profile = result.stdout.trim();
-  if (!isProfile(profile) || PROFILE_SKILL_LAYERS[profile] === undefined) {
+  const config = model.profiles[profile];
+  if (!config || config.skillLayers.length === 0) {
     throw new Error(`Profile resolver returned an unsupported agent profile: ${profile || "<empty>"}`);
   }
-  return profile;
+  return { name: profile, config };
 }
 
 function readLayeredSkills(
   repoDir: string,
-  profile: Profile,
+  profile: string,
+  layers: readonly SkillLayer[],
 ): { layers: readonly SkillLayer[]; skills: Skill[] } {
-  const layers = PROFILE_SKILL_LAYERS[profile];
-  if (layers === undefined) {
+  if (layers.length === 0) {
     throw new Error(`Profile ${profile} does not manage agent skills`);
   }
 
@@ -752,7 +733,8 @@ function finishSync(runtime: Runtime, options: SyncOptions, cliVersion: string):
 
 function sync(runtime: Runtime, options: SyncOptions): number {
   const scriptDir = dirname(fileURLToPath(import.meta.url));
-  const profile = resolveProfile(runtime, scriptDir, options.profile);
+  const model = readProfileModel(resolve(scriptDir, "../../chezmoi/.chezmoidata/profiles.json"));
+  const profile = resolveProfile(runtime, scriptDir, options.profile, model);
   const repoResult = runtime.run("git", ["-C", scriptDir, "rev-parse", "--show-toplevel"], {
     stdout: "capture",
     stderr: "capture",
@@ -780,7 +762,7 @@ function sync(runtime: Runtime, options: SyncOptions): number {
   );
   requireUpstreamHead(runtime, repoDir);
 
-  const { layers, skills } = readLayeredSkills(repoDir, profile);
+  const { layers, skills } = readLayeredSkills(repoDir, profile.name, profile.config.skillLayers);
   const skillLockPath = join(repoDir, "scripts", "agents", "skills.lock.json");
   const previouslyManagedSkills = readSkillLock(skillLockPath);
   const agentsDir = join(repoDir, "scripts", "agents");
@@ -796,7 +778,7 @@ function sync(runtime: Runtime, options: SyncOptions): number {
   const agents = configureAgents(runtime, links, finalRules);
   rmSync(previousFinalRules, { force: true });
 
-  writeLine(runtime.stdout, `Profile: ${profile}`);
+  writeLine(runtime.stdout, `Profile: ${profile.name}`);
   writeLine(runtime.stdout, `Skill layers: ${layers.join(", ")}`);
   if (agents.length === 0) {
     writeLine(runtime.stdout, "No supported agent installations found; skipping skill installation");

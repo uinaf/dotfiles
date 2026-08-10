@@ -7,18 +7,13 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { readProfileModel } from "../profiles/model.ts";
+
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const sourceDir = resolve(repoRoot, "chezmoi");
-export const profiles = [
-  "personal-workstation",
-  "personal-devbox",
-  "workstation",
-  "devbox",
-  "assistant",
-  "service",
-] as const;
+export const profiles = Object.keys(readProfileModel(join(sourceDir, ".chezmoidata/profiles.json")).profiles);
 
-export function runApply(profile: (typeof profiles)[number], fixtureRoot: string): Promise<void> {
+export function runApply(profile: string, fixtureRoot: string): Promise<void> {
   const paths = {
     home: join(fixtureRoot, "home"),
     config: join(fixtureRoot, "xdg/config"),

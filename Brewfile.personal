@@ -1,9 +1,18 @@
 # Personal additions shared by personal-workstation and personal-devbox.
 
+require "json"
+
 personal_profile = ENV.fetch("HOMEBREW_BUNDLE_DOTFILES_PROFILE")
-unless %w[personal-workstation personal-devbox].include?(personal_profile)
+profile_model = JSON.parse(File.read(File.join(__dir__, "chezmoi/.chezmoidata/profiles.json"))).fetch("profileModel")
+raise "unsupported profile model version" unless profile_model.fetch("version") == 1
+
+profile_config = profile_model.fetch("profiles").fetch(personal_profile)
+capabilities = profile_config.fetch("capabilities")
+unless capabilities.fetch("personal") == true
   raise "Brewfile.personal requires a personal-workstation or personal-devbox profile"
 end
+zed_enabled = capabilities.fetch("zed")
+raise "profile zed capability must be boolean" unless [true, false].include?(zed_enabled)
 
 # Taps
 tap "openclaw/tap"
@@ -15,7 +24,7 @@ brew "openclaw/tap/crabbox"
 brew "openclaw/tap/gitcrawl"
 brew "mole"
 
-if personal_profile == "personal-workstation"
+if zed_enabled
   # App Store automation
   brew "mas"
 
