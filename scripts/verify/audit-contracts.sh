@@ -283,17 +283,18 @@ mkdir -p "$secret_fixture"
 } >"$secret_fixture/id_ed25519"
 chmod 600 "$secret_fixture/id_rsa" "$secret_fixture/id_ed25519"
 
-failed_stage_before="$(find "${TMPDIR:-/tmp}" -maxdepth 1 \( -name 'dotfiles-secret-scan.*' -o -name 'dotfiles-secret-report.*' \) 2>/dev/null | wc -l | tr -d ' ')"
+failed_stage_tmp="$tmp_root/failed-stage-tmp"
+mkdir -p "$failed_stage_tmp"
 (
   mkdir() {
     return 1
   }
   fail_count=0
-  scan_files_for_secrets < <(printf '%s\n' "$secret_fixture/id_rsa") >/dev/null 2>&1
+  TMPDIR="$failed_stage_tmp" \
+    scan_files_for_secrets < <(printf '%s\n' "$secret_fixture/id_rsa") >/dev/null 2>&1
   [ "$fail_count" -eq 1 ] || fail "staging failure was not reported"
 )
-failed_stage_after="$(find "${TMPDIR:-/tmp}" -maxdepth 1 \( -name 'dotfiles-secret-scan.*' -o -name 'dotfiles-secret-report.*' \) 2>/dev/null | wc -l | tr -d ' ')"
-[ "$failed_stage_after" -le "$failed_stage_before" ] \
+[ -z "$(find "$failed_stage_tmp" -mindepth 1 -print -quit)" ] \
   || fail "failed secret-scan staging left temporary directories behind"
 
 prose_log="$tmp_root/prose-secret-scan.log"
