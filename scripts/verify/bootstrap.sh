@@ -165,37 +165,6 @@ run_zsh_check() {
   zsh -lic "$command" || fail "$command"
 }
 
-check_exact_version() {
-  local label="$1"
-  local expected="$2"
-  local command="$3"
-  local actual
-
-  section "$label version"
-  actual="$(zsh -lic "$command")" || fail "$label version"
-  printf '%s\n' "$actual"
-  if [ "$actual" != "$expected" ]; then
-    fail "$label version is $actual; expected $expected"
-  fi
-}
-
-check_default_pnpm_version() {
-  local expected="$1"
-  local actual
-
-  section "pnpm version"
-  actual="$(
-    probe_dir="$(mktemp -d)"
-    trap 'rmdir "$probe_dir"' EXIT
-    cd "$probe_dir"
-    zsh -lic 'pnpm --version'
-  )" || fail "pnpm version"
-  printf '%s\n' "$actual"
-  if [ "$actual" != "$expected" ]; then
-    fail "pnpm version is $actual; expected $expected"
-  fi
-}
-
 check_mise_tool_owner() {
   local label="$1"
   local command="$2"
@@ -217,6 +186,7 @@ check_mise_tool_owner() {
 }
 
 check_runtime_versions() {
+  local missing
   local node_root
   local npm_prefix
   local npm_global_root
@@ -226,16 +196,20 @@ check_runtime_versions() {
     return
   fi
 
-  check_exact_version "Node" "v24.18.0" "node --version"
+  section "mise runtime convergence"
+  missing="$(zsh -lic 'mise ls --current --missing --no-header')" || fail "mise runtime convergence"
+  [ -z "$missing" ] || fail "mise still reports missing configured tools: $missing"
+
+  run_zsh_check "node --version"
   check_mise_tool_owner "Node" "node" "node"
 
   if ! dotfiles_profile_is_developer "$profile"; then
     return
   fi
 
-  check_default_pnpm_version "11.20.0"
-  check_exact_version "npm" "12.0.2" "npm --version"
-  check_exact_version "Playwright CLI" "0.1.17" "playwright-cli --version"
+  run_zsh_check "pnpm --version"
+  run_zsh_check "npm --version"
+  run_zsh_check "playwright-cli --version"
   check_mise_tool_owner "pnpm" "pnpm" "node"
   check_mise_tool_owner "npm" "npm" "node"
   check_mise_tool_owner "Playwright CLI" "playwright-cli" "npm:@playwright/cli"

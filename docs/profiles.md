@@ -107,9 +107,7 @@ Then run the per-user setup as the target Unix user:
 
 ```zsh
 profile=workstation
-./scripts/bootstrap/apply-dotfiles.sh --profile "$profile"
 mise trust
-mise install
 ./scripts/bootstrap/install.sh --profile "$profile"
 # Optional until this machine decrypts vault or other SOPS material:
 # ./scripts/secrets/configure-sops-age-identity.sh

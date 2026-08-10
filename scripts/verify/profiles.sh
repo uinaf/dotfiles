@@ -349,11 +349,11 @@ for file in Brewfile Brewfile.developer Brewfile.workstation Brewfile.devbox Bre
 done
 
 assistant_steps="$("$repo_root/scripts/bootstrap/install.sh" --print-steps --profile assistant)"
-assert_eq "$(printf 'apply-dotfiles\ninstall-gh-app-auth')" "$assistant_steps" "assistant install steps"
+assert_eq "$(printf 'apply-dotfiles\ninstall-runtimes\ninstall-gh-app-auth')" "$assistant_steps" "assistant install steps"
 service_steps="$("$repo_root/scripts/bootstrap/install.sh" --print-steps --profile service)"
 assert_eq "apply-dotfiles" "$service_steps" "service install steps"
 developer_steps="$("$repo_root/scripts/bootstrap/install.sh" --print-steps --profile workstation)"
-for step in apply-dotfiles install-cursor-agent trust-agent-worktrees install-gh-extensions remove-global-vite-plus install-pnpm configure-codex sync-agents; do
+for step in apply-dotfiles install-runtimes install-cursor-agent trust-agent-worktrees install-gh-extensions configure-codex sync-agents; do
   printf '%s\n' "$developer_steps" | grep -Fqx "$step" || fail "workstation install missed $step"
 done
 devbox_steps="$("$repo_root/scripts/bootstrap/install.sh" --print-steps --profile devbox)"
@@ -365,8 +365,7 @@ assert_eq "$developer_steps" "$personal_workstation_steps" "personal workstation
 
 install_fixture="$tmp_root/install-fixture"
 install_log="$tmp_root/install-fixture.log"
-active_node_bin="$(dirname "$(mise which node)")"
-install_fixture_path="$install_fixture/bin:$active_node_bin:$PATH"
+install_fixture_path="$install_fixture/bin:$PATH"
 mkdir -p "$install_fixture/scripts/agents" "$install_fixture/scripts/bootstrap" "$install_fixture/scripts/lib" \
   "$install_fixture/chezmoi/.chezmoidata" "$install_fixture/bin"
 cp "$repo_root/scripts/bootstrap/install.sh" "$install_fixture/scripts/bootstrap/install.sh"
@@ -392,7 +391,7 @@ printf 'sync.ts' >> "${DOTFILES_INSTALL_LOG:?}"
 printf '\n' >> "${DOTFILES_INSTALL_LOG:?}"
 EOF
 chmod 0700 "$install_fixture/scripts/agents/sync.ts"
-for command_name in corepack mise npm codex; do
+for command_name in mise npm codex; do
 cat > "$install_fixture/bin/$command_name" <<'EOF'
 #!/usr/bin/env bash
 printf '%s' "$(basename "$0")" >> "${DOTFILES_INSTALL_LOG:?}"
@@ -400,18 +399,24 @@ printf '%s' "$(basename "$0")" >> "${DOTFILES_INSTALL_LOG:?}"
 printf '\n' >> "${DOTFILES_INSTALL_LOG:?}"
 if [ "$(basename "$0")" = npm ] && [ -n "${npm_config_prefix:-}" ]; then
   printf 'npm_config_prefix %s\n' "$npm_config_prefix" >> "${DOTFILES_INSTALL_LOG:?}"
+  rm -f "$npm_config_prefix/lib/node_modules/vite-plus/package.json"
 fi
 if [ "$(basename "$0")" = mise ]; then
   case "$*" in
-    "ls npm:vite-plus --installed --json")
+    "ls npm:vite-plus --installed --no-header")
       if [ "${DOTFILES_INSTALL_VITE_PLUS_INSTALLED:-1}" = 1 ]; then
-        printf '[{"installed": true}]\n'
-      else
-        printf '[]\n'
+        printf 'npm:vite-plus  0.0.0\n'
       fi
       ;;
-    "ls node --installed --json")
-      printf '[{"install_path":"%s"}]\n' "${DOTFILES_INSTALL_NODE_ROOT:?}"
+    "ls node --installed --no-header")
+      [ -z "${DOTFILES_INSTALL_OLD_NODE_ROOT:-}" ] || printf 'node  24.14.0\n'
+      [ -z "${DOTFILES_INSTALL_NODE_ROOT:-}" ] || printf 'node  24.18.0\n'
+      ;;
+    "where node@24.14.0")
+      printf '%s\n' "${DOTFILES_INSTALL_OLD_NODE_ROOT:?}"
+      ;;
+    "where node@24.18.0")
+      printf '%s\n' "${DOTFILES_INSTALL_NODE_ROOT:?}"
       ;;
   esac
 fi
@@ -424,7 +429,7 @@ PATH="$install_fixture_path" \
 DOTFILES_INSTALL_LOG="$install_log" \
 HOME="$tmp_root/install-assistant-home" \
   "$install_fixture/scripts/bootstrap/install.sh" --profile assistant
-assert_eq "$(printf 'apply-dotfiles.sh --profile assistant\ninstall-gh-app-auth.sh')" "$(cat "$install_log")" \
+assert_eq "$(printf 'apply-dotfiles.sh --profile assistant\nmise install\ninstall-gh-app-auth.sh')" "$(cat "$install_log")" \
   "assistant install execution"
 
 : > "$install_log"
@@ -438,29 +443,37 @@ assert_eq "apply-dotfiles.sh --profile service" "$(cat "$install_log")" \
 : > "$install_log"
 install_devbox_home="$tmp_root/install-devbox-home"
 install_node_root="$install_fixture/node-root"
+install_old_node_root="$install_fixture/old-node-root"
 mkdir -p "$install_devbox_home/.vite-plus"
 mkdir -p "$install_node_root/bin" "$install_node_root/lib/node_modules/vite-plus"
+mkdir -p "$install_old_node_root/bin" "$install_old_node_root/lib/node_modules/vite-plus"
 touch "$install_devbox_home/.vite-plus/project-cache"
 touch "$install_node_root/lib/node_modules/vite-plus/package.json"
+touch "$install_old_node_root/lib/node_modules/vite-plus/package.json"
 cp "$install_fixture/bin/npm" "$install_node_root/bin/npm"
+cp "$install_fixture/bin/npm" "$install_old_node_root/bin/npm"
 PATH="$install_fixture_path" \
 DOTFILES_INSTALL_LOG="$install_log" \
 DOTFILES_INSTALL_NODE_ROOT="$install_node_root" \
+DOTFILES_INSTALL_OLD_NODE_ROOT="$install_old_node_root" \
 HOME="$install_devbox_home" \
   "$install_fixture/scripts/bootstrap/install.sh" --profile devbox
 expected_install_log="$(cat <<EOF
 apply-dotfiles.sh --profile devbox
-install-cursor-agent.sh
-trust-agent-worktrees.sh
-install-gh-extensions.sh
-mise ls npm:vite-plus --installed --json
+mise install
+mise ls npm:vite-plus --installed --no-header
 mise uninstall --all --yes npm:vite-plus
-mise ls node --installed --json
+mise ls node --installed --no-header
+mise where node@24.14.0
+npm uninstall --global vite-plus
+npm_config_prefix $install_old_node_root
+mise where node@24.18.0
 npm uninstall --global vite-plus
 npm_config_prefix $install_node_root
 mise reshim --force
-corepack enable pnpm
-corepack install --global pnpm@11.20.0
+install-cursor-agent.sh
+trust-agent-worktrees.sh
+install-gh-extensions.sh
 configure-codex.sh
 sync.ts --profile devbox
 EOF
@@ -474,13 +487,28 @@ DOTFILES_INSTALL_NODE_ROOT="$install_node_root" \
 DOTFILES_INSTALL_VITE_PLUS_INSTALLED=0 \
 HOME="$install_devbox_home" \
   "$install_fixture/scripts/bootstrap/install.sh" --profile devbox
-grep -Fqx 'mise ls npm:vite-plus --installed --json' "$install_log" \
+grep -Fqx 'mise ls npm:vite-plus --installed --no-header' "$install_log" \
   || fail "devbox install did not inspect the mise Vite+ installation"
 if grep -Fqx 'mise uninstall --all --yes npm:vite-plus' "$install_log"; then
   fail "devbox install asked mise to uninstall an absent Vite+ installation"
 fi
+if grep -Fq 'npm uninstall --global vite-plus' "$install_log"; then
+  fail "second devbox install repeated retired npm package cleanup"
+fi
 [ -f "$install_devbox_home/.vite-plus/project-cache" ] \
   || fail "devbox install removed repository-local Vite+ cache"
+
+: > "$install_log"
+PATH="$install_fixture_path" \
+DOTFILES_INSTALL_LOG="$install_log" \
+DOTFILES_INSTALL_VITE_PLUS_INSTALLED=0 \
+HOME="$install_devbox_home" \
+  "$install_fixture/scripts/bootstrap/install.sh" --profile devbox
+grep -Fqx 'mise ls node --installed --no-header' "$install_log" \
+  || fail "devbox install did not handle zero installed Node versions"
+if grep -Eq '^mise where node@|^npm uninstall' "$install_log"; then
+  fail "zero-version cleanup attempted a Node package operation"
+fi
 
 : > "$install_log"
 printf 'caller-input\n' | \
@@ -489,7 +517,7 @@ printf 'caller-input\n' | \
   DOTFILES_INSTALL_READ_STDIN=apply-dotfiles.sh \
   HOME="$tmp_root/install-stdin-home" \
     "$install_fixture/scripts/bootstrap/install.sh" --profile assistant
-assert_eq "$(printf 'apply-dotfiles.sh --profile assistant\nstdin caller-input\ninstall-gh-app-auth.sh')" \
+assert_eq "$(printf 'apply-dotfiles.sh --profile assistant\nstdin caller-input\nmise install\ninstall-gh-app-auth.sh')" \
   "$(cat "$install_log")" \
   "install step caller stdin"
 
@@ -526,7 +554,7 @@ for rejected in 'node =' 'python =' 'uv =' 'bun =' 'java =' 'go =' 'playwright' 
 done
 
 workstation_mise="$(render_target workstation .config/mise/config.toml)"
-for expected in 'bun = "1.3.10"' 'java = "temurin-21"' 'go = "1.26.2"' 'trusted_config_paths'; do
+for expected in 'node = { version = "24.18.0"' 'npm@12.0.2' 'pnpm@11.20.0' 'bun = "1.3.10"' 'java = "temurin-21"' 'go = "1.26.2"' '"npm:@playwright/cli" = "0.1.17"' 'trusted_config_paths'; do
   printf '%s\n' "$workstation_mise" | grep -Fq "$expected" || fail "workstation mise config missed $expected"
 done
 for rejected in 'pnpm@12.0.0-beta.2' 'npm:vite-plus'; do

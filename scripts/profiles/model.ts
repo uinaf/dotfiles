@@ -88,6 +88,9 @@ function readProfile(name: string, value: unknown): ProfileConfig {
   if (brewfiles[0] !== "Brewfile" || installSteps[0] !== "apply-dotfiles") {
     throw new Error(`profile ${name} must start with the shared Brewfile and apply-dotfiles step`);
   }
+  if (installSteps.includes("install-runtimes") !== (value.runtimeGroup !== "none")) {
+    throw new Error(`profile ${name} runtime group and install steps disagree`);
+  }
 
   if (capabilities.developer !== (value.runtimeGroup === "developer") || capabilities.developer !== (layers.length > 0)) {
     throw new Error(`profile ${name} developer capability, runtime group, and skill layers disagree`);

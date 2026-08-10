@@ -67,7 +67,7 @@ cd ~/projects/dotfiles
 ```
 
 The selected Homebrew profile installs mise. Trust this checkout after the
-bundle step and before `mise install`, `mise tasks`, or `mise run ...`.
+bundle step and before `mise tasks` or `mise run ...`.
 
 ## Gitless First Fetch
 
@@ -183,9 +183,7 @@ Apply dotfiles and configure local state:
 
 ```zsh
 profile=workstation # use personal-workstation for the personal layers
-./scripts/bootstrap/apply-dotfiles.sh --profile "$profile"
 mise trust
-mise install
 ./scripts/bootstrap/install.sh --profile "$profile"
 # Optional for workstation/personal-workstation; required for secret-consuming profiles:
 # ./scripts/secrets/configure-sops-age-identity.sh
@@ -194,15 +192,13 @@ mise install
 ./scripts/bootstrap/configure-spotlight.sh
 ```
 
-The first dotfile apply installs the profile's mise config so Node is available
-before `install.sh` runs the typed agent sync. The full installer reapplies the
-same source state, then configures the remaining developer integrations.
+The installer applies the profile's dotfiles, installs its mise runtimes, then
+configures the remaining integrations.
 
 The developer mise config pins Node, enables the stable Corepack-managed pnpm
 default, and installs exact shared npm and Playwright CLI versions. Vite+ stays
-repository-local. `install.sh` also removes the retired global Vite+ package
-while preserving the `~/.vite-plus` cache used by repository-local installs;
-`mise install` remains required for a fresh runtime or CLI version change.
+repository-local. `install.sh` calls mise once, removes the retired global
+Vite+ package, and preserves the `~/.vite-plus` cache used by repositories.
 
 The dotfile step applies the repo-local chezmoi source state from `chezmoi/`.
 Preview it with `./scripts/bootstrap/apply-dotfiles.sh --profile "$profile" --dry-run --verbose`
@@ -283,21 +279,17 @@ self-updates from `~/.local/bin`.
 Apply dotfiles:
 
 ```zsh
-./scripts/bootstrap/apply-dotfiles.sh --profile "$profile"
 mise trust
-mise install
 ./scripts/bootstrap/install.sh --profile "$profile"
 ./scripts/secrets/configure-sops-age-identity.sh
 ./scripts/bootstrap/configure-power.sh --profile "$profile"
 ./scripts/bootstrap/configure-spotlight.sh
 ```
 
-The first dotfile apply makes the developer runtime pins available before the
-typed agent sync runs. The developer mise config pins Node, enables the stable Corepack-managed pnpm
-default, and installs exact shared npm and Playwright CLI versions. Vite+ stays
-repository-local. `install.sh` removes the retired global Vite+ package and
-preserves the `~/.vite-plus` cache used by local Vite+ projects, then refreshes machine-global agent
-instructions and skills. `mise install` installs missing runtimes and CLIs.
+The installer applies the developer runtime pins before typed agent sync. Mise
+installs Node, the stable Corepack-managed pnpm default, and exact shared npm
+and Playwright CLI versions. Vite+ stays repository-local; the installer
+removes retired global copies without removing repository caches.
 
 The power step keeps plugged-in devboxes awake for agents, remote access, and
 always-on dashboards. It leaves battery settings untouched and prompts for sudo
@@ -346,9 +338,7 @@ Run the user-local setup as the assistant identity:
 ```zsh
 git clone https://github.com/uinaf/dotfiles.git ~/.local/src/dotfiles
 cd ~/.local/src/dotfiles
-./scripts/bootstrap/apply-dotfiles.sh --profile assistant
 mise trust
-mise install
 ./scripts/bootstrap/install.sh --profile assistant
 ./scripts/secrets/configure-sops-age-identity.sh
 GIT_USER_NAME='Workload Name' \
@@ -418,9 +408,7 @@ cd ~/projects/dotfiles
 git pull --ff-only
 profile=workstation # use personal-workstation for the personal layers
 ./scripts/bootstrap/brew-bundle.sh "$profile"
-./scripts/bootstrap/apply-dotfiles.sh --profile "$profile"
 mise trust
-mise install
 ./scripts/bootstrap/install.sh --profile "$profile"
 # Optional for workstation/personal-workstation; required for personal-devbox/devbox/assistant/service:
 ./scripts/secrets/configure-sops-age-identity.sh

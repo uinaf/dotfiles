@@ -59,9 +59,7 @@ Preview first, then apply:
 ```sh
 role=workstation
 ./scripts/bootstrap/apply-dotfiles.sh --profile "$role" --dry-run --verbose
-./scripts/bootstrap/apply-dotfiles.sh --profile "$role"
 mise trust
-mise install
 ./scripts/bootstrap/install.sh --profile "$role"
 ```
 

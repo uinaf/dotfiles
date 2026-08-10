@@ -105,17 +105,16 @@ repository-owned version source. The Node postinstall pins npm itself to
 12.0.2, while Playwright CLI is an exact `npm:` backend entry. Vite+ stays
 repository-local and is invoked through the owning package manager.
 
-`scripts/bootstrap/install.sh` enables Corepack, installs the stable pnpm
-default, removes the retired Vite+ package from both the mise npm backend and
-every installed mise Node version, preserves the user-level `~/.vite-plus`
-cache used by repository-local installs, and force-rebuilds mise shims so
-retired commands are pruned. A
-fresh Node install gets the same pnpm state from the Node postinstall hook.
+`scripts/bootstrap/install.sh` calls `mise install` once for every profile with
+a runtime group. Mise owns the Node postinstall that pins npm and the stable
+pnpm default. For developer profiles, the installer then removes retired Vite+
+packages from the mise npm backend and installed Node versions, preserves the
+user-level `~/.vite-plus` cache, and rebuilds mise shims.
 The assistant profile intentionally contains only Node. The service profile
 declares no language runtime. Additional runtimes belong to the workload that
 requires them.
-`scripts/verify/bootstrap.sh` checks the commands and versions required by the
-selected profile. Its `mise doctor` PATH-ordering probes run through a clean
+`scripts/verify/bootstrap.sh` checks that rendered mise tools converged and
+that their commands resolve from mise. Its `mise doctor` PATH-ordering probes run through a clean
 login/interactive zsh that does not inherit an already-activated caller mise
 session or PATH, so a healthy workstation is not rejected only because the
 verifier itself started inside mise. Login probes (`-lic`) still rebuild PATH
