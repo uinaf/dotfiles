@@ -56,6 +56,8 @@ test("gitleaks data exposes only safe locators and aggregate counts", () => {
       "empty\tunknown",
     ]);
     assert.deepEqual(mergeRuleCounts('{"private-key":2}', report), { empty: 1, "private-key": 3, relative: 1, token: 1 });
+    assert.throws(() => mergeRuleCounts('{"private-key":-1}', report), /invalid count/);
+    assert.throws(() => mergeRuleCounts(`{"private-key":${Number.MAX_SAFE_INTEGER + 1}}`, report), /invalid count/);
     const missingRoot = join(root, "missing");
     writeFileSync(report, JSON.stringify([{ RuleID: "token", File: join(missingRoot, "home/token") }]));
     assert.deepEqual(findingLocators(missingRoot, report), ["token\thome/token"]);

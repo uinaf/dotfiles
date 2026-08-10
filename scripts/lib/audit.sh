@@ -438,6 +438,7 @@ scan_files_for_secrets() {
   gitleaks dir \
     --follow-symlinks \
     --redact \
+    --exit-code 183 \
     --no-banner \
     --log-level error \
     --report-format json \
@@ -446,17 +447,20 @@ scan_files_for_secrets() {
   chmod 600 "$report_path" 2>/dev/null || true
 
   if [ "$have_audit_data" -eq 1 ]; then
-    if ! secret_scan_rules_json="$(
+    local next_rules_json
+    local next_finding_count
+    if ! next_rules_json="$(
       merge_secret_scan_rule_counts "$(secret_scan_rules_json_or_empty_object)" "$report_path"
     )"; then
       have_audit_data=0
       warn "audit data tooling failed while summarizing gitleaks findings; falling back to status-only reporting"
-    elif ! finding_count="$(count_gitleaks_findings "$report_path")" \
-      || ! [[ "$finding_count" =~ ^[0-9]+$ ]]; then
+    elif ! next_finding_count="$(count_gitleaks_findings "$report_path")" \
+      || ! [[ "$next_finding_count" =~ ^[0-9]+$ ]]; then
       have_audit_data=0
-      finding_count=0
       warn "audit data tooling failed while counting gitleaks findings; falling back to status-only reporting"
     else
+      secret_scan_rules_json="$next_rules_json"
+      finding_count="$next_finding_count"
       secret_scan_finding_count=$((secret_scan_finding_count + finding_count))
     fi
   fi
@@ -476,10 +480,10 @@ scan_files_for_secrets() {
       fail_check "gitleaks local config scan failed"
     fi
   else
-    # Without the typed data tool, status is the only signal: 1 = findings, >1 = tool error.
+    # Without the typed data tool, status is the only signal: 183 = findings, other nonzero = tool error.
     if [ "$gitleaks_status" -eq 0 ]; then
       ok "gitleaks found no leaks in $linked_count local config files"
-    elif [ "$gitleaks_status" -eq 1 ]; then
+    elif [ "$gitleaks_status" -eq 183 ]; then
       fail_check "gitleaks reported possible leaks in local config files"
     else
       fail_check "gitleaks local config scan failed"

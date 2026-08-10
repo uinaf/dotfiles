@@ -89,8 +89,10 @@ export function mergeRuleCounts(existingJson: string, reportPath: string): RuleC
   const counts: RuleCounts = {};
   if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
     for (const [key, value] of Object.entries(parsed)) {
-      if (!Number.isInteger(value)) throw new Error(`invalid count for ${key}`);
-      counts[key] = value as number;
+      if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) {
+        throw new Error(`invalid count for ${key}`);
+      }
+      counts[key] = value;
     }
   }
   for (const finding of readFindings(reportPath)) {

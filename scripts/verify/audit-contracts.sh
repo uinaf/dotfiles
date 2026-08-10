@@ -253,17 +253,17 @@ if grep -n 'trap cleanup_secret_scan_tmp' "$repo_root/scripts/lib/audit.sh" \
 fi
 grep -Fq 'gitleaks local config scan failed' "$repo_root/scripts/lib/audit.sh" \
   || fail "status-only gitleaks fallback must distinguish tool failures from leaks"
-# Status 1 (findings) and >1 (error) must be separate branches in the fallback.
+# Status 183 (findings) and other nonzero statuses must be separate branches in the fallback.
 awk '
   /have_audit_data/ { in_fallback = 0 }
   /else$/ { maybe = 1; next }
   maybe && /gitleaks_status/ { in_fallback = 1; maybe = 0 }
   !maybe { maybe = 0 }
-  in_fallback && /gitleaks_status" -eq 1/ { found_leaks = 1 }
+  in_fallback && /gitleaks_status" -eq 183/ { found_leaks = 1 }
   in_fallback && /local config scan failed/ { found_fail = 1 }
   END { exit (found_leaks && found_fail) ? 0 : 1 }
 ' "$repo_root/scripts/lib/audit.sh" \
-  || fail "status-only gitleaks fallback must treat status 1 as leaks and >1 as scan failure"
+  || fail "status-only gitleaks fallback must treat status 183 as leaks and other nonzero statuses as scan failure"
 
 if ! command -v gitleaks >/dev/null 2>&1 \
   || ! command -v trufflehog >/dev/null 2>&1; then
@@ -324,6 +324,24 @@ fi
 [ "$secret_scan_finding_count" -ge 1 ] || fail "finding count was not recorded"
 printf '%s\n' "$secret_scan_rules_json" | grep -Fq '"private-key"' \
   || fail "rule aggregates omitted private-key"
+
+(
+  count_gitleaks_findings() {
+    return 1
+  }
+  json_output=0
+  warn_count=0
+  fail_count=0
+  secret_scan_count=0
+  secret_scan_finding_count=7
+  secret_scan_rules_json='{"existing":3}'
+  HOME="$secret_fixture" \
+    scan_files_for_secrets < <(printf '%s\n' "$secret_fixture/id_rsa") >/dev/null 2>&1 || true
+  [ "$secret_scan_finding_count" -eq 7 ] \
+    || fail "failed finding count partially updated the aggregate total"
+  [ "$secret_scan_rules_json" = '{"existing":3}' ] \
+    || fail "failed finding count partially updated the aggregate rules"
+)
 
 json_output=1
 warn_count=0
