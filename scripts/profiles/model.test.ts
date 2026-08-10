@@ -83,6 +83,44 @@ test("TypeScript rejects malformed, unsupported, missing, and wrong-type data", 
   assert.throws(() => requireProfile(model, "constructor"), /unknown profile/);
 });
 
+test("Brewfile composes workstation and Zed capabilities independently", () => {
+  const root = mkdtempSync(join(tmpdir(), "dotfiles-profile-brewfile-"));
+  const fixtureModelPath = join(root, "chezmoi/.chezmoidata/profiles.json");
+  const listCasks = (profile: string): string[] => {
+    const result = spawnSync("brew", ["bundle", "list", "--cask", "--file", join(root, "Brewfile.personal")], {
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        HOMEBREW_BUNDLE_DOTFILES_PROFILE: profile,
+        HOMEBREW_NO_AUTO_UPDATE: "1",
+      },
+    });
+    assert.equal(result.status, 0, result.stderr);
+    return result.stdout.trim().split("\n").filter(Boolean);
+  };
+
+  try {
+    mkdirSync(dirname(fixtureModelPath), { recursive: true });
+    writeFileSync(join(root, "Brewfile.personal"), readFileSync(join(repoRoot, "Brewfile.personal")));
+    const model = rawModel();
+    const personalDevbox = model.profileModel.profiles["personal-devbox"]?.capabilities as Record<string, unknown>;
+    personalDevbox.workstation = false;
+    personalDevbox.zed = true;
+    writeFileSync(fixtureModelPath, JSON.stringify(model));
+    assert.deepEqual(listCasks("personal-devbox"), ["zed"]);
+
+    const personalWorkstation = model.profileModel.profiles["personal-workstation"]?.capabilities as Record<string, unknown>;
+    personalWorkstation.workstation = true;
+    personalWorkstation.zed = false;
+    writeFileSync(fixtureModelPath, JSON.stringify(model));
+    const workstationCasks = listCasks("personal-workstation");
+    assert.equal(workstationCasks.includes("zed"), false);
+    assert.equal(workstationCasks.includes("cleanshot"), true);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("shell queries typed values and rejects invalid boundaries", () => {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-profile-shell-"));
   const fixturePath = join(root, "chezmoi/.chezmoidata/profiles.json");

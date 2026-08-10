@@ -47,9 +47,12 @@ if workstation_enabled
   # Agent tools
   cask "codexbar"
   cask "grok-build"
+end
 
-  # Design and work apps
-  cask "zed" if zed_enabled
+# Design and work apps
+cask "zed" if zed_enabled
+
+if workstation_enabled
   cask "cleanshot"
   cask "tuna"
 
