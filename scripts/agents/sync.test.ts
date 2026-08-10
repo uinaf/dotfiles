@@ -829,6 +829,7 @@ test("uses the current first-party skill sources", () => {
     ["attach-cli", "uinaf/attach"],
     ["autoreview", "uinaf/autoreview"],
     ["docs", "uinaf/skills"],
+    ["effect-ts", "Effect-TS/skills"],
     ["i-have-adhd", "ayghri/i-have-adhd"],
     ["gh-setup", "uinaf/skills"],
     ["gh-stack", "github/gh-stack"],
