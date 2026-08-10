@@ -39,9 +39,9 @@ Run locally before committing security-sensitive setup changes:
 ```
 
 That command runs the repository secret scan through
-`./scripts/audit/repo.sh --skip-mscp` after the normal shell, workflow, and
-diff checks. Run `./scripts/audit/repo.sh --skip-mscp` directly when you
-only need the secret scanners.
+`./scripts/audit/repo.sh --skip-mscp` after the complete deterministic graph.
+Run `./scripts/audit/repo.sh --skip-mscp` directly when you only need the
+secret scanners.
 
 For agent or dashboard consumption, add `--json`:
 

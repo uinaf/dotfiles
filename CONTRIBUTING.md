@@ -24,12 +24,16 @@ that does not yet have Homebrew, Git, or GitHub CLI.
 
 ## Verify
 
-Use the fast gate while editing and the full gate before committing:
+List the domains and run the focused check that owns the change:
 
 ```zsh
-./scripts/verify/repo.sh --skip-security
-./scripts/verify/repo.sh
+./scripts/verify/repo.sh --list
+./scripts/verify/repo.sh --domain config # example; select the owning domain
 ```
+
+`./scripts/verify/repo.sh --skip-security` runs every deterministic check in
+parallel. The same complete graph runs in CI. Run `./scripts/verify/repo.sh`
+when the local full-history secret scan is useful.
 
 Live bootstrap checks inspect the active home directory. Run them only when
 the current machine should satisfy that profile.
