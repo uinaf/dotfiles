@@ -71,17 +71,15 @@ check_launchd_daemons() {
     fail "invalid DOTFILES_LAUNCHD_NAMESPACE or stored namespace"
   fi
 
-  for plist in \
-    "/Library/LaunchDaemons/$namespace.colima.$devbox_user.plist" \
-    "/Library/LaunchDaemons/com.uinaf.colima.$devbox_user.plist"; do
-    [ -e "$plist" ] || continue
+  plist="/Library/LaunchDaemons/$namespace.colima.$devbox_user.plist"
+  if [ -e "$plist" ]; then
     found=1
     label="$(basename "$plist" .plist)"
     [ "$(stat -f '%Su:%Sg:%Lp' "$plist")" = "root:wheel:644" ] \
       || fail "$label plist must be root:wheel mode 0644"
     launchctl print "system/$label" >/dev/null 2>&1 || fail "$label is not loaded"
     printf 'ok %s loaded\n' "$label"
-  done
+  fi
 
   [ "$found" -eq 1 ] || printf 'ok no managed Colima system daemons on this machine\n'
 }

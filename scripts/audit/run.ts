@@ -4,14 +4,14 @@ import { spawnSync } from "node:child_process";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-export type AuditScope = "repo" | "mscp" | "host" | "personal" | "workstation" | "devbox";
+export type AuditScope = "repo" | "mscp" | "host" | "workstation" | "devbox";
 export type AuditFormat = "text" | "json";
 
 type Result = { error?: Error; status: number | null };
 type Runner = (command: string, args: string[]) => Result;
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
-const scopes = new Set<AuditScope>(["repo", "mscp", "host", "personal", "workstation", "devbox"]);
+const scopes = new Set<AuditScope>(["repo", "mscp", "host", "workstation", "devbox"]);
 const formats = new Set<AuditFormat>(["text", "json"]);
 
 export function auditCommand(scope: AuditScope, format: AuditFormat): [string, string[]] {
@@ -40,7 +40,7 @@ function defaultRunner(command: string, args: string[]): Result {
 function main(args: string[]): number {
   const [scope, format] = args;
   if (args.length !== 2 || !scopes.has(scope as AuditScope) || !formats.has(format as AuditFormat)) {
-    process.stderr.write("Usage: scripts/audit/run.ts <repo|mscp|host|personal|workstation|devbox> <text|json>\n");
+    process.stderr.write("Usage: scripts/audit/run.ts <repo|mscp|host|workstation|devbox> <text|json>\n");
     return 2;
   }
   return runAudit(scope as AuditScope, format as AuditFormat);

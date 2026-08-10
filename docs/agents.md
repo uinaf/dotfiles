@@ -17,8 +17,8 @@ Chezmoi owns the shared rules and both agent entrypoints:
 Preview and apply rule changes with the normal dotfile commands:
 
 ```zsh
-mise run dotfiles:diff workstation
-mise run dotfiles:apply workstation
+./dotfiles diff workstation
+./dotfiles apply workstation
 ```
 
 The links point to `../.agents/AGENTS.md`. They do not depend on a repository
@@ -44,10 +44,6 @@ The value is appended under `## Local Overrides`. An absent or blank value adds
 nothing. Preview before applying. Keep the local config and its contents out of
 Git.
 
-Older `scripts/agents/rules/local.md` and generated `final.md` files are no
-longer read. Move any still-needed local text into `agentRulesPrivate`, preview
-the result, and apply it once.
-
 ## Skill Sync
 
 Run the profile-owned skill sync from any checkout:
@@ -69,9 +65,7 @@ from every agent configured by the skills CLI.
 
 When the lock is missing, sync installs the current manifest and initializes
 ownership without removing anything. With no supported agent and no lock, it
-skips installation and ownership initialization. Before migrating a machine
-that predates ownership tracking, seed the lock only with entries confirmed to
-have been installed by the former manifest sync.
+skips installation and ownership initialization.
 
 Pass `--update` to run `skills update -g` after manifest sync. That refreshes all
 global skills, including extras the lock never owned. Manifest failures skip the
@@ -85,7 +79,8 @@ live in `scripts/agents/skills/shared.json`; personal additions live in
 ## Verify
 
 ```zsh
-./scripts/verify/repo.sh --domain config --domain agents
+mise run verify:domain config
+mise run verify:domain agents
 ```
 
 Rule fixtures cover clean and repeated applies, local data present and absent,

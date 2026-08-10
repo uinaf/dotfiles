@@ -195,25 +195,3 @@ version, record, field, and value types before setting a formula or cask skip
 list. Unknown entries, duplicates, failed commands, signature mismatches,
 unsafe permissions, and unreadable files fail closed. Delimiters, whitespace,
 and Unicode are normal plist string content.
-
-The former `external-homebrew` pipe format is not read. Convert each line into
-one typed dictionary, save the result as `external-homebrew.plist`, run
-`plutil -lint ~/.config/dotfiles/external-homebrew.plist`, then remove or archive
-the old file. If only the old file exists, bootstrap stops with this migration
-instruction.
-
-## Migrate an Existing User
-
-For an installation that still uses the former owner-specific layout, follow
-[Migrating to role profiles](migrating-to-role-profiles.md) before applying a
-new role.
-
-The former `personal` profile is not accepted. Existing personal machines must
-run the package, dotfile, install, Git, and verification steps again with
-`profile=personal-workstation`. A managed or portable machine can keep
-`profile=workstation`.
-
-To convert an owner-operated devbox, apply `personal-devbox` through the
-Homebrew, dotfile, install, Git, and verification commands above. This adds the
-headless personal tool and skill layers while retaining the devbox identity, service,
-power, and audit contracts.

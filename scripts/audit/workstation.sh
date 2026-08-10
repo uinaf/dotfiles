@@ -154,7 +154,7 @@ else
 fi
 
 if [ "$json_output" -eq 1 ]; then
-  print_audit_json_summary "${DOTFILES_AUDIT_NAME:-workstation-security}"
+  print_audit_json_summary workstation-security
 else
   printf '\nworkstation security audit summary: %s failed, %s warnings\n' "$fail_count" "$warn_count"
 fi

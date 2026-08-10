@@ -117,6 +117,5 @@ Keep `scripts/bootstrap/apply-dotfiles.sh` non-interactive and preserve:
 
 - `--dry-run` and `--verbose`.
 - Backups for pre-existing local files before `--force apply`.
-- Cleanup of obsolete old `home/` symlinks.
-- `./scripts/verify/repo.sh --domain config --domain profiles` when wrapper
-  behavior changes.
+- `mise run verify:domain config` and `mise run verify:domain profiles` when
+  wrapper behavior changes.

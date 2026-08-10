@@ -251,16 +251,6 @@ new_config "$external_file"
 add_bundle "$external_file" google-chrome "$symlinked_app" com.example.ManagedBrowser MANAGEDTEAM
 assert_rejected "symlinked bundle" "$external_file"
 
-legacy_home="$tmp_dir/legacy-home"
-mkdir -p "$legacy_home/.config/dotfiles"
-printf 'brew|git|command|%s|--version\n' "$managed_tool" >"$legacy_home/.config/dotfiles/external-homebrew"
-chmod 600 "$legacy_home/.config/dotfiles/external-homebrew"
-legacy_error="$tmp_dir/legacy-error"
-if HOME="$legacy_home" dotfiles_homebrew_configure_external_capabilities "$repo_root" workstation 2>"$legacy_error"; then
-  fail "legacy pipe-delimited file was accepted"
-fi
-grep -Fq 'migrate it to' "$legacy_error" || fail "legacy format failure did not explain migration"
-
 if HOMEBREW_BUNDLE_BREW_SKIP=git DOTFILES_EXTERNAL_HOMEBREW_FILE="$tmp_dir/missing" \
   dotfiles_homebrew_configure_external_capabilities "$repo_root" workstation >/dev/null 2>&1; then
   fail "ambient Homebrew Bundle skip was accepted without validation"

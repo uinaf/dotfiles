@@ -74,6 +74,6 @@ test("focused verification preserves the delegated failure code", () => {
 test("audit routing is explicit and preserves failures", () => {
   assert.deepEqual(auditCommand("repo", "json")[1], ["--skip-mscp", "--json"]);
   assert.deepEqual(auditCommand("mscp", "text")[1], []);
-  assert.match(auditCommand("personal", "text")[0], /scripts\/audit\/personal\.sh$/);
+  assert.match(auditCommand("workstation", "text")[0], /scripts\/audit\/workstation\.sh$/);
   assert.equal(runAudit("host", "text", () => ({ status: 29 })), 29);
 });

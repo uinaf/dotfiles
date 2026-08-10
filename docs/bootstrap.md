@@ -198,8 +198,7 @@ configures the remaining integrations.
 
 The developer mise config pins Node, enables the stable Corepack-managed pnpm
 default, and installs exact shared npm and Playwright CLI versions. Vite+ stays
-repository-local. `install.sh` calls mise once, removes the retired global
-Vite+ package, and preserves the `~/.vite-plus` cache used by repositories.
+repository-local.
 
 The dotfile step applies the repo-local chezmoi source state from `chezmoi/`.
 Preview the whole per-user flow with `./dotfiles diff "$profile"`. The power
@@ -290,8 +289,7 @@ mise trust
 
 The installer applies the developer runtime pins before typed agent sync. Mise
 installs Node, the stable Corepack-managed pnpm default, and exact shared npm
-and Playwright CLI versions. Vite+ stays repository-local; the installer
-removes retired global copies without removing repository caches.
+and Playwright CLI versions. Vite+ stays repository-local.
 
 The power step keeps plugged-in devboxes awake for agents, remote access, and
 always-on dashboards. It leaves battery settings untouched and prompts for sudo
@@ -362,9 +360,8 @@ workload repository owns additional runtimes, providers, channels, and service
 definitions.
 
 Bootstrap verification checks the managed Git base, `gh-app-auth` dispatch,
-and workload identity. During a legacy migration, audit unrelated credentials
-and developer state separately, then run
-`./scripts/verify/assistant-git-boundary.sh`.
+and workload identity. Run `./scripts/verify/assistant-git-boundary.sh` for the
+standalone workload boundary check.
 
 When an assistant runs OpenClaw as a system LaunchDaemon, install the explicit
 restart capability with `--allow-openclaw-restart` as documented in
@@ -424,9 +421,6 @@ mise trust
 Use the target Unix user's `personal-devbox`, `devbox`, `assistant`, or
 `service` role instead when appropriate, and keep the age-identity step for
 those profiles.
-Existing personal machines whose stored marker is `workstation` should set
-`profile=personal-workstation` once to adopt the personal layers. Machines with
-the retired `personal` marker must also replace it explicitly.
 
 ## React Native
 
