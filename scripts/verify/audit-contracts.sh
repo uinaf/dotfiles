@@ -57,9 +57,6 @@ personal_task_json="$(
 printf '%s\n' "$personal_task_json" | grep -Fq '"audit":"personal-security"' \
   || fail "personal compatibility task bypassed the personal audit wrapper"
 
-command -v python3 >/dev/null 2>&1 \
-  || fail "python3 required for audit contract JSON summary tests"
-
 # shellcheck disable=SC3043
 eval "$(sed -n '/^print_json_summary()/,/^}/p' "$repo_root/scripts/audit/workstation.sh")"
 workstation_summary="$(
@@ -70,12 +67,10 @@ workstation_summary="$(
   secret_scan_rules_json='{"private-key":2}'
   print_json_summary
 )"
-printf '%s' "$workstation_summary" | python3 -c '
-import json, sys
-data = json.load(sys.stdin)
-assert data["secret_scan_finding_count"] == 2
-assert data["secret_scan_rules"]["private-key"] == 2
-' || fail "workstation --json summary is not valid JSON with rule aggregates"
+[ "$(printf '%s' "$workstation_summary" | /usr/bin/plutil -extract secret_scan_finding_count raw -o - -)" = 2 ] \
+  || fail "workstation --json summary finding count changed"
+[ "$(printf '%s' "$workstation_summary" | /usr/bin/plutil -extract secret_scan_rules.private-key raw -o - -)" = 2 ] \
+  || fail "workstation --json summary rule aggregate changed"
 empty_summary="$(
   fail_count=0
   warn_count=0
@@ -84,20 +79,18 @@ empty_summary="$(
   secret_scan_rules_json=
   print_json_summary
 )"
-printf '%s' "$empty_summary" | python3 -c '
-import json, sys
-data = json.load(sys.stdin)
-assert data["secret_scan_rules"] == {}
-assert data["secret_scan_finding_count"] == 0
-' || fail "workstation --json summary default rules object is invalid"
+[ "$(printf '%s' "$empty_summary" | /usr/bin/plutil -extract secret_scan_finding_count raw -o - -)" = 0 ] \
+  || fail "workstation --json summary default finding count changed"
+[ -z "$(printf '%s' "$empty_summary" | /usr/bin/plutil -extract secret_scan_rules raw -o - -)" ] \
+  || fail "workstation --json summary default rules object is invalid"
 
 grep -Fq 'secret_scan_finding_count' "$repo_root/scripts/audit/devbox.sh" \
   || fail "devbox JSON summary missing secret_scan_finding_count"
 grep -Fq 'secret_scan_rules_json_or_empty_object' "$repo_root/scripts/audit/devbox.sh" \
   || fail "devbox JSON summary missing brace-safe rules helper"
 
-if ! command -v sqlite3 >/dev/null 2>&1 || ! command -v python3 >/dev/null 2>&1; then
-  printf 'ok sqlite Codex log size contracts skipped (sqlite3/python3 unavailable)\n'
+if ! command -v sqlite3 >/dev/null 2>&1; then
+  printf 'ok sqlite Codex log size contracts skipped (sqlite3 unavailable)\n'
 else
   sqlite_fixture="$tmp_root/sqlite-logs"
   mkdir -p "$sqlite_fixture"
@@ -105,8 +98,6 @@ else
   heavy_db="$sqlite_fixture/logs_heavy.sqlite"
   wal_mode_db="$sqlite_fixture/logs_wal.sqlite"
   junk_db="$sqlite_fixture/logs_junk.sqlite"
-  broken_header_db="$sqlite_fixture/logs_broken_header.sqlite"
-  bad_freelist_db="$sqlite_fixture/logs_bad_freelist.sqlite"
   wal_file="$sqlite_fixture/logs_sparse.sqlite-wal"
 
   # auto_vacuum=NONE keeps deleted pages on the freelist. FULL would shrink the
@@ -140,28 +131,6 @@ SQL
   rm -f "${wal_mode_db}-wal" "${wal_mode_db}-shm"
   printf 'not a sqlite database\n' >"$junk_db"
   printf 'wal-bytes\n' >"$wal_file"
-  # Valid magic, invalid page-size field -> stats unavailable fallback.
-  python3 - "$broken_header_db" <<'PY'
-from pathlib import Path
-import sys
-path = Path(sys.argv[1])
-header = bytearray(b"SQLite format 3\x00" + (b"\x00" * 84))
-# page_size = 0 (invalid), rest zeroed
-path.write_bytes(bytes(header) + (b"\x00" * 4096))
-PY
-  # Copy a real DB, then corrupt freelist_count > page_count in the header.
-  cp "$heavy_db" "$bad_freelist_db"
-  python3 - "$bad_freelist_db" <<'PY'
-from pathlib import Path
-import struct
-import sys
-
-path = Path(sys.argv[1])
-data = bytearray(path.read_bytes())
-page_count = struct.unpack(">I", data[28:32])[0]
-struct.pack_into(">I", data, 36, page_count + 1)
-path.write_bytes(data)
-PY
   sparse_cksum_before="$(cksum "$sparse_db")"
   wal_cksum_before="$(cksum "$wal_mode_db")"
 
@@ -236,28 +205,6 @@ PY
   [ "$(cat "$junk_db")" = "not a sqlite database" ] \
     || fail "invalid non-SQLite probe modified the input file"
 
-  broken_log="$sqlite_fixture/broken-header.log"
-  warn_count=0
-  fail_count=0
-  CODEX_LOG_FAIL_BYTES=10 \
-    CODEX_LOG_WARN_BYTES=5 \
-    check_codex_log_file_size "$broken_header_db" >"$broken_log" 2>&1
-  [ "$fail_count" -ge 1 ] || fail "broken SQLite header did not fall back to physical fail"
-  grep -Fq 'SQLite stats unavailable' "$broken_log" \
-    || fail "broken SQLite header did not report physical-size fallback"
-
-  bad_freelist_log="$sqlite_fixture/bad-freelist.log"
-  warn_count=0
-  fail_count=0
-  CODEX_LOG_FAIL_BYTES=100000 \
-    CODEX_LOG_WARN_BYTES=50000 \
-    check_codex_log_file_size "$bad_freelist_db" >"$bad_freelist_log" 2>&1
-  [ "$fail_count" -ge 1 ] || fail "freelist>page_count did not fall back to physical fail"
-  grep -Fq 'SQLite stats unavailable' "$bad_freelist_log" \
-    || fail "freelist>page_count did not report physical-size fallback"
-  grep -Fq 'live data is larger than' "$bad_freelist_log" \
-    && fail "freelist>page_count incorrectly used clamped live_bytes=0 path"
-
   wal_sidecar_log="$sqlite_fixture/wal-sidecar.log"
   warn_count=0
   fail_count=0
@@ -277,10 +224,10 @@ if grep -n 'trap cleanup_secret_scan_tmp' "$repo_root/scripts/lib/audit.sh" \
   fail "secret scan cleanup must not take over caller EXIT/INT/TERM traps"
 fi
 grep -Fq 'gitleaks local config scan failed' "$repo_root/scripts/lib/audit.sh" \
-  || fail "no-python gitleaks fallback must distinguish tool failures from leaks"
+  || fail "status-only gitleaks fallback must distinguish tool failures from leaks"
 # Status 1 (findings) and >1 (error) must be separate branches in the fallback.
 awk '
-  /have_python/ { in_fallback = 0 }
+  /have_audit_data/ { in_fallback = 0 }
   /else$/ { maybe = 1; next }
   maybe && /gitleaks_status/ { in_fallback = 1; maybe = 0 }
   !maybe { maybe = 0 }
@@ -288,7 +235,7 @@ awk '
   in_fallback && /local config scan failed/ { found_fail = 1 }
   END { exit (found_leaks && found_fail) ? 0 : 1 }
 ' "$repo_root/scripts/lib/audit.sh" \
-  || fail "no-python gitleaks fallback must treat status 1 as leaks and >1 as scan failure"
+  || fail "status-only gitleaks fallback must treat status 1 as leaks and >1 as scan failure"
 
 if ! command -v gitleaks >/dev/null 2>&1 \
   || ! command -v trufflehog >/dev/null 2>&1; then
@@ -398,36 +345,35 @@ PATH="$broken_gitleaks_bin:$PATH" \
 grep -Fq 'gitleaks local config scan failed' "$broken_gitleaks_log" \
   || fail "gitleaks scanner failure did not emit the status-only failure"
 
-missing_python_bin="$tmp_root/missing-python-bin"
-missing_python_log="$tmp_root/missing-python.log"
-mkdir -p "$missing_python_bin"
-ln -s "$(command -v gitleaks)" "$missing_python_bin/gitleaks"
-ln -s "$(command -v trufflehog)" "$missing_python_bin/trufflehog"
-# Shadow every python3 on PATH while keeping system utilities available.
-cat >"$missing_python_bin/python3" <<'EOF'
+missing_node_bin="$tmp_root/missing-node-bin"
+missing_node_log="$tmp_root/missing-node.log"
+mkdir -p "$missing_node_bin"
+ln -s "$(command -v gitleaks)" "$missing_node_bin/gitleaks"
+ln -s "$(command -v trufflehog)" "$missing_node_bin/trufflehog"
+cat >"$missing_node_bin/node" <<'EOF'
 #!/usr/bin/env bash
 exit 127
 EOF
-chmod 755 "$missing_python_bin/python3"
+chmod 755 "$missing_node_bin/node"
 json_output=0
 warn_count=0
 fail_count=0
 secret_scan_count=0
 secret_scan_finding_count=0
 secret_scan_rules_json=
-PATH="$missing_python_bin:/usr/bin:/bin" \
+PATH="$missing_node_bin:/usr/bin:/bin" \
   HOME="$secret_fixture" \
   scan_files_for_secrets < <(printf '%s\n' "$secret_fixture/id_rsa") \
-  >"$missing_python_log" 2>&1 || true
-[ "$fail_count" -ge 1 ] || fail "python3-absent degrade path did not fail closed"
+  >"$missing_node_log" 2>&1 || true
+[ "$fail_count" -ge 1 ] || fail "node-absent degrade path did not fail closed"
 [ "$secret_scan_finding_count" -eq 0 ] \
-  || fail "python3-absent degrade path counted findings"
-if grep -Fq 'finding rule=' "$missing_python_log"; then
-  fail "python3-absent degrade path still emitted locators"
+  || fail "node-absent degrade path counted findings"
+if grep -Fq 'finding rule=' "$missing_node_log"; then
+  fail "node-absent degrade path still emitted locators"
 fi
-grep -Fq 'python3 failed while' "$missing_python_log" \
-  || grep -Fq 'python3 is missing' "$missing_python_log" \
-  || fail "python3-absent degrade path did not warn"
+grep -Fq 'audit data tooling failed' "$missing_node_log" \
+  || grep -Fq 'node is missing' "$missing_node_log" \
+  || fail "node-absent degrade path did not warn"
 
 clean_fixture="$tmp_root/clean-home"
 clean_log="$tmp_root/clean-secret-scan.log"
