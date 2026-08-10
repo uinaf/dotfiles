@@ -53,6 +53,7 @@ function run(command: string, args: string[], label: string): void {
 }
 
 const shellFiles = [
+  resolve(repoRoot, "dotfiles"),
   ...filesBelow(resolve(repoRoot, "scripts"), (path) => path.endsWith(".sh")),
   agentlessSigner,
 ];

@@ -108,10 +108,11 @@ Then run the per-user setup as the target Unix user:
 ```zsh
 profile=workstation
 mise trust
-./scripts/bootstrap/install.sh --profile "$profile"
+./dotfiles diff "$profile"
+./dotfiles apply "$profile"
 # Optional until this machine decrypts vault or other SOPS material:
 # ./scripts/secrets/configure-sops-age-identity.sh
-./scripts/verify/bootstrap.sh --profile "$profile"
+./dotfiles check "$profile"
 ```
 
 Use `profile=personal-workstation` for the personal workstation composition or

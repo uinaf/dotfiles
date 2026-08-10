@@ -5,7 +5,7 @@
       "id": "static",
       "domain": "static",
       "command": ["node", "scripts/verify/static.ts"],
-      "inputs": ["scripts/**", "mise.toml", ".github/workflows/**", "chezmoi/private_dot_local/private_libexec/private_dotfiles/private_executable_git-ssh-sign-agentless", "chezmoi/private_Library/private_Application Support/com.mitchellh.ghostty/private_config", "AGENTS.md", "CLAUDE.md"],
+      "inputs": ["dotfiles", "scripts/**", "mise.toml", ".github/workflows/**", "chezmoi/private_dot_local/private_libexec/private_dotfiles/private_executable_git-ssh-sign-agentless", "chezmoi/private_Library/private_Application Support/com.mitchellh.ghostty/private_config", "AGENTS.md", "CLAUDE.md"],
       "output": "Syntax, lint, workflow, entrypoint, and Git diff hygiene"
     },
     {
@@ -48,8 +48,15 @@
       "id": "profiles",
       "domain": "profiles",
       "command": ["scripts/verify/profiles.sh"],
-      "inputs": ["Brewfile*", "chezmoi/**", "scripts/bootstrap/**", "scripts/lib/profile.sh"],
+      "inputs": ["Brewfile*", "dotfiles", "chezmoi/**", "scripts/bootstrap/**", "scripts/lib/profile.sh"],
       "output": "Profile package, install, and managed-path contracts"
+    },
+    {
+      "id": "operator-command",
+      "domain": "profiles",
+      "command": ["node", "--test", "scripts/verify/dotfiles.test.ts"],
+      "inputs": ["dotfiles", "chezmoi/.chezmoidata/profiles.json", "scripts/lib/profile.sh", "scripts/verify/dotfiles.test.ts"],
+      "output": "Validated operator routing for every profile"
     },
     {
       "id": "profile-model",

@@ -40,13 +40,14 @@ cd ~/projects/dotfiles
 
 ./scripts/bootstrap/brew-bundle.sh workstation
 mise trust
-./scripts/bootstrap/install.sh --profile workstation
+./dotfiles diff workstation
+./dotfiles apply workstation
 # Optional until this machine decrypts vault or other SOPS material:
 # ./scripts/secrets/configure-sops-age-identity.sh
 ./scripts/bootstrap/configure-git.sh --profile workstation
 ./scripts/bootstrap/configure-power.sh --profile workstation
 ./scripts/bootstrap/configure-spotlight.sh
-./scripts/verify/bootstrap.sh --profile workstation
+./dotfiles check workstation
 ```
 
 When you do provision an age identity for live ciphertext, register and verify
@@ -62,7 +63,7 @@ troubleshooting.
 | Surface | Source of truth |
 | --- | --- |
 | Packages | `Brewfile`, `Brewfile.developer`, and `Brewfile.<profile>` |
-| Dotfiles | `chezmoi/` through `scripts/bootstrap/apply-dotfiles.sh` |
+| Per-user convergence | `./dotfiles`, backed by `chezmoi/`, mise, and profile install steps |
 | Runtimes and CLIs | `chezmoi/private_dot_config/mise/config.toml.tmpl` |
 | Git, SSH, age, and GitHub App setup | `scripts/bootstrap/`, `scripts/secrets/`, and [Identity provisioning](docs/identities.md) |
 | Global coding-agent rules | `chezmoi/`, with optional private text from local chezmoi data |

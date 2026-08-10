@@ -1,5 +1,8 @@
 # Mise Tasks
 
+Mise is the contributor interface for repository tasks. Operators use
+`./dotfiles diff|apply|check <profile>` for per-user convergence.
+
 This repo uses mise in two scopes:
 
 - Root `mise.toml` defines the repository task graph.
