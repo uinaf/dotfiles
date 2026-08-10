@@ -11,7 +11,9 @@ capabilities = profile_config.fetch("capabilities")
 unless capabilities.fetch("personal") == true
   raise "Brewfile.personal requires a personal-workstation or personal-devbox profile"
 end
+workstation_enabled = capabilities.fetch("workstation")
 zed_enabled = capabilities.fetch("zed")
+raise "profile workstation capability must be boolean" unless [true, false].include?(workstation_enabled)
 raise "profile zed capability must be boolean" unless [true, false].include?(zed_enabled)
 
 # Taps
@@ -24,7 +26,7 @@ brew "openclaw/tap/crabbox"
 brew "openclaw/tap/gitcrawl"
 brew "mole"
 
-if zed_enabled
+if workstation_enabled
   # App Store automation
   brew "mas"
 
@@ -47,7 +49,7 @@ if zed_enabled
   cask "grok-build"
 
   # Design and work apps
-  cask "zed"
+  cask "zed" if zed_enabled
   cask "cleanshot"
   cask "tuna"
 

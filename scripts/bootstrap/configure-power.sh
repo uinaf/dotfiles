@@ -2,6 +2,7 @@
 set -euo pipefail
 
 profile="personal-workstation"
+profile_set=0
 check_only=0
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
@@ -30,7 +31,12 @@ while [ "$#" -gt 0 ]; do
         usage >&2
         exit 2
       fi
+      if [ "$profile_set" -eq 1 ]; then
+        usage >&2
+        exit 2
+      fi
       profile="$1"
+      profile_set=1
       ;;
     --check)
       check_only=1
@@ -44,7 +50,12 @@ while [ "$#" -gt 0 ]; do
       exit 2
       ;;
     *)
+      if [ "$profile_set" -eq 1 ]; then
+        usage >&2
+        exit 2
+      fi
       profile="$1"
+      profile_set=1
       ;;
   esac
   shift

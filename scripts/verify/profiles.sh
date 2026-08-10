@@ -64,6 +64,12 @@ fi
 if dotfiles_normalize_profile personal >/dev/null 2>&1; then
   fail "retired personal profile was accepted"
 fi
+if "$repo_root/scripts/bootstrap/configure-power.sh" workstation devbox >/dev/null 2>&1; then
+  fail "configure-power accepted duplicate profile arguments"
+fi
+if "$repo_root/scripts/verify/bootstrap.sh" workstation devbox >/dev/null 2>&1; then
+  fail "bootstrap verification accepted duplicate profile arguments"
+fi
 
 for supported_profile in $(dotfiles_profiles); do
   for predicate in \

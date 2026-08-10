@@ -80,6 +80,7 @@ test("TypeScript rejects malformed, unsupported, missing, and wrong-type data", 
 
   const model = readProfileModel(modelPath);
   assert.throws(() => requireProfile(model, "unknown"), /unknown profile/);
+  assert.throws(() => requireProfile(model, "constructor"), /unknown profile/);
 });
 
 test("shell queries typed values and rejects invalid boundaries", () => {

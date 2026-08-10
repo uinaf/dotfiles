@@ -2,6 +2,7 @@
 set -euo pipefail
 
 profile=""
+profile_set=0
 desktop_baseline=0
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 ghostty_config="$HOME/Library/Application Support/com.mitchellh.ghostty/config"
@@ -32,7 +33,12 @@ while [ "$#" -gt 0 ]; do
         usage >&2
         exit 2
       fi
+      if [ "$profile_set" -eq 1 ]; then
+        usage >&2
+        exit 2
+      fi
       profile="$1"
+      profile_set=1
       ;;
     --desktop)
       desktop_baseline=1
@@ -46,7 +52,12 @@ while [ "$#" -gt 0 ]; do
       exit 2
       ;;
     *)
+      if [ "$profile_set" -eq 1 ]; then
+        usage >&2
+        exit 2
+      fi
       profile="$1"
+      profile_set=1
       ;;
   esac
   shift

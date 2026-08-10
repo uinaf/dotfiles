@@ -136,9 +136,8 @@ export function readProfileModel(path: string): ProfileModel {
 }
 
 export function requireProfile(model: ProfileModel, name: string): ProfileConfig {
-  const profile = model.profiles[name];
-  if (!profile) {
+  if (!Object.hasOwn(model.profiles, name)) {
     throw new Error(`unknown profile ${name || "<empty>"}`);
   }
-  return profile;
+  return model.profiles[name];
 }

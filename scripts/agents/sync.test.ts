@@ -34,6 +34,7 @@ type FixtureOptions = {
   gitDir?: string;
   head?: string;
   profile?: string;
+  profileModelAfterPull?: string;
   removalFailures?: ReadonlyMap<string, FixtureFailure>;
   trackedChanges?: string;
   updateFailure?: FixtureFailure;
@@ -67,6 +68,7 @@ class FixtureRuntime implements Runtime {
   readonly head: string;
   readonly home: string;
   readonly profile: string;
+  readonly profileModelAfterPull: string | undefined;
   readonly repoDir: string;
   readonly removalFailures: ReadonlyMap<string, FixtureFailure>;
   readonly trackedChanges: string;
@@ -84,6 +86,7 @@ class FixtureRuntime implements Runtime {
     this.head = options.head ?? "same-head";
     this.home = home;
     this.profile = options.profile ?? "workstation";
+    this.profileModelAfterPull = options.profileModelAfterPull;
     this.trackedChanges = options.trackedChanges ?? "";
     this.updateFailure = options.updateFailure;
     this.upstream = options.upstream ?? this.head;
@@ -134,6 +137,12 @@ class FixtureRuntime implements Runtime {
       return { status: 0, stdout: this.trackedChanges, stderr: "" };
     }
     if (command === "git" && args.includes("pull")) {
+      if (this.profileModelAfterPull !== undefined) {
+        writeFileSync(
+          join(this.repoDir, "chezmoi", ".chezmoidata", "profiles.json"),
+          this.profileModelAfterPull,
+        );
+      }
       return { status: 0, stdout: "", stderr: "" };
     }
     if (command === "pnpm" && args[0] === "dlx" && args[2] === "add") {
@@ -206,7 +215,12 @@ function createFixture(): { repoDir: string; home: string } {
 
   mkdirSync(join(repoDir, "scripts", "agents", "rules"), { recursive: true });
   mkdirSync(join(repoDir, "scripts", "agents", "skills"), { recursive: true });
+  mkdirSync(join(repoDir, "chezmoi", ".chezmoidata"), { recursive: true });
   mkdirSync(home, { recursive: true });
+  writeFileSync(
+    join(repoDir, "chezmoi", ".chezmoidata", "profiles.json"),
+    readFileSync(join(repoRoot, "chezmoi", ".chezmoidata", "profiles.json")),
+  );
   writeFileSync(join(repoDir, "scripts", "agents", "rules", "base.md"), "# Fixture agent rules\n");
   writeFileSync(
     join(repoDir, "scripts", "agents", "skills", "shared.json"),
@@ -407,6 +421,17 @@ test("completes a successful sync and preserves rules links", () => {
   const finalRules = join(repoDir, "scripts", "agents", "rules", "final.md");
   assert.equal(readlinkSync(join(home, ".claude", "CLAUDE.md")), finalRules);
   assert.equal(readlinkSync(join(home, ".codex", "AGENTS.md")), finalRules);
+});
+
+test("reads profile skill layers after pulling the repository", () => {
+  const { repoDir, home } = createFixture();
+  const modelPath = join(repoDir, "chezmoi", ".chezmoidata", "profiles.json");
+  const refreshedModel = readFileSync(modelPath, "utf8");
+  writeFileSync(modelPath, '{"profileModel":');
+  const runtime = new FixtureRuntime(repoDir, home, { profileModelAfterPull: refreshedModel });
+
+  assert.equal(main([], runtime), 0);
+  assert.deepEqual(installedSkillNames(runtime), fixtureSkills.map((skill) => skill.name));
 });
 
 test("installs the personal layer only for personal profiles", () => {
