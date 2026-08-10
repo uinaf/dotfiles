@@ -2,7 +2,7 @@
 
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -119,6 +119,21 @@ async function verifyModeAndIdempotence(root: string): Promise<void> {
   assert.equal(statSync(path, { bigint: true }).mtimeNs, firstMtime);
 }
 
+async function verifyExcludedProfile(root: string, profile: "assistant" | "service", contents?: string): Promise<void> {
+  const fixtureRoot = join(root, profile);
+  if (contents !== undefined) {
+    writeSettings(fixtureRoot, contents, 0o644);
+  }
+  await runApply(profile, fixtureRoot);
+  const path = settingsPath(fixtureRoot);
+  if (contents === undefined) {
+    assert.equal(existsSync(path), false);
+  } else {
+    assert.equal(readFileSync(path, "utf8"), contents);
+    assert.equal(Number(statSync(path, { bigint: true }).mode & 0o777n), 0o644);
+  }
+}
+
 async function main(): Promise<void> {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-claude-settings-"));
   try {
@@ -127,6 +142,8 @@ async function main(): Promise<void> {
       verifyMissingFile(root),
       verifyMalformedFile(root),
       verifyModeAndIdempotence(root),
+      verifyExcludedProfile(root, "assistant", '{"env":{"KEEP":"yes"}}\n'),
+      verifyExcludedProfile(root, "service"),
     ]);
     const failure = results.find((result) => result.status === "rejected");
     if (failure?.status === "rejected") {
