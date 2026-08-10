@@ -116,6 +116,9 @@ section "service labels"
 section "audit contracts"
 ./scripts/verify/audit-contracts.sh
 
+section "repository audit contracts"
+node --test scripts/verify/repo-audit.test.ts
+
 section "vendor-neutral interfaces"
 ./scripts/verify/vendor-neutral.sh
 
