@@ -58,9 +58,9 @@ Preview first, then apply:
 
 ```sh
 role=workstation
-./scripts/bootstrap/apply-dotfiles.sh --profile "$role" --dry-run --verbose
 mise trust
-./scripts/bootstrap/install.sh --profile "$role"
+./dotfiles diff "$role"
+./dotfiles apply "$role"
 ```
 
 For `workstation`, `personal-workstation`, `personal-devbox`, and `devbox`, remove the former marker-delimited GitHub block
@@ -113,7 +113,7 @@ Run the role contract and the relevant host audit:
 
 ```sh
 role=workstation
-./scripts/verify/bootstrap.sh --profile "$role"
+./dotfiles check "$role"
 ./scripts/audit/host.sh
 ```
 

@@ -30,14 +30,16 @@ task graph; reusable behavior stays here.
 ```zsh
 profile=workstation
 ./scripts/bootstrap/brew-bundle.sh "$profile"
-./scripts/bootstrap/apply-dotfiles.sh --profile "$profile"
 mise trust
-mise install
-./scripts/bootstrap/install.sh --profile "$profile"
+./dotfiles diff "$profile"
+./dotfiles apply "$profile"
 ./scripts/secrets/configure-sops-age-identity.sh
 ./scripts/bootstrap/configure-git.sh --profile "$profile"
-./scripts/verify/bootstrap.sh --profile "$profile"
+./dotfiles check "$profile"
 ```
+
+`./dotfiles` is the operator entrypoint. The scripts below it remain narrow
+implementation owners and are also used by repository tests.
 
 Use [Bootstrap](../docs/bootstrap.md) for the required order,
 [Identity provisioning](../docs/identities.md) for Git and credential setup,

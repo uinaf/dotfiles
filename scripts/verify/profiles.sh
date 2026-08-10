@@ -203,7 +203,9 @@ mkdir -p "$task_home"
 (
   cd "$repo_root"
   HOME="$task_home" MISE_IGNORED_CONFIG_PATHS="$mise_global_config" MISE_TRUSTED_CONFIG_PATHS="$repo_root" \
-    mise run dotfiles:diff assistant >/dev/null
+    ./dotfiles diff assistant >/dev/null
+  [ ! -e "$task_home/.config/dotfiles/profile" ] \
+    || fail "operator diff mutated the disposable home"
   HOME="$task_home" MISE_IGNORED_CONFIG_PATHS="$mise_global_config" MISE_TRUSTED_CONFIG_PATHS="$repo_root" \
     mise run dotfiles:apply assistant >/dev/null
 )

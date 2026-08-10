@@ -49,24 +49,24 @@ Use attributes deliberately:
 
 ## Workflow
 
-Preview the target state before applying:
+Operators preview and apply the full per-user flow through the root command:
 
 ```zsh
-./scripts/bootstrap/apply-dotfiles.sh --profile workstation --dry-run --verbose
 mise trust
-mise run dotfiles:diff -- --profile workstation
+./dotfiles diff workstation
+./dotfiles apply workstation
 ```
 
-Apply the source state:
+Contributors changing chezmoi source use the repository task interface:
 
 ```zsh
-./scripts/bootstrap/apply-dotfiles.sh --profile workstation
 mise trust
-mise run dotfiles:apply -- --profile workstation
+mise run dotfiles:diff workstation
+mise run dotfiles:apply workstation
 ```
 
-`./scripts/bootstrap/install.sh` calls the same wrapper and then configures
-Codex defaults when `codex` is available.
+`./dotfiles apply` delegates to `scripts/bootstrap/install.sh`, which applies
+the same source before running the remaining profile install steps.
 
 For normal edits:
 

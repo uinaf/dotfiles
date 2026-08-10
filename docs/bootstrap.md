@@ -184,7 +184,8 @@ Apply dotfiles and configure local state:
 ```zsh
 profile=workstation # use personal-workstation for the personal layers
 mise trust
-./scripts/bootstrap/install.sh --profile "$profile"
+./dotfiles diff "$profile"
+./dotfiles apply "$profile"
 # Optional for workstation/personal-workstation; required for secret-consuming profiles:
 # ./scripts/secrets/configure-sops-age-identity.sh
 ./scripts/bootstrap/configure-git.sh --profile "$profile"
@@ -201,11 +202,11 @@ repository-local. `install.sh` calls mise once, removes the retired global
 Vite+ package, and preserves the `~/.vite-plus` cache used by repositories.
 
 The dotfile step applies the repo-local chezmoi source state from `chezmoi/`.
-Preview it with `./scripts/bootstrap/apply-dotfiles.sh --profile "$profile" --dry-run --verbose`
-when changing source-state files. The power step disables system, display, and
-disk sleep only while the Mac is plugged in. Battery settings stay under macOS
-defaults so laptops still sleep normally when unplugged. It prompts for sudo;
-`install.sh` remains a user-level dotfile and Codex-defaults step.
+Preview the whole per-user flow with `./dotfiles diff "$profile"`. The power
+step disables system, display, and disk sleep only while the Mac is plugged in.
+Battery settings stay under macOS defaults so laptops still sleep normally
+when unplugged. It prompts for sudo;
+`./dotfiles apply` remains a user-level convergence step.
 `configure-spotlight.sh` is the same host-wide baseline for workstation and
 devbox Macs: it disables indexing on mounted volumes without deleting existing
 index data.
@@ -225,7 +226,7 @@ Keep the private key owner-only and outside this repository.
 Verify:
 
 ```zsh
-./scripts/verify/bootstrap.sh --profile "$profile"
+./dotfiles check "$profile"
 ./scripts/audit/host.sh
 ./scripts/audit/workstation.sh
 ```
@@ -280,7 +281,8 @@ Apply dotfiles:
 
 ```zsh
 mise trust
-./scripts/bootstrap/install.sh --profile "$profile"
+./dotfiles diff "$profile"
+./dotfiles apply "$profile"
 ./scripts/secrets/configure-sops-age-identity.sh
 ./scripts/bootstrap/configure-power.sh --profile "$profile"
 ./scripts/bootstrap/configure-spotlight.sh
@@ -318,7 +320,7 @@ let each workspace own its narrow SOPS consumers.
 Verify each devbox user:
 
 ```zsh
-./scripts/verify/bootstrap.sh --profile "$profile"
+./dotfiles check "$profile"
 ./scripts/audit/host.sh
 ./scripts/verify/devbox-services.sh
 ./scripts/audit/devbox.sh
@@ -339,7 +341,8 @@ Run the user-local setup as the assistant identity:
 git clone https://github.com/uinaf/dotfiles.git ~/.local/src/dotfiles
 cd ~/.local/src/dotfiles
 mise trust
-./scripts/bootstrap/install.sh --profile assistant
+./dotfiles diff assistant
+./dotfiles apply assistant
 ./scripts/secrets/configure-sops-age-identity.sh
 GIT_USER_NAME='Workload Name' \
 GIT_USER_EMAIL='APP_BOT_NOREPLY_EMAIL' \
@@ -349,7 +352,7 @@ GIT_USER_EMAIL='APP_BOT_NOREPLY_EMAIL' \
   --app-id APP_ID \
   --installation-id INSTALLATION_ID \
   --repo github.com/example/workspace
-./scripts/verify/bootstrap.sh --profile assistant
+./dotfiles check assistant
 ```
 
 Start assistants as dedicated Unix users with clean homes. Their Git flow
@@ -384,14 +387,14 @@ Run the user-local setup as the service identity:
 ```zsh
 git clone https://github.com/uinaf/dotfiles.git ~/projects/dotfiles
 cd ~/projects/dotfiles
-./scripts/bootstrap/apply-dotfiles.sh --profile service
 mise trust
-./scripts/bootstrap/install.sh --profile service
+./dotfiles diff service
+./dotfiles apply service
 ./scripts/secrets/configure-sops-age-identity.sh
 GIT_USER_NAME='Service Name' \
 GIT_USER_EMAIL='service@example.invalid' \
   ./scripts/bootstrap/configure-git.sh --profile service --non-interactive
-./scripts/verify/bootstrap.sh --profile service
+./dotfiles check service
 ```
 
 The workload repository owns service authentication, runtimes, containers,
@@ -409,12 +412,13 @@ git pull --ff-only
 profile=workstation # use personal-workstation for the personal layers
 ./scripts/bootstrap/brew-bundle.sh "$profile"
 mise trust
-./scripts/bootstrap/install.sh --profile "$profile"
+./dotfiles diff "$profile"
+./dotfiles apply "$profile"
 # Optional for workstation/personal-workstation; required for personal-devbox/devbox/assistant/service:
 ./scripts/secrets/configure-sops-age-identity.sh
 ./scripts/bootstrap/configure-power.sh --profile "$profile"
 ./scripts/bootstrap/configure-spotlight.sh
-./scripts/verify/bootstrap.sh --profile "$profile"
+./dotfiles check "$profile"
 ```
 
 Use the target Unix user's `personal-devbox`, `devbox`, `assistant`, or
@@ -458,7 +462,7 @@ can hang.
   retry verification. The repair is additive and owner-scoped; investigate
   files owned by another identity separately.
 - If `chezmoi` is missing, rerun `./scripts/bootstrap/brew-bundle.sh` for the
-  correct profile before `./scripts/bootstrap/install.sh`.
+  correct profile before `./dotfiles apply <profile>`.
 - If Git reports dubious ownership under `/opt/homebrew`, rerun
   `configure-git.sh` for the correct profile.
 - If `git@github.com` fails on a devbox profile but the key is present, rerun
