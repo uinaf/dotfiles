@@ -39,9 +39,7 @@ gh repo clone uinaf/dotfiles ~/projects/dotfiles
 cd ~/projects/dotfiles
 
 ./scripts/bootstrap/brew-bundle.sh workstation
-./scripts/bootstrap/apply-dotfiles.sh --profile workstation
 mise trust
-mise install
 ./scripts/bootstrap/install.sh --profile workstation
 # Optional until this machine decrypts vault or other SOPS material:
 # ./scripts/secrets/configure-sops-age-identity.sh

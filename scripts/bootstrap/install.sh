@@ -53,6 +53,24 @@ install_steps() {
   dotfiles_profile_install_steps "$profile"
 }
 
+cleanup_retired_vite_plus() {
+  local tool
+  local version
+  local node_root
+
+  if mise ls npm:vite-plus --installed --no-header | grep -q '^npm:vite-plus[[:space:]]'; then
+    mise uninstall --all --yes npm:vite-plus
+  fi
+  while read -r tool version _; do
+    [ "$tool" = node ] && [ -n "$version" ] || continue
+    node_root="$(mise where "node@$version")"
+    if [ -f "$node_root/lib/node_modules/vite-plus/package.json" ]; then
+      npm_config_prefix="$node_root" "$node_root/bin/npm" uninstall --global vite-plus
+    fi
+  done < <(mise ls node --installed --no-header)
+  mise reshim --force
+}
+
 run_step() {
   case "$1" in
     apply-dotfiles)
@@ -70,31 +88,14 @@ run_step() {
     install-gh-extensions)
       "$repo_root/scripts/bootstrap/install-gh-extensions.sh"
       ;;
-    remove-global-vite-plus)
-      if command -v mise >/dev/null 2>&1; then
-        installed_vite_plus="$(mise ls npm:vite-plus --installed --json)"
-        if printf '%s\n' "$installed_vite_plus" | grep -Eq '"installed":[[:space:]]*true'; then
-          mise uninstall --all --yes npm:vite-plus
-        fi
-        installed_nodes="$(mise ls node --installed --json)"
-        if [ -n "$installed_nodes" ] && command -v node >/dev/null 2>&1; then
-          printf '%s\n' "$installed_nodes" \
-            | node -e 'for (const tool of JSON.parse(require("node:fs").readFileSync(0, "utf8"))) console.log(tool.install_path)' \
-            | while IFS= read -r node_root; do
-                if [ -f "$node_root/lib/node_modules/vite-plus/package.json" ]; then
-                  npm_config_prefix="$node_root" "$node_root/bin/npm" uninstall --global vite-plus
-                fi
-              done
-        fi
-        mise reshim --force
-      fi
-      ;;
-    install-pnpm)
-      if command -v corepack >/dev/null 2>&1; then
-        corepack enable pnpm
-        corepack install --global pnpm@11.20.0
-      else
-        printf 'skipped pnpm setup; install the pinned Node runtime with Corepack support\n' >&2
+    install-runtimes)
+      command -v mise >/dev/null 2>&1 || {
+        printf 'mise is required to install the %s runtime group\n' "$(dotfiles_profile_runtime_group "$profile")" >&2
+        return 1
+      }
+      mise install
+      if dotfiles_profile_is_developer "$profile"; then
+        cleanup_retired_vite_plus
       fi
       ;;
     configure-codex)

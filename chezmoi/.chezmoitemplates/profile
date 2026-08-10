@@ -33,6 +33,9 @@
 {{- if or (not (kindIs "string" $candidate.runtimeGroup)) (not (has $candidate.runtimeGroup (list "developer" "assistant" "none"))) -}}
 {{- fail (printf "profile %s runtimeGroup is invalid" $name) -}}
 {{- end -}}
+{{- if ne (has "install-runtimes" $candidate.installSteps) (ne $candidate.runtimeGroup "none") -}}
+{{- fail (printf "profile %s runtime group and install steps disagree" $name) -}}
+{{- end -}}
 {{- end -}}
 {{- if not (hasKey .profileModel.profiles .dotfilesProfile) -}}
 {{- fail (printf "unknown dotfiles profile %s" .dotfilesProfile) -}}
