@@ -34,27 +34,6 @@ so prefer --json for remote collection.
 USAGE
 }
 
-print_json_summary() {
-  local status="pass"
-  if [ "$fail_count" -gt 0 ]; then
-    status="fail"
-  elif [ "$warn_count" -gt 0 ]; then
-    status="warn"
-  fi
-
-  printf '{"audit":'
-  json_string "devbox-security"
-  printf ',"status":'
-  json_string "$status"
-  printf ',"failed":%s,"warnings":%s,"user":' "$fail_count" "$warn_count"
-  json_string "$USER"
-  printf ',"devbox_user":'
-  json_string "$devbox_user"
-  printf ',"secret_scan_count":%s' "$secret_scan_count"
-  printf ',"secret_scan_finding_count":%s' "$secret_scan_finding_count"
-  printf ',"secret_scan_rules":%s}\n' "$(secret_scan_rules_json_or_empty_object)"
-}
-
 emit_devbox_secret_scan_paths() {
   emit_home_dotfiles
   emit_path_if_exists "$HOME/.aws"
@@ -332,7 +311,7 @@ else
 fi
 
 if [ "$json_output" -eq 1 ]; then
-  print_json_summary
+  print_audit_json_summary devbox-security "$USER" "$devbox_user"
 else
   printf '\ndevbox security audit summary: %s failed, %s warnings\n' "$fail_count" "$warn_count"
 fi

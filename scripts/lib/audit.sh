@@ -43,6 +43,35 @@ json_string() {
   printf '"%s"' "$value"
 }
 
+print_audit_json_summary() {
+  local audit_name="$1"
+  local status="pass"
+
+  if [ "$#" -ne 1 ] && [ "$#" -ne 3 ]; then
+    return 2
+  fi
+  if [ "$fail_count" -gt 0 ]; then
+    status="fail"
+  elif [ "$warn_count" -gt 0 ]; then
+    status="warn"
+  fi
+
+  printf '{"audit":'
+  json_string "$audit_name"
+  printf ',"status":'
+  json_string "$status"
+  printf ',"failed":%s,"warnings":%s' "$fail_count" "$warn_count"
+  if [ "$#" -eq 3 ]; then
+    printf ',"user":'
+    json_string "$2"
+    printf ',"devbox_user":'
+    json_string "$3"
+  fi
+  printf ',"secret_scan_count":%s' "$secret_scan_count"
+  printf ',"secret_scan_finding_count":%s' "$secret_scan_finding_count"
+  printf ',"secret_scan_rules":%s}\n' "$(secret_scan_rules_json_or_empty_object)"
+}
+
 mode_of() {
   if stat -c '%a' "$1" >/dev/null 2>&1; then
     stat -c '%a' "$1"
@@ -368,7 +397,11 @@ scan_files_for_secrets() {
   local rule
   local staged_path
   local have_audit_data=0
-  local secret_scan_prev_return
+
+  cleanup_secret_scan_tmp() {
+    [ -z "${scan_root:-}" ] || rm -rf -- "$scan_root" || true
+    [ -z "${report_dir:-}" ] || rm -rf -- "$report_dir" || true
+  }
 
   if ! command -v gitleaks >/dev/null 2>&1; then
     fail_check "gitleaks is missing for local secret scan"
@@ -386,24 +419,23 @@ scan_files_for_secrets() {
     warn "node is missing; gitleaks locators and rule aggregates are unavailable"
   fi
 
-  scan_root="$(mktemp -d "${TMPDIR:-/tmp}/dotfiles-secret-scan.XXXXXX")"
-  report_dir="$(mktemp -d "${TMPDIR:-/tmp}/dotfiles-secret-report.XXXXXX")"
-  chmod 700 "$scan_root" "$report_dir"
+  if ! scan_root="$(mktemp -d "${TMPDIR:-/tmp}/dotfiles-secret-scan.XXXXXX")"; then
+    fail_check "cannot create the gitleaks staging directory"
+    return
+  fi
+  if ! report_dir="$(mktemp -d "${TMPDIR:-/tmp}/dotfiles-secret-report.XXXXXX")"; then
+    cleanup_secret_scan_tmp
+    fail_check "cannot create the gitleaks report directory"
+    return
+  fi
   report_path="$report_dir/gitleaks-report.json"
-  : >"$report_path"
-  chmod 600 "$report_path"
-  # Only RETURN is trapped so caller EXIT/INT/TERM handlers stay untouched.
-  # Explicit cleanup calls cover normal paths; RETURN covers early returns.
-  secret_scan_prev_return="$(trap -p RETURN)"
-  cleanup_secret_scan_tmp() {
-    rm -rf "${scan_root:-}" "${report_dir:-}"
-    if [ -n "${secret_scan_prev_return:-}" ]; then
-      eval "$secret_scan_prev_return"
-    else
-      trap - RETURN
-    fi
-  }
-  trap cleanup_secret_scan_tmp RETURN
+  if ! chmod 700 "$scan_root" "$report_dir" \
+    || ! : >"$report_path" \
+    || ! chmod 600 "$report_path"; then
+    cleanup_secret_scan_tmp
+    fail_check "cannot prepare the gitleaks staging directories"
+    return
+  fi
 
   while IFS= read -r path; do
     [ -n "$path" ] || continue
@@ -422,8 +454,11 @@ scan_files_for_secrets() {
     esac
 
     link_path="$scan_root/$rel_path"
-    mkdir -p "$(dirname "$link_path")"
-    ln -s "$path" "$link_path"
+    if ! mkdir -p "$(dirname "$link_path")" || ! ln -s "$path" "$link_path"; then
+      cleanup_secret_scan_tmp
+      fail_check "cannot stage $path for gitleaks secret scan"
+      return
+    fi
     linked_count=$((linked_count + 1))
   done
 
