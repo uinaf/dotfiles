@@ -12,6 +12,7 @@ type Check = {
   id: string;
   domain: string;
   gate?: Gate;
+  scope?: "complete";
   command: string[];
   inputs: string[];
   output: string;
@@ -44,7 +45,8 @@ function usage(): void {
 
 Without --domain, runs every deterministic check in parallel. The full-history
 secret scan runs afterwards unless --skip-security is set. A focused domain
-runs only that domain; request --domain security explicitly for secret scans.
+omits complete-only parity checks; request --domain security explicitly for
+secret scans.
 `);
 }
 
@@ -72,6 +74,7 @@ function readRegistry(): Registry {
       !isStringArray(candidate.inputs) ||
       typeof candidate.output !== "string" ||
       candidate.output.length === 0 ||
+      (candidate.scope !== undefined && candidate.scope !== "complete") ||
       (candidate.gate !== undefined && candidate.gate !== "deterministic" && candidate.gate !== "history")
     ) {
       fail(`${registryPath} contains an invalid check`);
@@ -84,6 +87,7 @@ function readRegistry(): Registry {
       id: candidate.id,
       domain: candidate.domain,
       gate: candidate.gate,
+      scope: candidate.scope,
       command: candidate.command,
       inputs: candidate.inputs,
       output: candidate.output,
@@ -206,7 +210,7 @@ async function main(): Promise<void> {
       for (const domain of domains) {
         process.stdout.write(`${domain}\n`);
         for (const check of registry.checks.filter((candidate) => candidate.domain === domain)) {
-          process.stdout.write(`  ${check.id}: ${check.output}\n`);
+          process.stdout.write(`  ${check.id}${check.scope === "complete" ? " [complete only]" : ""}: ${check.output}\n`);
           process.stdout.write(`    inputs: ${check.inputs.join(", ")}\n`);
         }
       }
@@ -220,7 +224,7 @@ async function main(): Promise<void> {
       return false;
     }
     if (focused) {
-      return requestedDomains.has(check.domain);
+      return check.scope !== "complete" && requestedDomains.has(check.domain);
     }
     return true;
   });

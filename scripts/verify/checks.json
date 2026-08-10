@@ -18,6 +18,7 @@
     {
       "id": "dotfiles",
       "domain": "config",
+      "scope": "complete",
       "command": ["node", "scripts/verify/home-fixture.ts"],
       "inputs": ["chezmoi/**"],
       "output": "All profiles apply in isolated disposable homes"

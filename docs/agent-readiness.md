@@ -14,6 +14,8 @@ List the verification domains and run the one that owns the change:
 
 Each domain declares its inputs and proof in the
 [verification registry](../scripts/verify/checks.json).
+Checks marked `complete only` cover cross-domain parity and stay out of focused
+domain runs.
 `mise run verify:fast` runs every deterministic check in parallel. `mise run
 verify` also runs Gitleaks and TruffleHog against full history. CI always runs
 the complete deterministic graph.
