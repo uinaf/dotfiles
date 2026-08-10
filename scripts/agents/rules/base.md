@@ -90,7 +90,9 @@ General guidelines for agents.
 ## Commits and PRs
 
 - Prefer conventional commits, title multi-commit PRs for their net change in a conventional style
+- Create PRs as ready for review by default so automated review starts promptly; use a draft only when repo-local instructions or the current task or prompt explicitly requires one
 - Use the repo PR template, otherwise cover Summary, Changed, Review aids, Risks, Verification, and Complexity; make it concise
+- Write pull and merge request descriptions in plain English with short, direct sentences and common words; remove repetition, hedging, process narration, and anything that does not help reviewers understand the change, risks, or verification
 - Every non-trivial PR must include a `Review aids` section with the artifact that best explains the change
   - a focused Mermaid diagram for flows or architecture with a readable orientation
   - labeled screenshots or an existing preview/artifact link for visible UI
