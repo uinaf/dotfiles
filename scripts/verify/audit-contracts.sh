@@ -259,7 +259,9 @@ fi
 (
   trap ':' EXIT INT TERM RETURN
   caller_traps_before="$(trap -p EXIT INT TERM RETURN)"
+  set +e
   scan_files_for_secrets </dev/null >/dev/null 2>&1
+  set -e
   caller_traps_after="$(trap -p EXIT INT TERM RETURN)"
   [ "$caller_traps_before" = "$caller_traps_after" ] \
     || fail "secret scan cleanup mutated caller traps"
@@ -280,6 +282,19 @@ mkdir -p "$secret_fixture"
   printf -- '-----END %s PRIVATE KEY-----\n' OPENSSH
 } >"$secret_fixture/id_ed25519"
 chmod 600 "$secret_fixture/id_rsa" "$secret_fixture/id_ed25519"
+
+failed_stage_before="$(find "${TMPDIR:-/tmp}" -maxdepth 1 \( -name 'dotfiles-secret-scan.*' -o -name 'dotfiles-secret-report.*' \) 2>/dev/null | wc -l | tr -d ' ')"
+(
+  mkdir() {
+    return 1
+  }
+  fail_count=0
+  scan_files_for_secrets < <(printf '%s\n' "$secret_fixture/id_rsa") >/dev/null 2>&1
+  [ "$fail_count" -eq 1 ] || fail "staging failure was not reported"
+)
+failed_stage_after="$(find "${TMPDIR:-/tmp}" -maxdepth 1 \( -name 'dotfiles-secret-scan.*' -o -name 'dotfiles-secret-report.*' \) 2>/dev/null | wc -l | tr -d ' ')"
+[ "$failed_stage_after" -le "$failed_stage_before" ] \
+  || fail "failed secret-scan staging left temporary directories behind"
 
 prose_log="$tmp_root/prose-secret-scan.log"
 json_output=0

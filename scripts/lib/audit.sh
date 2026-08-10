@@ -398,6 +398,11 @@ scan_files_for_secrets() {
   local staged_path
   local have_audit_data=0
 
+  cleanup_secret_scan_tmp() {
+    [ -z "${scan_root:-}" ] || rm -rf -- "$scan_root" || true
+    [ -z "${report_dir:-}" ] || rm -rf -- "$report_dir" || true
+  }
+
   if ! command -v gitleaks >/dev/null 2>&1; then
     fail_check "gitleaks is missing for local secret scan"
     return
@@ -414,15 +419,23 @@ scan_files_for_secrets() {
     warn "node is missing; gitleaks locators and rule aggregates are unavailable"
   fi
 
-  scan_root="$(mktemp -d "${TMPDIR:-/tmp}/dotfiles-secret-scan.XXXXXX")"
-  report_dir="$(mktemp -d "${TMPDIR:-/tmp}/dotfiles-secret-report.XXXXXX")"
-  chmod 700 "$scan_root" "$report_dir"
+  if ! scan_root="$(mktemp -d "${TMPDIR:-/tmp}/dotfiles-secret-scan.XXXXXX")"; then
+    fail_check "cannot create the gitleaks staging directory"
+    return
+  fi
+  if ! report_dir="$(mktemp -d "${TMPDIR:-/tmp}/dotfiles-secret-report.XXXXXX")"; then
+    cleanup_secret_scan_tmp
+    fail_check "cannot create the gitleaks report directory"
+    return
+  fi
   report_path="$report_dir/gitleaks-report.json"
-  : >"$report_path"
-  chmod 600 "$report_path"
-  cleanup_secret_scan_tmp() {
-    rm -rf "${scan_root:-}" "${report_dir:-}"
-  }
+  if ! chmod 700 "$scan_root" "$report_dir" \
+    || ! : >"$report_path" \
+    || ! chmod 600 "$report_path"; then
+    cleanup_secret_scan_tmp
+    fail_check "cannot prepare the gitleaks staging directories"
+    return
+  fi
 
   while IFS= read -r path; do
     [ -n "$path" ] || continue
@@ -441,8 +454,11 @@ scan_files_for_secrets() {
     esac
 
     link_path="$scan_root/$rel_path"
-    mkdir -p "$(dirname "$link_path")"
-    ln -s "$path" "$link_path"
+    if ! mkdir -p "$(dirname "$link_path")" || ! ln -s "$path" "$link_path"; then
+      cleanup_secret_scan_tmp
+      fail_check "cannot stage $path for gitleaks secret scan"
+      return
+    fi
     linked_count=$((linked_count + 1))
   done
 
