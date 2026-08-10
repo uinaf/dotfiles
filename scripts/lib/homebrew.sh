@@ -236,19 +236,39 @@ dotfiles_homebrew_append_skip() {
   esac
 }
 
+dotfiles_homebrew_plist_extract() {
+  local config_file="$1"
+  local key_path="$2"
+  local expected_type="$3"
+  local value
+
+  if ! value="$(/usr/bin/plutil -extract "$key_path" raw -expect "$expected_type" "$config_file" 2>/dev/null)"; then
+    dotfiles_homebrew_fail_external "$key_path must be $expected_type in $config_file"
+    return 1
+  fi
+  printf '%s\n' "$value"
+}
+
 dotfiles_homebrew_configure_external_capabilities() {
   local repo_root="$1"
   local profile="$2"
-  local config_file="${DOTFILES_EXTERNAL_HOMEBREW_FILE:-$HOME/.config/dotfiles/external-homebrew}"
-  local record
+  local default_file="$HOME/.config/dotfiles/external-homebrew.plist"
+  local legacy_file="$HOME/.config/dotfiles/external-homebrew"
+  local config_file="${DOTFILES_EXTERNAL_HOMEBREW_FILE:-$default_file}"
+  local first_line
+  local version
+  local capability_count
+  local index
+  local key_path
   local package_type
   local package_name
   local validator
   local target
-  local field_five
-  local field_six
-  local field_seven
-  local field_eight
+  local bundle_identifier
+  local team_identifier
+  local argument_count
+  local argument_index
+  local argument
   local seen=""
   local key
   local -a validator_args
@@ -260,32 +280,51 @@ dotfiles_homebrew_configure_external_capabilities() {
     dotfiles_homebrew_fail_external "ambient Homebrew Bundle skip variables are unsupported; use $config_file"
     return 1
   fi
-  [ -e "$config_file" ] || [ -L "$config_file" ] || return 0
+  if [ ! -e "$config_file" ] && [ ! -L "$config_file" ]; then
+    if [ -z "${DOTFILES_EXTERNAL_HOMEBREW_FILE:-}" ] && { [ -e "$legacy_file" ] || [ -L "$legacy_file" ]; }; then
+      dotfiles_homebrew_fail_external "legacy pipe-delimited file found at $legacy_file; migrate it to $default_file"
+      return 1
+    fi
+    return 0
+  fi
   dotfiles_homebrew_validate_external_file "$config_file" || return 1
+  if ! /usr/bin/plutil -lint "$config_file" >/dev/null; then
+    dotfiles_homebrew_fail_external "$config_file is not a valid property list"
+    return 1
+  fi
+  if ! IFS= read -r first_line <"$config_file" || [[ "$first_line" != '<?xml '* ]]; then
+    dotfiles_homebrew_fail_external "$config_file must be an XML property list"
+    return 1
+  fi
 
-  while IFS= read -r record || [ -n "$record" ]; do
-    record="${record%$'\r'}"
-    case "$record" in
-      ""|\#*) continue ;;
-    esac
-    IFS='|' read -r package_type package_name validator target field_five field_six field_seven field_eight <<<"$record"
+  version="$(dotfiles_homebrew_plist_extract "$config_file" version integer)" || return 1
+  if [ "$version" != 1 ]; then
+    dotfiles_homebrew_fail_external "unsupported version $version in $config_file; expected 1"
+    return 1
+  fi
+  capability_count="$(dotfiles_homebrew_plist_extract "$config_file" capabilities array)" || return 1
+
+  for ((index = 0; index < capability_count; index += 1)); do
+    key_path="capabilities.$index"
+    dotfiles_homebrew_plist_extract "$config_file" "$key_path" dictionary >/dev/null || return 1
+    package_type="$(dotfiles_homebrew_plist_extract "$config_file" "$key_path.packageType" string)" || return 1
+    package_name="$(dotfiles_homebrew_plist_extract "$config_file" "$key_path.name" string)" || return 1
+    validator="$(dotfiles_homebrew_plist_extract "$config_file" "$key_path.validator" string)" || return 1
+    target="$(dotfiles_homebrew_plist_extract "$config_file" "$key_path.path" string)" || return 1
+
     case "$package_type" in
       brew|cask) ;;
       *)
-        dotfiles_homebrew_fail_external "unsupported package type in $record"
+        dotfiles_homebrew_fail_external "unsupported package type $package_type at $key_path"
         return 1
         ;;
     esac
     case "$package_name" in
       ""|*[!A-Za-z0-9@+._/-]*)
-        dotfiles_homebrew_fail_external "unsupported package name in $record"
+        dotfiles_homebrew_fail_external "unsupported package name $package_name at $key_path"
         return 1
         ;;
     esac
-    if [ -n "$field_eight" ]; then
-      dotfiles_homebrew_fail_external "too many fields in $record"
-      return 1
-    fi
     if ! dotfiles_homebrew_external_entry_declared "$repo_root" "$profile" "$package_type" "$package_name"; then
       dotfiles_homebrew_fail_external "$package_type $package_name is not declared by profile $profile"
       return 1
@@ -300,20 +339,24 @@ dotfiles_homebrew_configure_external_capabilities() {
     fi
     seen+="$key"
 
+    validator_args=()
     case "$validator" in
       command)
-        validator_args=()
-        [ -z "$field_five" ] || validator_args+=("$field_five")
-        [ -z "$field_six" ] || validator_args+=("$field_six")
-        [ -z "$field_seven" ] || validator_args+=("$field_seven")
+        argument_count="$(dotfiles_homebrew_plist_extract "$config_file" "$key_path.arguments" array)" || return 1
+        if [ "$argument_count" -gt 3 ]; then
+          dotfiles_homebrew_fail_external "$package_name command validation accepts at most three arguments"
+          return 1
+        fi
+        for ((argument_index = 0; argument_index < argument_count; argument_index += 1)); do
+          argument="$(dotfiles_homebrew_plist_extract "$config_file" "$key_path.arguments.$argument_index" string)" || return 1
+          validator_args+=("$argument")
+        done
         dotfiles_homebrew_validate_external_command "$package_type" "$package_name" "$target" "${validator_args[@]}" || return 1
         ;;
       bundle)
-        if [ -z "$field_five" ] || [ -z "$field_six" ] || [ -n "$field_seven" ]; then
-          dotfiles_homebrew_fail_external "$package_name bundle validation requires path, bundle ID, and team ID"
-          return 1
-        fi
-        dotfiles_homebrew_validate_external_bundle "$package_type" "$package_name" "$target" "$field_five" "$field_six" || return 1
+        bundle_identifier="$(dotfiles_homebrew_plist_extract "$config_file" "$key_path.bundleIdentifier" string)" || return 1
+        team_identifier="$(dotfiles_homebrew_plist_extract "$config_file" "$key_path.teamIdentifier" string)" || return 1
+        dotfiles_homebrew_validate_external_bundle "$package_type" "$package_name" "$target" "$bundle_identifier" "$team_identifier" || return 1
         ;;
       *)
         dotfiles_homebrew_fail_external "$package_name uses unsupported validator $validator"
@@ -322,5 +365,5 @@ dotfiles_homebrew_configure_external_capabilities() {
     esac
     dotfiles_homebrew_append_skip "$package_type" "$package_name"
     printf 'validated external %s %s\n' "$package_type" "$package_name"
-  done <"$config_file"
+  done
 }
