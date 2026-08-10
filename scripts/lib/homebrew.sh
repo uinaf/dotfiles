@@ -351,7 +351,7 @@ dotfiles_homebrew_configure_external_capabilities() {
           argument="$(dotfiles_homebrew_plist_extract "$config_file" "$key_path.arguments.$argument_index" string)" || return 1
           validator_args+=("$argument")
         done
-        dotfiles_homebrew_validate_external_command "$package_type" "$package_name" "$target" "${validator_args[@]}" || return 1
+        dotfiles_homebrew_validate_external_command "$package_type" "$package_name" "$target" ${validator_args[@]+"${validator_args[@]}"} || return 1
         ;;
       bundle)
         bundle_identifier="$(dotfiles_homebrew_plist_extract "$config_file" "$key_path.bundleIdentifier" string)" || return 1
