@@ -84,15 +84,15 @@ trufflehog_git_source() {
 }
 
 macos_branch() {
-  local major
-
-  major="$(sw_vers -productVersion | awk -F. '{ print $1 }')"
-  case "$major" in
-    15) printf 'sequoia\n' ;;
-    14) printf 'sonoma\n' ;;
-    13) printf 'ventura\n' ;;
-    12) printf 'monterey\n' ;;
-    *) printf 'unknown\n' ;;
+  case "$1" in
+    10.15|10.15.*) printf 'catalina\n' ;;
+    11|11.*) printf 'big_sur\n' ;;
+    12|12.*) printf 'monterey\n' ;;
+    13|13.*) printf 'ventura\n' ;;
+    14|14.*) printf 'sonoma\n' ;;
+    15|15.*) printf 'sequoia\n' ;;
+    26|26.*) printf 'tahoe\n' ;;
+    *) return 1 ;;
   esac
 }
 
@@ -175,16 +175,22 @@ section "macOS compliance baseline"
 if [ "$run_mscp" -eq 0 ]; then
   ok "mSCP audit skipped"
 else
-  expected_branch="$(macos_branch)"
+  macos_version=""
+  expected_branch=""
+  if ! macos_version="$(sw_vers -productVersion 2>/dev/null)"; then
+    warn "cannot determine the macOS version for mSCP branch selection"
+  elif ! expected_branch="$(macos_branch "$macos_version")"; then
+    warn "no mSCP branch mapping for macOS $macos_version; use a named upstream release branch or skip mSCP"
+  fi
 
   if [ ! -d "$mscp_dir/.git" ]; then
     warn "mSCP checkout missing at $mscp_dir"
     warn "clone https://github.com/usnistgov/macos_security.git and check out the macOS branch before running this audit"
   else
     current_branch="$(git -C "$mscp_dir" branch --show-current 2>/dev/null || true)"
-    if [ "$expected_branch" != "unknown" ] && [ "$current_branch" != "$expected_branch" ]; then
+    if [ -n "$expected_branch" ] && [ "$current_branch" != "$expected_branch" ]; then
       warn "mSCP branch is $current_branch; expected $expected_branch for this macOS version"
-    else
+    elif [ -n "$expected_branch" ]; then
       ok "mSCP branch looks correct: ${current_branch:-detached}"
     fi
 

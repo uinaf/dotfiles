@@ -126,7 +126,7 @@ mkdir -p ~/projects/security
 cd ~/projects/security
 git clone https://github.com/usnistgov/macos_security.git
 cd macos_security
-git checkout sequoia
+git checkout tahoe # macOS 26
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
@@ -134,8 +134,11 @@ pip install -r requirements.txt
 ./scripts/generate_guidance.py -s baselines/800-53r5_moderate.yaml
 ```
 
-Use the branch matching the host macOS version, such as `sequoia`, `sonoma`, or
-`ventura`. Then run:
+Use the named upstream release branch for the host. This integration keeps
+mappings for stable mSCP branches from Catalina through Tahoe. A mapping means
+the upstream branch exists; it does not define this bootstrap repo's macOS
+support floor. Unknown or future versions produce a warning instead of
+guessing a branch. Then run:
 
 ```zsh
 ./scripts/audit/repo.sh --allow-sudo-prompt

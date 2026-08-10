@@ -129,6 +129,13 @@
       "output": "Audit output and failure contracts"
     },
     {
+      "id": "repo-audit",
+      "domain": "audit",
+      "command": ["node", "--test", "scripts/verify/repo-audit.test.ts"],
+      "inputs": ["scripts/audit/repo.sh", "scripts/lib/audit.sh", "scripts/verify/repo-audit.test.ts"],
+      "output": "macOS release branch selection and repository audit results"
+    },
+    {
       "id": "audit-data",
       "domain": "audit",
       "command": ["node", "--test", "scripts/audit/data.test.ts"],
