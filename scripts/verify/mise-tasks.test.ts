@@ -3,14 +3,21 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { homedir, tmpdir } from "node:os";
+import { delimiter, dirname, join, resolve } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import { auditCommand, runAudit } from "../audit/run.ts";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+const globalMiseConfig =
+  process.env.MISE_GLOBAL_CONFIG_FILE ?? resolve(process.env.XDG_CONFIG_HOME ?? join(homedir(), ".config"), "mise/config.toml");
+const miseEnv = {
+  ...process.env,
+  MISE_IGNORED_CONFIG_PATHS: [process.env.MISE_IGNORED_CONFIG_PATHS, globalMiseConfig].filter(Boolean).join(delimiter),
+  MISE_TRUSTED_CONFIG_PATHS: [process.env.MISE_TRUSTED_CONFIG_PATHS, repoRoot].filter(Boolean).join(delimiter),
+};
 const publicTasks = [
   "agents:sync",
   "agents:update",
@@ -25,8 +32,8 @@ const publicTasks = [
   "verify:fast",
 ];
 
-function run(command: string, args: string[], env: NodeJS.ProcessEnv = process.env) {
-  return spawnSync(command, args, { cwd: repoRoot, encoding: "utf8", env });
+function run(command: string, args: string[], env: NodeJS.ProcessEnv = {}) {
+  return spawnSync(command, args, { cwd: repoRoot, encoding: "utf8", env: { ...miseEnv, ...env } });
 }
 
 test("mise exposes one validated task graph", () => {
@@ -57,10 +64,7 @@ test("focused verification preserves the delegated failure code", () => {
     const node = join(bin, "node");
     writeFileSync(node, "#!/bin/sh\nexit 23\n");
     chmodSync(node, 0o755);
-    const result = run("mise", ["run", "verify:domain", "static"], {
-      ...process.env,
-      PATH: `${bin}:${process.env.PATH ?? ""}`,
-    });
+    const result = run("mise", ["run", "verify:domain", "static"], { PATH: `${bin}:${process.env.PATH ?? ""}` });
     assert.equal(result.status, 23, result.stderr);
   } finally {
     rmSync(bin, { force: true, recursive: true });
