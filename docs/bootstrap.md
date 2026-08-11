@@ -227,7 +227,7 @@ Verify:
 ```zsh
 ./dotfiles check "$profile"
 ./scripts/audit/host.sh
-./scripts/audit/workstation.sh
+mise run audit workstation
 ```
 
 ## Devbox Mac

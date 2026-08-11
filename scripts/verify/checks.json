@@ -143,6 +143,13 @@
       "output": "Typed SQLite header and sanitized Gitleaks report handling"
     },
     {
+      "id": "audit-engine",
+      "domain": "audit",
+      "command": ["node", "--test", "scripts/audit/engine.test.ts"],
+      "inputs": ["scripts/audit/engine.ts", "scripts/audit/engine.test.ts", "scripts/audit/workstation.ts", "scripts/audit/gitleaks-policy.json"],
+      "output": "Typed audit policy execution and workstation boundaries"
+    },
+    {
       "id": "agent-sync",
       "domain": "agents",
       "command": ["node", "--test", "scripts/agents/sync.test.ts"],

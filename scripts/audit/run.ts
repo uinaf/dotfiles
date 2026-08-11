@@ -15,6 +15,7 @@ const scopes = new Set<AuditScope>(["repo", "mscp", "host", "workstation", "devb
 const formats = new Set<AuditFormat>(["text", "json"]);
 
 export function auditCommand(scope: AuditScope, format: AuditFormat): [string, string[]] {
+  if (scope === "workstation") return [process.execPath, [resolve(repoRoot, "scripts/audit/workstation.ts"), ...(format === "json" ? ["--json"] : [])]];
   const script = scope === "mscp" ? "repo" : scope;
   const args = scope === "repo" ? ["--skip-mscp"] : [];
   if (format === "json") {

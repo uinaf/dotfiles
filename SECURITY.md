@@ -33,7 +33,7 @@ Use the matching live audit only on the intended machine or Unix user:
 
 ```zsh
 ./scripts/audit/host.sh
-./scripts/audit/workstation.sh
+mise run audit workstation
 ./scripts/audit/devbox.sh
 ```
 
