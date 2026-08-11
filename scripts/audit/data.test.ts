@@ -66,6 +66,9 @@ test("gitleaks data exposes only safe locators and aggregate counts", () => {
     });
     assert.throws(() => summarizeFindings('{"private-key":-1}', "", report, policy), /invalid count/);
     assert.throws(() => summarizeFindings(`{"private-key":${Number.MAX_SAFE_INTEGER + 1}}`, "", report, policy), /invalid count/);
+    for (const value of ["{", "[]", "null"]) {
+      assert.throws(() => summarizeFindings(value, "", report, policy), /invalid persisted count map/);
+    }
     const missingRoot = join(root, "missing");
     writeFileSync(report, JSON.stringify([{ RuleID: "token", File: join(missingRoot, "home/token") }]));
     assert.deepEqual(findingLocators(missingRoot, report), ["token\thome/token"]);
@@ -79,6 +82,11 @@ test("gitleaks data exposes only safe locators and aggregate counts", () => {
     });
     assert.equal(cli.status, 0, cli.stderr);
     assert.equal(cli.stdout, "");
+    const invalidCounts = spawnSync(process.execPath, [cliPath, "gitleaks-summary", policy, "{", "{}", report], {
+      encoding: "utf8",
+    });
+    assert.equal(invalidCounts.status, 1);
+    assert.match(invalidCounts.stderr, /invalid persisted count map/);
   } finally {
     rmSync(root, { force: true, recursive: true });
   }

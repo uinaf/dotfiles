@@ -117,16 +117,17 @@ function readRuleCounts(existingJson: string): RuleCounts {
   try {
     parsed = JSON.parse(existingJson || "{}");
   } catch {
-    parsed = {};
+    throw new Error("invalid persisted count map");
+  }
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    throw new Error("invalid persisted count map");
   }
   const counts: RuleCounts = {};
-  if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
-    for (const [key, value] of Object.entries(parsed)) {
-      if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) {
-        throw new Error(`invalid count for ${key}`);
-      }
-      counts[key] = value;
+  for (const [key, value] of Object.entries(parsed)) {
+    if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) {
+      throw new Error(`invalid count for ${key}`);
     }
+    counts[key] = value;
   }
   return counts;
 }
