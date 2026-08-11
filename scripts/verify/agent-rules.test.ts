@@ -94,8 +94,10 @@ function runWrapper(home: string): string {
 function assertManagedRules(home: string): string {
   const rules = join(home, ".agents/AGENTS.md");
   assert.equal(lstatSync(rules).isFile(), true);
+  assert.equal(lstatSync(join(home, "AGENTS.md")).isSymbolicLink(), true);
   assert.equal(lstatSync(join(home, ".claude/CLAUDE.md")).isSymbolicLink(), true);
   assert.equal(lstatSync(join(home, ".codex/AGENTS.md")).isSymbolicLink(), true);
+  assert.equal(readlinkSync(join(home, "AGENTS.md")), ".agents/AGENTS.md");
   assert.equal(readlinkSync(join(home, ".claude/CLAUDE.md")), "../.agents/AGENTS.md");
   assert.equal(readlinkSync(join(home, ".codex/AGENTS.md")), "../.agents/AGENTS.md");
   return readFileSync(rules, "utf8");
@@ -120,6 +122,7 @@ test("omits global rules for workload profiles", () => {
     runChezmoi(home, config, "apply", sourceDir, profile);
 
     assert.equal(lstatSync(home).isDirectory(), true);
+    assert.equal(readdirSync(home).includes("AGENTS.md"), false);
     assert.equal(readdirSync(home).includes(".agents"), false);
     assert.equal(readdirSync(home).includes(".claude"), false);
     assert.equal(readdirSync(home).includes(".codex"), false);
@@ -168,6 +171,18 @@ test("backs up a conflicting rule file before convergence", () => {
   assert.equal(readFileSync(join(home, ".claude", backup), "utf8"), "unmanaged fixture rules\n");
 });
 
+test("backs up a conflicting home rule file before convergence", () => {
+  const { home } = createFixture();
+  writeFileSync(join(home, "AGENTS.md"), "unmanaged Cursor rules\n");
+
+  runWrapper(home);
+
+  assertManagedRules(home);
+  const backup = readdirSync(home).find((name) => name.startsWith("AGENTS.md.backup."));
+  assert.ok(backup);
+  assert.equal(readFileSync(join(home, backup), "utf8"), "unmanaged Cursor rules\n");
+});
+
 test("backs up a broken rule link before convergence", () => {
   const { home } = createFixture();
   mkdirSync(join(home, ".codex"), { recursive: true });
@@ -209,6 +224,7 @@ test("does not back up managed rule links again", () => {
 
   assertManagedRules(home);
   assert.doesNotMatch(output, /backed up/);
+  assert.equal(readdirSync(home).some((name) => name.startsWith("AGENTS.md.backup.")), false);
   assert.equal(readdirSync(join(home, ".claude")).some((name) => name.includes(".backup.")), false);
   assert.equal(readdirSync(join(home, ".codex")).some((name) => name.includes(".backup.")), false);
 });
