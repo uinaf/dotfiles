@@ -240,7 +240,10 @@ function checkSecretScan(run: AuditRun, sources: readonly PathSource[]): void {
     if (summary.findingCount === 0 && gitleaks.status === 0) run.finding("ok", `gitleaks found no leaks in ${paths.length} local config files`);
     else if (summary.findingCount > 0) {
       if (run.format === "text") {
-        for (const locator of findingLocators(scanRoot, report)) run.stderr(`finding rule=${locator.replace("\t", " path=")}\n`);
+        for (const locator of findingLocators(scanRoot, report)) {
+          const [rule, path] = locator.split("\t", 2);
+          run.stderr(`finding rule=${rule} path=${path}\n`);
+        }
       }
       run.finding(summary.failures > 0 ? "fail" : "warn", summary.failures > 0
         ? "gitleaks reported findings at or above the failure threshold"
