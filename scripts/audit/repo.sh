@@ -83,16 +83,12 @@ trufflehog_git_source() {
   fi
 }
 
-macos_branch() {
-  case "$1" in
-    10.15|10.15.*) printf 'catalina\n' ;;
-    11|11.*) printf 'big_sur\n' ;;
-    12|12.*) printf 'monterey\n' ;;
-    13|13.*) printf 'ventura\n' ;;
-    14|14.*) printf 'sonoma\n' ;;
-    15|15.*) printf 'sequoia\n' ;;
-    26|26.*) printf 'tahoe\n' ;;
-    *) return 1 ;;
+mscp_platform_version() {
+  local major="${1%%.*}"
+
+  case "$major" in
+    ''|*[!0-9]*) return 1 ;;
+    *) printf '%s.0\n' "$major" ;;
   esac
 }
 
@@ -176,31 +172,27 @@ if [ "$run_mscp" -eq 0 ]; then
   ok "mSCP audit skipped"
 else
   macos_version=""
-  expected_branch=""
+  platform_version=""
   if ! macos_version="$(sw_vers -productVersion 2>/dev/null)"; then
-    warn "cannot determine the macOS version for mSCP branch selection"
-  elif ! expected_branch="$(macos_branch "$macos_version")"; then
-    warn "no mSCP branch mapping for macOS $macos_version; use a named upstream release branch or skip mSCP"
+    warn "cannot determine the macOS version for the generated mSCP script"
+  elif ! platform_version="$(mscp_platform_version "$macos_version")"; then
+    warn "cannot map macOS $macos_version to an mSCP platform version"
   fi
 
   if [ ! -d "$mscp_dir/.git" ]; then
     warn "mSCP checkout missing at $mscp_dir"
-    warn "clone https://github.com/usnistgov/macos_security.git and check out the macOS branch before running this audit"
+    warn "clone https://github.com/usnistgov/macos_security.git and generate a compliance script before running this audit"
   else
-    current_branch="$(git -C "$mscp_dir" branch --show-current 2>/dev/null || true)"
-    if [ -n "$expected_branch" ] && [ "$current_branch" != "$expected_branch" ]; then
-      warn "mSCP branch is ${current_branch:-detached}; expected $expected_branch for this macOS version"
-    elif [ -n "$expected_branch" ]; then
-      ok "mSCP branch looks correct: ${current_branch:-detached}"
+    if [ -z "$mscp_script" ] && [ -n "$platform_version" ]; then
+      artifact="${mscp_baseline}_macos_${platform_version}"
+      mscp_script="$mscp_dir/build/$artifact/${artifact}_compliance.sh"
     fi
 
     if [ -z "$mscp_script" ]; then
-      mscp_script="$mscp_dir/build/$mscp_baseline/${mscp_baseline}_compliance.sh"
-    fi
-
-    if [ ! -x "$mscp_script" ]; then
+      warn "pass --mscp-script because the default generated path could not be determined"
+    elif [ ! -x "$mscp_script" ]; then
       warn "generated mSCP compliance script missing: $mscp_script"
-      warn "generate it with: cd $mscp_dir && ./scripts/generate_baseline.py -k $mscp_baseline && ./scripts/generate_guidance.py -s baselines/$mscp_baseline.yaml"
+      warn "generate it with the mSCP 2.0 baseline and guidance commands in docs/security-audits.md"
     elif [ "$(id -u)" -eq 0 ]; then
       if run_audit_command zsh "$mscp_script" --check; then
         ok "mSCP check passed"

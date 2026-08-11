@@ -126,22 +126,25 @@ mkdir -p ~/projects/security
 cd ~/projects/security
 git clone https://github.com/usnistgov/macos_security.git
 cd macos_security
-git checkout tahoe # macOS 26
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-./scripts/generate_baseline.py -k 800-53r5_moderate
-./scripts/generate_guidance.py -s baselines/800-53r5_moderate.yaml
+uv venv --python 3.13
+uv pip install --python .venv/bin/python -r requirements.txt
+PATH="$PWD/.venv/bin:$PATH" ./mscp.py --os_name macos --os_version 26 baseline -k 800-53r5_moderate
+PATH="$PWD/.venv/bin:$PATH" ./mscp.py --os_name macos --os_version 26 guidance \
+  custom/baselines/800-53r5_moderate_macos_26.0.yaml --script --no-docs
 ```
 
-Use the named upstream release branch for the host. This integration keeps
-mappings for stable mSCP branches from Catalina through Tahoe. A mapping means
-the upstream branch exists; it does not define bootstrap support. Support is
-evidence-based: Homebrew must support the release, and the selected profile's
-bootstrap and live checks must pass on that release. CI continuously proves
-GitHub's `macos-latest`; support for an older release requires a recorded live
-check. Unknown or future versions produce a warning instead of guessing a
-branch. Then run:
+Replace `26` with the host's macOS major version. mSCP 2.0 uses one `main`
+branch and writes the generated script under `build/` with the platform and
+major version in its name. The audit derives that default path from
+`sw_vers`; use `--mscp-script` for a custom path.
+
+mSCP remains optional and external. Its rule model provides control IDs,
+references, tags, and severity, but the generated host checks are still shell.
+It is useful for macOS compliance baselines, not as the policy engine for this
+repo's workstation and devbox boundaries. The bootstrap does not install its
+Python dependencies.
+
+Then run:
 
 ```zsh
 ./scripts/audit/repo.sh --allow-sudo-prompt
