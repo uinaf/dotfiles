@@ -7,7 +7,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-import { findingLocators, mergeRuleCounts, sqlitePageStats } from "./data.ts";
+import { findingLocators, sqlitePageStats, summarizeFindings } from "./data.ts";
 
 function sqliteHeader(pageCount = 2, freelistCount = 1, pageSize = 4096): Buffer {
   const file = Buffer.alloc(pageCount * pageSize);
@@ -40,6 +40,8 @@ test("gitleaks data exposes only safe locators and aggregate counts", () => {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-audit-data-"));
   try {
     const report = join(root, "report.json");
+    const policy = join(root, "policy.json");
+    writeFileSync(policy, JSON.stringify({ version: 1, defaultSeverity: "high", failureThreshold: "high", rules: {} }));
     writeFileSync(
       report,
       JSON.stringify([
@@ -55,15 +57,21 @@ test("gitleaks data exposes only safe locators and aggregate counts", () => {
       "relative\tunknown",
       "empty\tunknown",
     ]);
-    assert.deepEqual(mergeRuleCounts('{"private-key":2}', report), { empty: 1, "private-key": 3, relative: 1, token: 1 });
-    assert.throws(() => mergeRuleCounts('{"private-key":-1}', report), /invalid count/);
-    assert.throws(() => mergeRuleCounts(`{"private-key":${Number.MAX_SAFE_INTEGER + 1}}`, report), /invalid count/);
+    assert.deepEqual(summarizeFindings('{"private-key":2}', '{"low":2}', report, policy), {
+      findingCount: 4,
+      failures: 4,
+      warnings: 0,
+      rules: { empty: 1, "private-key": 3, relative: 1, token: 1 },
+      severities: { low: 2, high: 4 },
+    });
+    assert.throws(() => summarizeFindings('{"private-key":-1}', "", report, policy), /invalid count/);
+    assert.throws(() => summarizeFindings(`{"private-key":${Number.MAX_SAFE_INTEGER + 1}}`, "", report, policy), /invalid count/);
     const missingRoot = join(root, "missing");
     writeFileSync(report, JSON.stringify([{ RuleID: "token", File: join(missingRoot, "home/token") }]));
     assert.deepEqual(findingLocators(missingRoot, report), ["token\thome/token"]);
     writeFileSync(report, "not json");
     assert.deepEqual(findingLocators(root, report), []);
-    assert.deepEqual(mergeRuleCounts("", report), {});
+    assert.deepEqual(summarizeFindings("", "", report, policy).rules, {});
     const cliPath = join(root, "data.ts");
     symlinkSync(join(import.meta.dirname, "data.ts"), cliPath);
     const cli = spawnSync(process.execPath, [cliPath, "gitleaks-locators", root, report], {
@@ -71,6 +79,35 @@ test("gitleaks data exposes only safe locators and aggregate counts", () => {
     });
     assert.equal(cli.status, 0, cli.stderr);
     assert.equal(cli.stdout, "");
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test("Gitleaks policy classifies rule severity", () => {
+  const root = mkdtempSync(join(tmpdir(), "dotfiles-audit-policy-"));
+  try {
+    const report = join(root, "report.json");
+    const policy = join(root, "policy.json");
+    writeFileSync(report, JSON.stringify([
+      { RuleID: "generic-api-key" },
+      { RuleID: "private-key" },
+    ]));
+    writeFileSync(policy, JSON.stringify({
+      version: 1,
+      defaultSeverity: "high",
+      failureThreshold: "high",
+      rules: { "generic-api-key": "low" },
+    }));
+    assert.deepEqual(summarizeFindings("", "", report, policy), {
+      findingCount: 2,
+      failures: 1,
+      warnings: 1,
+      rules: { "generic-api-key": 1, "private-key": 1 },
+      severities: { low: 1, high: 1 },
+    });
+    writeFileSync(policy, JSON.stringify({ version: 1, defaultSeverity: "nope", failureThreshold: "high", rules: {} }));
+    assert.throws(() => summarizeFindings("", "", report, policy), /invalid Gitleaks policy header/);
   } finally {
     rmSync(root, { force: true, recursive: true });
   }

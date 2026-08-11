@@ -10,6 +10,7 @@ audit_lib_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 : "${fail_count:=0}"
 : "${secret_scan_count:=0}"
 : "${secret_scan_finding_count:=0}"
+: "${secret_scan_severities_json:=}"
 # Keep this empty by default. Do not use `${var:-{}}` — bash treats the closing
 # brace of `{}` as the end of the parameter expansion.
 : "${secret_scan_rules_json:=}"
@@ -69,7 +70,8 @@ print_audit_json_summary() {
   fi
   printf ',"secret_scan_count":%s' "$secret_scan_count"
   printf ',"secret_scan_finding_count":%s' "$secret_scan_finding_count"
-  printf ',"secret_scan_rules":%s}\n' "$(secret_scan_rules_json_or_empty_object)"
+  printf ',"secret_scan_rules":%s' "$(secret_scan_rules_json_or_empty_object)"
+  printf ',"secret_scan_severities":%s}\n' "$(secret_scan_severities_json_or_empty_object)"
 }
 
 mode_of() {
@@ -359,34 +361,27 @@ emit_gitleaks_finding_locators() {
   node "$audit_lib_dir/../audit/data.ts" gitleaks-locators "$scan_root" "$report_path"
 }
 
-merge_secret_scan_rule_counts() {
-  local existing_json="$1"
-  local report_path="$2"
+summarize_gitleaks_findings() {
+  local existing_rules_json="$1"
+  local existing_severities_json="$2"
+  local report_path="$3"
+  local policy_path="$audit_lib_dir/../audit/gitleaks-policy.json"
 
-  command -v node >/dev/null 2>&1 || {
-    if [ -n "$existing_json" ]; then
-      printf '%s\n' "$existing_json"
-    else
-      printf '%s\n' '{}'
-    fi
-    return 1
-  }
-  node "$audit_lib_dir/../audit/data.ts" gitleaks-merge "$existing_json" "$report_path"
-}
-
-count_gitleaks_findings() {
-  local report_path="$1"
-
-  command -v node >/dev/null 2>&1 || {
-    printf '0\n'
-    return 1
-  }
-  node "$audit_lib_dir/../audit/data.ts" gitleaks-count "$report_path"
+  command -v node >/dev/null 2>&1 || return 1
+  node "$audit_lib_dir/../audit/data.ts" gitleaks-summary "$policy_path" "$existing_rules_json" "$existing_severities_json" "$report_path"
 }
 
 secret_scan_rules_json_or_empty_object() {
   if [ -n "${secret_scan_rules_json:-}" ]; then
     printf '%s\n' "$secret_scan_rules_json"
+  else
+    printf '%s\n' '{}'
+  fi
+}
+
+secret_scan_severities_json_or_empty_object() {
+  if [ -n "${secret_scan_severities_json:-}" ]; then
+    printf '%s\n' "$secret_scan_severities_json"
   else
     printf '%s\n' '{}'
   fi
@@ -403,6 +398,9 @@ scan_files_for_secrets() {
   local trufflehog_status
   local gitleaks_status=0
   local finding_count=0
+  local classified_failures=0
+  local classified_warnings=0
+  local classification_failed=0
   local rule
   local staged_path
   local have_audit_data=0
@@ -491,25 +489,38 @@ scan_files_for_secrets() {
   chmod 600 "$report_path" 2>/dev/null || true
 
   if [ "$have_audit_data" -eq 1 ]; then
+    local summary
     local next_rules_json
-    local next_finding_count
-    if ! next_rules_json="$(
-      merge_secret_scan_rule_counts "$(secret_scan_rules_json_or_empty_object)" "$report_path"
-    )"; then
+    local next_severities_json
+    if ! summary="$(summarize_gitleaks_findings \
+      "$(secret_scan_rules_json_or_empty_object)" \
+      "$(secret_scan_severities_json_or_empty_object)" \
+      "$report_path")"; then
       have_audit_data=0
-      warn "audit data tooling failed while summarizing gitleaks findings; falling back to status-only reporting"
-    elif ! next_finding_count="$(count_gitleaks_findings "$report_path")" \
-      || ! [[ "$next_finding_count" =~ ^[0-9]+$ ]]; then
-      have_audit_data=0
-      warn "audit data tooling failed while counting gitleaks findings; falling back to status-only reporting"
+      classification_failed=1
+      warn "audit data tooling failed while summarizing Gitleaks findings; failing closed"
     else
-      secret_scan_rules_json="$next_rules_json"
-      finding_count="$next_finding_count"
-      secret_scan_finding_count=$((secret_scan_finding_count + finding_count))
+      read -r finding_count classified_failures classified_warnings next_rules_json next_severities_json <<< "$summary"
+      if ! [[ "$finding_count" =~ ^[0-9]+$ ]] \
+        || ! [[ "$classified_failures" =~ ^[0-9]+$ ]] \
+        || ! [[ "$classified_warnings" =~ ^[0-9]+$ ]] \
+        || [ $((classified_failures + classified_warnings)) -ne "$finding_count" ] \
+        || [ -z "$next_rules_json" ] \
+        || [ -z "$next_severities_json" ]; then
+        have_audit_data=0
+        classification_failed=1
+        warn "audit data tooling returned an invalid Gitleaks summary; failing closed"
+      else
+        secret_scan_rules_json="$next_rules_json"
+        secret_scan_severities_json="$next_severities_json"
+        secret_scan_finding_count=$((secret_scan_finding_count + finding_count))
+      fi
     fi
   fi
 
-  if [ "$have_audit_data" -eq 1 ]; then
+  if [ "$classification_failed" -eq 1 ]; then
+    fail_check "Gitleaks findings could not be classified safely"
+  elif [ "$have_audit_data" -eq 1 ]; then
     if [ "$finding_count" -eq 0 ] && [ "$gitleaks_status" -eq 0 ]; then
       ok "gitleaks found no leaks in $linked_count local config files"
     elif [ "$finding_count" -gt 0 ]; then
@@ -519,7 +530,11 @@ scan_files_for_secrets() {
           printf 'finding rule=%s path=%s\n' "$rule" "$staged_path" >&2
         done < <(emit_gitleaks_finding_locators "$scan_root" "$report_path")
       fi
-      fail_check "gitleaks reported possible leaks in local config files"
+      if [ "$classified_failures" -gt 0 ]; then
+        fail_check "gitleaks reported high-severity possible leaks in local config files"
+      else
+        warn "gitleaks reported low-severity possible leaks in local config files"
+      fi
     else
       fail_check "gitleaks local config scan failed"
     fi

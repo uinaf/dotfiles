@@ -58,6 +58,19 @@ JSON summaries use `status=pass` only when there are no failures or warnings,
 `status=warn` when checks completed with warnings, and `status=fail` when any
 check failed.
 
+## Finding Severity
+
+Local Gitleaks severity policy lives in
+`scripts/audit/gitleaks-policy.json`. Unknown rules default to `high` and fail
+the audit. `low` and `medium` findings warn; `high` and `critical` findings
+fail. The `generic-api-key` rule is `low` because it is heuristic and commonly
+matches shell assignment history. TruffleHog verified findings still fail
+independently.
+
+JSON summaries include finding totals grouped by Gitleaks rule and severity.
+The policy changes the audit outcome, not the scanner output or the sanitized
+locators.
+
 ## Local Audit Policy
 
 Shared audit policy lives in `~/.config/dotfiles/audit.env`, installed from the
