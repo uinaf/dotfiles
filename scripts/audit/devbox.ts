@@ -9,8 +9,10 @@ import { readProfileModel, requireProfile } from "../profiles/model.ts";
 
 const homeDotfiles = { kind: "home-dotfiles", exclude: [".CFUserTextEncoding", ".DS_Store", ".localized", ".npmrc"] } as const;
 const sshConfigs = { kind: "files", path: ".ssh", maxDepth: 0, namePrefix: "config" } as const;
+const profileModelPath = fileURLToPath(new URL("../../chezmoi/.chezmoidata/profiles.json", import.meta.url));
 
-export function devboxPolicy(user: string, devboxUser: string, configPath: string, systemRoot = "/", developer = true): AuditPolicy {
+export function devboxPolicy(user: string, devboxUser: string, configPath: string, systemRoot = "/", profileName = "devbox"): AuditPolicy {
+  const developer = requireProfile(readProfileModel(profileModelPath), profileName).capabilities.developer;
   const codexPrivateDirectories = [
     ".codex",
     ".codex/sessions",
@@ -82,9 +84,7 @@ export function runDevbox(format: AuditFormat, explicitConfig = "", env: NodeJS.
   const config = existsSync(configPath) ? readSettingsFile(configPath) : {};
   const devboxUser = config.DEVBOX_USER || env.DEVBOX_USER || user;
   const profileName = readFileSync(join(home, ".config/dotfiles/profile"), "utf8").trim();
-  const modelPath = fileURLToPath(new URL("../../chezmoi/.chezmoidata/profiles.json", import.meta.url));
-  const profile = requireProfile(readProfileModel(modelPath), profileName);
-  return runPolicy(devboxPolicy(user, devboxUser, configPath, "/", profile.capabilities.developer), format, { home, env }).status;
+  return runPolicy(devboxPolicy(user, devboxUser, configPath, "/", profileName), format, { home, env }).status;
 }
 
 function main(args: string[]): number {

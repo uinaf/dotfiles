@@ -301,7 +301,7 @@ check_truecolor_shell() {
 
 check_ghostty_ssh_integration() {
   if ! dotfiles_profile_is_workstation "$profile"; then
-    return
+    return 0
   fi
 
   section "Ghostty SSH integration"
