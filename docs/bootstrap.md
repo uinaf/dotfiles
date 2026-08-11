@@ -231,6 +231,10 @@ mise run audit host
 mise run audit workstation
 ```
 
+The live check runs independent groups concurrently and prints a concise
+summary. Run `./scripts/verify/bootstrap.sh --profile "$profile" --verbose`
+when successful command output is needed for diagnosis.
+
 ## Devbox Mac
 
 Use `devbox` for the standard shared-host contract. Use `personal-devbox` for

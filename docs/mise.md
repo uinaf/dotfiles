@@ -115,7 +115,9 @@ The assistant profile intentionally contains only Node. The service profile
 declares no language runtime. Additional runtimes belong to the workload that
 requires them.
 `scripts/verify/bootstrap.sh` checks that rendered mise tools converged and
-that their commands resolve from mise. Its `mise doctor` PATH-ordering probes run through a clean
+that their commands resolve from mise. Independent live-check groups run in
+parallel and print one success line each; pass `--verbose` to expose successful
+command output. Its `mise doctor` PATH-ordering probes run through a clean
 login/interactive zsh that does not inherit an already-activated caller mise
 session or PATH, so a healthy workstation is not rejected only because the
 verifier itself started inside mise. Login probes (`-lic`) still rebuild PATH

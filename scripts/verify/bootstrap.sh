@@ -4,6 +4,7 @@ set -euo pipefail
 profile=""
 profile_set=0
 desktop_baseline=0
+verbose=0
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 ghostty_config="$HOME/Library/Application Support/com.mitchellh.ghostty/config"
 
@@ -17,11 +18,13 @@ ghostty_config="$HOME/Library/Application Support/com.mitchellh.ghostty/config"
 usage() {
   cat <<'USAGE'
 Usage:
-  scripts/verify/bootstrap.sh [--profile personal-workstation|personal-devbox|workstation|devbox|assistant|service] [--desktop]
+  scripts/verify/bootstrap.sh [--profile personal-workstation|personal-devbox|workstation|devbox|assistant|service] [--desktop] [--verbose]
 
 Checks the live per-user bootstrap for the selected profile. An existing
 ~/.config/dotfiles/profile is used when --profile is omitted. --desktop is
 valid only with a devbox profile.
+
+Successful check details are hidden by default. Use --verbose to print them.
 USAGE
 }
 
@@ -42,6 +45,9 @@ while [ "$#" -gt 0 ]; do
       ;;
     --desktop)
       desktop_baseline=1
+      ;;
+    --verbose)
+      verbose=1
       ;;
     -h|--help)
       usage
@@ -321,44 +327,40 @@ check_remote_ssh_prompt() {
   printf 'ok remote SSH prompt includes user@host\n'
 }
 
-check_cli_tools() {
+run_tool_checks() {
   local check
 
-  for check in "${common_cli_checks[@]}"; do
+  for check in "$@"; do
     run_zsh_check "$check"
   done
+}
 
-  if dotfiles_profile_is_developer "$profile"; then
-    for check in "${developer_cli_checks[@]}"; do
-      run_zsh_check "$check"
-    done
-  fi
+check_common_tools() {
+  run_tool_checks "${common_cli_checks[@]}"
+}
 
-  if dotfiles_profile_is_personal "$profile"; then
-    for check in "${personal_common_cli_checks[@]}"; do
-      run_zsh_check "$check"
-    done
-  fi
-  if dotfiles_profile_is_workstation "$profile"; then
-    for check in "${human_workstation_cli_checks[@]}"; do
-      run_zsh_check "$check"
-    done
-  fi
-  if dotfiles_profile_has_capability "$profile" zed; then
-    for check in "${personal_workstation_cli_checks[@]}"; do
-      run_zsh_check "$check"
-    done
-  fi
-  if dotfiles_profile_is_devbox "$profile"; then
-    for check in "${devbox_cli_checks[@]}"; do
-      run_zsh_check "$check"
-    done
-  fi
-  if dotfiles_profile_has_capability "$profile" githubAppAuth; then
-    for check in "${assistant_cli_checks[@]}"; do
-      run_zsh_check "$check"
-    done
-  fi
+check_developer_tools() {
+  run_tool_checks "${developer_cli_checks[@]}"
+}
+
+check_personal_tools() {
+  run_tool_checks "${personal_common_cli_checks[@]}"
+}
+
+check_workstation_tools() {
+  run_tool_checks "${human_workstation_cli_checks[@]}"
+}
+
+check_personal_workstation_tools() {
+  run_tool_checks "${personal_workstation_cli_checks[@]}"
+}
+
+check_devbox_tools() {
+  run_tool_checks "${devbox_cli_checks[@]}"
+}
+
+check_assistant_tools() {
+  run_tool_checks "${assistant_cli_checks[@]}"
 }
 
 check_brew_bundle() {
@@ -463,22 +465,110 @@ check_sops_age_identity() {
   esac
 }
 
-check_mise
-check_truecolor_shell
-check_remote_ssh_prompt
-check_runtime_versions
-check_devbox_homebrew
-check_brew_bundle
-check_cli_tools
-check_no_legacy_tool_versions
-check_config_paths
-check_sops_age_identity
-check_ghostty_ssh_integration
-if dotfiles_profile_is_developer "$profile"; then
-  check_codex_config
-  check_spotlight_indexing
-fi
-check_workload_git_boundary
-check_desktop_baseline
+check_environment() {
+  check_mise
+  check_truecolor_shell
+  check_remote_ssh_prompt
+  check_ghostty_ssh_integration
+}
 
-printf '\nbootstrap verification ok (%s)\n' "$profile"
+check_runtime() {
+  check_runtime_versions
+}
+
+check_homebrew() {
+  check_devbox_homebrew
+  check_brew_bundle
+}
+
+check_configuration() {
+  check_no_legacy_tool_versions
+  check_config_paths
+  check_sops_age_identity
+  if dotfiles_profile_is_developer "$profile"; then
+    check_codex_config
+  fi
+}
+
+check_host() {
+  if dotfiles_profile_is_developer "$profile"; then
+    check_spotlight_indexing
+  fi
+  check_desktop_baseline
+}
+
+check_workload() {
+  check_workload_git_boundary
+}
+
+run_checks() {
+  local run_dir
+  local started="$SECONDS"
+  local failed=0
+  local index
+  local name
+  local command
+  local log
+  local -a pids=()
+  local -a groups=(environment runtime common_tools homebrew configuration)
+
+  if dotfiles_profile_is_developer "$profile"; then
+    groups+=(developer_tools)
+  fi
+  if dotfiles_profile_is_personal "$profile"; then
+    groups+=(personal_tools)
+  fi
+  if dotfiles_profile_is_workstation "$profile"; then
+    groups+=(workstation_tools)
+  fi
+  if dotfiles_profile_has_capability "$profile" zed; then
+    groups+=(personal_workstation_tools)
+  fi
+  if dotfiles_profile_is_devbox "$profile"; then
+    groups+=(devbox_tools)
+  fi
+  if dotfiles_profile_has_capability "$profile" githubAppAuth; then
+    groups+=(assistant_tools)
+  fi
+
+  if dotfiles_profile_is_developer "$profile" || [ "$desktop_baseline" -eq 1 ]; then
+    groups+=(host)
+  fi
+  if dotfiles_profile_is_workload "$profile"; then
+    groups+=(workload)
+  fi
+
+  run_dir="$(mktemp -d "${TMPDIR:-/tmp}/dotfiles-bootstrap.XXXXXX")"
+  for name in "${groups[@]}"; do
+    command="check_$name"
+    log="$run_dir/$name.log"
+    ("$command") >"$log" 2>&1 &
+    pids+=("$!")
+  done
+
+  for index in "${!pids[@]}"; do
+    name="${groups[$index]}"
+    log="$run_dir/$name.log"
+    if wait "${pids[$index]}"; then
+      if [ "$verbose" -eq 1 ]; then
+        cat "$log"
+      fi
+      printf 'ok %s\n' "${name//_/-}"
+    else
+      failed=1
+      printf '\n## %s\n' "${name//_/-}" >&2
+      cat "$log" >&2
+      printf 'FAILED: %s\n' "${name//_/-}" >&2
+    fi
+  done
+
+  for name in "${groups[@]}"; do
+    rm -f "$run_dir/$name.log"
+  done
+  rmdir "$run_dir"
+
+  [ "$failed" -eq 0 ] || exit 1
+  printf 'bootstrap verification ok (%s, %ss)\n' "$profile" "$((SECONDS - started))"
+}
+
+run_checks
