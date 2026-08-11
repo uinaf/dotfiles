@@ -156,7 +156,8 @@ its Codex settings and set:
 
 `./scripts/bootstrap/install.sh` configures Codex defaults in
 `~/.codex/config.toml`, including `forced_login_method = "chatgpt"` so Codex
-uses ChatGPT subscription access instead of API-key billing. It does not manage
+uses ChatGPT subscription access instead of API-key billing. It selects the
+standard service tier and disables fast mode by default. It does not manage
 Codex auth tokens, sessions, approvals, or app state.
 
 The same install step installs or updates GitHub's official `github/gh-stack`

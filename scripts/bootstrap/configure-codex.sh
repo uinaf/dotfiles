@@ -36,11 +36,12 @@ set_top_level() {
   rm -f "$tmp"
 }
 
-enable_known_feature() {
+set_known_feature() {
   local feature="$1"
+  local action="$2"
 
   if CODEX_HOME="$codex_home" codex features list | awk -v feature="$feature" '$1 == feature { found = 1 } END { exit !found }'; then
-    CODEX_HOME="$codex_home" codex features enable "$feature" >/dev/null
+    CODEX_HOME="$codex_home" codex features "$action" "$feature" >/dev/null
   else
     printf 'skipped unknown Codex feature: %s\n' "$feature" >&2
   fi
@@ -52,13 +53,15 @@ set_top_level "forced_login_method" '"chatgpt"'
 # Soft first-boot defaults; users may change these afterward.
 set_top_level "model" '"gpt-5.6-sol"'
 set_top_level "model_reasoning_effort" '"medium"'
+set_top_level "service_tier" '"default"'
 
 if ! command -v codex >/dev/null 2>&1; then
   printf 'missing required command: codex\n' >&2
   exit 1
 fi
 
-enable_known_feature "goals"
-enable_known_feature "memories"
+set_known_feature "fast_mode" "disable"
+set_known_feature "goals" "enable"
+set_known_feature "memories" "enable"
 
-printf 'configured Codex ChatGPT login default in %s\n' "$config_path"
+printf 'configured Codex defaults in %s\n' "$config_path"
