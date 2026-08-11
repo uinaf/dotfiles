@@ -34,7 +34,7 @@ Use the matching live audit only on the intended machine or Unix user:
 ```zsh
 ./scripts/audit/host.sh
 mise run audit workstation
-./scripts/audit/devbox.sh
+mise run audit devbox
 ```
 
 These checks are non-destructive and redact or summarize findings where the

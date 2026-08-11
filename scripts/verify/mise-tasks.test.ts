@@ -103,5 +103,7 @@ test("audit routing is explicit and preserves failures", () => {
   assert.deepEqual(auditCommand("mscp", "text")[1], []);
   assert.equal(auditCommand("workstation", "text")[0], process.execPath);
   assert.match(auditCommand("workstation", "text")[1][0], /scripts\/audit\/workstation\.ts$/);
+  assert.equal(auditCommand("devbox", "text")[0], process.execPath);
+  assert.match(auditCommand("devbox", "json")[1][0], /scripts\/audit\/devbox\.ts$/);
   assert.equal(runAudit("host", "text", () => ({ status: 29 })), 29);
 });

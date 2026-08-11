@@ -29,7 +29,7 @@ export const workstationPolicy = {
         { kind: "pattern-absent", sources: [{ kind: "path", path: ".docker/config.json" }], pattern: /"auth"\s*:/, label: "inline Docker auth material", severity: "fail" },
       ],
     },
-    { title: "Git and GitHub identity", checks: [{ kind: "git-identity", config: ".gitconfig" }, { kind: "github-auth" }] },
+    { title: "Git and GitHub identity", checks: [{ kind: "git-identity", config: ".gitconfig", missing: "warn", identity: "combined" }, { kind: "github-auth" }] },
     { title: "SSH key file permissions", checks: [{ kind: "ssh-private-key-modes", path: ".ssh" }] },
     { title: "Codex log size", checks: [{ kind: "codex-log-size", path: ".codex" }] },
     { title: "Tailscale", checks: [{ kind: "command-status", command: "tailscale", args: ["status", "--peers=false"], missing: "warn", failure: "warn", label: "tailscale status" }] },

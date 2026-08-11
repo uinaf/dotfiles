@@ -29,7 +29,7 @@ Use separate checks for separate risk surfaces:
 | Host hardening | `lynis`, `scripts/audit/host.sh` | Run a maintained Unix/macOS host audit without adopting enterprise management. |
 | macOS compliance baseline | macOS Security Compliance Project through `scripts/audit/repo.sh` | Check host security settings against a generated baseline. |
 | Workstation drift | `mise run audit workstation` | Check human workstation secret boundaries, identity state, and local stale files. |
-| Devbox drift | `scripts/audit/devbox.sh` | Check agent-machine secret boundaries, identity state, and local stale files. |
+| Devbox drift | `mise run audit devbox` | Check agent-machine secret boundaries, identity state, and local stale files. |
 | Functional bootstrap | `scripts/verify/bootstrap.sh`, `scripts/verify/devbox-services.sh` | Confirm tools, the SOPS age identity when the profile consumes secrets, and expected services work. |
 
 Do not treat one layer as a substitute for another. For example, a clean
@@ -130,7 +130,7 @@ contain hostnames, local paths, package inventory, and network details.
 Treat Lynis as a discovery tool, not a policy engine. Review warnings and
 suggestions, decide what fits a workstation or shared devbox setup, then encode
 only durable repo-specific drift checks in `scripts/audit/workstation.ts` or
-`scripts/audit/devbox.sh`.
+`scripts/audit/devbox.ts`.
 
 ## macOS Security Compliance Project
 
@@ -213,12 +213,12 @@ GitHub auth.
 Run this from each devbox user:
 
 ```zsh
-./scripts/audit/devbox.sh
+mise run audit devbox
 ```
 
-Use `./scripts/audit/devbox.sh --json` when collecting per-user devbox
-audit summaries over SSH. Prefer JSON mode for remote collection because prose
-scanner output may include matched secret material.
+Use `mise run audit devbox --format json` when collecting per-user devbox
+audit summaries over SSH. The devbox policy uses the same typed engine as the
+workstation audit.
 
 It checks:
 

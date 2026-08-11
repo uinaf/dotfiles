@@ -136,7 +136,7 @@ Run each check as the intended Unix identity:
 ```bash
 ./dotfiles check devbox
 ./scripts/verify/devbox-services.sh
-./scripts/audit/devbox.sh --json
+mise run audit devbox --format json
 ```
 
 Use `./dotfiles check personal-devbox` for the bootstrap check on an

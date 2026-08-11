@@ -72,8 +72,8 @@ Run live checks only on a machine that should satisfy the selected profile:
 ./scripts/verify/bootstrap.sh --profile assistant
 ./scripts/verify/bootstrap.sh --profile service
 ./scripts/verify/devbox-services.sh
-./scripts/audit/workstation.sh
-./scripts/audit/devbox.sh
+mise run audit workstation
+mise run audit devbox
 ```
 
 ## Repository Contracts
