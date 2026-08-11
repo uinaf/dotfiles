@@ -15,9 +15,9 @@ import { tmpdir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 
 import { findingLocators, sqlitePageStats, summarizeFindings } from "./data.ts";
+import { AuditReport, type AuditDependencies as BaseDependencies, type AuditFormat, type CommandResult, type CommandRunner, type FindingSeverity } from "./report.ts";
 
-export type AuditFormat = "text" | "json";
-export type FindingSeverity = "ok" | "warn" | "fail";
+export type { AuditFormat, FindingSeverity } from "./report.ts";
 
 export type PathSource =
   | { kind: "path"; path: string }
@@ -48,16 +48,8 @@ export type AuditPolicy = {
   sections: readonly { title: string; checks: readonly AuditCheck[] }[];
 };
 
-type CommandResult = { status: number | null; stdout: string; stderr: string; error?: Error };
-type CommandRunner = (command: string, args: readonly string[]) => CommandResult;
-type Finding = { severity: FindingSeverity; message: string };
-
-export type AuditDependencies = {
-  env?: NodeJS.ProcessEnv;
+export type AuditDependencies = BaseDependencies & {
   home?: string;
-  command?: CommandRunner;
-  stdout?: (value: string) => void;
-  stderr?: (value: string) => void;
 };
 
 export type AuditSummary = {
@@ -75,16 +67,12 @@ export type AuditSummary = {
 
 const privateKeyPattern = /^(-----BEGIN ([A-Z0-9]+ )?PRIVATE KEY-----|---- BEGIN SSH2 (ENCRYPTED )?PRIVATE KEY ----|PuTTY-User-Key-File-[23]:)/m;
 
-class AuditRun {
-  readonly findings: Finding[] = [];
+class AuditRun extends AuditReport {
   readonly secret = { scanned: 0, findings: 0, rules: {} as Record<string, number>, severities: {} as Record<string, number> };
   readonly policy: AuditPolicy;
-  readonly format: AuditFormat;
   readonly home: string;
   readonly env: NodeJS.ProcessEnv;
   readonly command: CommandRunner;
-  readonly stdout: (value: string) => void;
-  readonly stderr: (value: string) => void;
   settings: Record<string, string> = {};
 
   constructor(
@@ -96,20 +84,11 @@ class AuditRun {
     stdout: (value: string) => void,
     stderr: (value: string) => void,
   ) {
+    super(format, stdout, stderr);
     this.policy = policy;
-    this.format = format;
     this.home = home;
     this.env = env;
     this.command = command;
-    this.stdout = stdout;
-    this.stderr = stderr;
-  }
-
-  finding(severity: FindingSeverity, message: string): void {
-    this.findings.push({ severity, message });
-    if (this.format === "json") return;
-    const line = `${severity === "fail" ? "FAILED:" : severity} ${message}\n`;
-    (severity === "ok" ? this.stdout : this.stderr)(line);
   }
 
   summary(): AuditSummary {

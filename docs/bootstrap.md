@@ -226,7 +226,7 @@ Verify:
 
 ```zsh
 ./dotfiles check "$profile"
-./scripts/audit/host.sh
+mise run audit host
 mise run audit workstation
 ```
 
@@ -319,7 +319,7 @@ Verify each devbox user:
 
 ```zsh
 ./dotfiles check "$profile"
-./scripts/audit/host.sh
+mise run audit host
 ./scripts/verify/devbox-services.sh
 mise run audit devbox
 ```

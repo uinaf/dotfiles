@@ -32,7 +32,7 @@ Run the repository gate before submitting security-sensitive changes:
 Use the matching live audit only on the intended machine or Unix user:
 
 ```zsh
-./scripts/audit/host.sh
+mise run audit host
 mise run audit workstation
 mise run audit devbox
 ```
