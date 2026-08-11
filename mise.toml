@@ -11,7 +11,7 @@ run = "./scripts/verify/repo.sh --skip-security"
 [tasks."verify:history"]
 description = "Scan the full Git history for secrets"
 hide = true
-run = "./scripts/audit/repo.sh --skip-mscp"
+run = "node ./scripts/audit/repo.ts --skip-mscp"
 
 [tasks."verify:domain"]
 description = "Run one focused verification domain"

@@ -15,13 +15,12 @@ const scopes = new Set<AuditScope>(["repo", "mscp", "host", "workstation", "devb
 const formats = new Set<AuditFormat>(["text", "json"]);
 
 export function auditCommand(scope: AuditScope, format: AuditFormat): [string, string[]] {
-  if (scope === "workstation" || scope === "devbox") return [process.execPath, [resolve(repoRoot, `scripts/audit/${scope}.ts`), ...(format === "json" ? ["--json"] : [])]];
   const script = scope === "mscp" ? "repo" : scope;
   const args = scope === "repo" ? ["--skip-mscp"] : [];
   if (format === "json") {
     args.push("--json");
   }
-  return [resolve(repoRoot, `scripts/audit/${script}.sh`), args];
+  return [process.execPath, [resolve(repoRoot, `scripts/audit/${script}.ts`), ...args]];
 }
 
 export function runAudit(scope: AuditScope, format: AuditFormat, run: Runner = defaultRunner): number {

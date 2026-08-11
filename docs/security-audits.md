@@ -26,8 +26,8 @@ Use separate checks for separate risk surfaces:
 | Layer | Tooling | Purpose |
 | --- | --- | --- |
 | Repository content | `gitleaks`, `trufflehog`, `.github/workflows/secrets.yml` | Detect committed or proposed secrets. |
-| Host hardening | `lynis`, `scripts/audit/host.sh` | Run a maintained Unix/macOS host audit without adopting enterprise management. |
-| macOS compliance baseline | macOS Security Compliance Project through `scripts/audit/repo.sh` | Check host security settings against a generated baseline. |
+| Host hardening | `lynis`, `mise run audit host` | Run a maintained Unix/macOS host audit without adopting enterprise management. |
+| macOS compliance baseline | macOS Security Compliance Project through `mise run audit mscp` | Check host security settings against a generated baseline. |
 | Workstation drift | `mise run audit workstation` | Check human workstation secret boundaries, identity state, and local stale files. |
 | Devbox drift | `mise run audit devbox` | Check agent-machine secret boundaries, identity state, and local stale files. |
 | Functional bootstrap | `scripts/verify/bootstrap.sh`, `scripts/verify/devbox-services.sh` | Confirm tools, the SOPS age identity when the profile consumes secrets, and expected services work. |
@@ -43,15 +43,13 @@ Run locally before committing security-sensitive setup changes:
 mise run verify
 ```
 
-That command runs the repository secret scan through
-`./scripts/audit/repo.sh --skip-mscp` after the complete deterministic graph.
-Run `./scripts/audit/repo.sh --skip-mscp` directly when you only need the
-secret scanners.
+That command runs the repository secret scan after the complete deterministic
+graph. Run `mise run audit repo` when you only need the secret scanners.
 
 For agent or dashboard consumption, add `--json`:
 
 ```zsh
-./scripts/audit/repo.sh --skip-mscp --json
+mise run audit repo --format json
 ```
 
 JSON summaries use `status=pass` only when there are no failures or warnings,
@@ -111,21 +109,22 @@ Use Lynis for broad host checks that should not live as custom repo shell
 logic:
 
 ```zsh
-./scripts/audit/host.sh
+mise run audit host
 ```
 
-Use `./scripts/audit/host.sh --json` when an agent needs a compact
+Use `mise run audit host --format json` when an agent needs a compact
 summary. The default run does not prompt for sudo, so it is safe for routine
 workstation and devbox checks. For a deeper local audit:
 
 ```zsh
-./scripts/audit/host.sh --allow-sudo-prompt
+node scripts/audit/host.ts --allow-sudo-prompt
 ```
 
-The script captures Lynis output in a temporary owner-only directory, summarizes
-the hardening index, warning count, and suggestion count, then deletes the full
-report. Use `--keep-artifacts DIR` only for manual review; Lynis reports can
-contain hostnames, local paths, package inventory, and network details.
+The typed adapter captures Lynis output in a temporary owner-only directory,
+summarizes the hardening index, warning count, and suggestion count, then
+deletes the full report. Use `--keep-artifacts DIR` only for manual review;
+Lynis reports can contain hostnames, local paths, package inventory, and
+network details.
 
 Treat Lynis as a discovery tool, not a policy engine. Review warnings and
 suggestions, decide what fits a workstation or shared devbox setup, then encode
@@ -134,7 +133,7 @@ only durable repo-specific drift checks in `scripts/audit/workstation.ts` or
 
 ## macOS Security Compliance Project
 
-`scripts/audit/repo.sh` can run an existing mSCP compliance script in
+`mise run audit mscp` can run an existing mSCP compliance script in
 check-only mode. It never runs `--fix`.
 
 Prepare mSCP outside this repo:
@@ -165,7 +164,7 @@ Python dependencies.
 Then run:
 
 ```zsh
-./scripts/audit/repo.sh --allow-sudo-prompt
+node scripts/audit/repo.ts --allow-sudo-prompt
 ```
 
 Review non-compliant rules and decide exceptions before applying remediation.

@@ -60,7 +60,7 @@ private rule layer and `--update` global skill refresh.
 ## Live Audits
 
 ```zsh
-./scripts/audit/host.sh --json
+mise run audit host --format json
 mise run audit workstation --format json
 mise run audit devbox --format json
 ./scripts/verify/devbox-services.sh
