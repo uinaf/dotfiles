@@ -1,0 +1,95 @@
+#!/usr/bin/env node
+
+import { existsSync } from "node:fs";
+import { join } from "node:path";
+import { pathToFileURL } from "node:url";
+
+import { type AuditFormat, type AuditPolicy, readSettingsFile, runPolicy } from "./engine.ts";
+
+const homeDotfiles = { kind: "home-dotfiles", exclude: [".CFUserTextEncoding", ".DS_Store", ".localized", ".npmrc"] } as const;
+const sshConfigs = { kind: "files", path: ".ssh", maxDepth: 0, namePrefix: "config" } as const;
+
+export function devboxPolicy(user: string, devboxUser: string, configPath: string, systemRoot = "/"): AuditPolicy {
+  const codexPrivateDirectories = [
+    ".codex",
+    ".codex/sessions",
+    ".codex/archived_sessions",
+    ".codex/shell_snapshots",
+    ".codex/log",
+    ".codex/app-server-control",
+  ].map((path) => ({ kind: "path", path }) as const);
+  return {
+    name: "devbox-security",
+    summary: "devbox security audit summary",
+    fields: { user, devbox_user: devboxUser },
+    sections: [
+      {
+        title: "local devbox config",
+        checks: [
+          { kind: "file-mode", path: configPath, modes: [0o600], missing: "warn", mismatch: "fail" },
+          { kind: "value-match", actual: devboxUser, expected: user, match: `devbox user matches current user: ${devboxUser}`, mismatch: `DEVBOX_USER is ${devboxUser} but current user is ${user}`, severity: "warn" },
+        ],
+      },
+      {
+        title: "local config secret scan",
+        checks: [
+          { kind: "secret-scan", sources: [homeDotfiles, { kind: "path", path: ".aws" }, { kind: "path", path: ".docker" }, { kind: "path", path: ".bash_sessions" }, { kind: "path", path: ".zsh_sessions" }, { kind: "path", path: "Library/LaunchAgents" }, { kind: "path", path: join(systemRoot, "Library/LaunchDaemons") }, sshConfigs] },
+          { kind: "npm-auth-boundary", path: ".npmrc" },
+          { kind: "pattern-absent", sources: [{ kind: "path", path: ".docker/config.json" }], pattern: /"auth"\s*:/, label: "inline Docker auth material", severity: "fail", countAsSecretScan: true },
+        ],
+      },
+      {
+        title: "Codex trust boundaries",
+        checks: [
+          { kind: "private-mode", sources: codexPrivateDirectories, mode: 0o700, mismatch: "fail" },
+          { kind: "private-mode", sources: [{ kind: "files", path: ".codex", maxDepth: 2, namePattern: /(?:[.]sqlite3?|[.]db(?:-.*)?|[.]log)$|\/log\// }], mismatch: "fail" },
+          { kind: "private-mode", sources: [{ kind: "path", path: ".codex/config.toml" }], mode: 0o600, mismatch: "fail" },
+          { kind: "codex-trust", path: ".codex/config.toml" },
+        ],
+      },
+      {
+        title: "home root pollution",
+        checks: [{ kind: "paths-absent", paths: ["node_modules", "package.json", "package-lock.json", "pnpm-lock.yaml", "yarn.lock"], severity: "warn", label: "home root contains project artifact" }],
+      },
+      {
+        title: "project directory privacy",
+        checks: [{ kind: "private-mode", sources: [{ kind: "path", path: "projects" }, { kind: "path", path: `projects/${devboxUser}` }], mismatch: "warn" }],
+      },
+      {
+        title: "Git and GitHub identity",
+        checks: [
+          { kind: "git-identity", config: ".gitconfig", missing: "fail", identity: "separate" },
+          { kind: "github-auth" },
+          { kind: "github-ssh-auth" },
+        ],
+      },
+      { title: "SSH key file permissions", checks: [{ kind: "ssh-private-key-modes", path: ".ssh" }] },
+      { title: "Tailscale", checks: [{ kind: "tailscale-magicdns" }] },
+    ],
+  };
+}
+
+export function runDevbox(format: AuditFormat, explicitConfig = "", env: NodeJS.ProcessEnv = process.env): number {
+  const home = env.HOME || "";
+  const user = env.USER || "";
+  const configPath = explicitConfig || env.DEVBOX_CONFIG || join(home, ".config/dotfiles/devbox.env");
+  const config = existsSync(configPath) ? readSettingsFile(configPath) : {};
+  const devboxUser = config.DEVBOX_USER || env.DEVBOX_USER || user;
+  return runPolicy(devboxPolicy(user, devboxUser, configPath), format, { home, env }).status;
+}
+
+function main(args: string[]): number {
+  let format: AuditFormat = "text";
+  let config = "";
+  for (let index = 0; index < args.length; index += 1) {
+    if (args[index] === "--json") format = "json";
+    else if (args[index] === "--config" && args[index + 1]) config = args[++index];
+    else {
+      process.stderr.write("Usage: scripts/audit/devbox.ts [--config PATH] [--json]\n");
+      return 2;
+    }
+  }
+  return runDevbox(format, config);
+}
+
+if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) process.exitCode = main(process.argv.slice(2));

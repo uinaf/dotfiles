@@ -22,22 +22,29 @@ export type FindingSeverity = "ok" | "warn" | "fail";
 export type PathSource =
   | { kind: "path"; path: string }
   | { kind: "home-dotfiles"; exclude?: readonly string[] }
-  | { kind: "files"; path: string; maxDepth?: number; namePrefix?: string };
+  | { kind: "files"; path: string; maxDepth?: number; namePrefix?: string; namePattern?: RegExp };
 
 export type AuditCheck =
   | { kind: "file-mode"; path: string; modes: readonly number[]; missing: Exclude<FindingSeverity, "ok">; mismatch: Exclude<FindingSeverity, "ok"> }
-  | { kind: "pattern-absent"; sources: readonly PathSource[]; pattern: RegExp; label: string; severity: Exclude<FindingSeverity, "ok"> }
+  | { kind: "pattern-absent"; sources: readonly PathSource[]; pattern: RegExp; label: string; severity: Exclude<FindingSeverity, "ok">; countAsSecretScan?: boolean }
   | { kind: "npm-auth-boundary"; path: string }
   | { kind: "secret-scan"; sources: readonly PathSource[] }
-  | { kind: "git-identity"; config: string }
+  | { kind: "private-mode"; sources: readonly PathSource[]; mode?: number; mismatch: Exclude<FindingSeverity, "ok"> }
+  | { kind: "paths-absent"; paths: readonly string[]; severity: Exclude<FindingSeverity, "ok">; label: string }
+  | { kind: "value-match"; actual: string; expected: string; match: string; mismatch: string; severity: Exclude<FindingSeverity, "ok"> }
+  | { kind: "git-identity"; config: string; missing: Exclude<FindingSeverity, "ok">; identity: "combined" | "separate" }
   | { kind: "github-auth" }
+  | { kind: "github-ssh-auth" }
   | { kind: "ssh-private-key-modes"; path: string }
+  | { kind: "codex-trust"; path: string }
   | { kind: "codex-log-size"; path: string }
+  | { kind: "tailscale-magicdns" }
   | { kind: "command-status"; command: string; args: readonly string[]; missing: Exclude<FindingSeverity, "ok">; failure: Exclude<FindingSeverity, "ok">; label: string };
 
 export type AuditPolicy = {
   name: string;
   summary: string;
+  fields?: { user: string; devbox_user: string };
   sections: readonly { title: string; checks: readonly AuditCheck[] }[];
 };
 
@@ -62,6 +69,8 @@ export type AuditSummary = {
   secret_scan_finding_count: number;
   secret_scan_rules: Record<string, number>;
   secret_scan_severities: Record<string, number>;
+  user?: string;
+  devbox_user?: string;
 };
 
 const privateKeyPattern = /^(-----BEGIN ([A-Z0-9]+ )?PRIVATE KEY-----|---- BEGIN SSH2 (ENCRYPTED )?PRIVATE KEY ----|PuTTY-User-Key-File-[23]:)/m;
@@ -106,7 +115,7 @@ class AuditRun {
   summary(): AuditSummary {
     const failed = this.findings.filter(({ severity }) => severity === "fail").length;
     const warnings = this.findings.filter(({ severity }) => severity === "warn").length;
-    return {
+    const summary: AuditSummary = {
       audit: this.policy.name,
       status: failed > 0 ? "fail" : warnings > 0 ? "warn" : "pass",
       failed,
@@ -116,6 +125,8 @@ class AuditRun {
       secret_scan_rules: this.secret.rules,
       secret_scan_severities: this.secret.severities,
     };
+    if (this.policy.fields) Object.assign(summary, this.policy.fields);
+    return summary;
   }
 }
 
@@ -152,7 +163,8 @@ export function resolveSources(home: string, sources: readonly PathSource[]): st
     }
     const root = homePath(home, source.path);
     return walkFiles(root, source.maxDepth ?? Number.POSITIVE_INFINITY)
-      .filter((path) => source.namePrefix === undefined || basename(path).startsWith(source.namePrefix));
+      .filter((path) => source.namePrefix === undefined || basename(path).startsWith(source.namePrefix))
+      .filter((path) => source.namePattern === undefined || source.namePattern.test(path));
   });
   return [...new Set(paths)].sort();
 }
@@ -188,6 +200,7 @@ function checkFileMode(run: AuditRun, check: Extract<AuditCheck, { kind: "file-m
 function checkPatterns(run: AuditRun, check: Extract<AuditCheck, { kind: "pattern-absent" }>): void {
   for (const path of resolveSources(run.home, check.sources)) {
     try {
+      if (check.countAsSecretScan) run.secret.scanned += 1;
       if (check.pattern.test(readFileSync(path, "utf8"))) run.finding(check.severity, `${path} contains ${check.label}`);
       else run.finding("ok", `${path} does not contain ${check.label}`);
     } catch {
@@ -206,6 +219,24 @@ function checkNpmAuth(run: AuditRun, pathValue: string): void {
     else run.finding("ok", `${path} does not contain auth settings without a registry scope`);
   } catch {
     run.finding("fail", `cannot read ${path} for npm auth settings`);
+  }
+}
+
+function checkPrivateModes(run: AuditRun, check: Extract<AuditCheck, { kind: "private-mode" }>): void {
+  for (const path of resolveSources(run.home, check.sources)) {
+    const mode = modeOf(path);
+    const matches = check.mode === undefined ? (mode & 0o077) === 0 : mode === check.mode;
+    if (matches) run.finding("ok", `${path} mode ${mode.toString(8)}`);
+    else run.finding(check.mismatch, check.mode === undefined
+      ? `${path} mode ${mode.toString(8)} is readable by group or other users`
+      : `${path} mode is ${mode.toString(8)}, expected ${check.mode.toString(8)}`);
+  }
+}
+
+function checkAbsentPaths(run: AuditRun, check: Extract<AuditCheck, { kind: "paths-absent" }>): void {
+  for (const value of check.paths) {
+    const path = homePath(run.home, value);
+    if (existsSync(path)) run.finding(check.severity, `${check.label}: ${path}`);
   }
 }
 
@@ -277,26 +308,38 @@ function gitValue(run: AuditRun, config: string, key: string): string {
   return run.command("git", ["config", "--file", homePath(run.home, config), "--includes", "--get", key]).stdout.trim();
 }
 
-function checkGitIdentity(run: AuditRun, config: string): void {
+function checkGitIdentity(run: AuditRun, check: Extract<AuditCheck, { kind: "git-identity" }>): void {
+  const config = check.config;
   const name = gitValue(run, config, "user.name");
   const email = gitValue(run, config, "user.email");
   const signingKey = gitValue(run, config, "user.signingkey");
   const signingEnabled = gitValue(run, config, "commit.gpgsign") === "true";
-  run.finding(name && email ? "ok" : "warn", name && email ? "git identity is configured" : "git identity is incomplete");
-  run.finding(signingKey ? "ok" : "warn", signingKey ? "git signing key configured" : "git signing key is not configured");
-  run.finding(signingEnabled ? "ok" : "warn", signingEnabled ? "git commit signing enabled" : "git commit signing is not enabled");
+  if (check.identity === "combined") {
+    run.finding(name && email ? "ok" : check.missing, name && email ? "git identity is configured" : "git identity is incomplete");
+  } else {
+    if (!name) run.finding(check.missing, "missing git user.name");
+    if (!email) run.finding(check.missing, "missing git user.email");
+    if (name && email) run.finding("ok", "git identity is configured");
+  }
+  run.finding(signingKey ? "ok" : check.missing, signingKey ? "git signing key configured" : "git signing key is not configured");
+  run.finding(signingEnabled ? "ok" : check.missing, signingEnabled ? "git commit signing enabled" : "git commit signing is not enabled");
 }
 
-function loadAuditSettings(run: AuditRun): Record<string, string> {
-  const path = run.env.AUDIT_POLICY_FILE || join(run.home, ".config/dotfiles/audit.env");
+export function readSettingsFile(path: string): Record<string, string> {
   if (!existsSync(path)) return {};
   const settings: Record<string, string> = {};
   for (const line of readFileSync(path, "utf8").split("\n")) {
     const match = line.match(/^([A-Z][A-Z0-9_]*)=(?:"([^"]*)"|'([^']*)'|([^#\s]*))\s*$/);
     if (match) settings[match[1]] = match[2] ?? match[3] ?? match[4] ?? "";
   }
-  run.finding("ok", `loaded audit policy from ${path}`);
   return settings;
+}
+
+function loadAuditSettings(run: AuditRun): Record<string, string> {
+  const path = run.env.AUDIT_POLICY_FILE || join(run.home, ".config/dotfiles/audit.env");
+  if (!existsSync(path)) return {};
+  run.finding("ok", `loaded audit policy from ${path}`);
+  return readSettingsFile(path);
 }
 
 function checkGithubAuth(run: AuditRun): void {
@@ -313,6 +356,74 @@ function checkGithubAuth(run: AuditRun): void {
       ? `gh token broad scope accepted by policy: ${scope}`
       : `gh token has broad scope outside policy: ${scope}`);
   }
+}
+
+function checkGithubSshAuth(run: AuditRun): void {
+  const result = run.command("ssh", ["-o", "BatchMode=yes", "-T", "git@github.com"]);
+  if (result.error?.message.includes("ENOENT")) return run.finding("fail", "ssh is missing");
+  const output = `${result.stdout}\n${result.stderr}`;
+  run.finding(output.includes("successfully authenticated") ? "ok" : "fail", output.includes("successfully authenticated")
+    ? "git@github.com SSH auth works"
+    : "git@github.com SSH auth failed");
+}
+
+function checkCodexTrust(run: AuditRun, pathValue: string): void {
+  const path = homePath(run.home, pathValue);
+  if (!existsSync(path)) return run.finding("warn", `missing ${path}`);
+  const projects = [...readFileSync(path, "utf8").matchAll(/^\[projects\."([^"]+)"\]$/gm)].map((match) => match[1]);
+  const homeParent = dirname(run.home);
+  for (const project of projects) {
+    if (!existsSync(project)) run.finding("warn", `Codex trusts missing project path: ${project}`);
+    if (project === run.home || project === join(run.home, "projects")) run.finding("warn", `Codex trusts broad home path: ${project}`);
+    else if (project.startsWith(`${run.home}/`)) run.finding("ok", `Codex trusted path stays under this user: ${project}`);
+    else if (project.startsWith(`${homeParent}/`)) run.finding("fail", `Codex trusts another user's path: ${project}`);
+    else run.finding("warn", `Codex trusts path outside this home: ${project}`);
+  }
+  if (projects.length === 0) run.finding("warn", "Codex has no trusted project entries");
+}
+
+function commandWorked(result: CommandResult): boolean {
+  return result.error === undefined && result.status === 0;
+}
+
+function systemResolves(run: AuditRun, name: string): boolean {
+  const commands: Array<[string, string[]]> = [
+    ["dscacheutil", ["-q", "host", "-a", "name", name]],
+    ["getent", ["hosts", name]],
+    ["host", [name]],
+  ];
+  for (const [command, args] of commands) {
+    const result = run.command(command, args);
+    if (result.error?.message.includes("ENOENT")) continue;
+    return commandWorked(result) && (command !== "dscacheutil" || result.stdout.includes("ip_address:"));
+  }
+  return false;
+}
+
+function checkTailscaleMagicDns(run: AuditRun): void {
+  const status = run.command("tailscale", ["status", "--peers=false"]);
+  if (status.error?.message.includes("ENOENT")) return run.finding("fail", "tailscale is missing");
+  if (!commandWorked(status)) return run.finding("fail", "tailscale status failed");
+  run.finding("ok", "tailscale status works");
+
+  const json = run.command("tailscale", ["status", "--json"]);
+  let dnsName = "";
+  try {
+    const parsed: unknown = JSON.parse(json.stdout);
+    if (typeof parsed === "object" && parsed !== null && "Self" in parsed) {
+      const self = parsed.Self;
+      if (typeof self === "object" && self !== null && "DNSName" in self && typeof self.DNSName === "string") dnsName = self.DNSName.replace(/\.$/, "");
+    }
+  } catch {}
+  const shortName = dnsName.split(".")[0];
+  if (!dnsName || shortName === dnsName) return run.finding("fail", "tailscale self DNS name is unavailable");
+
+  const direct = run.command("dig", ["+time=2", "+tries=1", "+short", "@100.100.100.100", dnsName, "A"]);
+  if (!commandWorked(direct) || !/^\d+[.]\d+[.]\d+[.]\d+$/m.test(direct.stdout)) return run.finding("fail", "direct MagicDNS lookup failed through 100.100.100.100");
+  run.finding("ok", "direct MagicDNS lookup works through 100.100.100.100");
+  if (systemResolves(run, shortName)) run.finding("ok", "system resolver handles MagicDNS short hostnames");
+  else if (systemResolves(run, dnsName)) run.finding("fail", "system resolver handles MagicDNS FQDNs but not short hostnames");
+  else run.finding("fail", "system resolver is not using Tailscale MagicDNS; repair Tailscale resolver wiring");
 }
 
 function checkSshModes(run: AuditRun, pathValue: string): void {
@@ -369,14 +480,20 @@ function runCheck(run: AuditRun, check: AuditCheck): void {
     case "pattern-absent": return checkPatterns(run, check);
     case "npm-auth-boundary": return checkNpmAuth(run, check.path);
     case "secret-scan": return checkSecretScan(run, check.sources);
-    case "git-identity": return checkGitIdentity(run, check.config);
+    case "private-mode": return checkPrivateModes(run, check);
+    case "paths-absent": return checkAbsentPaths(run, check);
+    case "value-match": return run.finding(check.actual === check.expected ? "ok" : check.severity, check.actual === check.expected ? check.match : check.mismatch);
+    case "git-identity": return checkGitIdentity(run, check);
     case "github-auth": return checkGithubAuth(run);
+    case "github-ssh-auth": return checkGithubSshAuth(run);
     case "ssh-private-key-modes": return checkSshModes(run, check.path);
+    case "codex-trust": return checkCodexTrust(run, check.path);
     case "codex-log-size": {
       const root = homePath(run.home, check.path);
       if (existsSync(root)) for (const path of walkFiles(root, 0).filter((value) => /^logs.*\.sqlite(?:-wal)?$/.test(basename(value)))) checkLogFile(run, path);
       return;
     }
+    case "tailscale-magicdns": return checkTailscaleMagicDns(run);
     case "command-status": {
       const result = run.command(check.command, check.args);
       if (result.error?.message.includes("ENOENT")) run.finding(check.missing, `${check.command} CLI is missing`);

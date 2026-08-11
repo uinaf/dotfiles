@@ -122,13 +122,6 @@
       "output": "Launchd service labels"
     },
     {
-      "id": "audit-contracts",
-      "domain": "audit",
-      "command": ["scripts/verify/audit-contracts.sh"],
-      "inputs": ["scripts/audit/**", "scripts/lib/audit.sh"],
-      "output": "Audit output and failure contracts"
-    },
-    {
       "id": "repo-audit",
       "domain": "audit",
       "command": ["node", "--test", "scripts/verify/repo-audit.test.ts"],
@@ -139,15 +132,15 @@
       "id": "audit-data",
       "domain": "audit",
       "command": ["node", "--test", "scripts/audit/data.test.ts"],
-      "inputs": ["scripts/audit/data.ts", "scripts/audit/data.test.ts", "scripts/lib/audit.sh"],
+      "inputs": ["scripts/audit/data.ts", "scripts/audit/data.test.ts"],
       "output": "Typed SQLite header and sanitized Gitleaks report handling"
     },
     {
       "id": "audit-engine",
       "domain": "audit",
-      "command": ["node", "--test", "scripts/audit/engine.test.ts"],
-      "inputs": ["scripts/audit/engine.ts", "scripts/audit/engine.test.ts", "scripts/audit/workstation.ts", "scripts/audit/gitleaks-policy.json"],
-      "output": "Typed audit policy execution and workstation boundaries"
+      "command": ["node", "--test", "scripts/audit/engine.test.ts", "scripts/audit/devbox.test.ts"],
+      "inputs": ["scripts/audit/engine.ts", "scripts/audit/engine.test.ts", "scripts/audit/workstation.ts", "scripts/audit/devbox.ts", "scripts/audit/devbox.test.ts", "scripts/audit/gitleaks-policy.json"],
+      "output": "Typed audit policy execution and workstation/devbox boundaries"
     },
     {
       "id": "agent-sync",

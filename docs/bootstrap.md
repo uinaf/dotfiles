@@ -321,7 +321,7 @@ Verify each devbox user:
 ./dotfiles check "$profile"
 ./scripts/audit/host.sh
 ./scripts/verify/devbox-services.sh
-./scripts/audit/devbox.sh
+mise run audit devbox
 ```
 
 ## Assistant User
