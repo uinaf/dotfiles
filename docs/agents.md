@@ -10,8 +10,7 @@ Chezmoi owns the shared rules and agent entrypoints:
 
 | Source | Target |
 | --- | --- |
-| `chezmoi/private_dot_agents/AGENTS.md.tmpl` | `~/.agents/AGENTS.md` |
-| `chezmoi/symlink_AGENTS.md` | `~/AGENTS.md` |
+| `chezmoi/private_AGENTS.md.tmpl` | `~/AGENTS.md` |
 | `chezmoi/private_dot_claude/symlink_CLAUDE.md` | `~/.claude/CLAUDE.md` |
 | `chezmoi/private_dot_codex/symlink_AGENTS.md` | `~/.codex/AGENTS.md` |
 
@@ -22,9 +21,10 @@ Preview and apply rule changes with the normal dotfile commands:
 ./dotfiles apply workstation
 ```
 
-The links resolve to `~/.agents/AGENTS.md`. They do not depend on a repository
-checkout. Existing conflicting files or broken links are backed up by the
-dotfile wrapper before chezmoi converges them.
+`~/AGENTS.md` is the private canonical file. Claude and Codex link directly to
+it. The migration removes the retired `~/.agents/AGENTS.md` file while keeping
+`~/.agents/skills` intact. Existing conflicting files or broken links are
+backed up by the dotfile wrapper before chezmoi converges them.
 
 ### Private Rules
 
