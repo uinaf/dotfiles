@@ -37,7 +37,7 @@ function readPolicy(path: string): { defaultSeverity: Severity; failureThreshold
 }
 
 function isSeverity(value: unknown): value is Severity {
-  return typeof value === "string" && value in severityRank;
+  return typeof value === "string" && Object.hasOwn(severityRank, value);
 }
 
 function readFindings(path: string): Finding[] {
@@ -151,7 +151,9 @@ export function summarizeFindings(existingRulesJson: string, existingSeveritiesJ
     failures,
     warnings,
     rules: Object.fromEntries(Object.entries(rules).sort(([left], [right]) => left.localeCompare(right))),
-    severities,
+    severities: Object.fromEntries(
+      Object.keys(severityRank).flatMap((severity) => severities[severity] === undefined ? [] : [[severity, severities[severity]]]),
+    ),
   };
 }
 

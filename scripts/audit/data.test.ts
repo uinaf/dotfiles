@@ -90,8 +90,8 @@ test("Gitleaks policy classifies rule severity", () => {
     const report = join(root, "report.json");
     const policy = join(root, "policy.json");
     writeFileSync(report, JSON.stringify([
-      { RuleID: "generic-api-key" },
       { RuleID: "private-key" },
+      { RuleID: "generic-api-key" },
     ]));
     writeFileSync(policy, JSON.stringify({
       version: 1,
@@ -106,7 +106,7 @@ test("Gitleaks policy classifies rule severity", () => {
       rules: { "generic-api-key": 1, "private-key": 1 },
       severities: { low: 1, high: 1 },
     });
-    writeFileSync(policy, JSON.stringify({ version: 1, defaultSeverity: "nope", failureThreshold: "high", rules: {} }));
+    writeFileSync(policy, JSON.stringify({ version: 1, defaultSeverity: "toString", failureThreshold: "high", rules: {} }));
     assert.throws(() => summarizeFindings("", "", report, policy), /invalid Gitleaks policy header/);
   } finally {
     rmSync(root, { force: true, recursive: true });

@@ -488,6 +488,10 @@ scan_files_for_secrets() {
     "$scan_root" >/dev/null 2>&1 || gitleaks_status=$?
   chmod 600 "$report_path" 2>/dev/null || true
 
+  if [ "$have_audit_data" -eq 0 ] && [ "$gitleaks_status" -eq 183 ]; then
+    classification_failed=1
+  fi
+
   if [ "$have_audit_data" -eq 1 ]; then
     local summary
     local next_rules_json
@@ -531,9 +535,9 @@ scan_files_for_secrets() {
         done < <(emit_gitleaks_finding_locators "$scan_root" "$report_path")
       fi
       if [ "$classified_failures" -gt 0 ]; then
-        fail_check "gitleaks reported high-severity possible leaks in local config files"
+        fail_check "gitleaks reported findings at or above the failure threshold"
       else
-        warn "gitleaks reported low-severity possible leaks in local config files"
+        warn "gitleaks reported findings below the failure threshold"
       fi
     else
       fail_check "gitleaks local config scan failed"
