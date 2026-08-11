@@ -9,12 +9,28 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 const script = resolve(dirname(fileURLToPath(import.meta.url)), "configure-codex.ts");
+const defaults = JSON.parse(readFileSync(resolve(dirname(script), "codex-defaults.json"))) as {
+  version?: unknown;
+  values?: Record<string, unknown>;
+};
+const codexInstalled = spawnSync("codex", ["--version"], { stdio: "ignore" }).status === 0;
 
 function run(home: string) {
   return spawnSync(script, { encoding: "utf8", env: { ...process.env, CODEX_HOME: home } });
 }
 
-test("Codex defaults use the native atomic writer and preserve local config", () => {
+test("Codex defaults use the supported scalar schema", () => {
+  assert.equal(defaults.version, 1);
+  assert.ok(defaults.values);
+  assert.equal(defaults.values.forced_login_method, "chatgpt");
+  assert.equal(defaults.values["features.fast_mode"], false);
+  for (const [key, value] of Object.entries(defaults.values)) {
+    assert.match(key, /^[A-Za-z0-9_.-]+$/);
+    assert.ok(["boolean", "number", "string"].includes(typeof value));
+  }
+});
+
+test("installed Codex uses the native atomic writer and preserves local config", { skip: !codexInstalled }, () => {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-codex-config-"));
   const home = join(root, "codex");
   const config = join(home, "config.toml");
@@ -43,7 +59,7 @@ test("Codex defaults use the native atomic writer and preserve local config", ()
   }
 });
 
-test("Codex config errors do not overwrite malformed input", () => {
+test("installed Codex does not overwrite malformed input", { skip: !codexInstalled }, () => {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-codex-config-invalid-"));
   const home = join(root, "codex");
   const config = join(home, "config.toml");

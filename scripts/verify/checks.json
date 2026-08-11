@@ -42,7 +42,7 @@
       "domain": "config",
       "command": ["node", "--test", "scripts/bootstrap/configure-codex.test.ts"],
       "inputs": ["scripts/bootstrap/configure-codex.ts", "scripts/bootstrap/configure-codex.test.ts", "scripts/bootstrap/codex-defaults.json"],
-      "output": "Codex native config writes preserve unrelated state, formatting, and mode"
+      "output": "Codex defaults schema plus native write integration when Codex is installed"
     },
     {
       "id": "agent-rules",
