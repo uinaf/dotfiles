@@ -80,6 +80,7 @@ op_reference_pattern='op://'
 scan_files_for_secrets < <(
   emit_workstation_secret_scan_paths | sort -u
 )
+check_npmrc_auth_boundary
 
 while IFS= read -r path; do
   [ -n "$path" ] || continue

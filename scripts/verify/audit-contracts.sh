@@ -39,6 +39,19 @@ chmod 0600 "$HOME/.ssh/nested/id_ed25519" "$HOME/.ssh/nested/id_ssh2" "$HOME/.ss
 check_ssh_private_key_modes
 [ "$fail_count" -eq 0 ] || fail "owner-only private keys or authorized_keys were misclassified"
 
+printf '%s\n' '//registry.npmjs.org/:_authToken=fixture' > "$HOME/.npmrc"
+chmod 0600 "$HOME/.npmrc"
+warn_count=0
+fail_count=0
+check_npmrc_auth_boundary
+[ "$warn_count" -eq 0 ] || fail "registry-scoped npm auth produced a warning"
+[ "$fail_count" -eq 0 ] || fail "registry-scoped npm auth failed"
+printf '%s\n' '_authToken=fixture' > "$HOME/.npmrc"
+check_npmrc_auth_boundary
+[ "$fail_count" -eq 1 ] || fail "unscoped npm auth was not rejected exactly once"
+rm "$HOME/.npmrc"
+fail_count=0
+
 workstation_json="$(HOME="$HOME" SHELL=/bin/sh "$repo_root/scripts/audit/workstation.sh" --json 2>/dev/null || true)"
 printf '%s\n' "$workstation_json" | grep -Fq '"audit":"workstation-security"' \
   || fail "workstation JSON audit name changed"
