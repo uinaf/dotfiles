@@ -57,8 +57,8 @@
       "source": "uinaf/skills"
     },
     {
-      "name": "slopomatic",
-      "source": "uinaf/slopomatic"
+      "name": "slopshipper",
+      "source": "uinaf/slopshipper"
     },
     {
       "name": "tanstack-form",
