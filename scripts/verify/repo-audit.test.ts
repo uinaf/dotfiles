@@ -53,7 +53,7 @@ test("repo audit maps named mSCP releases and warns on future macOS", () => {
     executable(join(bin, "gitleaks"), "#!/bin/sh\nexit 0\n");
     executable(join(bin, "trufflehog"), "#!/bin/sh\nexit 0\n");
     executable(join(bin, "sudo"), "#!/bin/sh\nexit 0\n");
-    executable(join(bin, "git"), "#!/bin/sh\nprintf '%s\\n' \"${TEST_MSCP_BRANCH:?}\"\n");
+    executable(join(bin, "git"), "#!/bin/sh\nprintf '%s\\n' \"${TEST_MSCP_BRANCH-}\"\n");
 
     for (const [version, branch] of branches) {
       const result = run(version, branch);
@@ -66,6 +66,11 @@ test("repo audit maps named mSCP releases and warns on future macOS", () => {
     assert.equal(future.status, 0, future.stderr);
     assert.match(future.stderr, /no mSCP branch mapping for macOS 27\.0/);
     assert.match(future.stdout, /security audit summary: 0 failed, 1 warnings/);
+
+    const detached = run("26.6", "");
+    assert.equal(detached.status, 0, detached.stderr);
+    assert.match(detached.stderr, /mSCP branch is detached; expected tahoe/);
+    assert.match(detached.stdout, /security audit summary: 0 failed, 1 warnings/);
 
     const currentJson = run("26.6", "tahoe", true);
     assert.equal(currentJson.status, 0, currentJson.stderr);

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import test from "node:test";
@@ -69,6 +69,39 @@ test("empty input and deletions succeed without inspecting the worktree", () => 
     assert.equal(invoke(repo, update).status, 0);
     const deletion = `(delete) ${repo.zeroOid} refs/heads/main ${first}\n`;
     assert.equal(invoke(repo, deletion).status, 0);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("installed hook reports a missing Node runtime", () => {
+  const root = mkdtempSync(join(tmpdir(), "pre-push-installer-"));
+  try {
+    const repo = init(root);
+    const bootstrapDir = join(repo.path, "scripts/bootstrap");
+    const verifyDir = join(repo.path, "scripts/verify");
+    const bin = join(root, "bin");
+    mkdirSync(bootstrapDir, { recursive: true });
+    mkdirSync(verifyDir, { recursive: true });
+    mkdirSync(bin);
+    copyFileSync(join(dirname(hook), "../bootstrap/install-git-hooks.sh"), join(bootstrapDir, "install-git-hooks.sh"));
+    copyFileSync(hook, join(verifyDir, "pre-push.ts"));
+    symlinkSync("/usr/bin/git", join(bin, "git"));
+
+    const install = spawnSync("/bin/bash", [join(bootstrapDir, "install-git-hooks.sh")], {
+      cwd: repo.path,
+      encoding: "utf8",
+      env: process.env,
+    });
+    assert.equal(install.status, 0, install.stderr);
+
+    const result = spawnSync("/bin/bash", [join(repo.path, ".git/hooks/pre-push"), "origin", "fixture"], {
+      cwd: repo.path,
+      encoding: "utf8",
+      env: { ...process.env, PATH: bin },
+    });
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /missing node; run mise install .* before pushing/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

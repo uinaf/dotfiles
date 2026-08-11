@@ -136,9 +136,12 @@ pip install -r requirements.txt
 
 Use the named upstream release branch for the host. This integration keeps
 mappings for stable mSCP branches from Catalina through Tahoe. A mapping means
-the upstream branch exists; it does not define this bootstrap repo's macOS
-support floor. Unknown or future versions produce a warning instead of
-guessing a branch. Then run:
+the upstream branch exists; it does not define bootstrap support. Support is
+evidence-based: Homebrew must support the release, and the selected profile's
+bootstrap and live checks must pass on that release. CI continuously proves
+GitHub's `macos-latest`; support for an older release requires a recorded live
+check. Unknown or future versions produce a warning instead of guessing a
+branch. Then run:
 
 ```zsh
 ./scripts/audit/repo.sh --allow-sudo-prompt

@@ -2,7 +2,7 @@
 
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { delimiter, dirname, join, resolve } from "node:path";
 import test from "node:test";
@@ -11,8 +11,11 @@ import { fileURLToPath } from "node:url";
 import { auditCommand, runAudit } from "../audit/run.ts";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
-const globalMiseConfig =
-  process.env.MISE_GLOBAL_CONFIG_FILE ?? resolve(process.env.XDG_CONFIG_HOME ?? join(homedir(), ".config"), "mise/config.toml");
+function globalMiseConfigPath(env: NodeJS.ProcessEnv): string {
+  return env.MISE_GLOBAL_CONFIG_FILE || resolve(env.XDG_CONFIG_HOME || join(homedir(), ".config"), "mise/config.toml");
+}
+
+const globalMiseConfig = globalMiseConfigPath(process.env);
 const miseEnv = {
   ...process.env,
   MISE_IGNORED_CONFIG_PATHS: [process.env.MISE_IGNORED_CONFIG_PATHS, globalMiseConfig].filter(Boolean).join(delimiter),
@@ -51,6 +54,29 @@ test("mise exposes one validated task graph", () => {
   assert.ok(tasks.every((task) => task.source === resolve(repoRoot, "mise.toml")));
   assert.ok(tasks.find((task) => task.name === "audit")?.usage.includes("<scope>"));
   assert.ok(tasks.find((task) => task.name === "verify:bootstrap")?.usage.includes("<profile>"));
+});
+
+test("empty mise config environment values use the default path", () => {
+  assert.equal(
+    globalMiseConfigPath({ MISE_GLOBAL_CONFIG_FILE: "", XDG_CONFIG_HOME: "" }),
+    join(homedir(), ".config/mise/config.toml"),
+  );
+});
+
+test("repository verification reports a missing Node runtime", () => {
+  const bin = mkdtempSync(join(tmpdir(), "dotfiles-repo-runner-bin-"));
+  try {
+    symlinkSync("/usr/bin/dirname", join(bin, "dirname"));
+    const result = spawnSync("/bin/bash", [join(repoRoot, "scripts/verify/repo.sh"), "--skip-security"], {
+      cwd: repoRoot,
+      encoding: "utf8",
+      env: { ...process.env, PATH: bin },
+    });
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /missing node; run mise install before repository verification/);
+  } finally {
+    rmSync(bin, { force: true, recursive: true });
+  }
 });
 
 test("task arguments fail before live commands run", () => {

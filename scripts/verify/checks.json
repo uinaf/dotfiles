@@ -12,7 +12,7 @@
       "id": "mise-tasks",
       "domain": "static",
       "command": ["node", "--test", "scripts/verify/mise-tasks.test.ts"],
-      "inputs": ["mise.toml", "scripts/audit/run.ts", "scripts/verify/mise-tasks.test.ts"],
+      "inputs": ["mise.toml", "scripts/audit/run.ts", "scripts/verify/repo.sh", "scripts/verify/mise-tasks.test.ts"],
       "output": "Validated task graph, typed arguments, routing, and failure propagation"
     },
     {
