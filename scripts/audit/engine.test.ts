@@ -181,3 +181,27 @@ test("secret scan reports only sanitized locators and removes staging data", () 
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test("secret scan reports an unusable temporary root", () => {
+  const { home, root } = fixture();
+  const invalidTemporaryRoot = join(root, "not-a-directory");
+  writeFileSync(invalidTemporaryRoot, "fixture\n");
+  const policy = {
+    name: "fixture",
+    summary: "fixture summary",
+    sections: [{ title: "scan", checks: [{ kind: "secret-scan", sources: [{ kind: "path", path: ".zshrc" }] }] }],
+  } satisfies AuditPolicy;
+  try {
+    const result = runPolicy(policy, "json", {
+      home,
+      env: { HOME: home, TMPDIR: invalidTemporaryRoot },
+      command: cleanCommand,
+      stdout: () => {},
+      stderr: () => {},
+    });
+    assert.equal(result.status, 1);
+    assert.equal(result.summary.failed, 1);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});

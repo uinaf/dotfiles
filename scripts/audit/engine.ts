@@ -175,7 +175,12 @@ function humanBytes(value: number): string {
 function checkFileMode(run: AuditRun, check: Extract<AuditCheck, { kind: "file-mode" }>): void {
   const path = homePath(run.home, check.path);
   if (!existsSync(path)) return run.finding(check.missing, `missing ${path}`);
-  const mode = modeOf(path);
+  let mode: number;
+  try {
+    mode = modeOf(path);
+  } catch {
+    return run.finding(check.mismatch, `cannot inspect mode for ${path}`);
+  }
   if (check.modes.includes(mode)) run.finding("ok", `${path} mode ${mode.toString(8)}`);
   else run.finding(check.mismatch, `${path} mode is ${mode.toString(8)}, expected one of: ${check.modes.map((value) => value.toString(8)).join(" ")}`);
 }
@@ -196,8 +201,12 @@ function checkNpmAuth(run: AuditRun, pathValue: string): void {
   if (!existsSync(path)) return;
   checkFileMode(run, { kind: "file-mode", path, modes: [0o600], missing: "fail", mismatch: "fail" });
   const unscoped = /^\s*(_auth|_authToken|username|_password|certfile|keyfile)\s*=/m;
-  if (unscoped.test(readFileSync(path, "utf8"))) run.finding("fail", `${path} contains auth settings without a registry scope`);
-  else run.finding("ok", `${path} does not contain auth settings without a registry scope`);
+  try {
+    if (unscoped.test(readFileSync(path, "utf8"))) run.finding("fail", `${path} contains auth settings without a registry scope`);
+    else run.finding("ok", `${path} does not contain auth settings without a registry scope`);
+  } catch {
+    run.finding("fail", `cannot read ${path} for npm auth settings`);
+  }
 }
 
 function stagePath(scanRoot: string, home: string, path: string): void {
@@ -220,12 +229,14 @@ function checkSecretScan(run: AuditRun, sources: readonly PathSource[]): void {
   run.secret.scanned += paths.length;
   if (paths.length === 0) return run.finding("warn", "no readable local config files found for gitleaks secret scan");
 
-  const temporaryRoot = run.env.TMPDIR || tmpdir();
-  mkdirSync(temporaryRoot, { recursive: true });
-  const scanRoot = mkdtempSync(join(temporaryRoot, "dotfiles-secret-scan."));
-  const reportRoot = mkdtempSync(join(temporaryRoot, "dotfiles-secret-report."));
-  const report = join(reportRoot, "gitleaks-report.json");
+  let scanRoot = "";
+  let reportRoot = "";
   try {
+    const temporaryRoot = run.env.TMPDIR || tmpdir();
+    mkdirSync(temporaryRoot, { recursive: true });
+    scanRoot = mkdtempSync(join(temporaryRoot, "dotfiles-secret-scan."));
+    reportRoot = mkdtempSync(join(temporaryRoot, "dotfiles-secret-report."));
+    const report = join(reportRoot, "gitleaks-report.json");
     chmodSync(scanRoot, 0o700);
     chmodSync(reportRoot, 0o700);
     writeFileSync(report, "", { mode: 0o600 });
@@ -257,8 +268,8 @@ function checkSecretScan(run: AuditRun, sources: readonly PathSource[]): void {
   } catch {
     run.finding("fail", "local secret scan could not stage or classify files safely");
   } finally {
-    rmSync(scanRoot, { recursive: true, force: true });
-    rmSync(reportRoot, { recursive: true, force: true });
+    if (scanRoot) rmSync(scanRoot, { recursive: true, force: true });
+    if (reportRoot) rmSync(reportRoot, { recursive: true, force: true });
   }
 }
 
