@@ -14,6 +14,11 @@ still include matched material in their own prose output; use `--json` for
 remote collection, and do not paste raw scanner output into issues, pull
 requests, or chat.
 
+Live credential stores are checked against their own boundaries instead of
+failing merely because they contain credentials. For example, `~/.npmrc` is
+checked for owner-only permissions and registry-scoped auth settings, and is
+not passed to the generic local secret scan.
+
 ## Audit Layers
 
 Use separate checks for separate risk surfaces:
@@ -169,6 +174,7 @@ output may include matched secret material.
 It checks:
 
 - local Git, SSH, and Codex config files are owner-only where expected
+- npm auth settings are registry-scoped and `~/.npmrc` is owner-only
 - Gitleaks and TruffleHog do not report leaks in shell startup, shell history,
   SSH config, common credential files, Docker config, or LaunchAgents
 - 1Password item references in those local files are surfaced as warnings
@@ -204,6 +210,7 @@ It checks:
 
 - local service config, backup files, and shell history do not contain obvious
   secret references
+- npm auth settings are registry-scoped and `~/.npmrc` is owner-only
 - Gitleaks and TruffleHog do not report leaks in shell startup backups, Git
   config backups, SSH config backups, workspace env backups, common credential
   files, Docker config, LaunchAgents, or managed LaunchDaemons
@@ -236,6 +243,8 @@ inspect the machine; failures mean the setup violates the expected boundary.
 - Prefer maintained scanners such as Lynis, Gitleaks, TruffleHog, and mSCP for
   generic detection. Add custom shell checks only for repo-specific boundaries
   that those tools cannot understand.
+- Check live credential stores for unsafe permissions or structure. Do not
+  report the expected presence of a credential as a leak.
 - Add new custom checks when a real incident, migration, or setup decision
   introduces a repeatable drift risk.
 - Update this document whenever audit scripts, CI scan behavior, or devbox
@@ -252,3 +261,5 @@ inspect the machine; failures mean the setup violates the expected boundary.
 - [Gitleaks](https://gitleaks.org/) and
   [TruffleHog](https://docs.trufflesecurity.com/) for maintained secret
   detection.
+- [npmrc](https://docs.npmjs.com/cli/v12/configuring-npm/npmrc/) for npm auth
+  storage and registry scoping.

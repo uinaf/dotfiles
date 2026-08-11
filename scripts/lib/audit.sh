@@ -322,6 +322,17 @@ check_pattern_absent() {
   fi
 }
 
+check_npmrc_auth_boundary() {
+  local path="${1:-$HOME/.npmrc}"
+  local unscoped_auth='^[[:space:]]*(_auth|_authToken|username|_password|certfile|keyfile)[[:space:]]*='
+
+  if [ ! -e "$path" ]; then
+    return 0
+  fi
+  check_mode_any fail "$path" 600
+  check_pattern_absent "$path" "$unscoped_auth" "auth settings without a registry scope" fail
+}
+
 scan_file_for_secret_pattern() {
   local path="$1"
   local pattern="$2"
@@ -636,5 +647,6 @@ emit_home_dotfiles() {
   find_matching_files "$HOME" -maxdepth 1 -type f -name '.*' \
     ! -name '.CFUserTextEncoding' \
     ! -name '.DS_Store' \
-    ! -name '.localized'
+    ! -name '.localized' \
+    ! -name '.npmrc'
 }

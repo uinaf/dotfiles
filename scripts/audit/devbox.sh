@@ -136,6 +136,7 @@ section "local config secret scan"
 scan_files_for_secrets < <(
   emit_devbox_secret_scan_paths | sort -u
 )
+check_npmrc_auth_boundary
 
 if [ -e "$HOME/.docker/config.json" ]; then
   scan_file_for_secret_pattern "$HOME/.docker/config.json" '"auth"[[:space:]]*:' "inline Docker auth material"
