@@ -77,6 +77,16 @@ test("devbox policy rejects another user's Codex trust", () => {
   }
 });
 
+test("workload profiles omit developer trust and authentication checks", () => {
+  for (const profile of ["assistant", "service"]) {
+    const policy = devboxPolicy("fixture", "fixture", "/fixture/devbox.env", "/", profile);
+    const titles = policy.sections.map((section) => section.title);
+    assert.equal(titles.includes("Codex trust boundaries"), false);
+    assert.equal(titles.includes("Git and GitHub identity"), false);
+    assert.equal(titles.includes("Codex private state"), true);
+  }
+});
+
 test("devbox Git identity keeps separate missing-field failures", () => {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-devbox-git-"));
   try {

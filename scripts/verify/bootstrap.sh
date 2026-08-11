@@ -300,7 +300,9 @@ check_truecolor_shell() {
 }
 
 check_ghostty_ssh_integration() {
-  dotfiles_profile_is_workstation "$profile" || return
+  if ! dotfiles_profile_is_workstation "$profile"; then
+    return 0
+  fi
 
   section "Ghostty SSH integration"
   grep -Fqx 'shell-integration-features = ssh-env,ssh-terminfo' "$ghostty_config" ||

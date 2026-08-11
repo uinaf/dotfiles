@@ -1,15 +1,18 @@
 #!/usr/bin/env node
 
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { type AuditFormat, type AuditPolicy, readSettingsFile, runPolicy } from "./engine.ts";
+import { readProfileModel, requireProfile } from "../profiles/model.ts";
 
 const homeDotfiles = { kind: "home-dotfiles", exclude: [".CFUserTextEncoding", ".DS_Store", ".localized", ".npmrc"] } as const;
 const sshConfigs = { kind: "files", path: ".ssh", maxDepth: 0, namePrefix: "config" } as const;
+const profileModelPath = fileURLToPath(new URL("../../chezmoi/.chezmoidata/profiles.json", import.meta.url));
 
-export function devboxPolicy(user: string, devboxUser: string, configPath: string, systemRoot = "/"): AuditPolicy {
+export function devboxPolicy(user: string, devboxUser: string, configPath: string, systemRoot = "/", profileName = "devbox"): AuditPolicy {
+  const developer = requireProfile(readProfileModel(profileModelPath), profileName).capabilities.developer;
   const codexPrivateDirectories = [
     ".codex",
     ".codex/sessions",
@@ -39,14 +42,19 @@ export function devboxPolicy(user: string, devboxUser: string, configPath: strin
         ],
       },
       {
-        title: "Codex trust boundaries",
+        title: "Codex private state",
         checks: [
           { kind: "private-mode", sources: codexPrivateDirectories, mode: 0o700, mismatch: "fail" },
           { kind: "private-mode", sources: [{ kind: "files", path: ".codex", maxDepth: 2, pathPattern: /(?:[.]sqlite3?|[.]db(?:-.*)?|[.]log)$|\/log\// }], mismatch: "fail" },
+        ],
+      },
+      ...(developer ? [{
+        title: "Codex trust boundaries",
+        checks: [
           { kind: "private-mode", sources: [{ kind: "path", path: ".codex/config.toml" }], mode: 0o600, mismatch: "fail" },
           { kind: "codex-trust", path: ".codex/config.toml" },
         ],
-      },
+      }] as const : []),
       {
         title: "home root pollution",
         checks: [{ kind: "paths-absent", paths: ["node_modules", "package.json", "package-lock.json", "pnpm-lock.yaml", "yarn.lock"], severity: "warn", label: "home root contains project artifact" }],
@@ -55,14 +63,14 @@ export function devboxPolicy(user: string, devboxUser: string, configPath: strin
         title: "project directory privacy",
         checks: [{ kind: "private-mode", sources: [{ kind: "path", path: "projects" }, { kind: "path", path: `projects/${devboxUser}` }], mismatch: "warn" }],
       },
-      {
+      ...(developer ? [{
         title: "Git and GitHub identity",
         checks: [
           { kind: "git-identity", config: ".gitconfig", missing: "fail", identity: "separate" },
           { kind: "github-auth" },
           { kind: "github-ssh-auth" },
         ],
-      },
+      }] as const : []),
       { title: "SSH key file permissions", checks: [{ kind: "ssh-private-key-modes", path: ".ssh" }] },
       { title: "Tailscale", checks: [{ kind: "tailscale-magicdns" }] },
     ],
@@ -75,7 +83,8 @@ export function runDevbox(format: AuditFormat, explicitConfig = "", env: NodeJS.
   const configPath = explicitConfig || env.DEVBOX_CONFIG || join(home, ".config/dotfiles/devbox.env");
   const config = existsSync(configPath) ? readSettingsFile(configPath) : {};
   const devboxUser = config.DEVBOX_USER || env.DEVBOX_USER || user;
-  return runPolicy(devboxPolicy(user, devboxUser, configPath), format, { home, env }).status;
+  const profileName = readFileSync(join(home, ".config/dotfiles/profile"), "utf8").trim();
+  return runPolicy(devboxPolicy(user, devboxUser, configPath, "/", profileName), format, { home, env }).status;
 }
 
 function main(args: string[]): number {

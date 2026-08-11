@@ -60,7 +60,7 @@ dotfiles_homebrew_bundle_check() {
   local profile="$2"
 
   HOMEBREW_BUNDLE_DOTFILES_PROFILE="$profile" HOMEBREW_NO_AUTO_UPDATE=1 \
-    brew bundle check --file "$file"
+    brew bundle check --no-upgrade --file "$file"
 }
 
 dotfiles_homebrew_fail_external() {
