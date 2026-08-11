@@ -68,6 +68,8 @@ test("repo audit uses the mSCP 2.0 versioned artifact", () => {
       env: {
         ...process.env,
         PATH: `${bin}:/usr/bin:/bin`,
+        MSCP_BASELINE: "800-53r5_moderate",
+        MSCP_SCRIPT: "",
         TEST_MACOS_VERSION: "26.6",
       },
     });
