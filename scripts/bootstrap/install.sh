@@ -78,11 +78,7 @@ run_step() {
       mise install
       ;;
     configure-codex)
-      if command -v codex >/dev/null 2>&1; then
-        "$repo_root/scripts/bootstrap/configure-codex.sh"
-      else
-        printf 'skipped Codex defaults; codex is not on PATH yet\n' >&2
-      fi
+      "$repo_root/scripts/bootstrap/configure-codex.ts"
       ;;
     sync-agents)
       "$repo_root/scripts/agents/sync.ts" --profile "$profile"

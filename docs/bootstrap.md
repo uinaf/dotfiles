@@ -154,11 +154,14 @@ its Codex settings and set:
 - code font size: `14 px`
 - Font Smoothing: on
 
-`./scripts/bootstrap/install.sh` configures Codex defaults in
-`~/.codex/config.toml`, including `forced_login_method = "chatgpt"` so Codex
-uses ChatGPT subscription access instead of API-key billing. It selects the
-standard service tier and disables fast mode by default. It does not manage
-Codex auth tokens, sessions, approvals, or app state.
+`./scripts/bootstrap/install.sh` uses Codex's config API to update selected
+defaults in `~/.codex/config.toml`, including `forced_login_method = "chatgpt"`
+so Codex uses ChatGPT subscription access instead of API-key billing. It
+selects the standard service tier and disables fast mode by default while
+preserving unrelated settings and formatting. It does not manage Codex auth
+tokens, sessions, approvals, or app state.
+Change the managed values in `scripts/bootstrap/codex-defaults.json`; the
+bootstrap client sends them as one atomic update.
 
 The same install step installs or updates GitHub's official `github/gh-stack`
 extension through `gh extension install --force`. GitHub CLI authentication and
@@ -472,9 +475,8 @@ can hang.
 - If shared env access is missing over SSH, check the SOPS recipient and
   deployment identity in [Devbox setup](devbox.md) instead of exporting service
   tokens in shell startup.
-- If `codex` is not installed yet for a developer-profile user,
-  `install.sh` skips Codex defaults; rerun it after installing the developer
-  Homebrew layer.
+- If `codex` is not installed yet for a developer-profile user, install the
+  developer Homebrew layer before rerunning `./dotfiles apply <profile>`.
 - If macOS Gatekeeper blocks an embedded Cursor Agent `.node` module, remove a
   Homebrew `cursor-cli` cask installation and run
   `./scripts/bootstrap/install-cursor-agent.sh`. The repo intentionally uses

@@ -38,6 +38,13 @@
       "output": "Claude user settings preserve unrelated keys, mode, and malformed input"
     },
     {
+      "id": "codex-settings",
+      "domain": "config",
+      "command": ["node", "--test", "scripts/bootstrap/configure-codex.test.ts"],
+      "inputs": ["scripts/bootstrap/configure-codex.ts", "scripts/bootstrap/configure-codex.test.ts", "scripts/bootstrap/codex-defaults.json"],
+      "output": "Codex native config writes preserve unrelated state, formatting, and mode"
+    },
+    {
       "id": "agent-rules",
       "domain": "agents",
       "command": ["node", "--test", "scripts/verify/agent-rules.test.ts"],

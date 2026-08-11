@@ -354,31 +354,21 @@ if [ "$sign_commits" = "true" ]; then
   printf '%s %s\n' "$allowed_signer_principal" "$signing_public_key" > "$tmp_signers"
 fi
 
-{
-  printf '[user]\n'
-  printf '\tname = %s\n' "$git_name"
-  printf '\temail = %s\n' "$git_email"
-  if [ "$sign_commits" = "true" ]; then
-    printf '\tsigningkey = %s\n' "$signing_key"
-  fi
-  printf '\n[commit]\n'
-  printf '\tgpgsign = %s\n' "$sign_commits"
-  printf '\n[tag]\n'
-  printf '\tgpgsign = %s\n' "$sign_commits"
-  if dotfiles_profile_is_devbox "$profile"; then
-    printf '\n[safe]\n'
-    printf '\tdirectory = /opt/homebrew\n'
-  fi
-  if dotfiles_profile_is_workload "$profile"; then
-    printf '\n[dotfiles]\n'
-    printf '\tidentity = workload\n'
-  fi
-  if [ "$sign_commits" = "true" ]; then
-    printf '\n[gpg "ssh"]\n'
-    printf '\tallowedSignersFile = %s\n' "$allowed_signers_file"
-    printf '\tprogram = %s\n' "$agentless_signing_program"
-  fi
-} > "$tmp_gitconfig"
+git config --file "$tmp_gitconfig" user.name "$git_name"
+git config --file "$tmp_gitconfig" user.email "$git_email"
+git config --file "$tmp_gitconfig" commit.gpgsign "$sign_commits"
+git config --file "$tmp_gitconfig" tag.gpgsign "$sign_commits"
+if [ "$sign_commits" = "true" ]; then
+  git config --file "$tmp_gitconfig" user.signingkey "$signing_key"
+  git config --file "$tmp_gitconfig" gpg.ssh.allowedSignersFile "$allowed_signers_file"
+  git config --file "$tmp_gitconfig" gpg.ssh.program "$agentless_signing_program"
+fi
+if dotfiles_profile_is_devbox "$profile"; then
+  git config --file "$tmp_gitconfig" safe.directory /opt/homebrew
+fi
+if dotfiles_profile_is_workload "$profile"; then
+  git config --file "$tmp_gitconfig" dotfiles.identity workload
+fi
 
 if [ -n "$git_ssh_identity_file" ]; then
   write_github_ssh_config "$git_ssh_identity_file"

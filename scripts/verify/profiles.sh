@@ -373,7 +373,7 @@ mkdir -p "$install_fixture/scripts/agents" "$install_fixture/scripts/bootstrap" 
 cp "$repo_root/scripts/bootstrap/install.sh" "$install_fixture/scripts/bootstrap/install.sh"
 cp "$repo_root/scripts/lib/profile.sh" "$install_fixture/scripts/lib/profile.sh"
 cp "$repo_root/chezmoi/.chezmoidata/profiles.json" "$install_fixture/chezmoi/.chezmoidata/profiles.json"
-for helper in apply-dotfiles.sh install-gh-app-auth.sh install-cursor-agent.sh trust-agent-worktrees.sh install-gh-extensions.sh configure-codex.sh; do
+for helper in apply-dotfiles.sh install-gh-app-auth.sh install-cursor-agent.sh trust-agent-worktrees.sh install-gh-extensions.sh configure-codex.ts; do
 cat > "$install_fixture/scripts/bootstrap/$helper" <<'EOF'
 #!/usr/bin/env bash
 printf '%s' "$(basename "$0")" >> "${DOTFILES_INSTALL_LOG:?}"
@@ -393,15 +393,13 @@ printf 'sync.ts' >> "${DOTFILES_INSTALL_LOG:?}"
 printf '\n' >> "${DOTFILES_INSTALL_LOG:?}"
 EOF
 chmod 0700 "$install_fixture/scripts/agents/sync.ts"
-for command_name in mise codex; do
-cat > "$install_fixture/bin/$command_name" <<'EOF'
+cat > "$install_fixture/bin/mise" <<'EOF'
 #!/usr/bin/env bash
 printf '%s' "$(basename "$0")" >> "${DOTFILES_INSTALL_LOG:?}"
 [ "$#" -eq 0 ] || printf ' %s' "$@" >> "${DOTFILES_INSTALL_LOG:?}"
 printf '\n' >> "${DOTFILES_INSTALL_LOG:?}"
 EOF
-  chmod 0700 "$install_fixture/bin/$command_name"
-done
+chmod 0700 "$install_fixture/bin/mise"
 
 : > "$install_log"
 PATH="$install_fixture_path" \
@@ -431,7 +429,7 @@ mise install
 install-cursor-agent.sh
 trust-agent-worktrees.sh
 install-gh-extensions.sh
-configure-codex.sh
+configure-codex.ts
 sync.ts --profile devbox
 EOF
 )"

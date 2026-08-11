@@ -2,7 +2,9 @@
 set -euo pipefail
 
 check_only=0
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 wallpaper_index="$HOME/Library/Application Support/com.apple.wallpaper/Store/Index.plist"
+wallpaper_source="$repo_root/scripts/bootstrap/assets/black-wallpaper.plist"
 
 usage() {
   cat <<'USAGE'
@@ -137,85 +139,8 @@ defaults write com.apple.WindowManager StageManagerHideWidgets -bool true
 
 wallpaper_dir="$(dirname "$wallpaper_index")"
 mkdir -p "$wallpaper_dir"
-tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/dotfiles-desktop.XXXXXX")"
-trap 'rm -rf "$tmp_dir"' EXIT
-tmp_index="$tmp_dir/Index.plist"
-
-cat > "$tmp_index" <<'PLIST'
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>AllSpacesAndDisplays</key>
-  <dict>
-    <key>Linked</key>
-    <dict>
-      <key>Content</key>
-      <dict>
-        <key>Choices</key>
-        <array>
-          <dict>
-            <key>Configuration</key>
-            <data>YnBsaXN0MDDSAQICA1R0eXBlW3N5c3RlbUNvbG9y0QQFVWJsYWNr0AgNEh4hJwAAAAAAAAEBAAAAAAAAAAYAAAAAAAAAAAAAAAAAAAAo</data>
-            <key>Files</key>
-            <array/>
-            <key>Provider</key>
-            <string>com.apple.wallpaper.choice.color</string>
-          </dict>
-        </array>
-        <key>EncodedOptionValues</key>
-        <data>YnBsaXN0MDDRAQJWdmFsdWVz0AgLEgAAAAAAAAEBAAAAAAAAAAMAAAAAAAAAAAAAAAAAAAAT</data>
-        <key>Shuffle</key>
-        <string>$null</string>
-      </dict>
-      <key>LastSet</key>
-      <date>2001-01-01T00:00:00Z</date>
-      <key>LastUse</key>
-      <date>2001-01-01T00:00:00Z</date>
-    </dict>
-    <key>Type</key>
-    <string>linked</string>
-  </dict>
-  <key>Displays</key>
-  <dict/>
-  <key>Spaces</key>
-  <dict/>
-  <key>SystemDefault</key>
-  <dict>
-    <key>Linked</key>
-    <dict>
-      <key>Content</key>
-      <dict>
-        <key>Choices</key>
-        <array>
-          <dict>
-            <key>Configuration</key>
-            <data>YnBsaXN0MDDSAQICA1R0eXBlW3N5c3RlbUNvbG9y0QQFVWJsYWNr0AgNEh4hJwAAAAAAAAEBAAAAAAAAAAYAAAAAAAAAAAAAAAAAAAAo</data>
-            <key>Files</key>
-            <array/>
-            <key>Provider</key>
-            <string>com.apple.wallpaper.choice.color</string>
-          </dict>
-        </array>
-        <key>EncodedOptionValues</key>
-        <data>YnBsaXN0MDDRAQJWdmFsdWVz0AgLEgAAAAAAAAEBAAAAAAAAAAMAAAAAAAAAAAAAAAAAAAAT</data>
-        <key>Shuffle</key>
-        <string>$null</string>
-      </dict>
-      <key>LastSet</key>
-      <date>2001-01-01T00:00:00Z</date>
-      <key>LastUse</key>
-      <date>2001-01-01T00:00:00Z</date>
-    </dict>
-    <key>Type</key>
-    <string>linked</string>
-  </dict>
-</dict>
-</plist>
-PLIST
-
-plutil -lint "$tmp_index" >/dev/null
-install -m 0644 "$tmp_index" "$wallpaper_index"
+plutil -lint "$wallpaper_source" >/dev/null
+install -m 0644 "$wallpaper_source" "$wallpaper_index"
 
 for process_name in Dock Finder WallpaperAgent; do
   killall "$process_name" >/dev/null 2>&1 || true

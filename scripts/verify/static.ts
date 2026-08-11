@@ -14,6 +14,7 @@ const ghosttyConfig = resolve(
   repoRoot,
   "chezmoi/private_Library/private_Application Support/com.mitchellh.ghostty/private_config",
 );
+const blackWallpaper = resolve(repoRoot, "scripts/bootstrap/assets/black-wallpaper.plist");
 
 function fail(message: string): never {
   process.stderr.write(`FAILED: ${message}\n`);
@@ -66,6 +67,7 @@ if (existsSync(resolve(repoRoot, ".github/workflows"))) {
 
 run("git", ["diff", "--check"], "working-tree diff hygiene");
 run("git", ["diff", "--cached", "--check"], "index diff hygiene");
+run("plutil", ["-lint", blackWallpaper], "desktop wallpaper plist");
 
 let ghosttyLines: string[];
 try {
