@@ -22,7 +22,7 @@ export type FindingSeverity = "ok" | "warn" | "fail";
 export type PathSource =
   | { kind: "path"; path: string }
   | { kind: "home-dotfiles"; exclude?: readonly string[] }
-  | { kind: "files"; path: string; maxDepth?: number; namePrefix?: string; namePattern?: RegExp };
+  | { kind: "files"; path: string; maxDepth?: number; namePrefix?: string; pathPattern?: RegExp };
 
 export type AuditCheck =
   | { kind: "file-mode"; path: string; modes: readonly number[]; missing: Exclude<FindingSeverity, "ok">; mismatch: Exclude<FindingSeverity, "ok"> }
@@ -164,7 +164,7 @@ export function resolveSources(home: string, sources: readonly PathSource[]): st
     const root = homePath(home, source.path);
     return walkFiles(root, source.maxDepth ?? Number.POSITIVE_INFINITY)
       .filter((path) => source.namePrefix === undefined || basename(path).startsWith(source.namePrefix))
-      .filter((path) => source.namePattern === undefined || source.namePattern.test(path));
+      .filter((path) => source.pathPattern === undefined || source.pathPattern.test(path));
   });
   return [...new Set(paths)].sort();
 }
@@ -224,7 +224,13 @@ function checkNpmAuth(run: AuditRun, pathValue: string): void {
 
 function checkPrivateModes(run: AuditRun, check: Extract<AuditCheck, { kind: "private-mode" }>): void {
   for (const path of resolveSources(run.home, check.sources)) {
-    const mode = modeOf(path);
+    let mode: number;
+    try {
+      mode = modeOf(path);
+    } catch {
+      run.finding(check.mismatch, `cannot inspect mode for ${path}`);
+      continue;
+    }
     const matches = check.mode === undefined ? (mode & 0o077) === 0 : mode === check.mode;
     if (matches) run.finding("ok", `${path} mode ${mode.toString(8)}`);
     else run.finding(check.mismatch, check.mode === undefined
@@ -407,6 +413,7 @@ function checkTailscaleMagicDns(run: AuditRun): void {
   run.finding("ok", "tailscale status works");
 
   const json = run.command("tailscale", ["status", "--json"]);
+  if (!commandWorked(json)) return run.finding("fail", "tailscale JSON status failed");
   let dnsName = "";
   try {
     const parsed: unknown = JSON.parse(json.stdout);

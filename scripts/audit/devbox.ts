@@ -42,7 +42,7 @@ export function devboxPolicy(user: string, devboxUser: string, configPath: strin
         title: "Codex trust boundaries",
         checks: [
           { kind: "private-mode", sources: codexPrivateDirectories, mode: 0o700, mismatch: "fail" },
-          { kind: "private-mode", sources: [{ kind: "files", path: ".codex", maxDepth: 2, namePattern: /(?:[.]sqlite3?|[.]db(?:-.*)?|[.]log)$|\/log\// }], mismatch: "fail" },
+          { kind: "private-mode", sources: [{ kind: "files", path: ".codex", maxDepth: 2, pathPattern: /(?:[.]sqlite3?|[.]db(?:-.*)?|[.]log)$|\/log\// }], mismatch: "fail" },
           { kind: "private-mode", sources: [{ kind: "path", path: ".codex/config.toml" }], mode: 0o600, mismatch: "fail" },
           { kind: "codex-trust", path: ".codex/config.toml" },
         ],

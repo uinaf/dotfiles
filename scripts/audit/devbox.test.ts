@@ -94,3 +94,17 @@ test("devbox Git identity keeps separate missing-field failures", () => {
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test("MagicDNS reports a failed JSON status command", () => {
+  const policy = { name: "fixture", summary: "fixture", sections: [{ title: "tailscale", checks: [{ kind: "tailscale-magicdns" }] }] } as const;
+  const result = runPolicy(policy, "json", {
+    home: "/fixture",
+    command: (_name, args) => args.includes("--json")
+      ? { status: 1, stdout: "", stderr: "status unavailable" }
+      : { status: 0, stdout: "", stderr: "" },
+    stdout: () => {},
+    stderr: () => {},
+  });
+  assert.equal(result.status, 1);
+  assert.equal(result.summary.failed, 1);
+});
