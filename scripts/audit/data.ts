@@ -6,6 +6,39 @@ import { fileURLToPath } from "node:url";
 
 type Finding = Record<string, unknown>;
 type RuleCounts = Record<string, number>;
+type Severity = "low" | "medium" | "high" | "critical";
+
+export type FindingSummary = {
+  findingCount: number;
+  failures: number;
+  warnings: number;
+  rules: RuleCounts;
+  severities: RuleCounts;
+};
+
+const severityRank: Record<Severity, number> = { low: 0, medium: 1, high: 2, critical: 3 };
+
+function readPolicy(path: string): { defaultSeverity: Severity; failureThreshold: Severity; rules: Record<string, Severity> } {
+  const value: unknown = JSON.parse(readFileSync(path, "utf8"));
+  if (typeof value !== "object" || value === null || Array.isArray(value)) throw new Error("invalid Gitleaks policy");
+  const policy = value as Record<string, unknown>;
+  if (policy.version !== 1 || !isSeverity(policy.defaultSeverity) || !isSeverity(policy.failureThreshold)) {
+    throw new Error("invalid Gitleaks policy header");
+  }
+  if (typeof policy.rules !== "object" || policy.rules === null || Array.isArray(policy.rules)) {
+    throw new Error("invalid Gitleaks policy rules");
+  }
+  const rules: Record<string, Severity> = {};
+  for (const [rule, severity] of Object.entries(policy.rules)) {
+    if (!isSeverity(severity)) throw new Error(`invalid severity for ${rule}`);
+    rules[rule] = severity;
+  }
+  return { defaultSeverity: policy.defaultSeverity, failureThreshold: policy.failureThreshold, rules };
+}
+
+function isSeverity(value: unknown): value is Severity {
+  return typeof value === "string" && Object.hasOwn(severityRank, value);
+}
 
 function readFindings(path: string): Finding[] {
   if (!existsSync(path)) return [];
@@ -79,31 +112,54 @@ export function findingLocators(scanRoot: string, reportPath: string): string[] 
   });
 }
 
-export function mergeRuleCounts(existingJson: string, reportPath: string): RuleCounts {
+function readRuleCounts(existingJson: string): RuleCounts {
   let parsed: unknown;
   try {
     parsed = JSON.parse(existingJson || "{}");
   } catch {
-    parsed = {};
+    throw new Error("invalid persisted count map");
+  }
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    throw new Error("invalid persisted count map");
   }
   const counts: RuleCounts = {};
-  if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
-    for (const [key, value] of Object.entries(parsed)) {
-      if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) {
-        throw new Error(`invalid count for ${key}`);
-      }
-      counts[key] = value;
+  for (const [key, value] of Object.entries(parsed)) {
+    if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) {
+      throw new Error(`invalid count for ${key}`);
     }
+    counts[key] = value;
   }
-  for (const finding of readFindings(reportPath)) {
+  return counts;
+}
+
+export function summarizeFindings(existingRulesJson: string, existingSeveritiesJson: string, reportPath: string, policyPath: string): FindingSummary {
+  const policy = readPolicy(policyPath);
+  const findings = readFindings(reportPath);
+  const rules = readRuleCounts(existingRulesJson);
+  const severities = readRuleCounts(existingSeveritiesJson);
+  let failures = 0;
+  let warnings = 0;
+  for (const finding of findings) {
     const rule = String(finding.RuleID || "unknown");
-    counts[rule] = (counts[rule] ?? 0) + 1;
+    const severity = policy.rules[rule] ?? policy.defaultSeverity;
+    rules[rule] = (rules[rule] ?? 0) + 1;
+    severities[severity] = (severities[severity] ?? 0) + 1;
+    if (severityRank[severity] >= severityRank[policy.failureThreshold]) failures += 1;
+    else warnings += 1;
   }
-  return Object.fromEntries(Object.entries(counts).sort(([left], [right]) => left.localeCompare(right)));
+  return {
+    findingCount: findings.length,
+    failures,
+    warnings,
+    rules: Object.fromEntries(Object.entries(rules).sort(([left], [right]) => left.localeCompare(right))),
+    severities: Object.fromEntries(
+      Object.keys(severityRank).flatMap((severity) => severities[severity] === undefined ? [] : [[severity, severities[severity]]]),
+    ),
+  };
 }
 
 function usage(): never {
-  process.stderr.write("Usage: scripts/audit/data.ts sqlite-stats PATH | gitleaks-locators ROOT REPORT | gitleaks-merge COUNTS REPORT | gitleaks-count REPORT\n");
+  process.stderr.write("Usage: scripts/audit/data.ts sqlite-stats PATH | gitleaks-locators ROOT REPORT | gitleaks-summary POLICY RULE_COUNTS SEVERITY_COUNTS REPORT\n");
   process.exit(2);
 }
 
@@ -114,8 +170,10 @@ function main(args: string[]): void {
     const locators = findingLocators(values[0], values[1]);
     if (locators.length > 0) process.stdout.write(`${locators.join("\n")}\n`);
   }
-  else if (command === "gitleaks-merge" && values.length === 2) process.stdout.write(`${JSON.stringify(mergeRuleCounts(values[0], values[1]))}\n`);
-  else if (command === "gitleaks-count" && values.length === 1) process.stdout.write(`${readFindings(values[0]).length}\n`);
+  else if (command === "gitleaks-summary" && values.length === 4) {
+    const result = summarizeFindings(values[1], values[2], values[3], values[0]);
+    process.stdout.write(`${result.findingCount} ${result.failures} ${result.warnings} ${JSON.stringify(result.rules)} ${JSON.stringify(result.severities)}\n`);
+  }
   else usage();
 }
 

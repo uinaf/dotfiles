@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "defaultSeverity": "high",
+  "failureThreshold": "high",
+  "rules": {
+    "generic-api-key": "low"
+  }
+}

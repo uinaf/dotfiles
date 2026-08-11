@@ -19,6 +19,7 @@ export warn_count=0
 export fail_count=0
 export secret_scan_count=0
 export secret_scan_finding_count=0
+export secret_scan_severities_json=
 export secret_scan_rules_json=
 
 # shellcheck source=scripts/lib/audit.sh
@@ -64,6 +65,7 @@ workstation_summary="$(
   warn_count=0
   secret_scan_count=2
   secret_scan_finding_count=2
+  secret_scan_severities_json='{"high":2}'
   secret_scan_rules_json='{"private-key":2}'
   print_audit_json_summary workstation-security
 )"
@@ -71,11 +73,14 @@ workstation_summary="$(
   || fail "workstation --json summary finding count changed"
 [ "$(printf '%s' "$workstation_summary" | /usr/bin/plutil -extract secret_scan_rules.private-key raw -o - -)" = 2 ] \
   || fail "workstation --json summary rule aggregate changed"
+[ "$(printf '%s' "$workstation_summary" | /usr/bin/plutil -extract secret_scan_severities.high raw -o - -)" = 2 ] \
+  || fail "workstation --json summary severity aggregate changed"
 empty_summary="$(
   fail_count=0
   warn_count=0
   secret_scan_count=0
   secret_scan_finding_count=0
+  secret_scan_severities_json=
   secret_scan_rules_json=
   print_audit_json_summary workstation-security
 )"
@@ -89,6 +94,7 @@ devbox_summary="$(
   warn_count=0
   secret_scan_count=2
   secret_scan_finding_count=2
+  secret_scan_severities_json='{"high":2}'
   secret_scan_rules_json='{"private-key":2}'
   print_audit_json_summary devbox-security fixture fixture
 )"
@@ -305,6 +311,7 @@ warn_count=0
 fail_count=0
 secret_scan_count=0
 secret_scan_finding_count=0
+secret_scan_severities_json=
 secret_scan_rules_json=
 # Avoid command substitution: scan_files_for_secrets mutates counters in-process.
 set +e
@@ -329,7 +336,7 @@ printf '%s\n' "$secret_scan_rules_json" | grep -Fq '"private-key"' \
   || fail "rule aggregates omitted private-key"
 
 (
-  count_gitleaks_findings() {
+  summarize_gitleaks_findings() {
     return 1
   }
   json_output=0
@@ -337,13 +344,18 @@ printf '%s\n' "$secret_scan_rules_json" | grep -Fq '"private-key"' \
   fail_count=0
   secret_scan_count=0
   secret_scan_finding_count=7
+  secret_scan_severities_json='{"low":7}'
   secret_scan_rules_json='{"existing":3}'
   HOME="$secret_fixture" \
     scan_files_for_secrets < <(printf '%s\n' "$secret_fixture/id_rsa") >/dev/null 2>&1 || true
+  [ "$fail_count" -ge 1 ] \
+    || fail "failed Gitleaks summary did not fail closed"
   [ "$secret_scan_finding_count" -eq 7 ] \
     || fail "failed finding count partially updated the aggregate total"
   [ "$secret_scan_rules_json" = '{"existing":3}' ] \
     || fail "failed finding count partially updated the aggregate rules"
+  [ "$secret_scan_severities_json" = '{"low":7}' ] \
+    || fail "failed finding count partially updated the aggregate severities"
 )
 
 json_output=1
@@ -351,6 +363,7 @@ warn_count=0
 fail_count=0
 secret_scan_count=0
 secret_scan_finding_count=0
+secret_scan_severities_json=
 secret_scan_rules_json=
 HOME="$secret_fixture" \
   scan_files_for_secrets < <(printf '%s\n' "$secret_fixture/id_rsa") >/dev/null 2>&1 || true
@@ -381,6 +394,7 @@ warn_count=0
 fail_count=0
 secret_scan_count=0
 secret_scan_finding_count=0
+secret_scan_severities_json=
 secret_scan_rules_json=
 PATH="$broken_gitleaks_bin:$PATH" \
   HOME="$secret_fixture" \
@@ -407,6 +421,7 @@ warn_count=0
 fail_count=0
 secret_scan_count=0
 secret_scan_finding_count=0
+secret_scan_severities_json=
 secret_scan_rules_json=
 PATH="$missing_node_bin:/usr/bin:/bin" \
   HOME="$secret_fixture" \
@@ -421,8 +436,8 @@ fi
 grep -Fq 'audit data tooling failed' "$missing_node_log" \
   || grep -Fq 'node is missing' "$missing_node_log" \
   || fail "node-absent degrade path did not warn"
-grep -Fq 'gitleaks reported possible leaks' "$missing_node_log" \
-  || fail "status-only gitleaks findings were reported as a scanner failure"
+grep -Fq 'Gitleaks findings could not be classified safely' "$missing_node_log" \
+  || fail "broken audit data tooling did not fail classification closed"
 
 clean_fixture="$tmp_root/clean-home"
 clean_log="$tmp_root/clean-secret-scan.log"
@@ -434,6 +449,7 @@ warn_count=0
 fail_count=0
 secret_scan_count=0
 secret_scan_finding_count=0
+secret_scan_severities_json=
 secret_scan_rules_json=
 set +e
 HOME="$clean_fixture" \

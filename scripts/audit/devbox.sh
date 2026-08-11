@@ -8,6 +8,7 @@ warn_count=0
 fail_count=0
 secret_scan_count=0
 secret_scan_finding_count=0
+secret_scan_severities_json=
 secret_scan_rules_json=
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
