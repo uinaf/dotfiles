@@ -570,7 +570,7 @@ test("uses the current first-party skill sources", () => {
   assert.equal(sourceByName.get("attach-cli"), "uinaf/attach");
   assert.equal(sourceByName.get("uinaf-design"), "uinaf/design");
   assert.equal(sourceByName.get("autoreview"), "uinaf/autoreview");
-  assert.equal(sourceByName.get("slopomatic"), "uinaf/slopomatic");
+  assert.equal(sourceByName.get("slopshipper"), "uinaf/slopshipper");
 
   const preSplitInventory = [
     ["agent-dx-cli-scale", "jpoehnelt/skills"],
@@ -588,7 +588,7 @@ test("uses the current first-party skill sources", () => {
     ["react-ban-use-effect", "uinaf/skills"],
     ["shadcn", "shadcn/ui"],
     ["skill-audit", "uinaf/skills"],
-    ["slopomatic", "uinaf/slopomatic"],
+    ["slopshipper", "uinaf/slopshipper"],
     ["tanstack-form", "tanstack-skills/tanstack-skills"],
     ["tanstack-query", "tanstack-skills/tanstack-skills"],
     ["tanstack-start", "tanstack-skills/tanstack-skills"],

@@ -264,7 +264,7 @@ printf '%s\n' "$personal_error" | grep -Fq \
   'Brewfile.personal requires a personal-workstation or personal-devbox profile' \
   || fail "personal Brewfile profile failure was not actionable"
 
-for required in 'cask "codex"' 'cask "claude-code@latest"' 'cask "uinaf/tap/autoreview"' 'cask "uinaf/tap/slopomatic"'; do
+for required in 'cask "codex"' 'cask "claude-code@latest"' 'cask "uinaf/tap/autoreview"' 'cask "uinaf/tap/slopshipper"'; do
   grep -Fqx "$required" "$repo_root/Brewfile.developer" \
     || fail "developer layer missed $required"
   for file in Brewfile.workstation Brewfile.personal Brewfile.devbox; do
