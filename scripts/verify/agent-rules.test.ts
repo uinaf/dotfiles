@@ -92,12 +92,13 @@ function runWrapper(home: string): string {
 }
 
 function assertManagedRules(home: string): string {
-  const rules = join(home, ".agents/AGENTS.md");
+  const rules = join(home, "AGENTS.md");
   assert.equal(lstatSync(rules).isFile(), true);
+  assert.equal(lstatSync(rules).mode & 0o777, 0o600);
   assert.equal(lstatSync(join(home, ".claude/CLAUDE.md")).isSymbolicLink(), true);
   assert.equal(lstatSync(join(home, ".codex/AGENTS.md")).isSymbolicLink(), true);
-  assert.equal(readlinkSync(join(home, ".claude/CLAUDE.md")), "../.agents/AGENTS.md");
-  assert.equal(readlinkSync(join(home, ".codex/AGENTS.md")), "../.agents/AGENTS.md");
+  assert.equal(readlinkSync(join(home, ".claude/CLAUDE.md")), "../AGENTS.md");
+  assert.equal(readlinkSync(join(home, ".codex/AGENTS.md")), "../AGENTS.md");
   return readFileSync(rules, "utf8");
 }
 
@@ -109,6 +110,7 @@ test("applies public rules and links without private output", () => {
 
   assert.match(rules, /^# Agent Guidelines/);
   assert.doesNotMatch(rules, /Local Overrides|private fixture rule/);
+  assert.match(rules, /Keep each inline review comment to one actionable concern and short\n$/);
   assert.equal(runChezmoi(home, config, "diff"), "");
   runChezmoi(home, config, "apply");
   assert.equal(runChezmoi(home, config, "diff"), "");
@@ -120,6 +122,7 @@ test("omits global rules for workload profiles", () => {
     runChezmoi(home, config, "apply", sourceDir, profile);
 
     assert.equal(lstatSync(home).isDirectory(), true);
+    assert.equal(readdirSync(home).includes("AGENTS.md"), false);
     assert.equal(readdirSync(home).includes(".agents"), false);
     assert.equal(readdirSync(home).includes(".claude"), false);
     assert.equal(readdirSync(home).includes(".codex"), false);
@@ -143,10 +146,10 @@ test("shows rule changes in diff and waits for an explicit apply", () => {
   const source = join(root, "source");
   cpSync(sourceDir, source, { recursive: true });
   runChezmoi(home, config, "apply", source);
-  const rulesPath = join(home, ".agents/AGENTS.md");
+  const rulesPath = join(home, "AGENTS.md");
   const before = readFileSync(rulesPath, "utf8");
 
-  appendFileSync(join(source, "private_dot_agents/AGENTS.md.tmpl"), "\nFixture public rule changed.\n");
+  appendFileSync(join(source, "private_AGENTS.md.tmpl"), "\nFixture public rule changed.\n");
 
   assert.match(runChezmoi(home, config, "diff", source), /Fixture public rule changed/);
   assert.equal(readFileSync(rulesPath, "utf8"), before);
@@ -166,6 +169,35 @@ test("backs up a conflicting rule file before convergence", () => {
   const backup = readdirSync(join(home, ".claude")).find((name) => name.startsWith("CLAUDE.md.backup."));
   assert.ok(backup);
   assert.equal(readFileSync(join(home, ".claude", backup), "utf8"), "unmanaged fixture rules\n");
+});
+
+test("backs up a conflicting home rule file before convergence", () => {
+  const { home } = createFixture();
+  writeFileSync(join(home, "AGENTS.md"), "unmanaged Cursor rules\n");
+
+  runWrapper(home);
+
+  assertManagedRules(home);
+  const backup = readdirSync(home).find((name) => name.startsWith("AGENTS.md.backup."));
+  assert.ok(backup);
+  assert.equal(readFileSync(join(home, backup), "utf8"), "unmanaged Cursor rules\n");
+});
+
+test("backs up the retired rule file without removing installed skills", () => {
+  const { home } = createFixture();
+  const installedSkill = join(home, ".agents/skills/example/SKILL.md");
+  mkdirSync(dirname(installedSkill), { recursive: true });
+  writeFileSync(join(home, ".agents/AGENTS.md"), "retired shared rules\n");
+  writeFileSync(installedSkill, "installed skill\n");
+
+  runWrapper(home);
+
+  assertManagedRules(home);
+  assert.equal(readdirSync(join(home, ".agents")).includes("AGENTS.md"), false);
+  const backup = readdirSync(join(home, ".agents")).find((name) => name.startsWith("AGENTS.md.backup."));
+  assert.ok(backup);
+  assert.equal(readFileSync(join(home, ".agents", backup), "utf8"), "retired shared rules\n");
+  assert.equal(readFileSync(installedSkill, "utf8"), "installed skill\n");
 });
 
 test("backs up a broken rule link before convergence", () => {
@@ -199,6 +231,19 @@ test("backs up a conflicting rule link before convergence", () => {
     assert.ok(backup);
     assert.equal(readlinkSync(join(home, directory, backup)), externalRules);
   }
+});
+
+test("does not back up managed rule links again", () => {
+  const { home } = createFixture();
+
+  runWrapper(home);
+  const output = runWrapper(home);
+
+  assertManagedRules(home);
+  assert.doesNotMatch(output, /backed up/);
+  assert.equal(readdirSync(home).some((name) => name.startsWith("AGENTS.md.backup.")), false);
+  assert.equal(readdirSync(join(home, ".claude")).some((name) => name.includes(".backup.")), false);
+  assert.equal(readdirSync(join(home, ".codex")).some((name) => name.includes(".backup.")), false);
 });
 
 test("rejects a non-string private rule layer", () => {

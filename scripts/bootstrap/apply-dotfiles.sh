@@ -58,13 +58,22 @@ fail() {
 
 backup_path() {
   local target="$1"
+  local expected_type="$2"
   local backup
+  local expected_link
 
   if [ ! -e "$target" ] && [ ! -L "$target" ]; then
     return
   fi
 
-  if "${chezmoi_base[@]}" cat "$target" | cmp -s - "$target"; then
+  if [ "$expected_type" = "symlink" ]; then
+    if [ -L "$target" ]; then
+      expected_link="$("${chezmoi_base[@]}" cat "$target")"
+      if [ "$(readlink "$target")" = "$expected_link" ]; then
+        return
+      fi
+    fi
+  elif [ "$expected_type" = "file" ] && [ ! -L "$target" ] && "${chezmoi_base[@]}" cat "$target" | cmp -s - "$target"; then
     return
   fi
 
@@ -80,10 +89,17 @@ backup_path() {
 backup_preexisting_targets() {
   local target
 
+  backup_path "$HOME/.agents/AGENTS.md" remove
+
   while IFS= read -r target; do
     [ -n "$target" ] || continue
-    backup_path "$target"
-  done < <("${chezmoi_base[@]}" managed --include=files,symlinks --path-style absolute)
+    backup_path "$target" file
+  done < <("${chezmoi_base[@]}" managed --include=files --path-style absolute)
+
+  while IFS= read -r target; do
+    [ -n "$target" ] || continue
+    backup_path "$target" symlink
+  done < <("${chezmoi_base[@]}" managed --include=symlinks --path-style absolute)
 }
 
 [ -d "$source_dir" ] || fail "missing chezmoi source directory: $source_dir"
