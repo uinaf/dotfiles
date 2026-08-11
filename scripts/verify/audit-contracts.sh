@@ -53,42 +53,6 @@ check_npmrc_auth_boundary
 rm "$HOME/.npmrc"
 fail_count=0
 
-workstation_json="$(HOME="$HOME" SHELL=/bin/sh "$repo_root/scripts/audit/workstation.sh" --json 2>/dev/null || true)"
-printf '%s\n' "$workstation_json" | grep -Fq '"audit":"workstation-security"' \
-  || fail "workstation JSON audit name changed"
-if printf '%s\n' "$workstation_json" | grep -Fq '"user":'; then
-  fail "workstation JSON exposed the Unix user"
-fi
-
-workstation_summary="$(
-  fail_count=1
-  warn_count=0
-  secret_scan_count=2
-  secret_scan_finding_count=2
-  secret_scan_severities_json='{"high":2}'
-  secret_scan_rules_json='{"private-key":2}'
-  print_audit_json_summary workstation-security
-)"
-[ "$(printf '%s' "$workstation_summary" | /usr/bin/plutil -extract secret_scan_finding_count raw -o - -)" = 2 ] \
-  || fail "workstation --json summary finding count changed"
-[ "$(printf '%s' "$workstation_summary" | /usr/bin/plutil -extract secret_scan_rules.private-key raw -o - -)" = 2 ] \
-  || fail "workstation --json summary rule aggregate changed"
-[ "$(printf '%s' "$workstation_summary" | /usr/bin/plutil -extract secret_scan_severities.high raw -o - -)" = 2 ] \
-  || fail "workstation --json summary severity aggregate changed"
-empty_summary="$(
-  fail_count=0
-  warn_count=0
-  secret_scan_count=0
-  secret_scan_finding_count=0
-  secret_scan_severities_json=
-  secret_scan_rules_json=
-  print_audit_json_summary workstation-security
-)"
-[ "$(printf '%s' "$empty_summary" | /usr/bin/plutil -extract secret_scan_finding_count raw -o - -)" = 0 ] \
-  || fail "workstation --json summary default finding count changed"
-[ "$(printf '%s' "$empty_summary" | /usr/bin/plutil -extract secret_scan_rules json -o - -)" = '{}' ] \
-  || fail "workstation --json summary default rules object is invalid"
-
 devbox_summary="$(
   fail_count=1
   warn_count=0

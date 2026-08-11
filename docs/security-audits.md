@@ -28,7 +28,7 @@ Use separate checks for separate risk surfaces:
 | Repository content | `gitleaks`, `trufflehog`, `.github/workflows/secrets.yml` | Detect committed or proposed secrets. |
 | Host hardening | `lynis`, `scripts/audit/host.sh` | Run a maintained Unix/macOS host audit without adopting enterprise management. |
 | macOS compliance baseline | macOS Security Compliance Project through `scripts/audit/repo.sh` | Check host security settings against a generated baseline. |
-| Workstation drift | `scripts/audit/workstation.sh` | Check human workstation secret boundaries, identity state, and local stale files. |
+| Workstation drift | `mise run audit workstation` | Check human workstation secret boundaries, identity state, and local stale files. |
 | Devbox drift | `scripts/audit/devbox.sh` | Check agent-machine secret boundaries, identity state, and local stale files. |
 | Functional bootstrap | `scripts/verify/bootstrap.sh`, `scripts/verify/devbox-services.sh` | Confirm tools, the SOPS age identity when the profile consumes secrets, and expected services work. |
 
@@ -129,7 +129,7 @@ contain hostnames, local paths, package inventory, and network details.
 
 Treat Lynis as a discovery tool, not a policy engine. Review warnings and
 suggestions, decide what fits a workstation or shared devbox setup, then encode
-only durable repo-specific drift checks in `scripts/audit/workstation.sh` or
+only durable repo-specific drift checks in `scripts/audit/workstation.ts` or
 `scripts/audit/devbox.sh`.
 
 ## macOS Security Compliance Project
@@ -177,12 +177,13 @@ shared devboxes.
 Run this from a normal workstation user:
 
 ```zsh
-./scripts/audit/workstation.sh
+mise run audit workstation
 ```
 
-Use `./scripts/audit/workstation.sh --json` when an agent needs a compact
-status summary. Prefer JSON mode for remote collection because prose scanner
-output may include matched secret material.
+Use `mise run audit workstation --format json` when an agent needs a compact
+status summary. Workstation policy is declared in `scripts/audit/workstation.ts`
+and executed by the typed engine in `scripts/audit/engine.ts`; it does not use a
+shell runner.
 
 It checks:
 
