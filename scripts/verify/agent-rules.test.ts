@@ -183,7 +183,7 @@ test("backs up a conflicting home rule file before convergence", () => {
   assert.equal(readFileSync(join(home, backup), "utf8"), "unmanaged Cursor rules\n");
 });
 
-test("removes the retired rule file without removing installed skills", () => {
+test("backs up the retired rule file without removing installed skills", () => {
   const { home } = createFixture();
   const installedSkill = join(home, ".agents/skills/example/SKILL.md");
   mkdirSync(dirname(installedSkill), { recursive: true });
@@ -194,6 +194,9 @@ test("removes the retired rule file without removing installed skills", () => {
 
   assertManagedRules(home);
   assert.equal(readdirSync(join(home, ".agents")).includes("AGENTS.md"), false);
+  const backup = readdirSync(join(home, ".agents")).find((name) => name.startsWith("AGENTS.md.backup."));
+  assert.ok(backup);
+  assert.equal(readFileSync(join(home, ".agents", backup), "utf8"), "retired shared rules\n");
   assert.equal(readFileSync(installedSkill, "utf8"), "installed skill\n");
 });
 

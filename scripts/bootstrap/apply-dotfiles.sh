@@ -73,7 +73,7 @@ backup_path() {
         return
       fi
     fi
-  elif [ ! -L "$target" ] && "${chezmoi_base[@]}" cat "$target" | cmp -s - "$target"; then
+  elif [ "$expected_type" = "file" ] && [ ! -L "$target" ] && "${chezmoi_base[@]}" cat "$target" | cmp -s - "$target"; then
     return
   fi
 
@@ -88,6 +88,8 @@ backup_path() {
 
 backup_preexisting_targets() {
   local target
+
+  backup_path "$HOME/.agents/AGENTS.md" remove
 
   while IFS= read -r target; do
     [ -n "$target" ] || continue
