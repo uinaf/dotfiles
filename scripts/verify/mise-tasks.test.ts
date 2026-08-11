@@ -67,6 +67,7 @@ test("repository verification reports a missing Node runtime", () => {
   const bin = mkdtempSync(join(tmpdir(), "dotfiles-repo-runner-bin-"));
   try {
     symlinkSync("/usr/bin/dirname", join(bin, "dirname"));
+    symlinkSync("/usr/bin/false", join(bin, "node"));
     const result = spawnSync("/bin/bash", [join(repoRoot, "scripts/verify/repo.sh"), "--skip-security"], {
       cwd: repoRoot,
       encoding: "utf8",
@@ -88,7 +89,7 @@ test("focused verification preserves the delegated failure code", () => {
   const bin = mkdtempSync(join(tmpdir(), "dotfiles-mise-bin-"));
   try {
     const node = join(bin, "node");
-    writeFileSync(node, "#!/bin/sh\nexit 23\n");
+    writeFileSync(node, "#!/bin/sh\n[ \"${1:-}\" = --version ] && exit 0\nexit 23\n");
     chmodSync(node, 0o755);
     const result = run("mise", ["run", "verify:domain", "static"], { PATH: `${bin}:${process.env.PATH ?? ""}` });
     assert.equal(result.status, 23, result.stderr);

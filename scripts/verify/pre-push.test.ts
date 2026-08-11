@@ -87,6 +87,7 @@ test("installed hook reports a missing Node runtime", () => {
     copyFileSync(join(dirname(hook), "../bootstrap/install-git-hooks.sh"), join(bootstrapDir, "install-git-hooks.sh"));
     copyFileSync(hook, join(verifyDir, "pre-push.ts"));
     symlinkSync("/usr/bin/git", join(bin, "git"));
+    symlinkSync("/usr/bin/false", join(bin, "node"));
 
     const install = spawnSync("/bin/bash", [join(bootstrapDir, "install-git-hooks.sh")], {
       cwd: repo.path,
