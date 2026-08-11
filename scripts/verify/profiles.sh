@@ -61,6 +61,9 @@ assert_eq service "$(dotfiles_normalize_profile service)" "service profile"
 if dotfiles_normalize_profile unsupported >/dev/null 2>&1; then
   fail "unsupported profile was accepted"
 fi
+if dotfiles_normalize_profile personal >/dev/null 2>&1; then
+  fail "retired personal profile was accepted"
+fi
 if "$repo_root/scripts/bootstrap/configure-power.sh" workstation devbox >/dev/null 2>&1; then
   fail "configure-power accepted duplicate profile arguments"
 fi

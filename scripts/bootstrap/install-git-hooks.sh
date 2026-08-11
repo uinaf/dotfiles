@@ -33,7 +33,13 @@ set -euo pipefail
 
 # dotfiles: pre-push
 repo_root="$(git rev-parse --show-toplevel)"
-exec node "$repo_root/scripts/verify/pre-push.ts" "$@"
+node_binary="$(command -v node 2>/dev/null || true)"
+if [ -z "$node_binary" ] || [ ! -x "$node_binary" ] \
+  || ! "$node_binary" --version >/dev/null 2>&1; then
+  printf 'FAILED: missing node; run mise install in %s before pushing\n' "$repo_root" >&2
+  exit 1
+fi
+exec "$node_binary" "$repo_root/scripts/verify/pre-push.ts" "$@"
 HOOK
 
 chmod 0755 "$pre_push"

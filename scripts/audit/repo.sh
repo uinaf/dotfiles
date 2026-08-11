@@ -189,7 +189,7 @@ else
   else
     current_branch="$(git -C "$mscp_dir" branch --show-current 2>/dev/null || true)"
     if [ -n "$expected_branch" ] && [ "$current_branch" != "$expected_branch" ]; then
-      warn "mSCP branch is $current_branch; expected $expected_branch for this macOS version"
+      warn "mSCP branch is ${current_branch:-detached}; expected $expected_branch for this macOS version"
     elif [ -n "$expected_branch" ]; then
       ok "mSCP branch looks correct: ${current_branch:-detached}"
     fi
