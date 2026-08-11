@@ -201,6 +201,18 @@ test("backs up a conflicting rule link before convergence", () => {
   }
 });
 
+test("does not back up managed rule links again", () => {
+  const { home } = createFixture();
+
+  runWrapper(home);
+  const output = runWrapper(home);
+
+  assertManagedRules(home);
+  assert.doesNotMatch(output, /backed up/);
+  assert.equal(readdirSync(join(home, ".claude")).some((name) => name.includes(".backup.")), false);
+  assert.equal(readdirSync(join(home, ".codex")).some((name) => name.includes(".backup.")), false);
+});
+
 test("rejects a non-string private rule layer", () => {
   const { config, home } = createFixture();
   writeFileSync(config, "[data]\nagentRulesPrivate = true\n");
