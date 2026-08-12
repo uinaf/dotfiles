@@ -315,6 +315,18 @@ test("rejects a broken local Markdown link", () => {
   assert.match(result.stderr, /local agent rules link is broken/);
 });
 
+test("rejects local Markdown owned by another user", () => {
+  const { home } = createFixture();
+  const privateRules = join(home, ".config/dotfiles/agents.local.md");
+  mkdirSync(dirname(privateRules), { recursive: true });
+  symlinkSync("/etc/master.passwd", privateRules);
+
+  const result = runWrapperResult(home);
+
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /local agent rules must be owned by the current user/);
+});
+
 test("rejects a local Markdown symlink resolving to a directory", () => {
   const { config, home, root } = createFixture();
   const privateRules = join(home, ".config/dotfiles/agents.local.md");
