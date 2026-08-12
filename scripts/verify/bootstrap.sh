@@ -100,7 +100,6 @@ developer_cli_checks=(
   "claude --version"
   "cursor-agent --version"
   "autoreview --version"
-  "slopshipper version"
 )
 
 human_workstation_cli_checks=(
@@ -113,6 +112,7 @@ personal_common_cli_checks=(
   "crabbox --version"
   "gitcrawl --version"
   "mole --version"
+  "slopshipper version"
 )
 
 personal_workstation_cli_checks=(

@@ -543,7 +543,7 @@ test("uses the current first-party skill sources", () => {
     JSON.parse(readFileSync(join(scriptDir, "skills", `${layer}.json`), "utf8")),
   );
 
-  const skills = manifests.flatMap((manifest) => {
+  const layerSkills = manifests.map((manifest) => {
     assert.ok(
       typeof manifest === "object" &&
         manifest !== null &&
@@ -562,6 +562,7 @@ test("uses the current first-party skill sources", () => {
       return { name: skill.name, source: skill.source };
     });
   });
+  const skills = layerSkills.flat();
   const sources = skills.map((skill) => skill.source);
   const sourceByName = new Map(skills.map((skill) => [skill.name, skill.source]));
 
@@ -571,6 +572,8 @@ test("uses the current first-party skill sources", () => {
   assert.equal(sourceByName.get("uinaf-design"), "uinaf/design");
   assert.equal(sourceByName.get("autoreview"), "uinaf/autoreview");
   assert.equal(sourceByName.get("slopshipper"), "uinaf/slopshipper");
+  assert.equal(layerSkills[0]?.some((skill) => skill.name === "slopshipper"), false);
+  assert.equal(layerSkills[1]?.some((skill) => skill.name === "slopshipper"), true);
 
   const preSplitInventory = [
     ["agent-dx-cli-scale", "jpoehnelt/skills"],

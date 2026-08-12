@@ -62,8 +62,8 @@ no additional Homebrew software or language runtime.
 Personal-workstation, personal-devbox, workstation, and devbox retain the full shared
 development runtime set, including Codex CLI, Claude Code CLI, Cursor Agent
 CLI, and 1Password CLI.
-The developer layer installs the autoreview and slopshipper CLIs. The personal
-layer installs the App Store Connect CLI, Attach, Crabbox, Gitcrawl, and Mole for both personal profiles,
+The developer layer installs the autoreview CLI. The personal
+layer installs the App Store Connect CLI, Attach, Crabbox, Gitcrawl, Mole, and slopshipper for both personal profiles,
 while personal GUI applications remain workstation-only. Developer-profile install
 flows apply machine-global instructions through chezmoi and sync additive skills
 from `scripts/agents/`; see [Agent setup](agents.md).

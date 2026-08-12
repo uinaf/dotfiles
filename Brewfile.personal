@@ -23,6 +23,7 @@ brew "uinaf/tap/attach"
 brew "openclaw/tap/crabbox"
 brew "openclaw/tap/gitcrawl"
 brew "mole"
+cask "uinaf/tap/slopshipper"
 
 if workstation_enabled
   # App Store automation

@@ -110,12 +110,13 @@ test("Brewfile gates GUI casks on the workstation capability", () => {
     const personalDevbox = model.profileModel.profiles["personal-devbox"]?.capabilities as Record<string, unknown>;
     personalDevbox.workstation = false;
     writeFileSync(fixtureModelPath, JSON.stringify(model));
-    assert.deepEqual(listCasks("personal-devbox"), []);
+    assert.deepEqual(listCasks("personal-devbox"), ["slopshipper"]);
 
     const personalWorkstation = model.profileModel.profiles["personal-workstation"]?.capabilities as Record<string, unknown>;
     personalWorkstation.workstation = true;
     writeFileSync(fixtureModelPath, JSON.stringify(model));
     const workstationCasks = listCasks("personal-workstation");
+    assert.equal(workstationCasks.includes("slopshipper"), true);
     assert.equal(workstationCasks.includes("cleanshot"), true);
   } finally {
     rmSync(root, { recursive: true, force: true });

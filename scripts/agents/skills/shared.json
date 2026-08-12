@@ -53,10 +53,6 @@
       "source": "uinaf/skills"
     },
     {
-      "name": "slopshipper",
-      "source": "uinaf/slopshipper"
-    },
-    {
       "name": "tanstack-form",
       "source": "tanstack-skills/tanstack-skills"
     },

@@ -5,6 +5,10 @@
       "source": "uinaf/attach"
     },
     {
+      "name": "slopshipper",
+      "source": "uinaf/slopshipper"
+    },
+    {
       "name": "uinaf-design",
       "source": "uinaf/design"
     }

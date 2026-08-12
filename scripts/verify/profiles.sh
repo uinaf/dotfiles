@@ -248,12 +248,17 @@ personal_workstation_casks="$(
 )"
 printf '%s\n' "$personal_workstation_casks" | grep -Fqx tailscale-app \
   || fail "personal workstation Brewfile omitted tailscale-app"
+printf '%s\n' "$personal_workstation_casks" | grep -Fqx slopshipper \
+  || fail "personal workstation Brewfile omitted slopshipper"
 personal_devbox_casks="$(
   HOMEBREW_BUNDLE_DOTFILES_PROFILE=personal-devbox HOMEBREW_NO_AUTO_UPDATE=1 \
     brew bundle list --cask --file "$repo_root/Brewfile.personal"
 )"
-[ -z "$personal_devbox_casks" ] \
-  || fail "personal devbox Brewfile included headful casks: $personal_devbox_casks"
+printf '%s\n' "$personal_devbox_casks" | grep -Fqx slopshipper \
+  || fail "personal devbox Brewfile omitted slopshipper"
+headful_devbox_casks="$(printf '%s\n' "$personal_devbox_casks" | grep -Fvx slopshipper || true)"
+[ -z "$headful_devbox_casks" ] \
+  || fail "personal devbox Brewfile included headful casks: $headful_devbox_casks"
 personal_workstation_formulae="$(
   HOMEBREW_BUNDLE_DOTFILES_PROFILE=personal-workstation HOMEBREW_NO_AUTO_UPDATE=1 \
     brew bundle list --formula --file "$repo_root/Brewfile.personal"
@@ -277,7 +282,7 @@ printf '%s\n' "$personal_error" | grep -Fq \
   'Brewfile.personal requires a personal-workstation or personal-devbox profile' \
   || fail "personal Brewfile profile failure was not actionable"
 
-for required in 'cask "codex"' 'cask "claude-code@latest"' 'cask "uinaf/tap/autoreview"' 'cask "uinaf/tap/slopshipper"'; do
+for required in 'cask "codex"' 'cask "claude-code@latest"' 'cask "uinaf/tap/autoreview"'; do
   grep -Fqx "$required" "$repo_root/Brewfile.developer" \
     || fail "developer layer missed $required"
   for file in Brewfile.workstation Brewfile.personal Brewfile.devbox; do
@@ -293,7 +298,7 @@ for file in Brewfile.workstation Brewfile.personal Brewfile.devbox Brewfile.assi
     fail "$file duplicates developer Watchman"
   fi
 done
-for required in 'brew "asc"' 'brew "uinaf/tap/attach"' 'brew "openclaw/tap/crabbox"' 'brew "openclaw/tap/gitcrawl"' 'brew "mole"'; do
+for required in 'brew "asc"' 'brew "uinaf/tap/attach"' 'brew "openclaw/tap/crabbox"' 'brew "openclaw/tap/gitcrawl"' 'brew "mole"' 'cask "uinaf/tap/slopshipper"'; do
   grep -Fqx "$required" "$repo_root/Brewfile.personal" \
     || fail "personal layer missed $required"
   for file in Brewfile.developer Brewfile.workstation Brewfile.devbox Brewfile.assistant Brewfile.service; do
