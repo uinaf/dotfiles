@@ -304,22 +304,28 @@ test("rejects local Markdown granting group or other access", () => {
 });
 
 test("rejects a broken local Markdown link", () => {
-  const { home } = createFixture();
-  const privateRules = join(home, ".config/dotfiles/agents.local.md");
-  mkdirSync(dirname(privateRules), { recursive: true });
-  symlinkSync(join(home, "missing-agents.local.md"), privateRules);
+  for (const profile of ["personal-workstation", "personal-devbox", "workstation", "devbox"]) {
+    const { home } = createFixture();
+    const privateRules = join(home, ".config/dotfiles/agents.local.md");
+    mkdirSync(dirname(privateRules), { recursive: true });
+    symlinkSync(join(home, "missing-agents.local.md"), privateRules);
 
-  const result = runWrapperResult(home);
+    const result = runWrapperResult(home, profile);
 
-  assert.notEqual(result.status, 0);
-  assert.match(result.stderr, /local agent rules link is broken/);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /local agent rules link is broken/);
+  }
 });
 
-test("rejects local Markdown owned by another user", () => {
+test("rejects local Markdown owned by another user", (context) => {
+  if (process.getuid?.() === 0) {
+    context.skip("requires a non-root test runner");
+    return;
+  }
   const { home } = createFixture();
   const privateRules = join(home, ".config/dotfiles/agents.local.md");
   mkdirSync(dirname(privateRules), { recursive: true });
-  symlinkSync("/etc/master.passwd", privateRules);
+  symlinkSync("/usr/bin/true", privateRules);
 
   const result = runWrapperResult(home);
 
