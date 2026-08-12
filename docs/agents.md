@@ -82,6 +82,7 @@ mise run verify:domain config
 mise run verify:domain agents
 ```
 
-Rule fixtures cover clean and repeated applies, local data present and absent,
-explicit diffs, conflicting files, and broken links. Skill fixtures cover
-install, update, conflict, removal, and ownership without touching rules or Git.
+Rule fixtures cover clean and repeated applies, local Markdown files and
+symlinks, permissions and ownership, workload isolation, explicit diffs, and
+conflicts. Skill fixtures cover install, update, conflict, removal, and
+ownership without touching rules or Git.

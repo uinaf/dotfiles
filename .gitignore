@@ -7,3 +7,4 @@ home/.codex/
 scripts/agents/skills.lock.json
 chezmoi.toml
 **/.config/chezmoi/
+**/.config/dotfiles/agents.local.md

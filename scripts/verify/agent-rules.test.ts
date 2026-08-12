@@ -345,12 +345,14 @@ test("rejects a local Markdown symlink resolving to a directory", () => {
 });
 
 test("ignores broken local Markdown links for workload profiles", () => {
-  const { home } = createFixture();
-  const privateRules = join(home, ".config/dotfiles/agents.local.md");
-  mkdirSync(dirname(privateRules), { recursive: true });
-  symlinkSync(join(home, "missing-agents.local.md"), privateRules);
+  for (const profile of ["assistant", "service"]) {
+    const { home } = createFixture();
+    const privateRules = join(home, ".config/dotfiles/agents.local.md");
+    mkdirSync(dirname(privateRules), { recursive: true });
+    symlinkSync(join(home, "missing-agents.local.md"), privateRules);
 
-  runWrapper(home, "assistant");
+    runWrapper(home, profile);
 
-  assert.equal(readdirSync(home).includes("AGENTS.md"), false);
+    assert.equal(readdirSync(home).includes("AGENTS.md"), false);
+  }
 });
