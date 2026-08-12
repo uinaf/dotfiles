@@ -150,11 +150,6 @@ workstation_config_paths=(
   "$ghostty_config"
 )
 
-personal_config_paths=(
-  "$HOME/.config/zed/settings.json"
-  "$HOME/.config/zed/keymap.json"
-)
-
 section() {
   printf '\n## %s\n' "$1"
 }
@@ -416,16 +411,6 @@ check_config_paths() {
     done
   fi
 
-  if dotfiles_profile_has_capability "$profile" zed; then
-    for path in "${personal_config_paths[@]}"; do
-      if [ -e "$path" ]; then
-        printf 'ok %s\n' "$path"
-      else
-        fail "missing $path"
-      fi
-    done
-  fi
-
   if ! installed_profile="$(dotfiles_read_persisted_profile "$HOME/.config/dotfiles/profile" "$(id -u)")" \
     || [ "$installed_profile" != "$profile" ]; then
     fail "installed profile does not match $profile"
@@ -521,7 +506,7 @@ run_checks() {
   if dotfiles_profile_is_workstation "$profile"; then
     groups+=(workstation_tools)
   fi
-  if dotfiles_profile_has_capability "$profile" zed; then
+  if dotfiles_profile_is_personal "$profile" && dotfiles_profile_is_workstation "$profile"; then
     groups+=(personal_workstation_tools)
   fi
   if dotfiles_profile_is_devbox "$profile"; then

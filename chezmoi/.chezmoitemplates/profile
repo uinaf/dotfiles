@@ -11,10 +11,10 @@
 {{- if or (not (kindIs "map" $candidate)) (ne (len $candidate) 5) -}}
 {{- fail (printf "profile %s must contain capabilities, brewfiles, runtimeGroup, skillLayers, and installSteps" $name) -}}
 {{- end -}}
-{{- if or (not (kindIs "map" $candidate.capabilities)) (ne (len $candidate.capabilities) 9) -}}
+{{- if or (not (kindIs "map" $candidate.capabilities)) (ne (len $candidate.capabilities) 8) -}}
 {{- fail (printf "profile %s capabilities have an invalid shape" $name) -}}
 {{- end -}}
-{{- range $capability := list "developer" "workload" "sharedHomebrew" "requiresSopsIdentity" "devbox" "workstation" "personal" "zed" "githubAppAuth" -}}
+{{- range $capability := list "developer" "workload" "sharedHomebrew" "requiresSopsIdentity" "devbox" "workstation" "personal" "githubAppAuth" -}}
 {{- if or (not (hasKey $candidate.capabilities $capability)) (not (kindIs "bool" (index $candidate.capabilities $capability))) -}}
 {{- fail (printf "profile %s capability %s must be boolean" $name $capability) -}}
 {{- end -}}

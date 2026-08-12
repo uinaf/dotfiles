@@ -579,7 +579,6 @@ test("uses the current first-party skill sources", () => {
     ["autoreview", "uinaf/autoreview"],
     ["docs", "uinaf/skills"],
     ["effect-ts", "Effect-TS/skills"],
-    ["i-have-adhd", "ayghri/i-have-adhd"],
     ["gh-setup", "uinaf/skills"],
     ["gh-stack", "github/gh-stack"],
     ["grilling", "mattpocock/skills"],

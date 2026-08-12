@@ -8,7 +8,6 @@ const capabilityNames = [
   "devbox",
   "workstation",
   "personal",
-  "zed",
   "githubAppAuth",
 ] as const;
 const profileFields = ["capabilities", "brewfiles", "runtimeGroup", "skillLayers", "installSteps"];

@@ -348,11 +348,9 @@ for removed in 'cask "gcloud-cli"' 'brew "openclaw/tap/crabbox"' 'brew "openclaw
     fail "devbox layer retained $removed"
   fi
 done
-printf '%s\n' "$personal_workstation_casks" | grep -Fqx zed \
-  || fail "personal workstation layer missed Zed"
-for file in Brewfile Brewfile.developer Brewfile.workstation Brewfile.devbox Brewfile.assistant Brewfile.service; do
+for file in Brewfile Brewfile.developer Brewfile.workstation Brewfile.personal Brewfile.devbox Brewfile.assistant Brewfile.service; do
   if grep -Fqx 'cask "zed"' "$repo_root/$file"; then
-    fail "$file includes personal-only Zed"
+    fail "$file retained removed Zed cask"
   fi
 done
 printf '%s\n' "$personal_workstation_casks" | grep -Fqx grok-build \
@@ -524,7 +522,7 @@ assistant_managed="$({
 printf '%s\n' "$assistant_managed" | grep -Fqx '.config/dotfiles/profile' || fail "assistant profile marker is unmanaged"
 printf '%s\n' "$assistant_managed" | grep -Fqx '.gitconfig' \
   || fail "assistant profile does not manage .gitconfig"
-if printf '%s\n' "$assistant_managed" | grep -Eq '^(\.codex|\.config/1Password/ssh|\.config/git|\.config/zed|\.local/libexec/dotfiles/git-ssh-sign-agentless|\.ssh|Library/Application Support/com.mitchellh.ghostty)(/|$)'; then
+if printf '%s\n' "$assistant_managed" | grep -Eq '^(\.codex|\.config/1Password/ssh|\.config/git|\.local/libexec/dotfiles/git-ssh-sign-agentless|\.ssh|Library/Application Support/com.mitchellh.ghostty)(/|$)'; then
   fail "assistant profile manages developer or identity state"
 fi
 
@@ -539,7 +537,7 @@ service_managed="$({
 printf '%s\n' "$service_managed" | grep -Fqx '.config/dotfiles/profile' || fail "service profile marker is unmanaged"
 printf '%s\n' "$service_managed" | grep -Fqx '.gitconfig' \
   || fail "service profile does not manage .gitconfig"
-if printf '%s\n' "$service_managed" | grep -Eq '^(\.codex|\.config/1Password/ssh|\.config/git|\.config/zed|\.local/libexec/dotfiles/git-ssh-sign-agentless|\.ssh|Library/Application Support/com.mitchellh.ghostty)(/|$)'; then
+if printf '%s\n' "$service_managed" | grep -Eq '^(\.codex|\.config/1Password/ssh|\.config/git|\.local/libexec/dotfiles/git-ssh-sign-agentless|\.ssh|Library/Application Support/com.mitchellh.ghostty)(/|$)'; then
   fail "service profile manages developer or identity state"
 fi
 
@@ -560,10 +558,6 @@ for required_path in \
   printf '%s\n' "$workstation_managed" | grep -Fqx "$required_path" \
     || fail "workstation profile does not manage $required_path"
 done
-if printf '%s\n' "$workstation_managed" | grep -Eq '^\.config/zed(/|$)'; then
-  fail "workstation profile manages personal-only Zed state"
-fi
-
 personal_workstation_managed="$({
   data='{"dotfilesProfile":"personal-workstation"}'
   chezmoi \
@@ -572,9 +566,6 @@ personal_workstation_managed="$({
     --override-data "$data" \
     managed --path-style relative
 })"
-printf '%s\n' "$personal_workstation_managed" | grep -Fqx '.config/zed/settings.json' \
-  || fail "personal workstation profile does not manage Zed settings"
-
 devbox_managed="$({
   data='{"dotfilesProfile":"devbox"}'
   chezmoi \
@@ -584,7 +575,7 @@ devbox_managed="$({
     managed --path-style relative
 })"
 personal_devbox_managed="$(managed_paths personal-devbox)"
-if printf '%s\n' "$personal_devbox_managed" | grep -Eq '^(\.config/zed|Library/Application Support/com\.mitchellh\.ghostty)(/|$)'; then
+if printf '%s\n' "$personal_devbox_managed" | grep -Eq '^Library/Application Support/com\.mitchellh\.ghostty(/|$)'; then
   fail "personal devbox profile manages headful application state"
 fi
 for required_path in \
@@ -595,12 +586,20 @@ for required_path in \
   printf '%s\n' "$devbox_managed" | grep -Fqx "$required_path" \
     || fail "devbox profile does not manage $required_path"
 done
-if printf '%s\n' "$devbox_managed" | grep -Eq '^\.config/zed(/|$)'; then
-  fail "devbox profile manages personal-only Zed state"
-fi
 if printf '%s\n' "$devbox_managed" | grep -Eq '^Library/Application Support/com\.mitchellh\.ghostty(/|$)'; then
   fail "devbox profile manages workstation-only Ghostty state"
 fi
+for rendered_managed in \
+  "$assistant_managed" \
+  "$service_managed" \
+  "$workstation_managed" \
+  "$personal_workstation_managed" \
+  "$personal_devbox_managed" \
+  "$devbox_managed"; do
+  if printf '%s\n' "$rendered_managed" | grep -Eq '^\.config/zed(/|$)'; then
+    fail "profile manages retired Zed state"
+  fi
+done
 
 assistant_home="$tmp_root/assistant-applied"
 mkdir -p "$assistant_home"
@@ -626,7 +625,6 @@ done
 
 for rejected_path in \
   "$assistant_home/.config/git" \
-  "$assistant_home/.config/zed" \
   "$assistant_home/.local/libexec/dotfiles/git-ssh-sign-agentless" \
   "$assistant_home/.ssh" \
   "$assistant_home/Library/Application Support/com.mitchellh.ghostty"; do

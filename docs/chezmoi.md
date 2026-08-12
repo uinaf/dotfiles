@@ -17,7 +17,6 @@ Use chezmoi source attributes instead of literal target filenames:
 | `chezmoi/private_dot_config/private_dotfiles/profile.tmpl` | `~/.config/dotfiles/profile` |
 | `chezmoi/private_dot_ssh/private_config` | `~/.ssh/config` |
 | `chezmoi/private_dot_local/private_libexec/private_dotfiles/private_executable_git-ssh-sign-agentless` | `~/.local/libexec/dotfiles/git-ssh-sign-agentless` |
-| `chezmoi/private_dot_config/zed/private_settings.json` | `~/.config/zed/settings.json` for personal-workstation users |
 | `chezmoi/private_dot_claude/modify_private_settings.json` | Selected values inside `~/.claude/settings.json` for developer profiles |
 | `chezmoi/private_AGENTS.md.tmpl` | `~/AGENTS.md`, the shared global agent rules with optional machine-local Markdown |
 | `chezmoi/private_dot_claude/symlink_CLAUDE.md` | `~/.claude/CLAUDE.md` link to `~/AGENTS.md` |
@@ -26,11 +25,11 @@ Use chezmoi source attributes instead of literal target filenames:
 The `private_` attribute is used for parent config directories and files that
 should land as owner-only local config.
 
-Personal-workstation manages Zed settings. Personal-workstation and workstation
-manage Ghostty settings. All four developer profiles share GitHub authentication,
-outbound SSH, signing-helper, and allowed-signers sources. Assistant and service profiles render a
-minimal Git base with a local workload-identity include and exclude those
-developer surfaces; only assistant includes the optional GitHub App helper.
+Personal-workstation and workstation manage Ghostty settings. All four
+developer profiles share GitHub authentication, outbound SSH, signing-helper,
+and allowed-signers sources. Assistant and service profiles render a minimal
+Git base with a local workload-identity include and exclude those developer
+surfaces; only assistant includes the optional GitHub App helper.
 
 All four developer profiles set `CLAUDE_CODE_DISABLE_1M_CONTEXT=1` in the `env`
 object of the Claude Code user settings. The modify template preserves unrelated

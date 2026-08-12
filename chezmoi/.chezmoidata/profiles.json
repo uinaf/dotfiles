@@ -11,7 +11,6 @@
           "devbox": false,
           "workstation": true,
           "personal": true,
-          "zed": true,
           "githubAppAuth": false
         },
         "brewfiles": ["Brewfile", "Brewfile.developer", "Brewfile.workstation", "Brewfile.personal"],
@@ -28,7 +27,6 @@
           "devbox": true,
           "workstation": false,
           "personal": true,
-          "zed": false,
           "githubAppAuth": false
         },
         "brewfiles": ["Brewfile", "Brewfile.developer", "Brewfile.devbox", "Brewfile.personal"],
@@ -45,7 +43,6 @@
           "devbox": false,
           "workstation": true,
           "personal": false,
-          "zed": false,
           "githubAppAuth": false
         },
         "brewfiles": ["Brewfile", "Brewfile.developer", "Brewfile.workstation"],
@@ -62,7 +59,6 @@
           "devbox": true,
           "workstation": false,
           "personal": false,
-          "zed": false,
           "githubAppAuth": false
         },
         "brewfiles": ["Brewfile", "Brewfile.developer", "Brewfile.devbox"],
@@ -79,7 +75,6 @@
           "devbox": false,
           "workstation": false,
           "personal": false,
-          "zed": false,
           "githubAppAuth": true
         },
         "brewfiles": ["Brewfile", "Brewfile.assistant"],
@@ -96,7 +91,6 @@
           "devbox": false,
           "workstation": false,
           "personal": false,
-          "zed": false,
           "githubAppAuth": false
         },
         "brewfiles": ["Brewfile", "Brewfile.service"],

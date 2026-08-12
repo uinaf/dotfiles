@@ -87,7 +87,7 @@ test("TypeScript rejects malformed, unsupported, missing, and wrong-type data", 
   assert.throws(() => requireProfile(model, "constructor"), /unknown profile/);
 });
 
-test("Brewfile composes workstation and Zed capabilities independently", () => {
+test("Brewfile gates GUI casks on the workstation capability", () => {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-profile-brewfile-"));
   const fixtureModelPath = join(root, "chezmoi/.chezmoidata/profiles.json");
   const listCasks = (profile: string): string[] => {
@@ -109,16 +109,13 @@ test("Brewfile composes workstation and Zed capabilities independently", () => {
     const model = rawModel();
     const personalDevbox = model.profileModel.profiles["personal-devbox"]?.capabilities as Record<string, unknown>;
     personalDevbox.workstation = false;
-    personalDevbox.zed = true;
     writeFileSync(fixtureModelPath, JSON.stringify(model));
-    assert.deepEqual(listCasks("personal-devbox"), ["zed"]);
+    assert.deepEqual(listCasks("personal-devbox"), []);
 
     const personalWorkstation = model.profileModel.profiles["personal-workstation"]?.capabilities as Record<string, unknown>;
     personalWorkstation.workstation = true;
-    personalWorkstation.zed = false;
     writeFileSync(fixtureModelPath, JSON.stringify(model));
     const workstationCasks = listCasks("personal-workstation");
-    assert.equal(workstationCasks.includes("zed"), false);
     assert.equal(workstationCasks.includes("cleanshot"), true);
   } finally {
     rmSync(root, { recursive: true, force: true });
