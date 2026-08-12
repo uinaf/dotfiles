@@ -91,8 +91,9 @@ stat -f '%OLp %N' "$path"
 ## Boundaries
 
 - Edit files under `chezmoi/`, not generated files in `$HOME`.
-- Keep `chezmoi.toml`, `~/.config/dotfiles/agents.local.md`, local data files, hostnames, identities, vault names,
-  item names, tokens, private keys, and generated env files out of Git.
+- Keep `chezmoi.toml`, `~/.config/dotfiles/agents.local.md`, local data
+  files, hostnames, identities, vault names, item names, tokens, private keys,
+  and generated env files out of Git.
 - Prefer public-safe templates and local-only config over checked-in secret
   references.
 - Do not use `exact_` at `$HOME` scope.

@@ -332,12 +332,11 @@ test("rejects a local Markdown symlink resolving to a directory", () => {
   assert.match(String(chezmoiResult.stderr), /agents\.local\.md must resolve to a regular file/);
 });
 
-test("does not validate local Markdown for workload profiles", () => {
+test("ignores broken local Markdown links for workload profiles", () => {
   const { home } = createFixture();
   const privateRules = join(home, ".config/dotfiles/agents.local.md");
   mkdirSync(dirname(privateRules), { recursive: true });
-  writeFileSync(privateRules, "### Unused workload fixture rule\n");
-  chmodSync(privateRules, 0o644);
+  symlinkSync(join(home, "missing-agents.local.md"), privateRules);
 
   runWrapper(home, "assistant");
 
