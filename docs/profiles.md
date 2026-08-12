@@ -68,10 +68,11 @@ while personal GUI applications remain workstation-only. Developer-profile insta
 flows apply machine-global instructions through chezmoi and sync additive skills
 from `scripts/agents/`; see [Agent setup](agents.md). Zed and its managed settings
 belong only to personal-workstation.
-The workstation layer supplies 1Password, Slack, Claude Desktop, ChatGPT, and
-Cursor and Ghostty desktop apps, plus YubiKey Manager, to both interactive
-profiles. The personal-workstation-only branch also installs `mas` for App
-Store automation. Watchman belongs to the shared developer layer.
+The workstation layer supplies 1Password, Slack, ChatGPT, Cursor, and Ghostty
+desktop apps, plus YubiKey Manager, to both interactive profiles. Claude Code
+is CLI-only and comes from the shared developer layer. The
+personal-workstation-only branch also installs `mas` for App Store automation.
+Watchman belongs to the shared developer layer.
 
 Assistant dotfile application installs the shared Git base and the
 `gh-app-auth` execution adapter. Service dotfile application installs only the
