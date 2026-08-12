@@ -3,6 +3,7 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 source_dir="$repo_root/chezmoi"
+config_dir="$HOME/.config/dotfiles"
 dry_run=0
 verbose=0
 profile=""
@@ -103,7 +104,7 @@ backup_preexisting_targets() {
 }
 
 validate_local_agent_rules() {
-  local path="$HOME/.config/dotfiles/agents.local.md"
+  local path="$config_dir/agents.local.md"
   local mode
   local owner
 
@@ -132,7 +133,6 @@ chezmoi_base=(
   --destination "$HOME"
   --override-data "$override_data"
 )
-config_dir="$HOME/.config/dotfiles"
 [ ! -L "$config_dir" ] || fail "canonical config directory must not be a symlink: $config_dir"
 [ ! -e "$config_dir" ] || [ -d "$config_dir" ] \
   || fail "canonical config path must be a directory: $config_dir"

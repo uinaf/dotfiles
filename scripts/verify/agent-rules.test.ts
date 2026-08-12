@@ -86,7 +86,7 @@ function runChezmoi(
   return result.stdout;
 }
 
-function runWrapperResult(home: string, profile = "workstation"): ReturnType<typeof spawnSync> {
+function runWrapperResult(home: string, profile = "workstation") {
   return spawnSync(join(repoRoot, "scripts/bootstrap/apply-dotfiles.sh"), ["--profile", profile], {
     encoding: "utf8",
     env: {
@@ -103,7 +103,7 @@ function runWrapperResult(home: string, profile = "workstation"): ReturnType<typ
 function runWrapper(home: string, profile = "workstation"): string {
   const result = runWrapperResult(home, profile);
   assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
-  return String(result.stdout);
+  return result.stdout;
 }
 
 function assertManagedRules(home: string): string {
@@ -299,7 +299,7 @@ test("rejects local Markdown granting group or other access", () => {
     const result = runWrapperResult(home);
 
     assert.notEqual(result.status, 0);
-    assert.match(String(result.stderr), /local agent rules must not grant group or other access/);
+    assert.match(result.stderr, /local agent rules must not grant group or other access/);
   }
 });
 
@@ -312,7 +312,7 @@ test("rejects a broken local Markdown link", () => {
   const result = runWrapperResult(home);
 
   assert.notEqual(result.status, 0);
-  assert.match(String(result.stderr), /local agent rules link is broken/);
+  assert.match(result.stderr, /local agent rules link is broken/);
 });
 
 test("rejects a local Markdown symlink resolving to a directory", () => {
@@ -327,9 +327,9 @@ test("rejects a local Markdown symlink resolving to a directory", () => {
   const chezmoiResult = runChezmoiResult(home, config, "apply");
 
   assert.notEqual(wrapperResult.status, 0);
-  assert.match(String(wrapperResult.stderr), /local agent rules must resolve to a regular file/);
+  assert.match(wrapperResult.stderr, /local agent rules must resolve to a regular file/);
   assert.notEqual(chezmoiResult.status, 0);
-  assert.match(String(chezmoiResult.stderr), /agents\.local\.md must resolve to a regular file/);
+  assert.match(chezmoiResult.stderr, /agents\.local\.md must resolve to a regular file/);
 });
 
 test("ignores broken local Markdown links for workload profiles", () => {
