@@ -49,7 +49,7 @@
       "domain": "agents",
       "command": ["node", "--test", "scripts/verify/agent-rules.test.ts"],
       "inputs": ["chezmoi/private_AGENTS.md.tmpl", "chezmoi/private_dot_claude/symlink_CLAUDE.md", "chezmoi/private_dot_codex/**", "chezmoi/.chezmoiignore.tmpl", "chezmoi/.chezmoiremove.tmpl", "chezmoi/.chezmoidata/profiles.json", "chezmoi/.chezmoitemplates/profile", "scripts/bootstrap/apply-dotfiles.sh", "scripts/verify/agent-rules.test.ts"],
-      "output": "Global agent rules, local data, links, conflicts, and explicit apply behavior"
+      "output": "Global agent rules, local Markdown and symlinks, permissions, links, conflicts, and explicit apply behavior"
     },
     {
       "id": "profiles",

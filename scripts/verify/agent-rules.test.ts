@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import {
   appendFileSync,
+  chmodSync,
   cpSync,
   lstatSync,
   mkdirSync,
@@ -29,7 +30,7 @@ afterEach(() => {
 });
 
 function createFixture(): { config: string; home: string; root: string } {
-  const root = mkdtempSync(join(tmpdir(), "dotfiles-agent-rules-"));
+  const root = mkdtempSync(join(tmpdir(), "dotfiles-agents-local-"));
   temporaryDirectories.push(root);
   const home = join(root, "home");
   const config = join(root, "chezmoi.toml");
@@ -75,8 +76,8 @@ function runChezmoi(
   return result.stdout;
 }
 
-function runWrapper(home: string): string {
-  const result = spawnSync(join(repoRoot, "scripts/bootstrap/apply-dotfiles.sh"), ["--profile", "workstation"], {
+function runWrapperResult(home: string): ReturnType<typeof spawnSync> {
+  return spawnSync(join(repoRoot, "scripts/bootstrap/apply-dotfiles.sh"), ["--profile", "workstation"], {
     encoding: "utf8",
     env: {
       ...process.env,
@@ -87,8 +88,12 @@ function runWrapper(home: string): string {
       XDG_STATE_HOME: join(home, ".local/state"),
     },
   });
+}
+
+function runWrapper(home: string): string {
+  const result = runWrapperResult(home);
   assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
-  return result.stdout;
+  return String(result.stdout);
 }
 
 function assertManagedRules(home: string): string {
@@ -129,16 +134,31 @@ test("omits global rules for workload profiles", () => {
   }
 });
 
-test("reads an optional private layer from machine-local chezmoi data", () => {
-  const { config, home } = createFixture();
-  writeFileSync(
-    config,
-    '[data]\nagentRulesPrivate = """\n### Private fixture rule\n\nKeep this fixture local.\n"""\n',
-  );
+test("reads an optional private layer from machine-local Markdown", () => {
+  const { home } = createFixture();
+  const privateRules = join(home, ".config/dotfiles/agents.local.md");
+  mkdirSync(dirname(privateRules), { recursive: true });
+  writeFileSync(privateRules, "### Private fixture rule\n\nKeep this fixture local.\n");
+  chmodSync(privateRules, 0o600);
 
-  runChezmoi(home, config, "apply");
+  runWrapper(home);
 
   assert.match(assertManagedRules(home), /## Local Overrides\n\n### Private fixture rule/);
+});
+
+test("reads machine-local Markdown through a symlink", () => {
+  const { home, root } = createFixture();
+  const privateRules = join(home, ".config/dotfiles/agents.local.md");
+  const externalRules = join(root, "private/agents.local.md");
+  mkdirSync(dirname(privateRules), { recursive: true });
+  mkdirSync(dirname(externalRules), { recursive: true });
+  writeFileSync(externalRules, "### Symlinked fixture rule\n");
+  chmodSync(externalRules, 0o600);
+  symlinkSync(externalRules, privateRules);
+
+  runWrapper(home);
+
+  assert.match(assertManagedRules(home), /## Local Overrides\n\n### Symlinked fixture rule/);
 });
 
 test("shows rule changes in diff and waits for an explicit apply", () => {
@@ -246,25 +266,27 @@ test("does not back up managed rule links again", () => {
   assert.equal(readdirSync(join(home, ".codex")).some((name) => name.includes(".backup.")), false);
 });
 
-test("rejects a non-string private rule layer", () => {
-  const { config, home } = createFixture();
-  writeFileSync(config, "[data]\nagentRulesPrivate = true\n");
-  const result = spawnSync(
-    "chezmoi",
-    [
-      "--config",
-      config,
-      "--source",
-      sourceDir,
-      "--destination",
-      home,
-      "--override-data",
-      '{"dotfilesProfile":"workstation"}',
-      "apply",
-    ],
-    { encoding: "utf8", env: { ...process.env, HOME: home } },
-  );
+test("rejects local Markdown readable by another user", () => {
+  const { home } = createFixture();
+  const privateRules = join(home, ".config/dotfiles/agents.local.md");
+  mkdirSync(dirname(privateRules), { recursive: true });
+  writeFileSync(privateRules, "### Permissive fixture rule\n");
+  chmodSync(privateRules, 0o644);
+
+  const result = runWrapperResult(home);
 
   assert.notEqual(result.status, 0);
-  assert.match(result.stderr, /agentRulesPrivate must be a string/);
+  assert.match(String(result.stderr), /local agent rules must not grant group or other access/);
+});
+
+test("rejects a broken local Markdown link", () => {
+  const { home } = createFixture();
+  const privateRules = join(home, ".config/dotfiles/agents.local.md");
+  mkdirSync(dirname(privateRules), { recursive: true });
+  symlinkSync(join(home, "missing-agents.local.md"), privateRules);
+
+  const result = runWrapperResult(home);
+
+  assert.notEqual(result.status, 0);
+  assert.match(String(result.stderr), /local agent rules link is broken/);
 });

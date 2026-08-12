@@ -19,7 +19,7 @@ Use chezmoi source attributes instead of literal target filenames:
 | `chezmoi/private_dot_local/private_libexec/private_dotfiles/private_executable_git-ssh-sign-agentless` | `~/.local/libexec/dotfiles/git-ssh-sign-agentless` |
 | `chezmoi/private_dot_config/zed/private_settings.json` | `~/.config/zed/settings.json` for personal-workstation users |
 | `chezmoi/private_dot_claude/modify_private_settings.json` | Selected values inside `~/.claude/settings.json` for developer profiles |
-| `chezmoi/private_AGENTS.md.tmpl` | `~/AGENTS.md`, the shared global agent rules with optional local data |
+| `chezmoi/private_AGENTS.md.tmpl` | `~/AGENTS.md`, the shared global agent rules with optional machine-local Markdown |
 | `chezmoi/private_dot_claude/symlink_CLAUDE.md` | `~/.claude/CLAUDE.md` link to `~/AGENTS.md` |
 | `chezmoi/private_dot_codex/symlink_AGENTS.md` | `~/.codex/AGENTS.md` link to `~/AGENTS.md` |
 
@@ -91,7 +91,7 @@ stat -f '%OLp %N' "$path"
 ## Boundaries
 
 - Edit files under `chezmoi/`, not generated files in `$HOME`.
-- Keep `chezmoi.toml`, local data files, hostnames, identities, vault names,
+- Keep `chezmoi.toml`, `~/.config/dotfiles/agents.local.md`, local data files, hostnames, identities, vault names,
   item names, tokens, private keys, and generated env files out of Git.
 - Prefer public-safe templates and local-only config over checked-in secret
   references.

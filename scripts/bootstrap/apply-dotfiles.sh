@@ -102,6 +102,22 @@ backup_preexisting_targets() {
   done < <("${chezmoi_base[@]}" managed --include=symlinks --path-style absolute)
 }
 
+validate_local_agent_rules() {
+  local path="$HOME/.config/dotfiles/agents.local.md"
+  local mode
+  local owner
+
+  if [ -L "$path" ] && [ ! -e "$path" ]; then
+    fail "local agent rules link is broken: $path"
+  fi
+  [ -e "$path" ] || return 0
+  [ -f "$path" ] || fail "local agent rules must resolve to a regular file: $path"
+  mode="$(stat -L -f '%Lp' "$path")" || fail "cannot inspect local agent rules mode: $path"
+  owner="$(stat -L -f '%u' "$path")" || fail "cannot inspect local agent rules owner: $path"
+  [ "$owner" = "$(id -u)" ] || fail "local agent rules must be owned by the current user: $path"
+  [ $((8#$mode & 077)) -eq 0 ] || fail "local agent rules must not grant group or other access: $path"
+}
+
 [ -d "$source_dir" ] || fail "missing chezmoi source directory: $source_dir"
 command -v chezmoi >/dev/null 2>&1 || fail "chezmoi is required; run scripts/bootstrap/brew-bundle.sh for the selected profile first"
 
@@ -121,6 +137,7 @@ config_dir="$HOME/.config/dotfiles"
 [ ! -e "$config_dir" ] || [ -d "$config_dir" ] \
   || fail "canonical config path must be a directory: $config_dir"
 
+validate_local_agent_rules
 backup_preexisting_targets
 
 cmd=("${chezmoi_base[@]}" --force apply)

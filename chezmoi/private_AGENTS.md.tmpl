@@ -1,9 +1,11 @@
+{{- $privateRulesPath := joinPath .chezmoi.homeDir ".config/dotfiles/agents.local.md" -}}
+{{- $privateRulesFile := lstat $privateRulesPath -}}
 {{- $privateRules := "" -}}
-{{- if hasKey . "agentRulesPrivate" -}}
-{{- if not (kindIs "string" .agentRulesPrivate) -}}
-{{- fail "agentRulesPrivate must be a string" -}}
+{{- if $privateRulesFile -}}
+{{- if $privateRulesFile.isDir -}}
+{{- fail (printf "%s must be a file" $privateRulesPath) -}}
 {{- end -}}
-{{- $privateRules = trim .agentRulesPrivate -}}
+{{- $privateRules = trim (include $privateRulesPath) -}}
 {{- end -}}
 # Agent Guidelines
 

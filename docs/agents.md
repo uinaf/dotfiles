@@ -28,22 +28,21 @@ backed up by the dotfile wrapper before chezmoi converges them.
 
 ### Private Rules
 
-Optional machine-specific text comes from the machine-local chezmoi config. It
-does not use a path in this repository. Add a string under the local `[data]`
-table:
+Optional machine-specific text comes from a machine-local Markdown file outside
+this repository:
 
-```toml
-[data]
-agentRulesPrivate = """
+```markdown
+# ~/.config/dotfiles/agents.local.md
 ### Machine-specific rule
 
 Add private instructions here.
-"""
 ```
 
-The value is appended under `## Local Overrides`. An absent or blank value adds
-nothing. Preview before applying. Keep the local config and its contents out of
-Git.
+Start local content at heading level three. Chezmoi reads the file literally and
+appends it under `## Local Overrides`; an absent or blank file adds nothing. Keep
+the file or its symlink target private to the local user, then preview and apply
+the selected profile. Symlinks are supported; their resolved target must be a
+regular file owned by the current user with no group or other permissions.
 
 ## Skill Sync
 
