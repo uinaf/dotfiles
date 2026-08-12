@@ -137,7 +137,9 @@ config_dir="$HOME/.config/dotfiles"
 [ ! -e "$config_dir" ] || [ -d "$config_dir" ] \
   || fail "canonical config path must be a directory: $config_dir"
 
-validate_local_agent_rules
+if dotfiles_profile_is_developer "$profile"; then
+  validate_local_agent_rules
+fi
 backup_preexisting_targets
 
 cmd=("${chezmoi_base[@]}" --force apply)

@@ -28,11 +28,10 @@ backed up by the dotfile wrapper before chezmoi converges them.
 
 ### Private Rules
 
-Optional machine-specific text comes from a machine-local Markdown file outside
-this repository:
+Optional machine-specific text comes from
+`~/.config/dotfiles/agents.local.md`, outside this repository:
 
 ```markdown
-# ~/.config/dotfiles/agents.local.md
 ### Machine-specific rule
 
 Add private instructions here.

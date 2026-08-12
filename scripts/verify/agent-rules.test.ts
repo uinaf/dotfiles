@@ -39,13 +39,13 @@ function createFixture(): { config: string; home: string; root: string } {
   return { config, home, root };
 }
 
-function runChezmoi(
+function runChezmoiResult(
   home: string,
   config: string,
   command: "apply" | "diff",
   source = sourceDir,
   profile = "workstation",
-): string {
+) {
   const args = [
     "--config",
     config,
@@ -61,7 +61,7 @@ function runChezmoi(
   }
   args.push(command);
 
-  const result = spawnSync("chezmoi", args, {
+  return spawnSync("chezmoi", args, {
     encoding: "utf8",
     env: {
       ...process.env,
@@ -72,12 +72,22 @@ function runChezmoi(
       XDG_STATE_HOME: join(home, ".local/state"),
     },
   });
+}
+
+function runChezmoi(
+  home: string,
+  config: string,
+  command: "apply" | "diff",
+  source = sourceDir,
+  profile = "workstation",
+): string {
+  const result = runChezmoiResult(home, config, command, source, profile);
   assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
   return result.stdout;
 }
 
-function runWrapperResult(home: string): ReturnType<typeof spawnSync> {
-  return spawnSync(join(repoRoot, "scripts/bootstrap/apply-dotfiles.sh"), ["--profile", "workstation"], {
+function runWrapperResult(home: string, profile = "workstation"): ReturnType<typeof spawnSync> {
+  return spawnSync(join(repoRoot, "scripts/bootstrap/apply-dotfiles.sh"), ["--profile", profile], {
     encoding: "utf8",
     env: {
       ...process.env,
@@ -90,8 +100,8 @@ function runWrapperResult(home: string): ReturnType<typeof spawnSync> {
   });
 }
 
-function runWrapper(home: string): string {
-  const result = runWrapperResult(home);
+function runWrapper(home: string, profile = "workstation"): string {
+  const result = runWrapperResult(home, profile);
   assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
   return String(result.stdout);
 }
@@ -159,6 +169,18 @@ test("reads machine-local Markdown through a symlink", () => {
   runWrapper(home);
 
   assert.match(assertManagedRules(home), /## Local Overrides\n\n### Symlinked fixture rule/);
+});
+
+test("omits local overrides for blank Markdown", () => {
+  const { home } = createFixture();
+  const privateRules = join(home, ".config/dotfiles/agents.local.md");
+  mkdirSync(dirname(privateRules), { recursive: true });
+  writeFileSync(privateRules, " \n\t\n");
+  chmodSync(privateRules, 0o600);
+
+  runWrapper(home);
+
+  assert.doesNotMatch(assertManagedRules(home), /Local Overrides/);
 });
 
 test("shows rule changes in diff and waits for an explicit apply", () => {
@@ -289,4 +311,33 @@ test("rejects a broken local Markdown link", () => {
 
   assert.notEqual(result.status, 0);
   assert.match(String(result.stderr), /local agent rules link is broken/);
+});
+
+test("rejects a local Markdown symlink resolving to a directory", () => {
+  const { config, home, root } = createFixture();
+  const privateRules = join(home, ".config/dotfiles/agents.local.md");
+  const directory = join(root, "private/rules");
+  mkdirSync(dirname(privateRules), { recursive: true });
+  mkdirSync(directory, { recursive: true });
+  symlinkSync(directory, privateRules);
+
+  const wrapperResult = runWrapperResult(home);
+  const chezmoiResult = runChezmoiResult(home, config, "apply");
+
+  assert.notEqual(wrapperResult.status, 0);
+  assert.match(String(wrapperResult.stderr), /local agent rules must resolve to a regular file/);
+  assert.notEqual(chezmoiResult.status, 0);
+  assert.match(String(chezmoiResult.stderr), /agents\.local\.md must resolve to a regular file/);
+});
+
+test("does not validate local Markdown for workload profiles", () => {
+  const { home } = createFixture();
+  const privateRules = join(home, ".config/dotfiles/agents.local.md");
+  mkdirSync(dirname(privateRules), { recursive: true });
+  writeFileSync(privateRules, "### Unused workload fixture rule\n");
+  chmodSync(privateRules, 0o644);
+
+  runWrapper(home, "assistant");
+
+  assert.equal(readdirSync(home).includes("AGENTS.md"), false);
 });

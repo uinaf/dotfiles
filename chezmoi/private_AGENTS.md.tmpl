@@ -1,9 +1,13 @@
 {{- $privateRulesPath := joinPath .chezmoi.homeDir ".config/dotfiles/agents.local.md" -}}
-{{- $privateRulesFile := lstat $privateRulesPath -}}
+{{- $privateRulesLink := lstat $privateRulesPath -}}
+{{- $privateRulesFile := stat $privateRulesPath -}}
 {{- $privateRules := "" -}}
+{{- if and $privateRulesLink (not $privateRulesFile) -}}
+{{- fail (printf "%s is a broken link" $privateRulesPath) -}}
+{{- end -}}
 {{- if $privateRulesFile -}}
-{{- if $privateRulesFile.isDir -}}
-{{- fail (printf "%s must be a file" $privateRulesPath) -}}
+{{- if ne $privateRulesFile.type "file" -}}
+{{- fail (printf "%s must resolve to a regular file" $privateRulesPath) -}}
 {{- end -}}
 {{- $privateRules = trim (include $privateRulesPath) -}}
 {{- end -}}

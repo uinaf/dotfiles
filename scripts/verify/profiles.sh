@@ -206,6 +206,10 @@ mkdir -p "$task_home" "$mise_fixture_config_dir/conf.d"
 printf '[env]\nDOTFILES_UNTRUSTED_FIXTURE = "must-not-load"\n' > "$mise_fixture_config_dir/conf.d/work.toml"
 (
   cd "$repo_root"
+  if HOME="$task_home" MISE_CONFIG_DIR="$mise_fixture_config_dir" MISE_IGNORED_CONFIG_PATHS="$mise_ignored_config_paths" MISE_TRUSTED_CONFIG_PATHS="$repo_root" \
+    mise env --json | grep -q DOTFILES_UNTRUSTED_FIXTURE; then
+    fail "profile verification loaded an ignored global mise conf.d fragment"
+  fi
   HOME="$task_home" MISE_CONFIG_DIR="$mise_fixture_config_dir" MISE_IGNORED_CONFIG_PATHS="$mise_ignored_config_paths" MISE_TRUSTED_CONFIG_PATHS="$repo_root" \
     ./dotfiles diff assistant >/dev/null
   [ ! -e "$task_home/.config/dotfiles/profile" ] \
