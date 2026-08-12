@@ -288,17 +288,19 @@ test("does not back up managed rule links again", () => {
   assert.equal(readdirSync(join(home, ".codex")).some((name) => name.includes(".backup.")), false);
 });
 
-test("rejects local Markdown readable by another user", () => {
-  const { home } = createFixture();
-  const privateRules = join(home, ".config/dotfiles/agents.local.md");
-  mkdirSync(dirname(privateRules), { recursive: true });
-  writeFileSync(privateRules, "### Permissive fixture rule\n");
-  chmodSync(privateRules, 0o644);
+test("rejects local Markdown granting group or other access", () => {
+  for (const mode of [0o640, 0o604]) {
+    const { home } = createFixture();
+    const privateRules = join(home, ".config/dotfiles/agents.local.md");
+    mkdirSync(dirname(privateRules), { recursive: true });
+    writeFileSync(privateRules, "### Permissive fixture rule\n");
+    chmodSync(privateRules, mode);
 
-  const result = runWrapperResult(home);
+    const result = runWrapperResult(home);
 
-  assert.notEqual(result.status, 0);
-  assert.match(String(result.stderr), /local agent rules must not grant group or other access/);
+    assert.notEqual(result.status, 0);
+    assert.match(String(result.stderr), /local agent rules must not grant group or other access/);
+  }
 });
 
 test("rejects a broken local Markdown link", () => {

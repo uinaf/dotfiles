@@ -115,7 +115,7 @@ validate_local_agent_rules() {
   mode="$(stat -L -f '%Lp' "$path")" || fail "cannot inspect local agent rules mode: $path"
   owner="$(stat -L -f '%u' "$path")" || fail "cannot inspect local agent rules owner: $path"
   [ "$owner" = "$(id -u)" ] || fail "local agent rules must be owned by the current user: $path"
-  [ $((8#$mode & 077)) -eq 0 ] || fail "local agent rules must not grant group or other access: $path"
+  [ $((8#$mode & 8#77)) -eq 0 ] || fail "local agent rules must not grant group or other access: $path"
 }
 
 [ -d "$source_dir" ] || fail "missing chezmoi source directory: $source_dir"
