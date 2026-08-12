@@ -105,6 +105,7 @@ direct_log="$tmp_dir/direct.log"
 : >"$direct_log"
 mkdir "$tmp_dir/output"
 (
+  unset HOMEBREW_BUNDLE_DOTFILES_PROFILE
   umask 0077
   PATH="$tmp_dir/bin:$PATH" \
     FAKE_BREW_LOG="$direct_log" \

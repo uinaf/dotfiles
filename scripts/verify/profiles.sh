@@ -199,14 +199,18 @@ fi
 
 task_home="$tmp_root/task-profile"
 mise_global_config="${MISE_GLOBAL_CONFIG_FILE:-${XDG_CONFIG_HOME:-$HOME/.config}/mise/config.toml}"
-mkdir -p "$task_home"
+mise_global_config_dir="${MISE_CONFIG_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/mise}"
+mise_fixture_config_dir="$tmp_root/host-mise-config"
+mise_ignored_config_paths="${MISE_IGNORED_CONFIG_PATHS:+${MISE_IGNORED_CONFIG_PATHS}:}${mise_global_config}:${mise_global_config_dir}:${mise_fixture_config_dir}"
+mkdir -p "$task_home" "$mise_fixture_config_dir/conf.d"
+printf '[env]\nDOTFILES_UNTRUSTED_FIXTURE = "must-not-load"\n' > "$mise_fixture_config_dir/conf.d/work.toml"
 (
   cd "$repo_root"
-  HOME="$task_home" MISE_IGNORED_CONFIG_PATHS="$mise_global_config" MISE_TRUSTED_CONFIG_PATHS="$repo_root" \
+  HOME="$task_home" MISE_CONFIG_DIR="$mise_fixture_config_dir" MISE_IGNORED_CONFIG_PATHS="$mise_ignored_config_paths" MISE_TRUSTED_CONFIG_PATHS="$repo_root" \
     ./dotfiles diff assistant >/dev/null
   [ ! -e "$task_home/.config/dotfiles/profile" ] \
     || fail "operator diff mutated the disposable home"
-  HOME="$task_home" MISE_IGNORED_CONFIG_PATHS="$mise_global_config" MISE_TRUSTED_CONFIG_PATHS="$repo_root" \
+  HOME="$task_home" MISE_CONFIG_DIR="$mise_fixture_config_dir" MISE_IGNORED_CONFIG_PATHS="$mise_ignored_config_paths" MISE_TRUSTED_CONFIG_PATHS="$repo_root" \
     mise run dotfiles:apply assistant >/dev/null
 )
 assert_eq assistant "$(sed -n '1p' "$task_home/.config/dotfiles/profile")" \

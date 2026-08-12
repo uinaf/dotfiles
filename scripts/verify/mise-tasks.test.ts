@@ -15,10 +15,17 @@ function globalMiseConfigPath(env: NodeJS.ProcessEnv): string {
   return env.MISE_GLOBAL_CONFIG_FILE || resolve(env.XDG_CONFIG_HOME || join(homedir(), ".config"), "mise/config.toml");
 }
 
+function globalMiseConfigDirectory(env: NodeJS.ProcessEnv): string {
+  return env.MISE_CONFIG_DIR || resolve(env.XDG_CONFIG_HOME || join(homedir(), ".config"), "mise");
+}
+
 const globalMiseConfig = globalMiseConfigPath(process.env);
+const globalMiseConfigDir = globalMiseConfigDirectory(process.env);
 const miseEnv = {
   ...process.env,
-  MISE_IGNORED_CONFIG_PATHS: [process.env.MISE_IGNORED_CONFIG_PATHS, globalMiseConfig].filter(Boolean).join(delimiter),
+  MISE_IGNORED_CONFIG_PATHS: [process.env.MISE_IGNORED_CONFIG_PATHS, globalMiseConfig, globalMiseConfigDir]
+    .filter(Boolean)
+    .join(delimiter),
   MISE_TRUSTED_CONFIG_PATHS: [process.env.MISE_TRUSTED_CONFIG_PATHS, repoRoot].filter(Boolean).join(delimiter),
 };
 const publicTasks = [
@@ -60,6 +67,10 @@ test("empty mise config environment values use the default path", () => {
   assert.equal(
     globalMiseConfigPath({ MISE_GLOBAL_CONFIG_FILE: "", XDG_CONFIG_HOME: "" }),
     join(homedir(), ".config/mise/config.toml"),
+  );
+  assert.equal(
+    globalMiseConfigDirectory({ MISE_CONFIG_DIR: "", XDG_CONFIG_HOME: "" }),
+    join(homedir(), ".config/mise"),
   );
 });
 
