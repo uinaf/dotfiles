@@ -43,7 +43,16 @@ const publicTasks = [
 ];
 
 function run(command: string, args: string[], env: NodeJS.ProcessEnv = {}) {
-  return spawnSync(command, args, { cwd: repoRoot, encoding: "utf8", env: { ...miseEnv, ...env } });
+  const configDir = mkdtempSync(join(tmpdir(), "dotfiles-mise-config-"));
+  try {
+    return spawnSync(command, args, {
+      cwd: repoRoot,
+      encoding: "utf8",
+      env: { ...miseEnv, MISE_CONFIG_DIR: configDir, ...env },
+    });
+  } finally {
+    rmSync(configDir, { force: true, recursive: true });
+  }
 }
 
 test("mise exposes one validated task graph", () => {
