@@ -56,7 +56,7 @@ while IFS=: read -r file line content; do
       ;;
     scripts/agents/skills/shared.json|scripts/agents/skills/personal.json)
       case "$content" in
-        *'"name": "uinaf-design"'*|*'"source": "uinaf/skills"'*|*'"source": "uinaf/attach"'*|*'"source": "uinaf/autoreview"'*|*'"source": "uinaf/slopshipper"'*|*'"source": "uinaf/design"'*|*'"source": "https://cdn.uinaf.dev/skills/ui"'*) continue ;;
+        *'"name": "uinaf-design"'*|*'"name": "uinaf-radar"'*|*'"source": "uinaf/skills"'*|*'"source": "uinaf/attach"'*|*'"source": "uinaf/autoreview"'*|*'"source": "uinaf/slopshipper"'*|*'"source": "uinaf/design"'*|*'"source": "https://cdn.uinaf.dev/skills/ui"'*) continue ;;
       esac
       ;;
     scripts/agents/sync.test.ts)

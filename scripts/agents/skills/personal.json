@@ -11,6 +11,10 @@
     {
       "name": "uinaf-design",
       "source": "uinaf/design"
+    },
+    {
+      "name": "uinaf-radar",
+      "source": "uinaf/skills"
     }
   ]
 }
