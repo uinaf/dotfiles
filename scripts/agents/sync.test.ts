@@ -570,6 +570,7 @@ test("uses the current first-party skill sources", () => {
   assert.equal(sources.includes("uinaf/skills"), true);
   assert.equal(sourceByName.get("attach-cli"), "uinaf/attach");
   assert.equal(sourceByName.get("uinaf-design"), "uinaf/design");
+  assert.equal(sourceByName.get("uinaf-radar"), "uinaf/skills");
   assert.equal(sourceByName.get("autoreview"), "uinaf/autoreview");
   assert.equal(sourceByName.get("slopshipper"), "uinaf/slopshipper");
   assert.equal(layerSkills[0]?.some((skill) => skill.name === "slopshipper"), false);
@@ -594,6 +595,7 @@ test("uses the current first-party skill sources", () => {
     ["tanstack-form", "tanstack-skills/tanstack-skills"],
     ["tanstack-query", "tanstack-skills/tanstack-skills"],
     ["tanstack-start", "tanstack-skills/tanstack-skills"],
+    ["uinaf-radar", "uinaf/skills"],
     ["vercel-react-best-practices", "vercel-labs/agent-skills"],
     ["verify", "uinaf/skills"],
     ["vite-plus", "uinaf/skills"],
