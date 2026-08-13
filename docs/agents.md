@@ -22,8 +22,10 @@ Preview and apply rule changes with the normal dotfile commands:
 ```
 
 `~/AGENTS.md` is the private canonical file. Claude and Codex link directly to
-it. The dotfile wrapper backs up conflicting files or broken links before
-chezmoi converges them.
+it. For developer profiles, apply backs up and removes the retired
+`~/.agents/AGENTS.md` while leaving `~/.agents/skills` intact. The dotfile
+wrapper also backs up conflicting files or broken links before chezmoi
+converges them.
 
 ### Private Rules
 
