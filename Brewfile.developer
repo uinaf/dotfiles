@@ -12,6 +12,7 @@ cask "uinaf/tap/autoreview"
 # Development CLI
 brew "git-crypt"
 brew "git-filter-repo"
+brew "jq"
 brew "actionlint"
 brew "shellcheck"
 brew "xcodes"
