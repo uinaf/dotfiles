@@ -74,8 +74,8 @@ mise run verify
 ```
 
 The fast task runs the deterministic graph. The complete task also scans full
-Git history. CI always runs the deterministic graph. Live profile and host checks are documented in
-[Agent readiness](docs/agent-readiness.md) and
+Git history. CI always runs the deterministic graph. Live profile and host
+checks are documented in [Agent readiness](docs/agent-readiness.md) and
 [Security audits](docs/security-audits.md).
 
 ## Documentation
