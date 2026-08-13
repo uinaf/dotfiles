@@ -323,23 +323,16 @@ for required in 'brew "gh"' 'cask "google-chrome"'; do
     fi
   done
 done
-grep -Fqx 'cask "1password-cli"' "$repo_root/Brewfile.developer" \
-  || fail "developer layer missed 1Password CLI"
-for required in 'cask "ghostty"' 'cask "1password"' 'cask "slack"' 'cask "chatgpt"' 'cask "cursor"' 'brew "ykman"'; do
+for required in 'cask "ghostty"' 'cask "1password"' 'cask "1password-cli"' 'cask "slack"' 'cask "chatgpt"' 'cask "cursor"' 'brew "ykman"'; do
   grep -Fqx "$required" "$repo_root/Brewfile.workstation" \
     || fail "workstation layer missed shared human desktop app $required"
 done
 for file in Brewfile.developer Brewfile.personal Brewfile.devbox Brewfile.assistant Brewfile.service; do
-  for workstation_only in 'cask "ghostty"' 'brew "ykman"'; do
+  for workstation_only in 'cask "ghostty"' 'cask "1password"' 'cask "1password-cli"' 'brew "ykman"'; do
     if grep -Fqx "$workstation_only" "$repo_root/$file"; then
       fail "$file includes workstation-only dependency $workstation_only"
     fi
   done
-done
-for file in Brewfile.workstation Brewfile.personal Brewfile.devbox Brewfile.assistant Brewfile.service; do
-  if grep -Fqx 'cask "1password-cli"' "$repo_root/$file"; then
-    fail "$file duplicates developer 1Password CLI"
-  fi
 done
 for required in 'brew "yt-dlp"' 'brew "poppler"' 'brew "qpdf"' 'brew "qrencode"' 'brew "weasyprint"' 'brew "whisper-cpp"' 'brew "summarize"' 'brew "openclaw/tap/gogcli"' 'brew "steipete/tap/peekaboo"'; do
   grep -Fqx "$required" "$repo_root/Brewfile.assistant" \
