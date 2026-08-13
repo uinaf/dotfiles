@@ -59,17 +59,17 @@ OpenClaw, Hermes, model providers, containers, process supervision, language
 runtimes, and other framework-specific packages. The service profile declares
 no additional Homebrew software or language runtime.
 
-Personal-workstation, personal-devbox, workstation, and devbox retain the full shared
-development runtime set, including Codex CLI, Claude Code CLI, Cursor Agent
-CLI, and 1Password CLI.
+Personal-workstation, personal-devbox, workstation, and devbox retain the full
+shared development runtime set, including Codex CLI, Claude Code CLI, and
+Cursor Agent CLI.
 The developer layer installs the autoreview CLI. The personal
 layer installs the App Store Connect CLI, Attach, Crabbox, Gitcrawl, Mole, and slopshipper for both personal profiles,
 while personal GUI applications remain workstation-only. Developer-profile install
 flows apply machine-global instructions through chezmoi and sync additive skills
 from `scripts/agents/`; see [Agent setup](agents.md).
-The workstation layer supplies 1Password, Slack, ChatGPT, Cursor, and Ghostty
-desktop apps, plus YubiKey Manager, to both interactive profiles. Claude Code
-is CLI-only and comes from the shared developer layer. The
+The workstation layer supplies 1Password and its CLI, Slack, ChatGPT, Cursor,
+and Ghostty desktop apps, plus YubiKey Manager, to both interactive profiles.
+Claude Code is CLI-only and comes from the shared developer layer. The
 personal-workstation-only branch also installs `mas` for App Store automation.
 Watchman belongs to the shared developer layer.
 

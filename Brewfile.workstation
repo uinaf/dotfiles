@@ -4,6 +4,7 @@
 # Human desktop
 cask "ghostty"
 cask "1password"
+cask "1password-cli"
 cask "slack"
 cask "chatgpt"
 cask "cursor"

@@ -8,7 +8,6 @@ tap "uinaf/tap"
 cask "codex"
 cask "claude-code@latest"
 cask "uinaf/tap/autoreview"
-cask "1password-cli"
 
 # Development CLI
 brew "git-crypt"
