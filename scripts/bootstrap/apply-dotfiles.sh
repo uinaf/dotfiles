@@ -104,19 +104,21 @@ backup_preexisting_targets() {
 }
 
 validate_local_agent_rules() {
-  local path="$config_dir/agents.local.md"
+  local path
   local mode
   local owner
 
-  if [ -L "$path" ] && [ ! -e "$path" ]; then
-    fail "local agent rules link is broken: $path"
-  fi
-  [ -e "$path" ] || return 0
-  [ -f "$path" ] || fail "local agent rules must resolve to a regular file: $path"
-  mode="$(stat -L -f '%Lp' "$path")" || fail "cannot inspect local agent rules mode: $path"
-  owner="$(stat -L -f '%u' "$path")" || fail "cannot inspect local agent rules owner: $path"
-  [ "$owner" = "$(id -u)" ] || fail "local agent rules must be owned by the current user: $path"
-  [ $((8#$mode & 8#77)) -eq 0 ] || fail "local agent rules must not grant group or other access: $path"
+  for path in "$config_dir/agents.start.md" "$config_dir/agents.end.md"; do
+    if [ -L "$path" ] && [ ! -e "$path" ]; then
+      fail "local agent rules link is broken: $path"
+    fi
+    [ -e "$path" ] || continue
+    [ -f "$path" ] || fail "local agent rules must resolve to a regular file: $path"
+    mode="$(stat -L -f '%Lp' "$path")" || fail "cannot inspect local agent rules mode: $path"
+    owner="$(stat -L -f '%u' "$path")" || fail "cannot inspect local agent rules owner: $path"
+    [ "$owner" = "$(id -u)" ] || fail "local agent rules must be owned by the current user: $path"
+    [ $((8#$mode & 8#77)) -eq 0 ] || fail "local agent rules must not grant group or other access: $path"
+  done
 }
 
 [ -d "$source_dir" ] || fail "missing chezmoi source directory: $source_dir"

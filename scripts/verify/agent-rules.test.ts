@@ -123,8 +123,8 @@ test("applies public rules and links without private output", () => {
   runChezmoi(home, config, "apply");
   const rules = assertManagedRules(home);
 
-  assert.match(rules, /^# Agent Guidelines/);
-  assert.doesNotMatch(rules, /Local Overrides|private fixture rule/);
+  assert.match(rules, /^## General Guidelines/);
+  assert.doesNotMatch(rules, /private fixture rule/);
   assert.match(rules, /Keep each inline review comment to one actionable concern and short\n$/);
   assert.equal(runChezmoi(home, config, "diff"), "");
   runChezmoi(home, config, "apply");
@@ -144,43 +144,86 @@ test("omits global rules for workload profiles", () => {
   }
 });
 
-test("reads an optional private layer from machine-local Markdown", () => {
+test("reads an optional private end layer from machine-local Markdown", () => {
   const { home } = createFixture();
-  const privateRules = join(home, ".config/dotfiles/agents.local.md");
-  mkdirSync(dirname(privateRules), { recursive: true });
-  writeFileSync(privateRules, "### Private fixture rule\n\nKeep this fixture local.\n");
-  chmodSync(privateRules, 0o600);
+  const privateEnd = join(home, ".config/dotfiles/agents.end.md");
+  mkdirSync(dirname(privateEnd), { recursive: true });
+  writeFileSync(privateEnd, "## Private fixture rule\n\nKeep this fixture local.\n");
+  chmodSync(privateEnd, 0o600);
 
   runWrapper(home);
 
-  assert.match(assertManagedRules(home), /## Local Overrides\n\n### Private fixture rule/);
+  assert.match(assertManagedRules(home), /short\n\n## Private fixture rule\n\nKeep this fixture local\.\n$/);
+});
+
+test("composes optional private Markdown around the shared rules", () => {
+  const { home } = createFixture();
+  const privateStart = join(home, ".config/dotfiles/agents.start.md");
+  const privateEnd = join(home, ".config/dotfiles/agents.end.md");
+  mkdirSync(dirname(privateStart), { recursive: true });
+  writeFileSync(privateStart, "# Private fixture context\n\nLoad this first.\n");
+  writeFileSync(privateEnd, "## Private fixture end\n\nLoad this last.\n");
+  chmodSync(privateStart, 0o600);
+  chmodSync(privateEnd, 0o600);
+
+  runWrapper(home);
+  const rules = assertManagedRules(home);
+
+  assert.match(rules, /^# Private fixture context\n\nLoad this first\.\n\n## General Guidelines/);
+  assert.ok(rules.indexOf("# Private fixture context") < rules.indexOf("## General Guidelines"));
+  assert.ok(rules.indexOf("## General Guidelines") < rules.indexOf("## Private fixture end"));
+  assert.match(rules, /## Private fixture end\n\nLoad this last\.\n$/);
 });
 
 test("reads machine-local Markdown through a symlink", () => {
   const { home, root } = createFixture();
-  const privateRules = join(home, ".config/dotfiles/agents.local.md");
-  const externalRules = join(root, "private/agents.local.md");
-  mkdirSync(dirname(privateRules), { recursive: true });
-  mkdirSync(dirname(externalRules), { recursive: true });
-  writeFileSync(externalRules, "### Symlinked fixture rule\n");
-  chmodSync(externalRules, 0o600);
-  symlinkSync(externalRules, privateRules);
+  const privateEnd = join(home, ".config/dotfiles/agents.end.md");
+  const externalEnd = join(root, "private/agents.end.md");
+  mkdirSync(dirname(privateEnd), { recursive: true });
+  mkdirSync(dirname(externalEnd), { recursive: true });
+  writeFileSync(externalEnd, "## Symlinked fixture rule\n");
+  chmodSync(externalEnd, 0o600);
+  symlinkSync(externalEnd, privateEnd);
 
   runWrapper(home);
 
-  assert.match(assertManagedRules(home), /## Local Overrides\n\n### Symlinked fixture rule/);
+  assert.match(assertManagedRules(home), /## Symlinked fixture rule\n$/);
 });
 
-test("omits local overrides for blank Markdown", () => {
+test("omits the private end layer for blank Markdown", () => {
   const { home } = createFixture();
-  const privateRules = join(home, ".config/dotfiles/agents.local.md");
-  mkdirSync(dirname(privateRules), { recursive: true });
-  writeFileSync(privateRules, " \n\t\n");
-  chmodSync(privateRules, 0o600);
+  const privateEnd = join(home, ".config/dotfiles/agents.end.md");
+  mkdirSync(dirname(privateEnd), { recursive: true });
+  writeFileSync(privateEnd, " \n\t\n");
+  chmodSync(privateEnd, 0o600);
 
   runWrapper(home);
 
-  assert.doesNotMatch(assertManagedRules(home), /Local Overrides/);
+  assert.match(assertManagedRules(home), /short\n$/);
+});
+
+test("ignores the retired agents.local.md path", () => {
+  const { home } = createFixture();
+  const retiredRules = join(home, ".config/dotfiles/agents.local.md");
+  mkdirSync(dirname(retiredRules), { recursive: true });
+  writeFileSync(retiredRules, "# Retired fixture rules\n");
+  chmodSync(retiredRules, 0o600);
+
+  runWrapper(home);
+
+  assert.doesNotMatch(assertManagedRules(home), /Retired fixture rules/);
+});
+
+test("omits the private start layer for blank Markdown", () => {
+  const { home } = createFixture();
+  const privateStart = join(home, ".config/dotfiles/agents.start.md");
+  mkdirSync(dirname(privateStart), { recursive: true });
+  writeFileSync(privateStart, " \n\t\n");
+  chmodSync(privateStart, 0o600);
+
+  runWrapper(home);
+
+  assert.match(assertManagedRules(home), /^## General Guidelines/);
 });
 
 test("shows rule changes in diff and waits for an explicit apply", () => {
@@ -289,31 +332,35 @@ test("does not back up managed rule links again", () => {
 });
 
 test("rejects local Markdown granting group or other access", () => {
-  for (const mode of [0o640, 0o604]) {
-    const { home } = createFixture();
-    const privateRules = join(home, ".config/dotfiles/agents.local.md");
-    mkdirSync(dirname(privateRules), { recursive: true });
-    writeFileSync(privateRules, "### Permissive fixture rule\n");
-    chmodSync(privateRules, mode);
+  for (const name of ["agents.start.md", "agents.end.md"]) {
+    for (const mode of [0o640, 0o604]) {
+      const { home } = createFixture();
+      const privateRules = join(home, ".config/dotfiles", name);
+      mkdirSync(dirname(privateRules), { recursive: true });
+      writeFileSync(privateRules, "### Permissive fixture rule\n");
+      chmodSync(privateRules, mode);
 
-    const result = runWrapperResult(home);
+      const result = runWrapperResult(home);
 
-    assert.notEqual(result.status, 0);
-    assert.match(result.stderr, /local agent rules must not grant group or other access/);
+      assert.notEqual(result.status, 0);
+      assert.match(result.stderr, /local agent rules must not grant group or other access/);
+    }
   }
 });
 
 test("rejects a broken local Markdown link", () => {
-  for (const profile of ["personal-workstation", "personal-devbox", "workstation", "devbox"]) {
-    const { home } = createFixture();
-    const privateRules = join(home, ".config/dotfiles/agents.local.md");
-    mkdirSync(dirname(privateRules), { recursive: true });
-    symlinkSync(join(home, "missing-agents.local.md"), privateRules);
+  for (const name of ["agents.start.md", "agents.end.md"]) {
+    for (const profile of ["personal-workstation", "personal-devbox", "workstation", "devbox"]) {
+      const { home } = createFixture();
+      const privateRules = join(home, ".config/dotfiles", name);
+      mkdirSync(dirname(privateRules), { recursive: true });
+      symlinkSync(join(home, `missing-${name}`), privateRules);
 
-    const result = runWrapperResult(home, profile);
+      const result = runWrapperResult(home, profile);
 
-    assert.notEqual(result.status, 0);
-    assert.match(result.stderr, /local agent rules link is broken/);
+      assert.notEqual(result.status, 0);
+      assert.match(result.stderr, /local agent rules link is broken/);
+    }
   }
 });
 
@@ -323,7 +370,7 @@ test("rejects local Markdown owned by another user", (context) => {
     return;
   }
   const { home } = createFixture();
-  const privateRules = join(home, ".config/dotfiles/agents.local.md");
+  const privateRules = join(home, ".config/dotfiles/agents.end.md");
   mkdirSync(dirname(privateRules), { recursive: true });
   symlinkSync("/usr/bin/true", privateRules);
 
@@ -334,31 +381,35 @@ test("rejects local Markdown owned by another user", (context) => {
 });
 
 test("rejects a local Markdown symlink resolving to a directory", () => {
-  const { config, home, root } = createFixture();
-  const privateRules = join(home, ".config/dotfiles/agents.local.md");
-  const directory = join(root, "private/rules");
-  mkdirSync(dirname(privateRules), { recursive: true });
-  mkdirSync(directory, { recursive: true });
-  symlinkSync(directory, privateRules);
+  for (const name of ["agents.start.md", "agents.end.md"]) {
+    const { config, home, root } = createFixture();
+    const privateRules = join(home, ".config/dotfiles", name);
+    const directory = join(root, "private/rules");
+    mkdirSync(dirname(privateRules), { recursive: true });
+    mkdirSync(directory, { recursive: true });
+    symlinkSync(directory, privateRules);
 
-  const wrapperResult = runWrapperResult(home);
-  const chezmoiResult = runChezmoiResult(home, config, "apply");
+    const wrapperResult = runWrapperResult(home);
+    const chezmoiResult = runChezmoiResult(home, config, "apply");
 
-  assert.notEqual(wrapperResult.status, 0);
-  assert.match(wrapperResult.stderr, /local agent rules must resolve to a regular file/);
-  assert.notEqual(chezmoiResult.status, 0);
-  assert.match(chezmoiResult.stderr, /agents\.local\.md must resolve to a regular file/);
+    assert.notEqual(wrapperResult.status, 0);
+    assert.match(wrapperResult.stderr, /local agent rules must resolve to a regular file/);
+    assert.notEqual(chezmoiResult.status, 0);
+    assert.match(chezmoiResult.stderr, new RegExp(`${name.replaceAll(".", "\\.")} must resolve to a regular file`));
+  }
 });
 
 test("ignores broken local Markdown links for workload profiles", () => {
-  for (const profile of ["assistant", "service"]) {
-    const { home } = createFixture();
-    const privateRules = join(home, ".config/dotfiles/agents.local.md");
-    mkdirSync(dirname(privateRules), { recursive: true });
-    symlinkSync(join(home, "missing-agents.local.md"), privateRules);
+  for (const name of ["agents.start.md", "agents.end.md"]) {
+    for (const profile of ["assistant", "service"]) {
+      const { home } = createFixture();
+      const privateRules = join(home, ".config/dotfiles", name);
+      mkdirSync(dirname(privateRules), { recursive: true });
+      symlinkSync(join(home, `missing-${name}`), privateRules);
 
-    runWrapper(home, profile);
+      runWrapper(home, profile);
 
-    assert.equal(readdirSync(home).includes("AGENTS.md"), false);
+      assert.equal(readdirSync(home).includes("AGENTS.md"), false);
+    }
   }
 });

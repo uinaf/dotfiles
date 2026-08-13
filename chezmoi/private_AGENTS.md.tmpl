@@ -1,23 +1,38 @@
-{{- $privateRulesPath := joinPath .chezmoi.homeDir ".config/dotfiles/agents.local.md" -}}
-{{- $privateRulesLink := lstat $privateRulesPath -}}
-{{- $privateRulesFile := stat $privateRulesPath -}}
-{{- $privateRules := "" -}}
-{{- if and $privateRulesLink (not $privateRulesFile) -}}
-{{- fail (printf "%s is a broken link" $privateRulesPath) -}}
+{{- $privateStartPath := joinPath .chezmoi.homeDir ".config/dotfiles/agents.start.md" -}}
+{{- $privateStartLink := lstat $privateStartPath -}}
+{{- $privateStartFile := stat $privateStartPath -}}
+{{- $privateStart := "" -}}
+{{- if and $privateStartLink (not $privateStartFile) -}}
+{{- fail (printf "%s is a broken link" $privateStartPath) -}}
 {{- end -}}
-{{- if $privateRulesFile -}}
-{{- if ne $privateRulesFile.type "file" -}}
-{{- fail (printf "%s must resolve to a regular file" $privateRulesPath) -}}
+{{- if $privateStartFile -}}
+{{- if ne $privateStartFile.type "file" -}}
+{{- fail (printf "%s must resolve to a regular file" $privateStartPath) -}}
 {{- end -}}
-{{- $privateRules = trim (include $privateRulesPath) -}}
+{{- $privateStart = trim (include $privateStartPath) -}}
 {{- end -}}
-# Agent Guidelines
+{{- $privateEndPath := joinPath .chezmoi.homeDir ".config/dotfiles/agents.end.md" -}}
+{{- $privateEndLink := lstat $privateEndPath -}}
+{{- $privateEndFile := stat $privateEndPath -}}
+{{- $privateEnd := "" -}}
+{{- if and $privateEndLink (not $privateEndFile) -}}
+{{- fail (printf "%s is a broken link" $privateEndPath) -}}
+{{- end -}}
+{{- if $privateEndFile -}}
+{{- if ne $privateEndFile.type "file" -}}
+{{- fail (printf "%s must resolve to a regular file" $privateEndPath) -}}
+{{- end -}}
+{{- $privateEnd = trim (include $privateEndPath) -}}
+{{- end -}}
+{{- if ne $privateStart "" -}}
+{{ $privateStart }}
 
-General guidelines for agents.
+{{ end -}}
+## General Guidelines
 
-## Core Behavior
+### Core Behavior
 
-### Communication
+#### Communication
 
 - Keep replies short and easy to resume after an interruption
 - Skip generic preambles (`Let me`, `I'll start by`, `Great question`)
@@ -28,7 +43,7 @@ General guidelines for agents.
 - Skip routine narration, redundant recaps, closing pleasantries, and long logs
 - Link known URLs as clickable Markdown, show commits as `[abc1234](url)` and always link PR or issue numbers
 
-### Scope and judgment
+#### Scope and judgment
 
 - If an approach is weak, say so and propose a better one
 - Fix only what was asked. Every changed line should trace to the request; mention unrelated cleanup instead of doing it
@@ -37,62 +52,62 @@ General guidelines for agents.
 
 ---
 
-## Workflow
+### Workflow
 
-### Session and planning
+#### Session and planning
 
 - When supported, rename the current session once its task is clear, whether the session was just created or already existed: `<ticket-id>-<descriptive-slug>` or `<descriptive-slug>`
 - Before non-trivial work, read the relevant code, docs, contracts, and current worktree state
 - State a short plan covering what, where, why, verification, and non-goals
 
-### Verification
+#### Verification
 
 - Match proof to risk and the available surface
 - Bug fixes should include a repro when feasible; refactors prove parity; features need contract proof and a runtime check
 - Relevant verification must pass before work is called complete
 
-### When blocked
+#### When blocked
 
 - Reproduce failures and identify the root cause with evidence
 - Do not skip gates or apply workarounds without explicit approval
 
 ---
 
-## Code Principles
+### Code Principles
 
-### Architecture
+#### Architecture
 
 - Build small, composable pieces with narrow surfaces
 - Prefer deep modules over layered complexity
 - Avoid speculative configurability, abstraction, and defensive branches unrelated to the touched contract
 - Prefer reversible changes when uncertain; delete dead code instead of preserving it just in case
 
-### Flow
+#### Flow
 
 - Parse external input at the boundary and make illegal states unrepresentable internally
 - Handle failures at touched external boundaries; make errors contextful and recoverable where possible
 
-### Performance
+#### Performance
 
 - Benchmark hot paths and performance-sensitive changes with before/after numbers
 
-### Guardrails
+#### Guardrails
 
 - Follow the target repo's language and type conventions
 - Avoid weakening types or adding unchecked casts, ignores, non-null assertions, or similar escape hatches when an idiomatic validated option exists; do not globally ban established languages or syntax
 - Keep linters, type checks, tests, and hooks enabled; fix root causes
 
-### Docs
+#### Docs
 
 - Keep docs portable and reproducible
 - Avoid volatile metrics, absolute paths, `file://`, and editor URIs
 
-### Testing
+#### Testing
 
 - Prefer integration, contract, and end-to-end proof over mock-heavy unit tests
 - Prefer in-process tests with controlled clocks over real timers and logger assertions unless the process boundary matters
 
-### Source comments
+#### Source comments
 
 - Default to writing no new source comments
 - Never add comments that state the obvious or narrate the code, commit messages exist for a reason
@@ -100,7 +115,7 @@ General guidelines for agents.
 
 ---
 
-## Commits and PRs
+### Commits and PRs
 
 - Prefer conventional commits, title multi-commit PRs for their net change in a conventional style
 - Create PRs as ready for review by default so automated review starts promptly; use a draft only when repo-local instructions or the current task or prompt explicitly requires one
@@ -113,15 +128,11 @@ General guidelines for agents.
   - sanitized example input/output for behavior and contracts
 - Use before/after when comparison matters
 
-### Addressing PR feedback
+#### Addressing PR feedback
 
 - While addressing feedback on PR, prefer follow-up commits over amending and force-pushing
 - Keep each inline review comment to one actionable concern and short
-{{- if ne $privateRules "" }}
+{{- if ne $privateEnd "" }}
 
----
-
-## Local Overrides
-
-{{ $privateRules }}
+{{ $privateEnd }}
 {{- end }}

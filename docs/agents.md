@@ -28,20 +28,31 @@ backed up by the dotfile wrapper before chezmoi converges them.
 
 ### Private Rules
 
-Optional machine-specific text comes from
-`~/.config/dotfiles/agents.local.md`, outside this repository:
+Optional machine-specific text comes from two Markdown fragments outside this
+repository:
+
+| Fragment | Position |
+| --- | --- |
+| `~/.config/dotfiles/agents.start.md` | Before the shared rules |
+| `~/.config/dotfiles/agents.end.md` | After the shared rules |
+
+For example, an end fragment can add machine-specific routing:
 
 ```markdown
-### Machine-specific rule
+## Machine-specific rule
 
 Add private instructions here.
 ```
 
-Start local content at heading level three. Chezmoi reads the file literally and
-appends it under `## Local Overrides`; an absent or blank file adds nothing. Keep
-the file or its symlink target private to the local user, then preview and apply
-the selected profile. Symlinks are supported; their resolved target must be a
-regular file owned by the current user with no group or other permissions.
+The start and end fragments own their heading structure. The built-in rules
+begin at `## General Guidelines`, so a start fragment can provide the document
+title and an end fragment can add sibling sections. Chezmoi reads each fragment
+literally, trims surrounding whitespace, joins non-empty layers with one blank
+line, and omits absent or blank files.
+
+Keep each file or its symlink target private to the local user, then preview and
+apply the selected profile. Symlinks are supported; their resolved targets must
+be regular files owned by the current user with no group or other permissions.
 
 ## Skill Sync
 
