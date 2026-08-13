@@ -22,9 +22,8 @@ Preview and apply rule changes with the normal dotfile commands:
 ```
 
 `~/AGENTS.md` is the private canonical file. Claude and Codex link directly to
-it. The migration removes the retired `~/.agents/AGENTS.md` file while keeping
-`~/.agents/skills` intact. Existing conflicting files or broken links are
-backed up by the dotfile wrapper before chezmoi converges them.
+it. The dotfile wrapper backs up conflicting files or broken links before
+chezmoi converges them.
 
 ### Private Rules
 
