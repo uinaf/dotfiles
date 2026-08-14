@@ -69,10 +69,6 @@
       "source": "vercel-labs/agent-skills"
     },
     {
-      "name": "verify",
-      "source": "uinaf/skills"
-    },
-    {
       "name": "vite-plus",
       "source": "uinaf/skills"
     }

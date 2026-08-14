@@ -597,7 +597,6 @@ test("uses the current first-party skill sources", () => {
     ["tanstack-start", "tanstack-skills/tanstack-skills"],
     ["uinaf-radar", "uinaf/skills"],
     ["vercel-react-best-practices", "vercel-labs/agent-skills"],
-    ["verify", "uinaf/skills"],
     ["vite-plus", "uinaf/skills"],
   ].map(([name, source]) => ({ name, source }));
   assert.deepEqual(

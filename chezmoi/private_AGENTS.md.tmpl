@@ -30,108 +30,77 @@
 {{ end -}}
 ## General Guidelines
 
-### Core Behavior
+### Work
 
-#### Communication
-
-- Keep replies short and easy to resume after an interruption
-- Skip generic preambles (`Let me`, `I'll start by`, `Great question`)
-- Lead with the answer or completed outcome
-- Ground verdicts in the code, command output, or a cited source
-- During ongoing work, state the current outcome and what remains without repeating the full plan
-- Report failures with location and evidence first, then the cause and fix when known or the next diagnostic
-- Skip routine narration, redundant recaps, closing pleasantries, and long logs
-- Link known URLs as clickable Markdown, show commits as `[abc1234](url)` and always link PR or issue numbers
-
-#### Scope and judgment
-
-- If an approach is weak, say so and propose a better one
-- Fix only what was asked. Every changed line should trace to the request; mention unrelated cleanup instead of doing it
-- Make reasonable assumptions for reversible, local, low-risk work
-- Ask before choices that materially change the outcome or are destructive, irreversible, public, costly, security-sensitive, or cross-repo
-
----
+- Lead with the answer, finding, or completed outcome. Keep conclusions,
+  evidence, material caveats, and next actions before secondary detail.
+- Ground claims in code, current tool output, or cited sources. Link known URLs,
+  commits, PRs, and issues.
+- Before non-trivial work, read the relevant code, docs, contracts, and worktree
+  state; state the focus and a short plan, then update only when something
+  material changes.
+- Say when an approach is weak. Once enough is known, act without reopening
+  settled decisions or surveying options you will not use.
+- Match action to authority: inspection requests do not authorize changes;
+  change requests authorize reversible in-scope edits and checks. Ask before
+  destructive, public, costly, security-sensitive, or scope-expanding actions.
 
 ### Workflow
 
-#### Session and planning
+- When supported, rename the session once its task is clear:
+  `<ticket-id>-<descriptive-slug>` or `<descriptive-slug>`.
+- Run repository gates and match extra proof to risk: reproduce bugs when
+  feasible, prove refactor parity, and exercise feature contracts and runtime
+  behavior. Report failed or skipped proof exactly.
+- Reproduce blockers and identify their root cause. Do not skip gates or use
+  workarounds without approval.
+- Use subagents only when enabled. Delegate a few bounded, independent parallel
+  tracks; keep small work local, continue useful work, and validate results.
 
-- When supported, rename the current session once its task is clear, whether the session was just created or already existed: `<ticket-id>-<descriptive-slug>` or `<descriptive-slug>`
-- Before non-trivial work, read the relevant code, docs, contracts, and current worktree state
-- State a short plan covering what, where, why, verification, and non-goals
+### Code
 
-#### Verification
+- Follow the existing stack and type conventions. For unconstrained greenfield
+  work, prefer TypeScript for products/tooling and Go for CLIs/services. Choose
+  the simplest fit and never migrate a working stack for taste.
+- Before adding validation, verification, or test infrastructure, inspect the
+  repository's manifests, task graph, compiler, linter plugins, schema tools,
+  test framework, and build system. Extend the closest structured owner instead
+  of creating a parallel script. Shell may sequence a few existing commands;
+  do not use it to parse structured data, encode policy or state, implement
+  retries, or duplicate a command graph. Put real logic in the project's typed
+  language with tests.
+- Prefer pure functions and composition. Parse external input through schemas
+  and use validated types internally. Model meaningful retries, cancellation,
+  concurrency, or recovery as closed states and events, such as
+  `idle -> running -> succeeded | failed | cancelled`; keep linear flows linear.
+- Classify boundary failures into a small stable taxonomy such as `validation`,
+  `auth`, `conflict`, `rate_limit`, `transient`, `internal`, and `unknown`.
+  Preserve causes and context. Retry only idempotent transient work with bounds
+  and cancellation; surface partial success and recovery instead of hiding it.
+- At process boundaries, emit structured events with stable fields such as
+  `event`, `operation`, `resource_id`, `outcome`, and `error_kind`. Never log
+  secrets or full payloads, classify from message prose, or log one failure twice.
+- Preserve the product's design system. Keep hierarchy and the primary action
+  clear; model loading, empty, error, ready, disabled, and submitting states.
+  Preserve user input and offer recovery. Verify keyboard use, responsive
+  layout, contrast, reduced motion, and visible states.
+- Do not add unchecked casts, ignores, non-null assertions, or similar escapes
+  when validated idioms exist.
+- Keep linters, types, tests, and hooks enabled; fix root causes. Prefer
+  integration, contract, and end-to-end proof over mock-heavy tests.
+- Benchmark performance-sensitive changes with before/after numbers.
+- Keep docs portable and reproducible. Add source comments only for invariants
+  or external constraints the code cannot express; do not narrate obvious code.
 
-- Match proof to risk and the available surface
-- Bug fixes should include a repro when feasible; refactors prove parity; features need contract proof and a runtime check
-- Relevant verification must pass before work is called complete
+### Delivery
 
-#### When blocked
-
-- Reproduce failures and identify the root cause with evidence
-- Do not skip gates or apply workarounds without explicit approval
-
----
-
-### Code Principles
-
-#### Architecture
-
-- Build small, composable pieces with narrow surfaces
-- Prefer deep modules over layered complexity
-- Avoid speculative configurability, abstraction, and defensive branches unrelated to the touched contract
-- Prefer reversible changes when uncertain; delete dead code instead of preserving it just in case
-
-#### Flow
-
-- Parse external input at the boundary and make illegal states unrepresentable internally
-- Handle failures at touched external boundaries; make errors contextful and recoverable where possible
-
-#### Performance
-
-- Benchmark hot paths and performance-sensitive changes with before/after numbers
-
-#### Guardrails
-
-- Follow the target repo's language and type conventions
-- Avoid weakening types or adding unchecked casts, ignores, non-null assertions, or similar escape hatches when an idiomatic validated option exists; do not globally ban established languages or syntax
-- Keep linters, type checks, tests, and hooks enabled; fix root causes
-
-#### Docs
-
-- Keep docs portable and reproducible
-- Avoid volatile metrics, absolute paths, `file://`, and editor URIs
-
-#### Testing
-
-- Prefer integration, contract, and end-to-end proof over mock-heavy unit tests
-- Prefer in-process tests with controlled clocks over real timers and logger assertions unless the process boundary matters
-
-#### Source comments
-
-- Default to writing no new source comments
-- Never add comments that state the obvious or narrate the code, commit messages exist for a reason
-- Add comments only for essential invariants or external constraints the code cannot express
-
----
-
-### Commits and PRs
-
-- Prefer conventional commits, title multi-commit PRs for their net change in a conventional style
-- Create PRs as ready for review by default so automated review starts promptly; use a draft only when repo-local instructions or the current task or prompt explicitly requires one
-- Use the repo PR template, otherwise cover Summary, Changed, Review aids, Risks, Verification, and Complexity; make it concise
-- Write pull and merge request descriptions in plain English with short, direct sentences and common words; remove repetition, hedging, process narration, and anything that does not help reviewers understand the change, risks, or verification
-- Every non-trivial PR must include a `Review aids` section with the artifact that best explains the change
-  - a focused Mermaid diagram for flows or architecture with a readable orientation
-  - labeled screenshots or an existing preview/artifact link for visible UI
-  - put multiple related images or videos in a compact Markdown table with short labels; use two or three columns, place comparisons side by side, and leave a single artifact standalone
-  - sanitized example input/output for behavior and contracts
-- Use before/after when comparison matters
-
-#### Addressing PR feedback
-
-- While addressing feedback on PR, prefer follow-up commits over amending and force-pushing
-- Keep each inline review comment to one actionable concern and short
+- Prefer conventional commits. Create ready PRs unless the task or repository
+  requires a draft; address feedback with follow-up commits rather than force
+  pushes.
+- Use the PR template. Otherwise cover Summary, Changed, Risks, Verification,
+  and Complexity. Give non-trivial changes the clearest review aid: a focused
+  diagram, labeled UI evidence, or sanitized contract input/output.
+- Keep each inline review comment to one short actionable concern.
 {{- if ne $privateEnd "" }}
 
 {{ $privateEnd }}

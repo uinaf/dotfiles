@@ -55,6 +55,36 @@ Keep each file or its symlink target private to the local user, then preview and
 apply the selected profile. Symlinks are supported; their resolved targets must
 be regular files owned by the current user with no group or other permissions.
 
+## Rule Design
+
+The shared layer is one portable behavior contract, not a stack of prompts for
+individual models. Keep personal identity and private routing in the local
+fragments. Keep model selection, reasoning effort, and verbosity settings in
+the harness that owns them.
+
+Use prompting pages to tune behavior and system or model cards to validate
+capability and risk boundaries when a model change exposes a measured gap:
+
+| Model | First-party guidance |
+| --- | --- |
+| GPT-5.6 Sol | [Prompting best practices](https://developers.openai.com/api/docs/guides/prompt-guidance-gpt-5p6) and [system card](https://deploymentsafety.openai.com/gpt-5-6) |
+| Grok 4.6 | [Release guidance](https://x.ai/news/grok-4-6) and [model reference](https://docs.x.ai/developers/models/grok-4.6) |
+| Claude Opus 5 | [Prompting Claude Opus 5](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5) |
+| Claude Fable 5 | [Prompting Claude Fable 5](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-fable-5) and [system card](https://www-cdn.anthropic.com/2f9323abbcc4abe219577539efe19a623c9ca2bd/Claude%20Fable%205%20%26%20Claude%20Mythos%205%20System%20Card.pdf) |
+
+When maintaining the shared rules:
+
+- Add a rule for a recurring observed failure, user preference, authority
+  boundary, or required repository contract.
+- State each behavior once. Remove repeated reminders and examples when a
+  shorter instruction produces the same result.
+- Specify the deliverable, scope, authority, evidence, and completion boundary;
+  leave hidden reasoning style to the model and harness.
+- Prefer positive operating instructions over long inventories of unwanted
+  model behavior.
+- Re-evaluate rules after a model change and remove scaffolding that no longer
+  improves representative tasks.
+
 ## Skill Sync
 
 Run the profile-owned skill sync from any checkout:
