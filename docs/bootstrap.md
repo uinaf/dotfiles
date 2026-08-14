@@ -124,8 +124,8 @@ does not use:
 ./scripts/app-store/personal.sh
 ```
 
-This uses `mas`, requires the interactive user to be signed into the App Store,
-and may ask for the local account password during uninstall.
+This uses `mas`, which discovers installed apps through Spotlight, and may ask
+for the local account password during uninstall.
 
 Install optional external tools:
 

@@ -13,9 +13,8 @@ Usage:
 
 Removes bundled Mac App Store apps unused by the personal workstation profile.
 
-This script intentionally lives outside Brewfile because Mac App Store removal
-depends on the interactive user's App Store session and may require a local
-administrator password.
+This script intentionally lives outside Brewfile because mas discovers installed
+apps through Spotlight and removal may require a local administrator password.
 USAGE
 }
 
