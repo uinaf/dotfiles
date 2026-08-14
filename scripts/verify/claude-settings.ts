@@ -33,6 +33,10 @@ const fixtures: Fixture[] = [
   },
   { contents: '{"env":{"CLAUDE_CODE_DISABLE_1M_CONTEXT":"1"}}', expected: {} },
   {
+    contents: '{"env":{"CLAUDE_CODE_DISABLE_1M_CONTEXT":"1","KEEP":"yes"}}',
+    expected: { env: { KEEP: "yes" } },
+  },
+  {
     contents: '{\n    "theme": "dark",\n    "env": {\n        "KEEP": "yes"\n    }\n}\n',
     expected: { theme: "dark", env: { KEEP: "yes" } },
   },
@@ -110,7 +114,7 @@ function renderFixture(fixture: Fixture, root: string): Promise<void> {
             permissions: { ...expected.permissions, [managedMode]: undefined },
           },
         );
-        assert.equal(actual.env?.[managedKey], "1");
+        assert.equal(actual.env?.[managedKey], undefined);
         assert.equal(actual.permissions?.[managedMode], "auto");
         finish();
       } catch (failure) {
@@ -126,7 +130,7 @@ async function verifyMissingFile(root: string): Promise<void> {
   await runApply("workstation", fixtureRoot);
   const path = settingsPath(fixtureRoot);
   const written = JSON.parse(readFileSync(path, "utf8")) as Settings;
-  assert.equal(written.env?.[managedKey], "1");
+  assert.equal(written.env?.[managedKey], undefined);
   assert.equal(written.permissions?.[managedMode], "auto");
   assert.equal(Number(statSync(path, { bigint: true }).mode & 0o777n), 0o600);
 }
@@ -146,7 +150,7 @@ async function verifyModeAndIdempotence(root: string): Promise<void> {
   await runApply("workstation", fixtureRoot);
   const firstContents = readFileSync(path, "utf8");
   const firstMtime = statSync(path, { bigint: true }).mtimeNs;
-  assert.equal((JSON.parse(firstContents) as Settings).env?.[managedKey], "1");
+  assert.equal((JSON.parse(firstContents) as Settings).permissions?.[managedMode], "auto");
   assert.equal(Number(statSync(path, { bigint: true }).mode & 0o777n), 0o600);
   await runApply("workstation", fixtureRoot);
   assert.equal(readFileSync(path, "utf8"), firstContents);
