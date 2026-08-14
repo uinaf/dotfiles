@@ -1,4 +1,4 @@
-![dotfiles — vendor-neutral macOS bootstrap for every role.](.github/assets/readme-banner.png)
+![dotfiles — vendor-neutral macOS bootstrap for every role.](https://uinaf.dev/og/banner/dotfiles.png)
 
 # uinaf/dotfiles
 
