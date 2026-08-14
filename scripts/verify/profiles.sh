@@ -250,6 +250,8 @@ printf '%s\n' "$personal_workstation_casks" | grep -Fqx tailscale-app \
   || fail "personal workstation Brewfile omitted tailscale-app"
 printf '%s\n' "$personal_workstation_casks" | grep -Fqx slopshipper \
   || fail "personal workstation Brewfile omitted slopshipper"
+printf '%s\n' "$personal_workstation_casks" | grep -Fqx slopwake \
+  || fail "personal workstation Brewfile omitted slopwake"
 personal_devbox_casks="$(
   HOMEBREW_BUNDLE_DOTFILES_PROFILE=personal-devbox HOMEBREW_NO_AUTO_UPDATE=1 \
     brew bundle list --cask --file "$repo_root/Brewfile.personal"

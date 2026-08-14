@@ -67,9 +67,9 @@ setup](agents.md).
 
 Both personal profiles add App Store Connect CLI, Attach, Crabbox, Gitcrawl,
 Mole, and slopshipper. Only personal-workstation adds personal GUI applications
-and `mas`. The workstation layer applies to personal-workstation and workstation
-only; it supplies 1Password and its CLI, Slack, ChatGPT, Cursor, Ghostty, and
-YubiKey Manager.
+such as Slopwake, plus `mas`. The workstation layer applies to
+personal-workstation and workstation only; it supplies 1Password and its CLI,
+Slack, ChatGPT, Cursor, Ghostty, and YubiKey Manager.
 
 Assistant dotfile application installs the shared Git base and the
 `gh-app-auth` execution adapter. Service dotfile application installs only the

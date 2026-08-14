@@ -46,6 +46,7 @@ if workstation_enabled
   # Agent tools
   cask "codexbar"
   cask "grok-build"
+  cask "uinaf/tap/slopwake"
 end
 
 if workstation_enabled

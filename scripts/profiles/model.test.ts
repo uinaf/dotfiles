@@ -117,6 +117,7 @@ test("Brewfile gates GUI casks on the workstation capability", () => {
     writeFileSync(fixtureModelPath, JSON.stringify(model));
     const workstationCasks = listCasks("personal-workstation");
     assert.equal(workstationCasks.includes("slopshipper"), true);
+    assert.equal(workstationCasks.includes("slopwake"), true);
     assert.equal(workstationCasks.includes("cleanshot"), true);
   } finally {
     rmSync(root, { recursive: true, force: true });
