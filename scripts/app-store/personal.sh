@@ -9,7 +9,7 @@ uninstall_app_ids=(
 usage() {
   cat <<'USAGE'
 Usage:
-  scripts/app-store/personal.sh [--dry-run]
+  scripts/app-store/personal.sh [--dry-run] [-h|--help]
 
 Removes bundled Mac App Store apps unused by the personal workstation profile.
 
