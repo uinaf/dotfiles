@@ -131,6 +131,7 @@ test("typed checks reject unsafe npm auth and SSH key modes", () => {
 
 test("file-mode mismatch severity comes from policy", () => {
   const { home, root } = fixture();
+  chmodSync(join(home, ".zshrc"), 0o644);
   const policy = {
     name: "fixture",
     summary: "fixture summary",
