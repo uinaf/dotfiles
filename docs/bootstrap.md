@@ -117,15 +117,15 @@ profile=workstation # use personal-workstation for the personal layers
 For externally supplied Brewfile entries, configure the local validation
 contract in [User profiles](profiles.md#externally-managed-homebrew-capabilities).
 
-On `personal-workstation` only, install Mac App Store apps and remove bundled apps this
-setup does not use:
+On `personal-workstation` only, remove bundled Mac App Store apps this setup
+does not use:
 
 ```zsh
 ./scripts/app-store/personal.sh
 ```
 
 This uses `mas`, requires the interactive user to be signed into the App Store,
-and may ask for the local account password during install or uninstall.
+and may ask for the local account password during uninstall.
 
 Install optional external tools:
 

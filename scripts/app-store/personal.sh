@@ -1,10 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-install_app_ids=(
-  1346247457 # Endel: Focus, Sleep, Relax
-)
-
 uninstall_app_ids=(
   682658836 # GarageBand
   408981434 # iMovie
@@ -15,10 +11,10 @@ usage() {
 Usage:
   scripts/app-store/personal.sh [--dry-run]
 
-Installs and removes personal Mac App Store apps with mas.
+Removes bundled Mac App Store apps unused by the personal workstation profile.
 
-This script intentionally lives outside Brewfile because Mac App Store installs
-depend on the interactive user's App Store session and may require a local
+This script intentionally lives outside Brewfile because Mac App Store removal
+depends on the interactive user's App Store session and may require a local
 administrator password.
 USAGE
 }
@@ -64,15 +60,6 @@ run_root_mas() {
     sudo mas "$@"
   fi
 }
-
-for app_id in "${install_app_ids[@]}"; do
-  if is_installed "$app_id"; then
-    printf 'ok App Store app already installed: %s\n' "$app_id"
-  else
-    printf 'installing App Store app: %s\n' "$app_id"
-    run_root_mas get "$app_id"
-  fi
-done
 
 for app_id in "${uninstall_app_ids[@]}"; do
   if is_installed "$app_id"; then
