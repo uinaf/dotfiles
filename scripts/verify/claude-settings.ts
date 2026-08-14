@@ -9,7 +9,10 @@ import { fileURLToPath } from "node:url";
 
 import { runApply } from "./home-fixture.ts";
 
-type Settings = Record<string, unknown> & { env?: Record<string, unknown> };
+type Settings = Record<string, unknown> & {
+  env?: Record<string, unknown>;
+  permissions?: Record<string, unknown>;
+};
 type Fixture = {
   contents: string;
   expected?: Settings;
@@ -20,6 +23,7 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const sourceDir = join(repoRoot, "chezmoi");
 const templatePath = join(sourceDir, "private_dot_claude/modify_private_settings.json");
 const managedKey = "CLAUDE_CODE_DISABLE_1M_CONTEXT";
+const managedMode = "defaultMode";
 const fixtures: Fixture[] = [
   { contents: "", expected: {} },
   { contents: '{"theme":"dark","cleanupPeriodDays":30}', expected: { theme: "dark", cleanupPeriodDays: 30 } },
@@ -95,10 +99,19 @@ function renderFixture(fixture: Fixture, root: string): Promise<void> {
         const actual = JSON.parse(Buffer.concat(stdout).toString()) as Settings;
         const expected = fixture.expected ?? {};
         assert.deepEqual(
-          { ...actual, env: { ...actual.env, [managedKey]: undefined } },
-          { ...expected, env: { ...expected.env, [managedKey]: undefined } },
+          {
+            ...actual,
+            env: { ...actual.env, [managedKey]: undefined },
+            permissions: { ...actual.permissions, [managedMode]: undefined },
+          },
+          {
+            ...expected,
+            env: { ...expected.env, [managedKey]: undefined },
+            permissions: { ...expected.permissions, [managedMode]: undefined },
+          },
         );
         assert.equal(actual.env?.[managedKey], "1");
+        assert.equal(actual.permissions?.[managedMode], "auto");
         finish();
       } catch (failure) {
         reject(failure);
@@ -112,7 +125,9 @@ async function verifyMissingFile(root: string): Promise<void> {
   const fixtureRoot = join(root, "missing");
   await runApply("workstation", fixtureRoot);
   const path = settingsPath(fixtureRoot);
-  assert.equal((JSON.parse(readFileSync(path, "utf8")) as Settings).env?.[managedKey], "1");
+  const written = JSON.parse(readFileSync(path, "utf8")) as Settings;
+  assert.equal(written.env?.[managedKey], "1");
+  assert.equal(written.permissions?.[managedMode], "auto");
   assert.equal(Number(statSync(path, { bigint: true }).mode & 0o777n), 0o600);
 }
 
