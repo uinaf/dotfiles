@@ -42,12 +42,16 @@ make_home() {
   local home="$1"
   local agentless_signer="$home/.local/libexec/dotfiles/git-ssh-sign-agentless"
 
-  mkdir -p "$home/.ssh" "$(dirname "$agentless_signer")"
+  mkdir -p "$home/.colima" "$home/.ssh/config.d" "$(dirname "$agentless_signer")"
   chmod 0700 "$home/.ssh"
+  : > "$home/.colima/ssh_config"
   install -m 0700 "$agentless_signer_source" "$agentless_signer"
   HOME="$home" git config --global gpg.format ssh
   HOME="$home" git config --global include.path "$home/.gitconfig.local"
-  sed "s|~/.ssh|$home/.ssh|g" "$ssh_entrypoint" > "$home/.ssh/config"
+  sed \
+    -e "s|~/.ssh|$home/.ssh|g" \
+    -e "s|~/.colima|$home/.colima|g" \
+    "$ssh_entrypoint" > "$home/.ssh/config"
 }
 
 make_key() {
@@ -115,6 +119,7 @@ assert_rejected_without_mutation() {
 
 [ "$(sed -n '1p' "$ssh_entrypoint")" = 'Include ~/.ssh/github.config' ] || fail "GitHub config is not the first SSH include"
 grep -Fqx 'Include ~/.colima/ssh_config' "$ssh_entrypoint" || fail "Colima SSH config is not included by the managed SSH entrypoint"
+grep -Fqx 'Include ~/.ssh/config.d/*.conf' "$ssh_entrypoint" || fail "tool-owned SSH fragments are not included by the managed SSH entrypoint"
 grep -A1 '^Host \*$' "$ssh_entrypoint" | grep -q 'Include ~/.ssh/config.local' || fail "local SSH config is not included under an explicit Host * scope"
 
 personal_home="$tmp_root/personal"
@@ -122,6 +127,10 @@ make_home "$personal_home"
 make_key "$personal_home/.ssh/signing"
 cat > "$personal_home/.ssh/extra.config" <<'EOF'
 ServerAliveInterval 42
+EOF
+cat > "$personal_home/.ssh/config.d/example.conf" <<'EOF'
+Host generated.example
+  User generated-user
 EOF
 cat > "$personal_home/.ssh/config.local" <<EOF
 Include $personal_home/.ssh/extra.config
@@ -163,6 +172,10 @@ effective_github="$(ssh -F "$personal_home/.ssh/config" -G github.com 2>/dev/nul
 effective_unrelated="$(ssh -F "$personal_home/.ssh/config" -G unrelated.example 2>/dev/null)"
 [ "$(printf '%s\n' "$effective_unrelated" | awk '$1 == "stricthostkeychecking" { print $2; exit }')" = true ] || fail "leading global SSH policy lost scope"
 [ "$(printf '%s\n' "$effective_unrelated" | awk '$1 == "serveraliveinterval" { print $2; exit }')" = 42 ] || fail "leading Include lost scope"
+
+effective_generated="$(ssh -F "$personal_home/.ssh/config" -G generated.example 2>/dev/null)"
+[ "$(printf '%s\n' "$effective_generated" | awk '$1 == "user" { print $2; exit }')" = generated-user ] \
+  || fail "tool-owned SSH config fragment was not applied"
 
 cp "$github_config" "$tmp_root/personal.github.before"
 configure \

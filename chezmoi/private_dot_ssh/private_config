@@ -1,5 +1,6 @@
 Include ~/.ssh/github.config
 Include ~/.colima/ssh_config
+Include ~/.ssh/config.d/*.conf
 
 Host *
   Include ~/.ssh/config.local
