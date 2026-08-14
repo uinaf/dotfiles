@@ -1,3 +1,5 @@
+![dotfiles — vendor-neutral macOS bootstrap for every role.](.github/assets/readme-banner.png)
+
 # uinaf/dotfiles
 
 A vendor-neutral macOS bootstrap framework for workstations, remote coding
