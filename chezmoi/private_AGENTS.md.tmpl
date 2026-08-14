@@ -32,49 +32,50 @@
 
 ### Work
 
-- Lead with the answer, finding, or completed outcome. Keep conclusions,
-  evidence, material caveats, and next actions before secondary detail.
+- Lead with the answer, finding, or completed outcome. Put evidence, material
+  caveats, and next actions before secondary detail.
 - Ground claims in code, current tool output, or cited sources. Link known URLs,
   commits, PRs, and issues.
-- Before non-trivial work, read the relevant code, docs, contracts, and worktree
-  state; state the focus and a short plan, then update only when something
-  material changes.
+- Before non-trivial work, read the relevant code, docs, contracts, and worktree.
+- State the focus and a short plan. Update only when something material changes.
 - Say when an approach is weak. Once enough is known, act without reopening
   settled decisions or surveying options you will not use.
-- Match action to authority: inspection requests do not authorize changes;
-  change requests authorize reversible in-scope edits and checks. Ask before
-  destructive, public, costly, security-sensitive, or scope-expanding actions.
+- Match action to authority. Inspection requests do not authorize changes;
+  change requests authorize reversible in-scope edits and checks.
+- Ask before destructive, public, costly, security-sensitive, or scope-expanding
+  actions.
 
 ### Workflow
 
 - When supported, rename the session once its task is clear:
   `<ticket-id>-<descriptive-slug>` or `<descriptive-slug>`.
-- Run repository gates and match extra proof to risk: reproduce bugs when
-  feasible, prove refactor parity, and exercise feature contracts and runtime
-  behavior. Report failed or skipped proof exactly.
-- Reproduce blockers and identify their root cause. Do not skip gates or use
-  workarounds without approval.
-- Use subagents only when enabled. Delegate a few bounded, independent parallel
-  tracks; keep small work local, continue useful work, and validate results.
+- Run repository gates. Match extra proof to risk: reproduce bugs, prove
+  refactor parity, and exercise feature contracts or runtime behavior.
+- Report failed or skipped proof exactly.
+- Reproduce blockers and identify their root cause.
+- Do not skip gates or use workarounds without approval.
+- Use subagents only when enabled. Delegate a few bounded, independent tracks.
+- Keep small work local, continue useful work, and validate delegated results.
 
 ### Code
 
 #### Design and implementation
 
-- Follow the existing stack and type conventions. For unconstrained greenfield
-  work, prefer TypeScript for products/tooling and Go for CLIs/services. Choose
-  the simplest fit and never migrate a working stack for taste.
+- Follow the existing stack and type conventions.
+- For unconstrained greenfield work, prefer TypeScript for products and tooling,
+  and Go for CLIs and services. Choose the simplest fit; never migrate for taste.
 - Before adding validation, verification, or test infrastructure, inspect the
-  repository's manifests, task graph, compiler, linter plugins, schema tools,
-  test framework, and build system. Extend the closest structured owner instead
-  of creating a parallel script. Shell may sequence a few existing commands;
-  do not use it to parse structured data, encode policy or state, implement
-  retries, or duplicate a command graph. Put real logic in the project's typed
+  repository's manifests, task graph, compiler, linters, schemas, test framework,
+  and build system.
+- Extend the closest structured owner instead of creating a parallel script.
+- Use shell only to sequence existing commands.
+- Put parsing, policy, state, retries, and command graphs in the project's typed
   language with tests.
-- Prefer pure functions and composition. Parse external input through schemas
-  and use validated types internally. Model meaningful retries, cancellation,
-  concurrency, or recovery as closed states and events, such as
-  `idle -> running -> succeeded | failed | cancelled`; keep linear flows linear.
+- Prefer pure functions and composition.
+- Parse external input through schemas and use validated types internally.
+- Model meaningful retries, cancellation, concurrency, and recovery as closed
+  states and events, such as `idle -> running -> succeeded | failed | cancelled`.
+- Keep linear flows linear.
 - Do not add unchecked casts, ignores, non-null assertions, or similar escapes
   when validated idioms exist.
 
@@ -82,39 +83,47 @@
 
 - Classify boundary failures into a small stable taxonomy such as `validation`,
   `auth`, `conflict`, `rate_limit`, `transient`, `internal`, and `unknown`.
-  Preserve causes and context. Retry only idempotent transient work with bounds
-  and cancellation; surface partial success and recovery instead of hiding it.
+- Preserve causes and context.
+- Retry only idempotent transient work, with bounds and cancellation.
+- Surface partial success and recovery instead of hiding it.
 - At process boundaries, emit structured events with stable fields such as
-  `event`, `operation`, `resource_id`, `outcome`, and `error_kind`. Never log
-  secrets or full payloads, classify from message prose, or log one failure twice.
+  `event`, `operation`, `resource_id`, `outcome`, and `error_kind`.
+- Never log secrets or full payloads.
+- Do not classify failures from message prose or log one failure twice.
 
 #### Interface quality
 
-- Preserve the product's design system. Keep hierarchy and the primary action
-  clear; model loading, empty, error, ready, disabled, and submitting states.
-  Preserve user input and offer recovery. Verify keyboard use, responsive
-  layout, contrast, reduced motion, and visible states.
+- Preserve the product's design system.
+- Keep hierarchy and the primary action clear.
+- Model loading, empty, error, ready, disabled, and submitting states.
+- Preserve user input and offer recovery.
+- Verify keyboard use, responsive layout, contrast, reduced motion, and visible
+  states.
 
 #### Verification and documentation
 
-- Keep linters, types, tests, and hooks enabled; fix root causes. Prefer
-  integration, contract, and end-to-end proof over mock-heavy tests.
+- Keep linters, types, tests, and hooks enabled. Fix root causes.
+- Prefer integration, contract, and end-to-end proof over mock-heavy tests.
 - Benchmark performance-sensitive changes with before/after numbers.
-- Keep docs portable and reproducible. Add source comments only for invariants
-  or external constraints the code cannot express; do not narrate obvious code.
+- Keep docs portable and reproducible.
+- Add source comments only for invariants or external constraints the code cannot
+  express. Do not narrate obvious code.
 
 ### Delivery
 
 - Prefer conventional commits.
-- Create a pull request only when requested or required. Otherwise, when
-  delivery is authorized, commit and push the approved current branch. Never
-  force-push without explicit approval.
-- When creating a pull request, use its template. If none exists, concisely
-  cover Summary, Changed, Risks, Verification, and Complexity in plain language.
+- Create a pull request only when requested or required.
+- Otherwise, when delivery is authorized, commit and push the approved current
+  branch.
+- Never force-push without explicit approval.
+- Use the pull request template.
+- If none exists, concisely cover Summary, Changed, Risks, Verification, and
+  Complexity in plain language.
 - Give non-trivial changes the single clearest review aid: a focused diagram,
   labeled UI evidence, or sanitized contract input/output.
-- When addressing review feedback, respond concisely. If fixed, include the
-  commit hash; if rejected, explain why with evidence.
+- Address review feedback concisely.
+- If fixed, reply with the commit hash.
+- If declined, explain why with evidence.
 {{- if ne $privateEnd "" }}
 
 {{ $privateEnd }}
