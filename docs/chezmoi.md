@@ -37,6 +37,12 @@ settings and sibling environment values. User settings are the lowest-precedence
 Claude Code scope; project, local, command-line, and managed settings can override
 this default. The repository does not manage `~/.claude.json`.
 
+The developer SSH entrypoint owns the stable
+`Include ~/.colima/ssh_config` directive. Colima owns and regenerates the
+included file as its virtual machines start and stop. Keeping those ownership
+boundaries separate prevents Colima from mutating the Chezmoi-managed
+`~/.ssh/config`.
+
 Use attributes deliberately:
 
 - `dot_` maps to a leading dot.

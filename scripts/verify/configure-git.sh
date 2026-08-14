@@ -114,6 +114,7 @@ assert_rejected_without_mutation() {
 }
 
 [ "$(sed -n '1p' "$ssh_entrypoint")" = 'Include ~/.ssh/github.config' ] || fail "GitHub config is not the first SSH include"
+grep -Fqx 'Include ~/.colima/ssh_config' "$ssh_entrypoint" || fail "Colima SSH config is not included by the managed SSH entrypoint"
 grep -A1 '^Host \*$' "$ssh_entrypoint" | grep -q 'Include ~/.ssh/config.local' || fail "local SSH config is not included under an explicit Host * scope"
 
 personal_home="$tmp_root/personal"
