@@ -126,7 +126,9 @@ test("applies public rules and links without private output", () => {
   assert.match(rules, /^## General Guidelines/);
   assert.doesNotMatch(rules, /private fixture rule/);
   assert.match(rules, /Extend the closest structured owner instead\s+of creating a parallel script/);
-  assert.match(rules, /Keep each inline review comment to one short actionable concern\.\n$/);
+  assert.match(rules, /#### Design and implementation/);
+  assert.match(rules, /Create a pull request only when requested or required/);
+  assert.match(rules, /commit hash; if rejected, explain why with evidence\.\n$/);
   assert.equal(runChezmoi(home, config, "diff"), "");
   runChezmoi(home, config, "apply");
   assert.equal(runChezmoi(home, config, "diff"), "");
@@ -156,7 +158,7 @@ test("reads an optional private end layer from machine-local Markdown", () => {
 
   assert.match(
     assertManagedRules(home),
-    /concern\.\n\n## Private fixture rule\n\nKeep this fixture local\.\n$/,
+    /evidence\.\n\n## Private fixture rule\n\nKeep this fixture local\.\n$/,
   );
 });
 
@@ -203,7 +205,7 @@ test("omits the private end layer for blank Markdown", () => {
 
   runWrapper(home);
 
-  assert.match(assertManagedRules(home), /concern\.\n$/);
+  assert.match(assertManagedRules(home), /evidence\.\n$/);
 });
 
 test("ignores the retired agents.local.md path", () => {

@@ -59,6 +59,8 @@
 
 ### Code
 
+#### Design and implementation
+
 - Follow the existing stack and type conventions. For unconstrained greenfield
   work, prefer TypeScript for products/tooling and Go for CLIs/services. Choose
   the simplest fit and never migrate a working stack for taste.
@@ -73,6 +75,11 @@
   and use validated types internally. Model meaningful retries, cancellation,
   concurrency, or recovery as closed states and events, such as
   `idle -> running -> succeeded | failed | cancelled`; keep linear flows linear.
+- Do not add unchecked casts, ignores, non-null assertions, or similar escapes
+  when validated idioms exist.
+
+#### Reliability and observability
+
 - Classify boundary failures into a small stable taxonomy such as `validation`,
   `auth`, `conflict`, `rate_limit`, `transient`, `internal`, and `unknown`.
   Preserve causes and context. Retry only idempotent transient work with bounds
@@ -80,12 +87,16 @@
 - At process boundaries, emit structured events with stable fields such as
   `event`, `operation`, `resource_id`, `outcome`, and `error_kind`. Never log
   secrets or full payloads, classify from message prose, or log one failure twice.
+
+#### Interface quality
+
 - Preserve the product's design system. Keep hierarchy and the primary action
   clear; model loading, empty, error, ready, disabled, and submitting states.
   Preserve user input and offer recovery. Verify keyboard use, responsive
   layout, contrast, reduced motion, and visible states.
-- Do not add unchecked casts, ignores, non-null assertions, or similar escapes
-  when validated idioms exist.
+
+#### Verification and documentation
+
 - Keep linters, types, tests, and hooks enabled; fix root causes. Prefer
   integration, contract, and end-to-end proof over mock-heavy tests.
 - Benchmark performance-sensitive changes with before/after numbers.
@@ -94,13 +105,16 @@
 
 ### Delivery
 
-- Prefer conventional commits. Create ready PRs unless the task or repository
-  requires a draft; address feedback with follow-up commits rather than force
-  pushes.
-- Use the PR template. Otherwise cover Summary, Changed, Risks, Verification,
-  and Complexity. Give non-trivial changes the clearest review aid: a focused
-  diagram, labeled UI evidence, or sanitized contract input/output.
-- Keep each inline review comment to one short actionable concern.
+- Prefer conventional commits.
+- Create a pull request only when requested or required. Otherwise, when
+  delivery is authorized, commit and push the approved current branch. Never
+  force-push without explicit approval.
+- When creating a pull request, use its template. If none exists, concisely
+  cover Summary, Changed, Risks, Verification, and Complexity in plain language.
+- Give non-trivial changes the single clearest review aid: a focused diagram,
+  labeled UI evidence, or sanitized contract input/output.
+- When addressing review feedback, respond concisely. If fixed, include the
+  commit hash; if rejected, explain why with evidence.
 {{- if ne $privateEnd "" }}
 
 {{ $privateEnd }}
