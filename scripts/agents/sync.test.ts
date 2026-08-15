@@ -572,9 +572,9 @@ test("uses the current first-party skill sources", () => {
   assert.equal(sourceByName.get("uinaf-design"), "uinaf/design");
   assert.equal(sourceByName.get("uinaf-radar"), "uinaf/skills");
   assert.equal(sourceByName.get("autoreview"), "uinaf/autoreview");
-  assert.equal(sourceByName.get("slopshipper"), "uinaf/slopshipper");
-  assert.equal(layerSkills[0]?.some((skill) => skill.name === "slopshipper"), false);
-  assert.equal(layerSkills[1]?.some((skill) => skill.name === "slopshipper"), true);
+  assert.equal(sourceByName.get("slopship"), "uinaf/slopshipper");
+  assert.equal(layerSkills[0]?.some((skill) => skill.name === "slopship"), false);
+  assert.equal(layerSkills[1]?.some((skill) => skill.name === "slopship"), true);
 
   const preSplitInventory = [
     ["agent-dx-cli-scale", "jpoehnelt/skills"],
@@ -591,7 +591,7 @@ test("uses the current first-party skill sources", () => {
     ["react-ban-use-effect", "uinaf/skills"],
     ["shadcn", "shadcn/ui"],
     ["skill-audit", "uinaf/skills"],
-    ["slopshipper", "uinaf/slopshipper"],
+    ["slopship", "uinaf/slopshipper"],
     ["tanstack-form", "tanstack-skills/tanstack-skills"],
     ["tanstack-query", "tanstack-skills/tanstack-skills"],
     ["tanstack-start", "tanstack-skills/tanstack-skills"],
