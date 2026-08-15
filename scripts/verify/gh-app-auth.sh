@@ -96,14 +96,14 @@ env \
   FAKE_INSTALL_LOG="$default_log" \
   FAKE_SOURCE_ARCHIVE="$tmp_dir/source.tar.gz" \
   FAKE_SOURCE_SHA256="$default_source_sha256" \
-  GH_APP_AUTH_GO_VERSION=1.26.5 \
+  GH_APP_AUTH_GO_VERSION=1.26.6 \
     "$installer" >/dev/null
 grep -Fq "curl --fail --location --silent --show-error --retry 3 https://codeload.github.com/AmadeusITGroup/gh-app-auth/tar.gz/$default_commit" "$default_log" \
   || fail "installer defaults did not fetch the pinned upstream release"
 cat >"$tmp_dir/default-marker" <<EOF
 commit=$default_commit
 source_sha256=$default_source_sha256
-go=1.26.5
+go=1.26.6
 EOF
 cmp -s "$tmp_dir/default-marker" "$default_home/.local/share/gh/extensions/gh-app-auth/.dotfiles-source" \
   || fail "installer defaults did not preserve the pinned upstream release marker"
@@ -119,7 +119,7 @@ FAKE_SOURCE_ARCHIVE="$tmp_dir/source.tar.gz" \
 GH_APP_AUTH_SOURCE_COMMIT=test-commit \
 GH_APP_AUTH_SOURCE_URL=https://example.invalid/source.tar.gz \
 GH_APP_AUTH_SOURCE_SHA256="$source_sha256" \
-GH_APP_AUTH_GO_VERSION=1.26.5 \
+GH_APP_AUTH_GO_VERSION=1.26.6 \
   "$installer" >/dev/null
 
 [ -x "$install_dir/gh-app-auth" ] || fail "installer did not create the extension binary"
@@ -127,7 +127,7 @@ GH_APP_AUTH_GO_VERSION=1.26.5 \
 [ "$(mode_of "$install_dir/.dotfiles-source")" = 600 ] || fail "source marker mode is not 600"
 grep -Fq 'curl --fail --location --silent --show-error --retry 3 https://example.invalid/source.tar.gz' "$log" \
   || fail "installer did not fetch the pinned source URL"
-grep -Fq 'mise x --yes go@1.26.5 -- go build -trimpath -buildvcs=false -ldflags=-s -w' "$log" \
+grep -Fq 'mise x --yes go@1.26.6 -- go build -trimpath -buildvcs=false -ldflags=-s -w' "$log" \
   || fail "installer did not use the pinned temporary Go toolchain"
 grep -Fqx 'gh app-auth exec --help' "$log" || fail "installer did not verify GitHub CLI dispatch"
 
@@ -139,7 +139,7 @@ FAKE_SOURCE_ARCHIVE="$tmp_dir/source.tar.gz" \
 GH_APP_AUTH_SOURCE_COMMIT=test-commit \
 GH_APP_AUTH_SOURCE_URL=https://example.invalid/source.tar.gz \
 GH_APP_AUTH_SOURCE_SHA256="$source_sha256" \
-GH_APP_AUTH_GO_VERSION=1.26.5 \
+GH_APP_AUTH_GO_VERSION=1.26.6 \
   "$installer" >/dev/null
 [ "$(cat "$log")" = 'gh app-auth exec --help' ] \
   || fail "idempotent install performed work beyond runtime verification"

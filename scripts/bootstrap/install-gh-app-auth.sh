@@ -4,7 +4,7 @@ set -euo pipefail
 source_commit="${GH_APP_AUTH_SOURCE_COMMIT:-620f73d8e27a81ea5736acbf5643b461da61c0f4}"
 source_url="${GH_APP_AUTH_SOURCE_URL:-https://codeload.github.com/AmadeusITGroup/gh-app-auth/tar.gz/$source_commit}"
 source_sha256="${GH_APP_AUTH_SOURCE_SHA256:-c4d80ff42526308bd27fc8b458e2c256bfced14cf6d90c4ce28afa3aa5ccbae3}"
-go_version="${GH_APP_AUTH_GO_VERSION:-1.26.5}"
+go_version="${GH_APP_AUTH_GO_VERSION:-1.26.6}"
 canonical_install_dir="$HOME/.local/share/gh/extensions/gh-app-auth"
 install_dir="${GH_APP_AUTH_INSTALL_DIR:-$canonical_install_dir}"
 binary="$install_dir/gh-app-auth"

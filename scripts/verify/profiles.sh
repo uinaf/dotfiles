@@ -490,7 +490,7 @@ for rejected in 'node =' 'python =' 'uv =' 'bun =' 'java =' 'go =' 'playwright' 
 done
 
 workstation_mise="$(render_target workstation .config/mise/config.toml)"
-for expected in 'node = { version = "24.18.0"' 'npm@12.0.2' 'pnpm@11.20.0' 'bun = "1.3.10"' 'java = "temurin-21"' 'go = "1.26.2"' '"npm:@playwright/cli" = "0.1.17"' 'trusted_config_paths'; do
+for expected in 'node = { version = "24.18.0"' 'npm@12.0.2' 'pnpm@11.20.0' 'bun = "1.3.10"' 'java = "temurin-21"' 'go = "1.26.6"' '"npm:@playwright/cli" = "0.1.17"' 'trusted_config_paths'; do
   printf '%s\n' "$workstation_mise" | grep -Fq "$expected" || fail "workstation mise config missed $expected"
 done
 for rejected in 'pnpm@12.0.0-beta.2' 'npm:vite-plus'; do
