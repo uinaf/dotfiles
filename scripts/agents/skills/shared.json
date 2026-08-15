@@ -45,6 +45,10 @@
       "source": "uinaf/skills"
     },
     {
+      "name": "react-doctor",
+      "source": "millionco/react-doctor"
+    },
+    {
       "name": "shadcn",
       "source": "shadcn/ui"
     },

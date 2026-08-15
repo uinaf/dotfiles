@@ -589,6 +589,7 @@ test("uses the current first-party skill sources", () => {
     ["improve", "shadcn/improve"],
     ["planning", "uinaf/skills"],
     ["react-ban-use-effect", "uinaf/skills"],
+    ["react-doctor", "millionco/react-doctor"],
     ["shadcn", "shadcn/ui"],
     ["skill-audit", "uinaf/skills"],
     ["slopship", "uinaf/slopshipper"],
