@@ -59,6 +59,23 @@ typeset -U path PATH
 # User binaries
 path+=("$HOME/.local/bin")
 
+# Prefer the Android Studio SDK when present. Headless developer profiles use
+# the Homebrew command-line-tools SDK root instead.
+if [ -d "$HOME/Library/Android/sdk" ]; then
+  export ANDROID_HOME="$HOME/Library/Android/sdk"
+elif [ -d /opt/homebrew/share/android-commandlinetools ]; then
+  export ANDROID_HOME="/opt/homebrew/share/android-commandlinetools"
+fi
+
+if [ -n "${ANDROID_HOME:-}" ]; then
+  path=(
+    "$ANDROID_HOME/platform-tools"
+    "$ANDROID_HOME/emulator"
+    "$ANDROID_HOME/cmdline-tools/latest/bin"
+    $path
+  )
+fi
+
 typeset -U path PATH
 
 if command -v mise >/dev/null 2>&1; then

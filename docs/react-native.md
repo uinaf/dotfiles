@@ -4,10 +4,13 @@ Manual setup for building React Native apps on a workstation Mac. Covers
 react-native-tvos targets that need both Apple TV and Android TV simulators.
 
 The dotfiles install Android Studio, Xcode tooling, Watchman, and a Temurin 21
-JDK via mise. CocoaPods is installed per repo through Bundler so version pins
-match the app's `Gemfile`. Everything below is per-machine state that the repo
-does not automate, because the steps require sudo, GUI flows, large SDK
-downloads, or license acceptance.
+JDK via mise. They also select the Android Studio SDK at
+`~/Library/Android/sdk`, falling back to Homebrew's command-line-tools SDK on
+headless developer profiles, and put its platform tools, emulator, and command
+line tools on `PATH`. CocoaPods and Fastlane remain project-owned so their
+versions match the target repository. Everything below is per-machine state
+that the repo does not automate, because the steps require sudo, GUI flows,
+large SDK downloads, or license acceptance.
 
 ## Xcode and tvOS Simulator
 
@@ -40,13 +43,16 @@ downloads, or license acceptance.
 
 1. Launch Android Studio once. Run the first-time setup wizard with default
    settings. This installs the Android SDK under `~/Library/Android/sdk`.
-2. Export the SDK location for shells that build Android apps. Add to
-   `~/.zshrc` or a project `.envrc`:
+2. Open a new shell and confirm the managed SDK location:
 
    ```zsh
-   export ANDROID_HOME="$HOME/Library/Android/sdk"
-   path+=("$ANDROID_HOME/platform-tools" "$ANDROID_HOME/emulator")
+   print -r -- "$ANDROID_HOME"
+   command -v adb emulator sdkmanager
    ```
+
+   `ANDROID_SDK_ROOT` is intentionally unset because Android has deprecated it.
+   A project may override `ANDROID_HOME` from its own environment when it owns
+   a different SDK contract.
 
 3. Accept SDK licenses:
 
@@ -110,17 +116,10 @@ cd ios
 bundle exec pod install
 ```
 
-System Ruby (macOS 14+) is 2.6 and is too old for CocoaPods 1.16 and
-ActiveSupport 7. Install a modern Ruby:
-
-```zsh
-brew install ruby
-export PATH="/opt/homebrew/opt/ruby/bin:$PATH"
-```
-
-Or pin via mise at the project level if the repo has a `mise.toml`. Do not
-add Ruby to the shared global mise config; it does not apply to every managed
-machine.
+Developer profiles provide modern Ruby through mise. A repository with a
+different Ruby requirement must pin that version in its own `mise.toml` or
+`.ruby-version`, and invoke Bundler/Fastlane through that project environment.
+Do not install Homebrew Ruby, CocoaPods, or Fastlane globally.
 
 ## Watchman
 

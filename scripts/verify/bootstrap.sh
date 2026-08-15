@@ -340,6 +340,35 @@ check_developer_tools() {
   run_tool_checks "${developer_cli_checks[@]}"
 }
 
+check_android_tools() {
+  local android_home
+  local command_path
+  local command_name
+  local relative_path
+
+  section "Android SDK shell environment"
+  android_home="$(zsh -lic 'printf %s "$ANDROID_HOME"')" \
+    || fail "ANDROID_HOME resolution"
+  [ -n "$android_home" ] || fail "ANDROID_HOME is unset"
+  [ -d "$android_home" ] || fail "ANDROID_HOME does not exist: $android_home"
+
+  while IFS='|' read -r command_name relative_path; do
+    command_path="$(zsh -lic "command -v $command_name")" \
+      || fail "$command_name is unavailable"
+    [ "$command_path" = "$android_home/$relative_path" ] \
+      || fail "$command_name resolves to $command_path; expected $android_home/$relative_path"
+    printf 'ok %s resolves from %s\n' "$command_name" "$android_home"
+  done <<'TOOLS'
+adb|platform-tools/adb
+emulator|emulator/emulator
+sdkmanager|cmdline-tools/latest/bin/sdkmanager
+TOOLS
+
+  run_zsh_check "adb version"
+  run_zsh_check "emulator -list-avds"
+  run_zsh_check "sdkmanager --version"
+}
+
 check_personal_tools() {
   run_tool_checks "${personal_common_cli_checks[@]}"
 }
@@ -500,7 +529,7 @@ run_checks() {
   local -a groups=(environment runtime common_tools homebrew configuration)
 
   if dotfiles_profile_is_developer "$profile"; then
-    groups+=(developer_tools)
+    groups+=(developer_tools android_tools)
   fi
   if dotfiles_profile_is_personal "$profile"; then
     groups+=(personal_tools)
