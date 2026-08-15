@@ -90,6 +90,7 @@ common_cli_checks=(
 )
 
 developer_cli_checks=(
+  "ast-grep --version"
   "python --version"
   "uv --version"
   "gh auth status"

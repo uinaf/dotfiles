@@ -74,6 +74,8 @@
 - Before adding validation, verification, or test infrastructure, inspect the
   repository's manifests, task graph, compiler, linters, schemas, test framework,
   and build system.
+- Use `rg` for text and file discovery. Use `ast-grep` when a search or rewrite
+  depends on syntax structure, and inspect the matches before applying rewrites.
 - Extend the closest structured owner instead of creating a parallel script.
 - Use shell only to sequence existing commands.
 - Put parsing, policy, state, retries, and command graphs in the project's typed
