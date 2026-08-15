@@ -61,10 +61,10 @@ no additional Homebrew software or language runtime.
 
 Personal-workstation, personal-devbox, workstation, and devbox share Codex CLI,
 Claude Code CLI, Cursor Agent CLI, autoreview, Watchman, Docker credential
-helpers, XcodeGen, Android command-line tools, and the development runtime set,
-including mise-managed Ruby. Their install flows also apply machine-global
-instructions through chezmoi and sync additive skills from `scripts/agents/`;
-see [Agent setup](agents.md).
+helpers, AWS CLI, XcodeGen, Android command-line tools, and the development
+runtime set, including mise-managed Ruby. Their install flows also apply
+machine-global instructions through chezmoi and sync additive skills from
+`scripts/agents/`; see [Agent setup](agents.md).
 
 Both personal profiles add App Store Connect CLI, Attach, Crabbox, Discrawl,
 Gitcrawl, putio-cli, Mole, and slopshipper. Only personal-workstation adds

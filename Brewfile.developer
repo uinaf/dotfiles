@@ -10,6 +10,7 @@ cask "claude-code@latest"
 cask "uinaf/tap/autoreview"
 
 # Development CLI
+brew "awscli"
 brew "git-crypt"
 brew "git-filter-repo"
 brew "jq"
