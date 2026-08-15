@@ -16,12 +16,15 @@ raise "profile workstation capability must be boolean" unless [true, false].incl
 
 # Taps
 tap "openclaw/tap"
+tap "putdotio/tap"
 
 # Personal development tools
 brew "asc"
 brew "uinaf/tap/attach"
 brew "openclaw/tap/crabbox"
+brew "openclaw/tap/discrawl"
 brew "openclaw/tap/gitcrawl"
+brew "putdotio/tap/putio-cli"
 brew "mole"
 cask "uinaf/tap/slopshipper"
 

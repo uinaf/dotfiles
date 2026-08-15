@@ -293,6 +293,15 @@ for required in 'cask "codex"' 'cask "claude-code@latest"' 'cask "uinaf/tap/auto
     fi
   done
 done
+for required in 'brew "docker-credential-helper"' 'brew "xcodegen"' 'cask "android-commandlinetools"'; do
+  grep -Fqx "$required" "$repo_root/Brewfile.developer" \
+    || fail "developer layer missed $required"
+  for file in Brewfile.workstation Brewfile.personal Brewfile.devbox Brewfile.assistant Brewfile.service; do
+    if grep -Fqx "$required" "$repo_root/$file"; then
+      fail "$file duplicates developer dependency $required"
+    fi
+  done
+done
 grep -Fqx 'brew "watchman"' "$repo_root/Brewfile.developer" \
   || fail "developer layer missed Watchman"
 for file in Brewfile.workstation Brewfile.personal Brewfile.devbox Brewfile.assistant Brewfile.service; do
@@ -300,7 +309,7 @@ for file in Brewfile.workstation Brewfile.personal Brewfile.devbox Brewfile.assi
     fail "$file duplicates developer Watchman"
   fi
 done
-for required in 'brew "asc"' 'brew "uinaf/tap/attach"' 'brew "openclaw/tap/crabbox"' 'brew "openclaw/tap/gitcrawl"' 'brew "mole"' 'cask "uinaf/tap/slopshipper"'; do
+for required in 'brew "asc"' 'brew "uinaf/tap/attach"' 'brew "openclaw/tap/crabbox"' 'brew "openclaw/tap/discrawl"' 'brew "openclaw/tap/gitcrawl"' 'brew "putdotio/tap/putio-cli"' 'brew "mole"' 'cask "uinaf/tap/slopshipper"'; do
   grep -Fqx "$required" "$repo_root/Brewfile.personal" \
     || fail "personal layer missed $required"
   for file in Brewfile.developer Brewfile.workstation Brewfile.devbox Brewfile.assistant Brewfile.service; do
@@ -309,6 +318,8 @@ for required in 'brew "asc"' 'brew "uinaf/tap/attach"' 'brew "openclaw/tap/crabb
     fi
   done
 done
+grep -Fqx 'tap "putdotio/tap"' "$repo_root/Brewfile.personal" \
+  || fail "personal layer missed putdotio/tap"
 grep -Fqx 'tap "uinaf/tap"' "$repo_root/Brewfile.developer" \
     || fail "developer layer missed the shared uinaf/tap"
 for file in Brewfile.workstation Brewfile.personal Brewfile.devbox; do
@@ -476,21 +487,21 @@ assert_install_rejected 'unknown option' --unknown
 assistant_mise="$(render_target assistant .config/mise/config.toml)"
 printf '%s\n' "$assistant_mise" | grep -Fqx 'node = "24.18.0"' \
   || fail 'assistant mise config missed the pinned Node runtime'
-for rejected in 'python =' 'uv =' 'bun =' 'java =' 'go =' 'playwright' 'vite-plus' 'trusted_config_paths' 'pnpm@'; do
+for rejected in 'python =' 'uv =' 'bun =' 'java =' 'ruby =' 'go =' 'playwright' 'vite-plus' 'trusted_config_paths' 'pnpm@'; do
   if printf '%s\n' "$assistant_mise" | grep -Fq "$rejected"; then
     fail "assistant mise config included developer setting $rejected"
   fi
 done
 
 service_mise="$(render_target service .config/mise/config.toml)"
-for rejected in 'node =' 'python =' 'uv =' 'bun =' 'java =' 'go =' 'playwright' 'trusted_config_paths' 'pnpm@'; do
+for rejected in 'node =' 'python =' 'uv =' 'bun =' 'java =' 'ruby =' 'go =' 'playwright' 'trusted_config_paths' 'pnpm@'; do
   if printf '%s\n' "$service_mise" | grep -Fq "$rejected"; then
     fail "service mise config included runtime or developer setting $rejected"
   fi
 done
 
 workstation_mise="$(render_target workstation .config/mise/config.toml)"
-for expected in 'node = { version = "24.18.0"' 'npm@12.0.2' 'pnpm@11.20.0' 'bun = "1.3.10"' 'java = "temurin-21"' 'go = "1.26.6"' '"npm:@playwright/cli" = "0.1.17"' 'trusted_config_paths'; do
+for expected in 'node = { version = "24.18.0"' 'npm@12.0.2' 'pnpm@11.20.0' 'bun = "1.3.10"' 'java = "temurin-21"' 'ruby = "4.0.6"' 'go = "1.26.6"' '"npm:@playwright/cli" = "0.1.17"' 'trusted_config_paths'; do
   printf '%s\n' "$workstation_mise" | grep -Fq "$expected" || fail "workstation mise config missed $expected"
 done
 for rejected in 'pnpm@12.0.0-beta.2' 'npm:vite-plus'; do

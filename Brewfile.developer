@@ -16,7 +16,11 @@ brew "jq"
 brew "actionlint"
 brew "shellcheck"
 brew "xcodes"
+brew "xcodegen"
 brew "watchman"
+
+# Platform development
+cask "android-commandlinetools"
 
 # Download and media helpers
 brew "aria2"
@@ -27,6 +31,7 @@ brew "colima"
 brew "docker"
 brew "docker-buildx"
 brew "docker-compose"
+brew "docker-credential-helper"
 
 # Networking and diagnostics
 brew "fping"

@@ -211,9 +211,11 @@ check_runtime_versions() {
   run_zsh_check "pnpm --version"
   run_zsh_check "npm --version"
   run_zsh_check "playwright-cli --version"
+  run_zsh_check "ruby --version"
   check_mise_tool_owner "pnpm" "pnpm" "node"
   check_mise_tool_owner "npm" "npm" "node"
   check_mise_tool_owner "Playwright CLI" "playwright-cli" "npm:@playwright/cli"
+  check_mise_tool_owner "Ruby" "ruby" "ruby"
 
   section "global Vite+"
   if zsh -lic 'command -v vp >/dev/null 2>&1'; then
