@@ -29,7 +29,7 @@ test("Codex defaults are one typed atomic edit batch", () => {
   ]);
 });
 
-test("installed Codex uses the native atomic writer and preserves local config", { skip: !codexInstalled }, () => {
+test("installed Codex removes forced login, preserves unrelated config, and is idempotent", { skip: !codexInstalled }, () => {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-codex-config-"));
   const home = join(root, "codex");
   const config = join(home, "config.toml");
@@ -42,6 +42,7 @@ test("installed Codex uses the native atomic writer and preserves local config",
     assert.equal(first.status, 0, first.stderr);
     const contents = readFileSync(config, "utf8");
     assert.ok(contents.includes("# keep this comment"));
+    assert.ok(contents.includes('approval_policy = "never"'));
     assert.ok(contents.includes('[mcp_servers.fixture]\ncommand = "example"'));
     assert.ok(!contents.includes("forced_login_method"));
     for (const expected of [
