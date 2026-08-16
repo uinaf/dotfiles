@@ -1,0 +1,251 @@
+#!/usr/bin/env node
+
+import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readlinkSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
+import test from "node:test";
+import { fileURLToPath } from "node:url";
+
+import {
+  assertCursorAgentBinSafe,
+  claudeGatewayBaseUrl,
+  claudeGatewaySettings,
+  gatewayEdits,
+  parseGatewayConfig,
+} from "./configure-llm-gateway.ts";
+
+const script = resolve(dirname(fileURLToPath(import.meta.url)), "configure-llm-gateway.ts");
+const codexInstalled = spawnSync("codex", ["--version"], { stdio: "ignore" }).status === 0;
+
+const validConfig = {
+  version: 1 as const,
+  secretFile: "/Users/example/vault/coding.sops.env",
+  gatewayBaseUrl: "https://gateway.example/v1",
+  cursorAgentBin: "/Users/example/.local/bin/agent",
+};
+
+test("gateway config is strict and provider edits use command-backed Responses auth", () => {
+  assert.deepEqual(parseGatewayConfig(JSON.stringify(validConfig)), validConfig);
+  assert.throws(
+    () => parseGatewayConfig(JSON.stringify({ ...validConfig, token: "secret" })),
+    /must contain exactly/,
+  );
+  assert.throws(
+    () => parseGatewayConfig(JSON.stringify({ ...validConfig, gatewayBaseUrl: "http://gateway.example/v1" })),
+    /HTTPS \/v1 URL/,
+  );
+
+  const edits = gatewayEdits(validConfig, "/Users/example/.local/libexec/dotfiles/llm-gateway-credential");
+  assert.equal(edits.some((edit) => edit.keyPath === "forced_login_method"), false);
+  assert.ok(edits.some((edit) => edit.keyPath === "model_providers.llm_gateway.wire_api" && edit.value === "responses"));
+  assert.ok(edits.some((edit) => edit.keyPath === "model_providers.llm_gateway.auth.command"));
+  assert.ok(edits.some((edit) => edit.keyPath === "model_providers.llm_gateway.auth.args" && Array.isArray(edit.value) && edit.value[0] === "gateway"));
+  assert.equal(edits.some((edit) => edit.keyPath.includes("env_key") || edit.keyPath.includes("bearer_token")), false);
+
+  assert.equal(claudeGatewayBaseUrl("https://gateway.example/v1"), "https://gateway.example");
+  assert.deepEqual(
+    claudeGatewaySettings('{"theme":"dark","env":{"KEEP":"yes"}}', validConfig.gatewayBaseUrl, "/Users/example/.local/libexec/dotfiles/llm-gateway-credential"),
+    {
+      theme: "dark",
+      apiKeyHelper: "/Users/example/.local/libexec/dotfiles/llm-gateway-credential gateway",
+      env: { KEEP: "yes", ANTHROPIC_BASE_URL: "https://gateway.example" },
+    },
+  );
+  assert.throws(
+    () => claudeGatewaySettings('{"env":{"ANTHROPIC_API_KEY":"conflict"}}', validConfig.gatewayBaseUrl, "/helper"),
+    /conflicts with the gateway/,
+  );
+
+  assert.throws(
+    () => assertCursorAgentBinSafe("/Users/example/.local/bin/agent", ["/Users/example/.local/bin/agent"]),
+    /versioned vendor executable/,
+  );
+});
+
+test("apply, check, Claude settings, Cursor status, and rollback preserve saved login state", { skip: !codexInstalled }, () => {
+  const root = mkdtempSync(join(tmpdir(), "dotfiles-llm-gateway-"));
+  const home = join(root, "home");
+  const bin = join(root, "bin");
+  const codexHome = join(home, ".codex");
+  const configDir = join(home, ".config/dotfiles");
+  const gatewayConfig = join(configDir, "llm-gateway.json");
+  const claudeSettingsPath = join(home, ".claude/settings.json");
+  const secretFile = join(root, "coding.sops.env");
+  const cursorBin = join(home, ".local/share/cursor-agent/versions/test/cursor-agent");
+  const cursorCommands = [join(home, ".local/bin/cursor-agent"), join(home, ".local/bin/agent")];
+  const originalCursorTargets = ["../share/cursor-agent/versions/test/cursor-agent", "../share/cursor-agent/versions/test/cursor-agent"];
+  const originalCodex = '# retained\nforced_login_method = "chatgpt"\n';
+  const originalAuth = '{"tokens":"saved-login-state"}\n';
+  const originalClaudeSettings = '{"permissions":{"defaultMode":"auto"},"env":{"KEEP":"yes"},"theme":"dark"}\n';
+  const cursorKey = "crsr_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-";
+  const gatewayKey = "0123456789abcdefghijklmnopqrstuvwxyz_ABCD";
+
+  try {
+    mkdirSync(codexHome, { recursive: true });
+    mkdirSync(configDir, { recursive: true });
+    mkdirSync(bin, { recursive: true });
+    mkdirSync(dirname(cursorBin), { recursive: true });
+    mkdirSync(dirname(cursorCommands[0]), { recursive: true });
+    mkdirSync(dirname(claudeSettingsPath), { recursive: true });
+    writeFileSync(join(codexHome, "config.toml"), originalCodex, { mode: 0o600 });
+    writeFileSync(join(codexHome, "auth.json"), originalAuth, { mode: 0o600 });
+    writeFileSync(secretFile, "encrypted fixture\n", { mode: 0o600 });
+    writeFileSync(claudeSettingsPath, originalClaudeSettings, { mode: 0o600 });
+    writeFileSync(gatewayConfig, `${JSON.stringify({ ...validConfig, secretFile, cursorAgentBin: cursorBin })}\n`, { mode: 0o600 });
+    writeFileSync(cursorBin, '#!/usr/bin/env bash\n[ "${1:-}" = models ] || [ "${1:-}" = --version ] || exit 2\n', { mode: 0o700 });
+    for (const [index, command] of cursorCommands.entries()) symlinkSync(originalCursorTargets[index], command);
+    writeFileSync(join(bin, "sops"), `#!/usr/bin/env bash
+case "\${1:-}" in
+  filestatus) printf '{"encrypted":true}\\n' ;;
+  decrypt) printf '{"CURSOR_API_KEY":"${cursorKey}","CLIPROXYAPI_CLIENT_API_KEY":"${gatewayKey}"}\\n' ;;
+  *) exit 2 ;;
+esac
+`, { mode: 0o700 });
+
+    const env = {
+      ...process.env,
+      HOME: home,
+      CODEX_HOME: codexHome,
+      LLM_GATEWAY_CONFIG: gatewayConfig,
+      PATH: `${bin}:${process.env.PATH || ""}`,
+    };
+    const run = (...args: string[]) => spawnSync(script, args, { encoding: "utf8", env });
+
+    const apply = run();
+    assert.equal(apply.status, 0, apply.stderr);
+    assert.equal(readFileSync(join(codexHome, "auth.json"), "utf8"), originalAuth);
+    assert.equal(statSync(join(codexHome, "config.toml")).mode & 0o777, 0o600);
+    const appliedCodex = readFileSync(join(codexHome, "config.toml"), "utf8");
+    assert.match(appliedCodex, /model_provider = "llm_gateway"/);
+    assert.match(appliedCodex, /forced_login_method = "chatgpt"/);
+    const appliedClaude = JSON.parse(readFileSync(claudeSettingsPath, "utf8")) as {
+      apiKeyHelper: string;
+      env: Record<string, string>;
+      permissions: Record<string, string>;
+      theme: string;
+    };
+    assert.equal(appliedClaude.apiKeyHelper, `${join(home, ".local/libexec/dotfiles/llm-gateway-credential")} gateway`);
+    assert.equal(appliedClaude.env.ANTHROPIC_BASE_URL, "https://gateway.example");
+    assert.equal(appliedClaude.env.KEEP, "yes");
+    assert.equal(appliedClaude.permissions.defaultMode, "auto");
+    assert.equal(appliedClaude.theme, "dark");
+    assert.equal(statSync(claudeSettingsPath).mode & 0o777, 0o600);
+    for (const command of cursorCommands) {
+      assert.equal(lstatSync(command).isSymbolicLink(), false);
+      assert.equal(statSync(command).mode & 0o777, 0o700);
+    }
+    const state = JSON.parse(readFileSync(join(configDir, "llm-gateway-state.json"), "utf8")) as { version: number; cursorCommands: Array<{ target: string }> };
+    assert.equal(state.version, 3);
+    assert.deepEqual(state.cursorCommands.map((command) => command.target), originalCursorTargets);
+
+    const second = run();
+    assert.equal(second.status, 0, second.stderr);
+    assert.equal(readFileSync(join(codexHome, "config.toml.llm-gateway.backup"), "utf8"), originalCodex);
+    assert.equal(readFileSync(`${claudeSettingsPath}.llm-gateway.backup`, "utf8"), originalClaudeSettings);
+
+    const check = run("--check");
+    assert.equal(check.status, 0, check.stderr);
+    for (const command of [join(home, ".local/bin/cursor-agent-api"), ...cursorCommands]) {
+      const cursorStatus = spawnSync(command, ["status"], { encoding: "utf8", env });
+      assert.equal(cursorStatus.status, 0, cursorStatus.stderr);
+      assert.equal(cursorStatus.stdout.trim(), "API key authenticated");
+      const cursorLogin = spawnSync(command, ["login", "--help"], { encoding: "utf8", env });
+      assert.notEqual(cursorLogin.status, 0);
+      assert.match(cursorLogin.stderr, /saved-login changes are disabled/);
+    }
+
+    const rollback = run("--rollback");
+    assert.equal(rollback.status, 0, rollback.stderr);
+    assert.equal(readFileSync(join(codexHome, "config.toml"), "utf8"), originalCodex);
+    assert.equal(readFileSync(join(codexHome, "auth.json"), "utf8"), originalAuth);
+    assert.equal(readFileSync(claudeSettingsPath, "utf8"), originalClaudeSettings);
+    assert.equal(existsSync(join(home, ".local/bin/cursor-agent-api")), false);
+    assert.equal(existsSync(join(home, ".local/libexec/dotfiles/llm-gateway-credential")), false);
+    for (const [index, command] of cursorCommands.entries()) {
+      assert.equal(lstatSync(command).isSymbolicLink(), true);
+      assert.equal(readlinkSync(command), originalCursorTargets[index]);
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("deployed llm-client version 2 state migrates to the Claude-capable llm-gateway state", { skip: !codexInstalled }, () => {
+  const root = mkdtempSync(join(tmpdir(), "dotfiles-llm-gateway-migration-"));
+  const home = join(root, "home");
+  const bin = join(root, "bin");
+  const configDir = join(home, ".config/dotfiles");
+  const codexHome = join(home, ".codex");
+  const claudeSettingsPath = join(home, ".claude/settings.json");
+  const gatewayConfig = join(configDir, "llm-gateway.json");
+  const secretFile = join(root, "coding.sops.env");
+  const cursorBin = join(home, ".local/share/cursor-agent/versions/test/cursor-agent");
+  const cursorCommands = [join(home, ".local/bin/cursor-agent"), join(home, ".local/bin/agent")];
+  const originalCursorTarget = "/vendor/cursor-agent";
+  const originalCodex = '# original\nforced_login_method = "chatgpt"\n';
+  const currentCodex = 'model_provider = "llm_gateway"\n';
+  const originalClaude = '{"permissions":{"defaultMode":"auto"}}\n';
+  const legacyBackup = join(codexHome, "config.toml.llm-client.backup");
+  const legacyState = join(configDir, "llm-client-state.json");
+  const legacyCredential = join(home, ".local/libexec/dotfiles/llm-client-credential");
+
+  try {
+    for (const path of [configDir, codexHome, dirname(claudeSettingsPath), dirname(cursorBin), dirname(cursorCommands[0]), dirname(legacyCredential), bin]) {
+      mkdirSync(path, { recursive: true });
+    }
+    writeFileSync(join(codexHome, "config.toml"), currentCodex, { mode: 0o600 });
+    writeFileSync(legacyBackup, originalCodex, { mode: 0o600 });
+    writeFileSync(claudeSettingsPath, originalClaude, { mode: 0o600 });
+    writeFileSync(secretFile, "encrypted fixture\n", { mode: 0o600 });
+    writeFileSync(gatewayConfig, `${JSON.stringify({ ...validConfig, secretFile, cursorAgentBin: cursorBin })}\n`, { mode: 0o600 });
+    writeFileSync(cursorBin, '#!/usr/bin/env bash\n[ "${1:-}" = models ] || exit 2\n', { mode: 0o700 });
+    for (const command of cursorCommands) writeFileSync(command, "legacy wrapper\n", { mode: 0o700 });
+    writeFileSync(legacyCredential, "legacy helper\n", { mode: 0o700 });
+    writeFileSync(legacyState, `${JSON.stringify({
+      version: 2,
+      codexConfigExisted: true,
+      codexBackupPath: legacyBackup,
+      cursorCommands: cursorCommands.map((path) => ({ path, target: originalCursorTarget })),
+    }, null, 2)}\n`, { mode: 0o600 });
+    writeFileSync(join(bin, "sops"), `#!/usr/bin/env bash
+case "\${1:-}" in
+  filestatus) printf '{"encrypted":true}\\n' ;;
+  decrypt) printf '{"CURSOR_API_KEY":"crsr_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-","CLIPROXYAPI_CLIENT_API_KEY":"0123456789abcdefghijklmnopqrstuvwxyz_ABCD"}\\n' ;;
+  *) exit 2 ;;
+esac
+`, { mode: 0o700 });
+
+    const env = {
+      ...process.env,
+      HOME: home,
+      CODEX_HOME: codexHome,
+      LLM_GATEWAY_CONFIG: gatewayConfig,
+      PATH: `${bin}:${process.env.PATH || ""}`,
+    };
+    const preMigrationCheck = spawnSync(script, ["--check"], { encoding: "utf8", env });
+    assert.notEqual(preMigrationCheck.status, 0);
+    assert.equal(existsSync(legacyState), true);
+    assert.equal(existsSync(join(configDir, "llm-gateway-state.json")), false);
+    const apply = spawnSync(script, [], { encoding: "utf8", env });
+    assert.equal(apply.status, 0, apply.stderr);
+    assert.equal(existsSync(legacyState), false);
+    assert.equal(existsSync(legacyCredential), false);
+    const migrated = JSON.parse(readFileSync(join(configDir, "llm-gateway-state.json"), "utf8")) as { version: number; codexBackupPath: string };
+    assert.equal(migrated.version, 3);
+    assert.equal(migrated.codexBackupPath, legacyBackup);
+    assert.equal(readFileSync(`${claudeSettingsPath}.llm-gateway.backup`, "utf8"), originalClaude);
+
+    const rollback = spawnSync(script, ["--rollback"], { encoding: "utf8", env });
+    assert.equal(rollback.status, 0, rollback.stderr);
+    assert.equal(readFileSync(join(codexHome, "config.toml"), "utf8"), originalCodex);
+    assert.equal(readFileSync(claudeSettingsPath, "utf8"), originalClaude);
+    for (const command of cursorCommands) {
+      assert.equal(lstatSync(command).isSymbolicLink(), true);
+      assert.equal(readlinkSync(command), originalCursorTarget);
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});

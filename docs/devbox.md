@@ -100,15 +100,15 @@ DEVBOX_USER=example
 
 Do not create broad workspace env bundles or load secrets in shell startup.
 
-## Opt-In Coding Client Gateway
+## Opt-In Coding LLM Gateway
 
-Developer-profile users may route Codex through a private OpenAI-compatible
-gateway and run Cursor Agent with an identity-owned API key. This capability
-is off until the identity creates an owner-only local configuration file. It
-does not change assistant or service profiles, and it does not store secrets
-in shell startup or Codex configuration.
+Developer-profile users may route Codex and Claude Code through a private LLM
+gateway and run Cursor Agent with an identity-owned API key. This capability is
+off until the identity creates an owner-only local configuration file. It does
+not change assistant or service profiles, and it does not store secrets in
+shell startup, Codex configuration, or Claude settings.
 
-Create `~/.config/dotfiles/llm-client.json` with mode `0600`:
+Create `~/.config/dotfiles/llm-gateway.json` with mode `0600`:
 
 ```json
 {
@@ -121,12 +121,12 @@ Create `~/.config/dotfiles/llm-client.json` with mode `0600`:
 
 The SOPS payload must provide `CLIPROXYAPI_CLIENT_API_KEY` and
 `CURSOR_API_KEY`. The configurator installs owner-only process helpers, backs
-up the current Codex config once, and uses Codex's native atomic config writer
-to select a command-authenticated Responses provider:
+up the current Codex and Claude settings once, and uses Codex's native atomic
+config writer to select a command-authenticated Responses provider:
 
 ```bash
-./scripts/bootstrap/configure-llm-client.ts
-./scripts/bootstrap/configure-llm-client.ts --check
+./scripts/bootstrap/configure-llm-gateway.ts
+./scripts/bootstrap/configure-llm-gateway.ts --check
 ```
 
 The first enrollment keeps the existing `forced_login_method` and saved Codex
@@ -134,6 +134,13 @@ login intact. Setting it to `api` before retirement can make Codex delete the
 incompatible saved ChatGPT auth file when the next session starts. Remove the
 saved login only in the separate, explicit auth-retirement step after the
 gateway and rollback path are accepted.
+
+Claude Code receives `ANTHROPIC_BASE_URL` and `apiKeyHelper` in its existing
+user settings. Every unrelated setting and the saved Claude login remain in
+place. Enrollment fails if the settings already define `ANTHROPIC_API_KEY`,
+`ANTHROPIC_AUTH_TOKEN`, Bedrock, or Vertex selection because those values take
+precedence over the gateway helper. Remove that conflict deliberately before
+enrollment instead of silently routing around it.
 
 The configurator records the exact installer-managed symlink targets, then
 replaces `~/.local/bin/cursor-agent` and `~/.local/bin/agent` with the API-key
@@ -147,12 +154,12 @@ command cannot start browser authentication. It reports API-key health through
 the provider model endpoint instead of reporting a saved OAuth identity.
 Cursor installer upgrades automatically reapply the managed commands.
 
-Rollback restores the exact pre-enrollment Codex config and Cursor command
-symlinks, then removes the helpers. Saved Codex and Cursor login state is never
-edited:
+Rollback restores the exact pre-enrollment Codex config, Claude settings, and
+Cursor command symlinks, then removes the helpers. Saved Codex, Claude, and
+Cursor login state is never edited:
 
 ```bash
-./scripts/bootstrap/configure-llm-client.ts --rollback
+./scripts/bootstrap/configure-llm-gateway.ts --rollback
 ```
 
 ## System Services

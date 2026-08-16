@@ -20,7 +20,7 @@ import { fileURLToPath } from "node:url";
 
 import { type ConfigEdit, writeConfigEdits } from "./configure-codex.ts";
 
-type ClientConfig = {
+type GatewayConfig = {
   version: 1;
   secretFile: string;
   gatewayBaseUrl: string;
@@ -45,10 +45,19 @@ type ClientStateV2 = {
   cursorCommands: CursorCommandState[];
 };
 
-type ClientState = ClientStateV1 | ClientStateV2;
+type ClientStateV3 = {
+  version: 3;
+  codexConfigExisted: boolean;
+  codexBackupPath: string | null;
+  cursorCommands: CursorCommandState[];
+  claudeSettingsExisted: boolean;
+  claudeBackupPath: string | null;
+};
+
+type ClientState = ClientStateV1 | ClientStateV2 | ClientStateV3;
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
-const sourceCredential = join(repoRoot, "scripts/agents/llm-client-credential.sh");
+const sourceCredential = join(repoRoot, "scripts/agents/llm-gateway-credential.sh");
 const sourceCursor = join(repoRoot, "scripts/agents/cursor-agent-api.sh");
 
 function exactKeys(value: Record<string, unknown>, expected: readonly string[]): boolean {
@@ -65,12 +74,12 @@ function ownerOnly(path: string): boolean {
   return (statSync(path).mode & 0o077) === 0;
 }
 
-export function parseClientConfig(contents: string): ClientConfig {
+export function parseGatewayConfig(contents: string): GatewayConfig {
   const value: unknown = JSON.parse(contents);
   if (!isRecord(value) || !exactKeys(value, ["version", "secretFile", "gatewayBaseUrl", "cursorAgentBin"])) {
-    throw new Error("client config must contain exactly version, secretFile, gatewayBaseUrl, and cursorAgentBin");
+    throw new Error("gateway config must contain exactly version, secretFile, gatewayBaseUrl, and cursorAgentBin");
   }
-  if (value.version !== 1) throw new Error("client config version must be 1");
+  if (value.version !== 1) throw new Error("gateway config version must be 1");
   for (const field of ["secretFile", "gatewayBaseUrl", "cursorAgentBin"] as const) {
     if (typeof value[field] !== "string" || value[field].length === 0) throw new Error(`${field} must be a non-empty string`);
   }
@@ -81,10 +90,10 @@ export function parseClientConfig(contents: string): ClientConfig {
   if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash || !url.pathname.endsWith("/v1")) {
     throw new Error("gatewayBaseUrl must be an HTTPS /v1 URL without credentials, query, or fragment");
   }
-  return value as ClientConfig;
+  return value as GatewayConfig;
 }
 
-export function gatewayEdits(config: ClientConfig, credentialPath: string): ConfigEdit[] {
+export function gatewayEdits(config: GatewayConfig, credentialPath: string): ConfigEdit[] {
   return [
     { keyPath: "model", value: "gpt-5.6-sol", mergeStrategy: "upsert" },
     { keyPath: "model_provider", value: "llm_gateway", mergeStrategy: "upsert" },
@@ -98,6 +107,27 @@ export function gatewayEdits(config: ClientConfig, credentialPath: string): Conf
     { keyPath: "model_providers.llm_gateway.auth.timeout_ms", value: 5000, mergeStrategy: "upsert" },
     { keyPath: "model_providers.llm_gateway.auth.refresh_interval_ms", value: 0, mergeStrategy: "upsert" },
   ];
+}
+
+export function claudeGatewayBaseUrl(gatewayBaseUrl: string): string {
+  const url = new URL(gatewayBaseUrl);
+  url.pathname = url.pathname.slice(0, -3) || "/";
+  return url.toString().replace(/\/$/, "");
+}
+
+export function claudeGatewaySettings(contents: string, gatewayBaseUrl: string, credentialPath: string): Record<string, unknown> {
+  const value: unknown = contents.trim() === "" ? {} : JSON.parse(contents);
+  if (!isRecord(value)) throw new Error("Claude settings must contain a JSON object");
+  const currentEnv = value.env === undefined ? {} : value.env;
+  if (!isRecord(currentEnv)) throw new Error("Claude settings env must contain a JSON object");
+  for (const key of ["ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "CLAUDE_CODE_USE_BEDROCK", "CLAUDE_CODE_USE_VERTEX"]) {
+    if (key in currentEnv) throw new Error(`Claude settings env conflicts with the gateway: ${key}`);
+  }
+  return {
+    ...value,
+    apiKeyHelper: `${credentialPath} gateway`,
+    env: { ...currentEnv, ANTHROPIC_BASE_URL: claudeGatewayBaseUrl(gatewayBaseUrl) },
+  };
 }
 
 function atomicCopy(source: string, target: string, mode: number): void {
@@ -118,23 +148,34 @@ function atomicWriteJson(target: string, value: unknown): void {
 function readState(path: string): ClientState {
   const value: unknown = JSON.parse(readFileSync(path, "utf8"));
   if (!isRecord(value)) {
-    throw new Error("LLM client state has an invalid shape");
+    throw new Error("LLM gateway state has an invalid shape");
   }
   const v1 = value.version === 1 && exactKeys(value, ["version", "codexConfigExisted", "codexBackupPath"]);
   const v2 = value.version === 2 && exactKeys(value, ["version", "codexConfigExisted", "codexBackupPath", "cursorCommands"]);
-  if (!v1 && !v2) throw new Error("LLM client state has an invalid shape");
+  const v3 = value.version === 3 && exactKeys(value, [
+    "version",
+    "codexConfigExisted",
+    "codexBackupPath",
+    "cursorCommands",
+    "claudeSettingsExisted",
+    "claudeBackupPath",
+  ]);
+  if (!v1 && !v2 && !v3) throw new Error("LLM gateway state has an invalid shape");
   if (typeof value.codexConfigExisted !== "boolean" || !(value.codexBackupPath === null || typeof value.codexBackupPath === "string")) {
-    throw new Error("LLM client state has invalid values");
+    throw new Error("LLM gateway state has invalid values");
   }
-  if (v2) {
+  if (v2 || v3) {
     if (!Array.isArray(value.cursorCommands) || value.cursorCommands.length !== 2) {
-      throw new Error("LLM client state has invalid Cursor commands");
+      throw new Error("LLM gateway state has invalid Cursor commands");
     }
     for (const command of value.cursorCommands) {
       if (!isRecord(command) || !exactKeys(command, ["path", "target"]) || typeof command.path !== "string" || typeof command.target !== "string") {
-        throw new Error("LLM client state has invalid Cursor commands");
+        throw new Error("LLM gateway state has invalid Cursor commands");
       }
     }
+  }
+  if (v3 && (typeof value.claudeSettingsExisted !== "boolean" || !(value.claudeBackupPath === null || typeof value.claudeBackupPath === "string"))) {
+    throw new Error("LLM gateway state has invalid Claude settings values");
   }
   return value as ClientState;
 }
@@ -156,9 +197,9 @@ function restoreCursorCommands(commands: readonly CursorCommandState[]): void {
   }
 }
 
-function assertStateCursorCommands(state: ClientStateV2, expectedPaths: readonly string[]): void {
+function assertStateCursorCommands(state: ClientStateV2 | ClientStateV3, expectedPaths: readonly string[]): void {
   if (!state.cursorCommands.every((command, index) => command.path === expectedPaths[index])) {
-    throw new Error("LLM client state contains unexpected Cursor command paths");
+    throw new Error("LLM gateway state contains unexpected Cursor command paths");
   }
 }
 
@@ -168,12 +209,12 @@ export function assertCursorAgentBinSafe(cursorAgentBin: string, managedPaths: r
   }
 }
 
-function validateLocalInputs(configPath: string): ClientConfig {
+function validateLocalInputs(configPath: string): GatewayConfig {
   if (!existsSync(configPath) || lstatSync(configPath).isSymbolicLink() || !lstatSync(configPath).isFile()) {
-    throw new Error(`client config must be a regular file: ${configPath}`);
+    throw new Error(`gateway config must be a regular file: ${configPath}`);
   }
-  if (!ownerOnly(configPath)) throw new Error("client config must not be accessible by group or other users");
-  const config = parseClientConfig(readFileSync(configPath, "utf8"));
+  if (!ownerOnly(configPath)) throw new Error("gateway config must not be accessible by group or other users");
+  const config = parseGatewayConfig(readFileSync(configPath, "utf8"));
   if (!existsSync(config.secretFile) || lstatSync(config.secretFile).isSymbolicLink() || !lstatSync(config.secretFile).isFile()) {
     throw new Error("secretFile must be a regular SOPS payload");
   }
@@ -197,47 +238,67 @@ function assertInstalledFile(source: string, target: string): void {
 async function run(): Promise<void> {
   const args = process.argv.slice(2);
   const mode = args.length === 0 ? "apply" : args.length === 1 && ["--check", "--rollback"].includes(args[0]) ? args[0].slice(2) : "invalid";
-  if (mode === "invalid") throw new Error("usage: configure-llm-client.ts [--check|--rollback]");
+  if (mode === "invalid") throw new Error("usage: configure-llm-gateway.ts [--check|--rollback]");
 
   const home = resolve(process.env.HOME || "");
   const codexHome = resolve(process.env.CODEX_HOME || join(home, ".codex"));
   const codexConfig = resolve(process.env.CODEX_CONFIG_PATH || join(codexHome, "config.toml"));
-  const configPath = resolve(process.env.LLM_CLIENT_CONFIG || join(home, ".config/dotfiles/llm-client.json"));
-  const statePath = join(home, ".config/dotfiles/llm-client-state.json");
-  const credentialTarget = join(home, ".local/libexec/dotfiles/llm-client-credential");
+  const claudeSettings = resolve(process.env.CLAUDE_SETTINGS_PATH || join(home, ".claude/settings.json"));
+  const configPath = resolve(process.env.LLM_GATEWAY_CONFIG || join(home, ".config/dotfiles/llm-gateway.json"));
+  const statePath = join(home, ".config/dotfiles/llm-gateway-state.json");
+  const legacyStatePath = join(home, ".config/dotfiles/llm-client-state.json");
+  const credentialTarget = join(home, ".local/libexec/dotfiles/llm-gateway-credential");
+  const legacyCredentialTarget = join(home, ".local/libexec/dotfiles/llm-client-credential");
   const cursorApiTarget = join(home, ".local/bin/cursor-agent-api");
   const cursorCommandTargets = [join(home, ".local/bin/cursor-agent"), join(home, ".local/bin/agent")];
   const managedCursorTargets = [cursorApiTarget, ...cursorCommandTargets];
-  const backupPath = `${codexConfig}.llm-client.backup`;
+  const codexBackupPath = `${codexConfig}.llm-gateway.backup`;
+  const claudeBackupPath = `${claudeSettings}.llm-gateway.backup`;
 
   if (mode === "rollback") {
-    if (!existsSync(statePath)) {
-      process.stdout.write("LLM client is already rolled back\n");
+    const rollbackStatePath = existsSync(statePath) ? statePath : legacyStatePath;
+    if (!existsSync(rollbackStatePath)) {
+      process.stdout.write("LLM gateway is already rolled back\n");
       return;
     }
-    const state = readState(statePath);
-    if (state.version === 2) assertStateCursorCommands(state, cursorCommandTargets);
+    const state = readState(rollbackStatePath);
+    if (state.version >= 2) assertStateCursorCommands(state, cursorCommandTargets);
     if (state.codexConfigExisted) {
       if (!state.codexBackupPath || !existsSync(state.codexBackupPath)) throw new Error("Codex rollback backup is missing");
       atomicCopy(state.codexBackupPath, codexConfig, 0o600);
     } else {
       rmSync(codexConfig, { force: true });
     }
+    if (state.version === 3) {
+      if (state.claudeSettingsExisted) {
+        if (!state.claudeBackupPath || !existsSync(state.claudeBackupPath)) throw new Error("Claude rollback backup is missing");
+        atomicCopy(state.claudeBackupPath, claudeSettings, 0o600);
+      } else {
+        rmSync(claudeSettings, { force: true });
+      }
+    }
     rmSync(credentialTarget, { force: true });
+    rmSync(legacyCredentialTarget, { force: true });
     rmSync(cursorApiTarget, { force: true });
-    if (state.version === 2) restoreCursorCommands(state.cursorCommands);
+    if (state.version >= 2) restoreCursorCommands(state.cursorCommands);
     if (state.codexBackupPath) rmSync(state.codexBackupPath, { force: true });
-    rmSync(statePath, { force: true });
-    process.stdout.write("rolled back LLM client; saved Codex login remains untouched\n");
+    if (state.version === 3 && state.claudeBackupPath) rmSync(state.claudeBackupPath, { force: true });
+    rmSync(rollbackStatePath, { force: true });
+    process.stdout.write("rolled back LLM gateway; saved Codex and Claude login state remains untouched\n");
     return;
   }
 
   const config = validateLocalInputs(configPath);
   assertCursorAgentBinSafe(config.cursorAgentBin, managedCursorTargets);
+  const desiredClaudeSettings = claudeGatewaySettings(
+    existsSync(claudeSettings) ? readFileSync(claudeSettings, "utf8") : "",
+    config.gatewayBaseUrl,
+    credentialTarget,
+  );
   if (mode === "check") {
-    if (!existsSync(statePath) || !ownerOnly(statePath)) throw new Error("LLM client state is missing or not owner-only");
+    if (!existsSync(statePath) || !ownerOnly(statePath)) throw new Error("LLM gateway state is missing or not owner-only");
     const state = readState(statePath);
-    if (state.version !== 2) throw new Error("LLM client state must be upgraded by applying the configurator");
+    if (state.version !== 3) throw new Error("LLM gateway state must be upgraded by applying the configurator");
     assertStateCursorCommands(state, cursorCommandTargets);
     assertInstalledFile(sourceCredential, credentialTarget);
     for (const target of managedCursorTargets) assertInstalledFile(sourceCursor, target);
@@ -251,38 +312,52 @@ async function run(): Promise<void> {
     ]) {
       if (!contents.includes(expected)) throw new Error("Codex gateway config drifted");
     }
+    const claude = JSON.parse(readFileSync(claudeSettings, "utf8")) as { apiKeyHelper?: unknown; env?: Record<string, unknown> };
+    if (claude.apiKeyHelper !== `${credentialTarget} gateway` || claude.env?.ANTHROPIC_BASE_URL !== claudeGatewayBaseUrl(config.gatewayBaseUrl)) {
+      throw new Error("Claude gateway settings drifted");
+    }
     for (const kind of ["cursor", "gateway"]) {
-      const result = spawnSync(credentialTarget, [kind], { encoding: "utf8", env: { ...process.env, LLM_CLIENT_CONFIG: configPath } });
+      const result = spawnSync(credentialTarget, [kind], { encoding: "utf8", env: { ...process.env, LLM_GATEWAY_CONFIG: configPath } });
       if (result.status !== 0 || result.stdout.trim().length === 0) throw new Error(`${kind} credential helper failed`);
     }
-    process.stdout.write("ok LLM client config, helpers, ciphertext, and Codex provider\n");
+    process.stdout.write("ok LLM gateway config, helpers, ciphertext, Codex provider, and Claude settings\n");
     return;
   }
 
+  if (!existsSync(statePath) && existsSync(legacyStatePath)) renameSync(legacyStatePath, statePath);
+
   if (!existsSync(statePath)) {
     const cursorCommands = captureCursorCommands(cursorCommandTargets);
-    const existed = existsSync(codexConfig);
-    if (existed) {
-      if (existsSync(backupPath)) throw new Error(`refusing to overwrite existing backup: ${backupPath}`);
-      atomicCopy(codexConfig, backupPath, 0o600);
-    }
+    const codexExisted = existsSync(codexConfig);
+    const claudeExisted = existsSync(claudeSettings);
+    if (codexExisted && existsSync(codexBackupPath)) throw new Error(`refusing to overwrite existing backup: ${codexBackupPath}`);
+    if (claudeExisted && existsSync(claudeBackupPath)) throw new Error(`refusing to overwrite existing backup: ${claudeBackupPath}`);
+    if (codexExisted) atomicCopy(codexConfig, codexBackupPath, 0o600);
+    if (claudeExisted) atomicCopy(claudeSettings, claudeBackupPath, 0o600);
     atomicWriteJson(statePath, {
-      version: 2,
-      codexConfigExisted: existed,
-      codexBackupPath: existed ? backupPath : null,
+      version: 3,
+      codexConfigExisted: codexExisted,
+      codexBackupPath: codexExisted ? codexBackupPath : null,
       cursorCommands,
-    } satisfies ClientStateV2);
+      claudeSettingsExisted: claudeExisted,
+      claudeBackupPath: claudeExisted ? claudeBackupPath : null,
+    } satisfies ClientStateV3);
   } else {
     const state = readState(statePath);
-    if (state.version === 1) {
+    const cursorCommands = state.version === 1 ? captureCursorCommands(cursorCommandTargets) : state.cursorCommands;
+    if (state.version >= 2) assertStateCursorCommands(state, cursorCommandTargets);
+    if (state.version < 3) {
+      const claudeExisted = existsSync(claudeSettings);
+      if (claudeExisted && existsSync(claudeBackupPath)) throw new Error(`refusing to overwrite existing backup: ${claudeBackupPath}`);
+      if (claudeExisted) atomicCopy(claudeSettings, claudeBackupPath, 0o600);
       atomicWriteJson(statePath, {
-        version: 2,
+        version: 3,
         codexConfigExisted: state.codexConfigExisted,
         codexBackupPath: state.codexBackupPath,
-        cursorCommands: captureCursorCommands(cursorCommandTargets),
-      } satisfies ClientStateV2);
-    } else {
-      assertStateCursorCommands(state, cursorCommandTargets);
+        cursorCommands,
+        claudeSettingsExisted: claudeExisted,
+        claudeBackupPath: claudeExisted ? claudeBackupPath : null,
+      } satisfies ClientStateV3);
     }
   }
 
@@ -290,7 +365,9 @@ async function run(): Promise<void> {
   for (const target of managedCursorTargets) atomicCopy(sourceCursor, target, 0o700);
   await writeConfigEdits(gatewayEdits(config, credentialTarget));
   chmodSync(codexConfig, 0o600);
-  process.stdout.write("configured Codex gateway and canonical Cursor API-key commands; saved logins remain untouched\n");
+  atomicWriteJson(claudeSettings, desiredClaudeSettings);
+  rmSync(legacyCredentialTarget, { force: true });
+  process.stdout.write("configured Codex and Claude gateway routing plus canonical Cursor API-key commands; saved logins remain untouched\n");
 }
 
 if (import.meta.main) {

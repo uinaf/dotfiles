@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-config_path="${LLM_CLIENT_CONFIG:-$HOME/.config/dotfiles/llm-client.json}"
-credential_helper="$HOME/.local/libexec/dotfiles/llm-client-credential"
+config_path="${LLM_GATEWAY_CONFIG:-$HOME/.config/dotfiles/llm-gateway.json}"
+credential_helper="$HOME/.local/libexec/dotfiles/llm-gateway-credential"
 
 fail() {
   printf 'FAILED: %s\n' "$1" >&2
@@ -10,18 +10,18 @@ fail() {
 }
 
 command -v jq >/dev/null 2>&1 || fail "missing jq"
-[ -f "$config_path" ] && [ ! -L "$config_path" ] || fail "missing regular client config"
+[ -f "$config_path" ] && [ ! -L "$config_path" ] || fail "missing regular gateway config"
 config_mode="$(stat -f '%Lp' "$config_path" 2>/dev/null || stat -c '%a' "$config_path" 2>/dev/null)" \
-  || fail "could not inspect client config permissions"
-[ "$config_mode" = 600 ] || fail "client config mode must be 0600"
-[ -x "$credential_helper" ] || fail "missing LLM client credential helper"
+  || fail "could not inspect gateway config permissions"
+[ "$config_mode" = 600 ] || fail "gateway config mode must be 0600"
+[ -x "$credential_helper" ] || fail "missing LLM gateway credential helper"
 cursor_agent="$(jq -er '.cursorAgentBin | select(type == "string" and startswith("/"))' "$config_path")" \
-  || fail "invalid cursorAgentBin in client config"
+  || fail "invalid cursorAgentBin in gateway config"
 [ -x "$cursor_agent" ] || fail "Cursor Agent executable is unavailable"
 
 case "${1:-}" in
   login|logout)
-    fail "saved-login changes are disabled while the API-key client is enabled; roll back the LLM client first"
+    fail "saved-login changes are disabled while the API-key client is enabled; roll back the LLM gateway first"
     ;;
   -v|--version|-h|--help)
     exec "$cursor_agent" "$@"

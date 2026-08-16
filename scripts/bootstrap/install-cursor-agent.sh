@@ -27,10 +27,11 @@ if [ ! -x "$agent_path" ]; then
   exit 1
 fi
 
-llm_client_state="$HOME/.config/dotfiles/llm-client-state.json"
-if [ -f "$llm_client_state" ]; then
+llm_gateway_state="$HOME/.config/dotfiles/llm-gateway-state.json"
+legacy_llm_gateway_state="$HOME/.config/dotfiles/llm-client-state.json"
+if [ -f "$llm_gateway_state" ] || [ -f "$legacy_llm_gateway_state" ]; then
   printf 'reapplying canonical Cursor API-key commands\n'
-  "$repo_root/scripts/bootstrap/configure-llm-client.ts"
+  "$repo_root/scripts/bootstrap/configure-llm-gateway.ts"
 fi
 
 if [ -r "$devbox_config" ]; then

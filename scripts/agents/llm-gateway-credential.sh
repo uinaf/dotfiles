@@ -1,29 +1,29 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-config_path="${LLM_CLIENT_CONFIG:-$HOME/.config/dotfiles/llm-client.json}"
+config_path="${LLM_GATEWAY_CONFIG:-$HOME/.config/dotfiles/llm-gateway.json}"
 
 fail() {
   printf 'FAILED: %s\n' "$1" >&2
   exit 1
 }
 
-[ "$#" -eq 1 ] || fail "usage: llm-client-credential.sh cursor|gateway"
+[ "$#" -eq 1 ] || fail "usage: llm-gateway-credential.sh cursor|gateway"
 case "$1" in
   cursor) field=CURSOR_API_KEY ;;
   gateway) field=CLIPROXYAPI_CLIENT_API_KEY ;;
-  *) fail "usage: llm-client-credential.sh cursor|gateway" ;;
+  *) fail "usage: llm-gateway-credential.sh cursor|gateway" ;;
 esac
 
 command -v jq >/dev/null 2>&1 || fail "missing jq"
 command -v sops >/dev/null 2>&1 || fail "missing sops"
-[ -f "$config_path" ] && [ ! -L "$config_path" ] || fail "missing regular client config"
+[ -f "$config_path" ] && [ ! -L "$config_path" ] || fail "missing regular gateway config"
 config_mode="$(stat -f '%Lp' "$config_path" 2>/dev/null || stat -c '%a' "$config_path" 2>/dev/null)" \
-  || fail "could not inspect client config permissions"
-[ "$config_mode" = 600 ] || fail "client config mode must be 0600"
+  || fail "could not inspect gateway config permissions"
+[ "$config_mode" = 600 ] || fail "gateway config mode must be 0600"
 
 secret_file="$(jq -er '.secretFile | select(type == "string" and startswith("/"))' "$config_path")" \
-  || fail "invalid secretFile in client config"
+  || fail "invalid secretFile in gateway config"
 [ -f "$secret_file" ] && [ ! -L "$secret_file" ] || fail "missing regular SOPS payload"
 sops filestatus "$secret_file" | jq -e '.encrypted == true' >/dev/null \
   || fail "client payload is not encrypted"
