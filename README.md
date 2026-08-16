@@ -87,7 +87,7 @@ checks are documented in [Agent readiness](docs/agent-readiness.md) and
 | Install or update a Mac | [Bootstrap](docs/bootstrap.md) |
 | Choose a per-user role | [User profiles](docs/profiles.md) |
 | Provision age, Git, SSH, or GitHub identity | [Identity provisioning](docs/identities.md) |
-| Run services on a shared host | [Devbox setup](docs/devbox.md) |
+| Configure a devbox, coding LLM gateway, or shared-host service | [Devbox setup](docs/devbox.md) |
 | Apply global coding-agent rules or sync skills | [Agent setup](docs/agents.md) |
 | Edit chezmoi source state | [Chezmoi](docs/chezmoi.md) |
 | Use repo tasks or change runtime pins | [Mise](docs/mise.md) |

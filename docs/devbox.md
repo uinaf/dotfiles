@@ -150,9 +150,14 @@ touch GitHub, SSH, OpenClaw, or connector credentials. Rollback after retirement
 restores the pre-gateway client configuration but cannot restore deleted login
 credentials; each coding client must be authenticated again before direct use.
 
+A complete developer-profile `install.sh` run reapplies Codex's default direct
+ChatGPT login restriction. On an enrolled gateway identity, rerun the enrollment
+and retirement sequence above, ending with `--check`.
+
 Claude Code receives `ANTHROPIC_BASE_URL` and `apiKeyHelper` in its existing
-user settings. Every unrelated setting and the saved Claude login remain in
-place. Enrollment fails if the settings already define `ANTHROPIC_API_KEY`,
+user settings. Every unrelated setting remains in place, and enrollment alone
+does not remove the saved Claude login. Enrollment fails if the settings
+already define `ANTHROPIC_API_KEY`,
 `ANTHROPIC_AUTH_TOKEN`, Bedrock, or Vertex selection because those values take
 precedence over the gateway helper. Remove that conflict deliberately before
 enrollment instead of silently routing around it.
