@@ -151,8 +151,11 @@ versioned vendor executable, never one of those launcher paths. The standalone
 
 The launcher blocks `login` and `logout` while enabled so a help or diagnostic
 command cannot start browser authentication. It reports API-key health through
-the provider model endpoint instead of reporting a saved OAuth identity.
-Cursor installer upgrades automatically reapply the managed commands.
+`status`, `whoami`, and `about` after a provider model check, including a
+synthetic `api-key@local` identity for tools that parse `agent about`. ACP
+`authenticate` is acknowledged locally so clients that always send
+`cursor_login` do not start a browser flow. Cursor installer upgrades
+automatically reapply the managed commands.
 
 Rollback restores the exact pre-enrollment Codex config, Claude settings, and
 Cursor command symlinks, then removes the helpers. Saved Codex, Claude, and

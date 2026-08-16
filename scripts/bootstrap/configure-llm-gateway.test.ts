@@ -94,7 +94,25 @@ test("apply, check, Claude settings, Cursor status, and rollback preserve saved 
     writeFileSync(secretFile, "encrypted fixture\n", { mode: 0o600 });
     writeFileSync(claudeSettingsPath, originalClaudeSettings, { mode: 0o600 });
     writeFileSync(gatewayConfig, `${JSON.stringify({ ...validConfig, secretFile, cursorAgentBin: cursorBin })}\n`, { mode: 0o600 });
-    writeFileSync(cursorBin, '#!/usr/bin/env bash\n[ "${1:-}" = models ] || [ "${1:-}" = --version ] || exit 2\n', { mode: 0o700 });
+    writeFileSync(cursorBin, `#!/usr/bin/env bash
+case "\${1:-}" in
+  models) exit 0 ;;
+  --version) printf '2026.08.11-e8db854\\n' ;;
+  acp)
+    while IFS= read -r line; do
+      printf '%s\\n' "\$line" >> "\${ACP_REQUEST_LOG:?}"
+      method="\$(printf '%s' "\$line" | jq -r '.method // empty')"
+      id="\$(printf '%s' "\$line" | jq -c '.id')"
+      if [ "\$method" = authenticate ]; then
+        printf '{"jsonrpc":"2.0","id":%s,"error":{"code":-32602,"message":"browser login"}}\\n' "\$id"
+      else
+        printf '{"jsonrpc":"2.0","id":%s,"result":{}}\\n' "\$id"
+      fi
+    done
+    ;;
+  *) exit 2 ;;
+esac
+`, { mode: 0o700 });
     for (const [index, command] of cursorCommands.entries()) symlinkSync(originalCursorTargets[index], command);
     writeFileSync(join(bin, "sops"), `#!/usr/bin/env bash
 case "\${1:-}" in
@@ -139,6 +157,7 @@ esac
     const state = JSON.parse(readFileSync(join(configDir, "llm-gateway-state.json"), "utf8")) as { version: number; cursorCommands: Array<{ target: string }> };
     assert.equal(state.version, 3);
     assert.deepEqual(state.cursorCommands.map((command) => command.target), originalCursorTargets);
+    assert.equal(statSync(join(home, ".local/libexec/dotfiles/cursor-acp-api-key-auth")).mode & 0o777, 0o700);
 
     const second = run();
     assert.equal(second.status, 0, second.stderr);
@@ -151,9 +170,35 @@ esac
       const cursorStatus = spawnSync(command, ["status"], { encoding: "utf8", env });
       assert.equal(cursorStatus.status, 0, cursorStatus.stderr);
       assert.equal(cursorStatus.stdout.trim(), "API key authenticated");
+      const cursorAbout = spawnSync(command, ["about"], { encoding: "utf8", env });
+      assert.equal(cursorAbout.status, 0, cursorAbout.stderr);
+      assert.match(cursorAbout.stdout, /CLI Version\s{2,}2026\.08\.11-e8db854/);
+      assert.match(cursorAbout.stdout, /User Email\s{2,}api-key@local/);
+      const cursorAboutJson = spawnSync(command, ["about", "--format", "json"], { encoding: "utf8", env });
+      assert.equal(cursorAboutJson.status, 0, cursorAboutJson.stderr);
+      assert.deepEqual(JSON.parse(cursorAboutJson.stdout), {
+        cliVersion: "2026.08.11-e8db854",
+        userEmail: "api-key@local",
+      });
       const cursorLogin = spawnSync(command, ["login", "--help"], { encoding: "utf8", env });
       assert.notEqual(cursorLogin.status, 0);
       assert.match(cursorLogin.stderr, /saved-login changes are disabled/);
+      const acpLog = join(root, `acp-${command.replace(/\//g, "_")}.log`);
+      const cursorAcp = spawnSync(command, ["acp"], {
+        encoding: "utf8",
+        env: { ...env, ACP_REQUEST_LOG: acpLog },
+        input: [
+          '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}',
+          '{"jsonrpc":"2.0","id":2,"method":"authenticate","params":{"methodId":"cursor_login"}}',
+          "",
+        ].join("\n"),
+      });
+      assert.equal(cursorAcp.status, 0, cursorAcp.stderr);
+      assert.match(cursorAcp.stdout, /"id":1,"result":\{\}/);
+      assert.match(cursorAcp.stdout, /"id":2,"result":\{\}/);
+      assert.doesNotMatch(cursorAcp.stdout, /browser login/);
+      assert.match(readFileSync(acpLog, "utf8"), /"method":"initialize"/);
+      assert.doesNotMatch(readFileSync(acpLog, "utf8"), /"method":"authenticate"/);
     }
 
     const rollback = run("--rollback");
@@ -162,6 +207,7 @@ esac
     assert.equal(readFileSync(join(codexHome, "auth.json"), "utf8"), originalAuth);
     assert.equal(readFileSync(claudeSettingsPath, "utf8"), originalClaudeSettings);
     assert.equal(existsSync(join(home, ".local/bin/cursor-agent-api")), false);
+    assert.equal(existsSync(join(home, ".local/libexec/dotfiles/cursor-acp-api-key-auth")), false);
     assert.equal(existsSync(join(home, ".local/libexec/dotfiles/llm-gateway-credential")), false);
     for (const [index, command] of cursorCommands.entries()) {
       assert.equal(lstatSync(command).isSymbolicLink(), true);

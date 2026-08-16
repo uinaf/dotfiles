@@ -48,7 +48,7 @@
       "id": "llm-gateway",
       "domain": "config",
       "command": ["node", "--test", "scripts/bootstrap/configure-llm-gateway.test.ts"],
-      "inputs": ["scripts/bootstrap/configure-codex.ts", "scripts/bootstrap/configure-llm-gateway.ts", "scripts/bootstrap/configure-llm-gateway.test.ts", "scripts/bootstrap/install-cursor-agent.sh", "scripts/agents/llm-gateway-credential.sh", "scripts/agents/cursor-agent-api.sh", "chezmoi/dot_zshrc", "docs/devbox.md"],
+      "inputs": ["scripts/bootstrap/configure-codex.ts", "scripts/bootstrap/configure-llm-gateway.ts", "scripts/bootstrap/configure-llm-gateway.test.ts", "scripts/bootstrap/install-cursor-agent.sh", "scripts/agents/llm-gateway-credential.sh", "scripts/agents/cursor-agent-api.sh", "scripts/agents/cursor-acp-api-key-auth.py", "chezmoi/dot_zshrc", "docs/devbox.md"],
       "output": "Opt-in Codex and Claude gateway routing, Cursor API-key isolation, check, and exact rollback"
     },
     {

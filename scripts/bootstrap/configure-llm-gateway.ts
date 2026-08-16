@@ -59,6 +59,7 @@ type ClientState = ClientStateV1 | ClientStateV2 | ClientStateV3;
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const sourceCredential = join(repoRoot, "scripts/agents/llm-gateway-credential.sh");
 const sourceCursor = join(repoRoot, "scripts/agents/cursor-agent-api.sh");
+const sourceCursorAcpAuth = join(repoRoot, "scripts/agents/cursor-acp-api-key-auth.py");
 
 function exactKeys(value: Record<string, unknown>, expected: readonly string[]): boolean {
   const actual = Object.keys(value).sort();
@@ -248,6 +249,7 @@ async function run(): Promise<void> {
   const statePath = join(home, ".config/dotfiles/llm-gateway-state.json");
   const legacyStatePath = join(home, ".config/dotfiles/llm-client-state.json");
   const credentialTarget = join(home, ".local/libexec/dotfiles/llm-gateway-credential");
+  const cursorAcpAuthTarget = join(home, ".local/libexec/dotfiles/cursor-acp-api-key-auth");
   const legacyCredentialTarget = join(home, ".local/libexec/dotfiles/llm-client-credential");
   const cursorApiTarget = join(home, ".local/bin/cursor-agent-api");
   const cursorCommandTargets = [join(home, ".local/bin/cursor-agent"), join(home, ".local/bin/agent")];
@@ -278,6 +280,7 @@ async function run(): Promise<void> {
       }
     }
     rmSync(credentialTarget, { force: true });
+    rmSync(cursorAcpAuthTarget, { force: true });
     rmSync(legacyCredentialTarget, { force: true });
     rmSync(cursorApiTarget, { force: true });
     if (state.version >= 2) restoreCursorCommands(state.cursorCommands);
@@ -301,6 +304,7 @@ async function run(): Promise<void> {
     if (state.version !== 3) throw new Error("LLM gateway state must be upgraded by applying the configurator");
     assertStateCursorCommands(state, cursorCommandTargets);
     assertInstalledFile(sourceCredential, credentialTarget);
+    assertInstalledFile(sourceCursorAcpAuth, cursorAcpAuthTarget);
     for (const target of managedCursorTargets) assertInstalledFile(sourceCursor, target);
     const contents = readFileSync(codexConfig, "utf8");
     for (const expected of [
@@ -362,6 +366,7 @@ async function run(): Promise<void> {
   }
 
   atomicCopy(sourceCredential, credentialTarget, 0o700);
+  atomicCopy(sourceCursorAcpAuth, cursorAcpAuthTarget, 0o700);
   for (const target of managedCursorTargets) atomicCopy(sourceCursor, target, 0o700);
   await writeConfigEdits(gatewayEdits(config, credentialTarget));
   chmodSync(codexConfig, 0o600);
