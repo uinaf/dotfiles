@@ -115,7 +115,7 @@ Create `~/.config/dotfiles/llm-client.json` with mode `0600`:
   "version": 1,
   "secretFile": "/Users/example/projects/example/vault/secrets/identity/example-coding.sops.env",
   "gatewayBaseUrl": "https://gateway.example/v1",
-  "cursorAgentBin": "/Users/example/.local/bin/agent"
+  "cursorAgentBin": "/Users/example/.local/share/cursor-agent/versions/2026.08.11-e8db854/cursor-agent"
 }
 ```
 
@@ -135,15 +135,21 @@ incompatible saved ChatGPT auth file when the next session starts. Remove the
 saved login only in the separate, explicit auth-retirement step after the
 gateway and rollback path are accepted.
 
-Interactive zsh sessions route `cursor-agent` and `agent` through the installed
-API-key launcher. Automation may call `~/.local/bin/cursor-agent-api`
-explicitly. The launcher blocks `login` and `logout` while enabled so a help or
-diagnostic command cannot start browser authentication. It reports API-key
-health through the provider model endpoint instead of reporting a saved OAuth
-identity.
+The configurator records the exact installer-managed symlink targets, then
+replaces `~/.local/bin/cursor-agent` and `~/.local/bin/agent` with the API-key
+launcher. This covers interactive shells and automation that executes either
+canonical path directly. `cursorAgentBin` must therefore point to Cursor's
+versioned vendor executable, never one of those launcher paths. The standalone
+`~/.local/bin/cursor-agent-api` path remains available for explicit calls.
 
-Rollback restores the exact pre-enrollment Codex config and removes the
-helpers. Saved Codex and Cursor login state is never edited:
+The launcher blocks `login` and `logout` while enabled so a help or diagnostic
+command cannot start browser authentication. It reports API-key health through
+the provider model endpoint instead of reporting a saved OAuth identity.
+Cursor installer upgrades automatically reapply the managed commands.
+
+Rollback restores the exact pre-enrollment Codex config and Cursor command
+symlinks, then removes the helpers. Saved Codex and Cursor login state is never
+edited:
 
 ```bash
 ./scripts/bootstrap/configure-llm-client.ts --rollback

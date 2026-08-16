@@ -40,13 +40,6 @@ fi
 
 export EDITOR="vim"
 
-# An identity-owned opt-in may install a process-scoped Cursor API-key launcher.
-# Its absence leaves the vendor commands unchanged for every other profile.
-if [ -x "$HOME/.local/bin/cursor-agent-api" ]; then
-  alias cursor-agent="$HOME/.local/bin/cursor-agent-api"
-  alias agent="$HOME/.local/bin/cursor-agent-api"
-fi
-
 # SSH does not forward COLORTERM unless the server explicitly accepts it.
 # Keep truecolor TUIs consistent when using Ghostty or another truecolor term.
 if [ -n "$TERM" ] && [ -z "$COLORTERM" ]; then

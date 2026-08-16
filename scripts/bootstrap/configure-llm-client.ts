@@ -7,10 +7,12 @@ import {
   existsSync,
   lstatSync,
   mkdirSync,
+  readlinkSync,
   readFileSync,
   renameSync,
   rmSync,
   statSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { dirname, isAbsolute, join, resolve } from "node:path";
@@ -25,11 +27,25 @@ type ClientConfig = {
   cursorAgentBin: string;
 };
 
-type ClientState = {
+type ClientStateV1 = {
   version: 1;
   codexConfigExisted: boolean;
   codexBackupPath: string | null;
 };
+
+type CursorCommandState = {
+  path: string;
+  target: string;
+};
+
+type ClientStateV2 = {
+  version: 2;
+  codexConfigExisted: boolean;
+  codexBackupPath: string | null;
+  cursorCommands: CursorCommandState[];
+};
+
+type ClientState = ClientStateV1 | ClientStateV2;
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const sourceCredential = join(repoRoot, "scripts/agents/llm-client-credential.sh");
@@ -101,13 +117,55 @@ function atomicWriteJson(target: string, value: unknown): void {
 
 function readState(path: string): ClientState {
   const value: unknown = JSON.parse(readFileSync(path, "utf8"));
-  if (!isRecord(value) || !exactKeys(value, ["version", "codexConfigExisted", "codexBackupPath"]) || value.version !== 1) {
+  if (!isRecord(value)) {
     throw new Error("LLM client state has an invalid shape");
   }
+  const v1 = value.version === 1 && exactKeys(value, ["version", "codexConfigExisted", "codexBackupPath"]);
+  const v2 = value.version === 2 && exactKeys(value, ["version", "codexConfigExisted", "codexBackupPath", "cursorCommands"]);
+  if (!v1 && !v2) throw new Error("LLM client state has an invalid shape");
   if (typeof value.codexConfigExisted !== "boolean" || !(value.codexBackupPath === null || typeof value.codexBackupPath === "string")) {
     throw new Error("LLM client state has invalid values");
   }
+  if (v2) {
+    if (!Array.isArray(value.cursorCommands) || value.cursorCommands.length !== 2) {
+      throw new Error("LLM client state has invalid Cursor commands");
+    }
+    for (const command of value.cursorCommands) {
+      if (!isRecord(command) || !exactKeys(command, ["path", "target"]) || typeof command.path !== "string" || typeof command.target !== "string") {
+        throw new Error("LLM client state has invalid Cursor commands");
+      }
+    }
+  }
   return value as ClientState;
+}
+
+function captureCursorCommands(paths: readonly string[]): CursorCommandState[] {
+  return paths.map((path) => {
+    if (!existsSync(path) || !lstatSync(path).isSymbolicLink()) {
+      throw new Error(`Cursor command must be an installer-managed symlink before enrollment: ${path}`);
+    }
+    return { path, target: readlinkSync(path) };
+  });
+}
+
+function restoreCursorCommands(commands: readonly CursorCommandState[]): void {
+  for (const command of commands) {
+    rmSync(command.path, { force: true });
+    mkdirSync(dirname(command.path), { recursive: true, mode: 0o700 });
+    symlinkSync(command.target, command.path);
+  }
+}
+
+function assertStateCursorCommands(state: ClientStateV2, expectedPaths: readonly string[]): void {
+  if (!state.cursorCommands.every((command, index) => command.path === expectedPaths[index])) {
+    throw new Error("LLM client state contains unexpected Cursor command paths");
+  }
+}
+
+export function assertCursorAgentBinSafe(cursorAgentBin: string, managedPaths: readonly string[]): void {
+  if (managedPaths.includes(resolve(cursorAgentBin))) {
+    throw new Error("cursorAgentBin must point to Cursor's versioned vendor executable, not a managed launcher path");
+  }
 }
 
 function validateLocalInputs(configPath: string): ClientConfig {
@@ -147,7 +205,9 @@ async function run(): Promise<void> {
   const configPath = resolve(process.env.LLM_CLIENT_CONFIG || join(home, ".config/dotfiles/llm-client.json"));
   const statePath = join(home, ".config/dotfiles/llm-client-state.json");
   const credentialTarget = join(home, ".local/libexec/dotfiles/llm-client-credential");
-  const cursorTarget = join(home, ".local/bin/cursor-agent-api");
+  const cursorApiTarget = join(home, ".local/bin/cursor-agent-api");
+  const cursorCommandTargets = [join(home, ".local/bin/cursor-agent"), join(home, ".local/bin/agent")];
+  const managedCursorTargets = [cursorApiTarget, ...cursorCommandTargets];
   const backupPath = `${codexConfig}.llm-client.backup`;
 
   if (mode === "rollback") {
@@ -156,6 +216,7 @@ async function run(): Promise<void> {
       return;
     }
     const state = readState(statePath);
+    if (state.version === 2) assertStateCursorCommands(state, cursorCommandTargets);
     if (state.codexConfigExisted) {
       if (!state.codexBackupPath || !existsSync(state.codexBackupPath)) throw new Error("Codex rollback backup is missing");
       atomicCopy(state.codexBackupPath, codexConfig, 0o600);
@@ -163,7 +224,8 @@ async function run(): Promise<void> {
       rmSync(codexConfig, { force: true });
     }
     rmSync(credentialTarget, { force: true });
-    rmSync(cursorTarget, { force: true });
+    rmSync(cursorApiTarget, { force: true });
+    if (state.version === 2) restoreCursorCommands(state.cursorCommands);
     if (state.codexBackupPath) rmSync(state.codexBackupPath, { force: true });
     rmSync(statePath, { force: true });
     process.stdout.write("rolled back LLM client; saved Codex login remains untouched\n");
@@ -171,10 +233,14 @@ async function run(): Promise<void> {
   }
 
   const config = validateLocalInputs(configPath);
+  assertCursorAgentBinSafe(config.cursorAgentBin, managedCursorTargets);
   if (mode === "check") {
     if (!existsSync(statePath) || !ownerOnly(statePath)) throw new Error("LLM client state is missing or not owner-only");
+    const state = readState(statePath);
+    if (state.version !== 2) throw new Error("LLM client state must be upgraded by applying the configurator");
+    assertStateCursorCommands(state, cursorCommandTargets);
     assertInstalledFile(sourceCredential, credentialTarget);
-    assertInstalledFile(sourceCursor, cursorTarget);
+    for (const target of managedCursorTargets) assertInstalledFile(sourceCursor, target);
     const contents = readFileSync(codexConfig, "utf8");
     for (const expected of [
       'model_provider = "llm_gateway"',
@@ -194,21 +260,37 @@ async function run(): Promise<void> {
   }
 
   if (!existsSync(statePath)) {
+    const cursorCommands = captureCursorCommands(cursorCommandTargets);
     const existed = existsSync(codexConfig);
     if (existed) {
       if (existsSync(backupPath)) throw new Error(`refusing to overwrite existing backup: ${backupPath}`);
       atomicCopy(codexConfig, backupPath, 0o600);
     }
-    atomicWriteJson(statePath, { version: 1, codexConfigExisted: existed, codexBackupPath: existed ? backupPath : null } satisfies ClientState);
+    atomicWriteJson(statePath, {
+      version: 2,
+      codexConfigExisted: existed,
+      codexBackupPath: existed ? backupPath : null,
+      cursorCommands,
+    } satisfies ClientStateV2);
   } else {
-    readState(statePath);
+    const state = readState(statePath);
+    if (state.version === 1) {
+      atomicWriteJson(statePath, {
+        version: 2,
+        codexConfigExisted: state.codexConfigExisted,
+        codexBackupPath: state.codexBackupPath,
+        cursorCommands: captureCursorCommands(cursorCommandTargets),
+      } satisfies ClientStateV2);
+    } else {
+      assertStateCursorCommands(state, cursorCommandTargets);
+    }
   }
 
   atomicCopy(sourceCredential, credentialTarget, 0o700);
-  atomicCopy(sourceCursor, cursorTarget, 0o700);
+  for (const target of managedCursorTargets) atomicCopy(sourceCursor, target, 0o700);
   await writeConfigEdits(gatewayEdits(config, credentialTarget));
   chmodSync(codexConfig, 0o600);
-  process.stdout.write("configured Codex gateway and Cursor API-key launcher; saved logins remain untouched\n");
+  process.stdout.write("configured Codex gateway and canonical Cursor API-key commands; saved logins remain untouched\n");
 }
 
 if (import.meta.main) {
