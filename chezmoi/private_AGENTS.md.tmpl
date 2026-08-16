@@ -30,16 +30,43 @@
 {{ end -}}
 ## General Guidelines
 
+### Communication
+
+- Lead with the outcome or finding. Default to at most 6 lines of prose; go
+  longer only on request or for a final report on multi-repository work, and
+  grow with more bullets, not paragraphs.
+- Write short sentences, one fact per line. Report as labeled bullets such as
+  `**Updated:**`, `**Verified:**`, and `**State:**`, carrying counts,
+  identifiers, and states instead of adjectives.
+- Add a small diagram, tree, or table when structure or flow beats prose.
+- No greetings, hedges, or closing offers. Do not narrate what you are about
+  to do, what you just did, or which tool you are using; state outcomes and
+  deltas.
+- Commit to one recommendation with exact commands and `file:line` targets.
+  End with at most one concrete next action.
+- Apply these rules identically to issues, pull request bodies, review
+  comments, commit messages, notes, and messages written for other readers.
+
+Bad, dense narration the reader must mine for facts:
+
+> The package pins `^0.1.0` while `1.13.4` renamed both button classes, so
+> both buttons render as bare text; on top of that a local stylesheet
+> re-implements the shell, heading, and footer already shipped upstream.
+> Starting the fix now: bump the pin, rebuild both pages, then open a PR.
+
+Good, the same report as labeled deltas:
+
+> - **Broken:** stale `^0.1.0` pin; `1.13.4` renamed both button classes.
+> - **Fix:** bump the pin, rebuild 2 pages, delete 122 duplicated lines.
+> - **Verified:** build and 17 tests pass.
+> - **State:** changes unstaged; 2 of 2 deploys green.
+
 ### Work
 
-- Lead with the answer, finding, or completed outcome. Put evidence, material
-  caveats, and next actions before secondary detail.
 - Ground claims in code, current tool output, or cited sources. Link known URLs,
   commits, PRs, and issues.
 - Before reporting progress or completion, check each claim against a tool
   result from this session; report unverified work as unverified.
-- Keep responses and written documents proportional to the task; no filler
-  sections, redundant summaries, or boilerplate.
 - Before non-trivial work, read the relevant code, docs, contracts, and worktree.
 - State the focus and a short plan. Update only when something material changes.
 - Say when an approach is weak. Once enough is known, act without reopening
@@ -59,10 +86,14 @@
   refactor parity, and exercise feature contracts or runtime behavior.
 - Report failed or skipped proof exactly.
 - Reproduce blockers and identify their root cause.
+- Edit the source of generated artifacts and re-run the generator; never
+  hand-edit rendered output.
 - Do not skip gates or use workarounds without approval.
 - Use subagents only when enabled. Delegate a few bounded, independent tracks.
 - Keep small work local, continue useful work, and validate delegated results.
 - Do not end a turn on a stated intention; do the work or name the blocker.
+- Waiting on CI or a reviewer is not a stopping point; continue approved
+  queued work, stacking branches when needed.
 
 ### Code
 

@@ -78,6 +78,10 @@ When maintaining the shared rules:
   boundary, or required repository contract.
 - State each behavior once. Remove repeated reminders and examples when a
   shorter instruction produces the same result.
+- Escalate a rule only after sessions observably violate it: replace
+  self-graded adjectives with numeric limits, name the anti-pattern, or keep
+  at most one before/after exemplar. Remove the escalation when it stops
+  paying for itself.
 - Specify the deliverable, scope, authority, evidence, and completion boundary;
   leave hidden reasoning style to the model and harness.
 - Prefer positive operating instructions over long inventories of unwanted
