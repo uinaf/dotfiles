@@ -100,6 +100,55 @@ DEVBOX_USER=example
 
 Do not create broad workspace env bundles or load secrets in shell startup.
 
+## Opt-In Coding Client Gateway
+
+Developer-profile users may route Codex through a private OpenAI-compatible
+gateway and run Cursor Agent with an identity-owned API key. This capability
+is off until the identity creates an owner-only local configuration file. It
+does not change assistant or service profiles, and it does not store secrets
+in shell startup or Codex configuration.
+
+Create `~/.config/dotfiles/llm-client.json` with mode `0600`:
+
+```json
+{
+  "version": 1,
+  "secretFile": "/Users/example/projects/example/vault/secrets/identity/example-coding.sops.env",
+  "gatewayBaseUrl": "https://gateway.example/v1",
+  "cursorAgentBin": "/Users/example/.local/bin/agent"
+}
+```
+
+The SOPS payload must provide `CLIPROXYAPI_CLIENT_API_KEY` and
+`CURSOR_API_KEY`. The configurator installs owner-only process helpers, backs
+up the current Codex config once, and uses Codex's native atomic config writer
+to select a command-authenticated Responses provider:
+
+```bash
+./scripts/bootstrap/configure-llm-client.ts
+./scripts/bootstrap/configure-llm-client.ts --check
+```
+
+The first enrollment keeps the existing `forced_login_method` and saved Codex
+login intact. Setting it to `api` before retirement can make Codex delete the
+incompatible saved ChatGPT auth file when the next session starts. Remove the
+saved login only in the separate, explicit auth-retirement step after the
+gateway and rollback path are accepted.
+
+Interactive zsh sessions route `cursor-agent` and `agent` through the installed
+API-key launcher. Automation may call `~/.local/bin/cursor-agent-api`
+explicitly. The launcher blocks `login` and `logout` while enabled so a help or
+diagnostic command cannot start browser authentication. It reports API-key
+health through the provider model endpoint instead of reporting a saved OAuth
+identity.
+
+Rollback restores the exact pre-enrollment Codex config and removes the
+helpers. Saved Codex and Cursor login state is never edited:
+
+```bash
+./scripts/bootstrap/configure-llm-client.ts --rollback
+```
+
 ## System Services
 
 Install selected boot services from an authorized administrator account. The

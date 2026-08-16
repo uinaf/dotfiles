@@ -6,8 +6,8 @@ import { dirname, join, resolve } from "node:path";
 import readline from "node:readline";
 
 type RpcMessage = { id?: number; result?: unknown; error?: { message?: string } };
-type Scalar = boolean | number | string;
-type ConfigEdit = { keyPath: string; value: Scalar; mergeStrategy: "upsert" };
+type Scalar = boolean | number | string | readonly string[];
+export type ConfigEdit = { keyPath: string; value: Scalar; mergeStrategy: "upsert" };
 
 export const managedEdits = [
   { keyPath: "forced_login_method", value: "chatgpt", mergeStrategy: "upsert" },
@@ -19,12 +19,12 @@ export const managedEdits = [
   { keyPath: "features.memories", value: true, mergeStrategy: "upsert" },
 ] satisfies ConfigEdit[];
 
-export async function configure(): Promise<string> {
+export async function writeConfigEdits(edits: readonly ConfigEdit[]): Promise<string> {
   const codexHome = resolve(process.env.CODEX_HOME || join(process.env.HOME || "", ".codex"));
   const configPath = resolve(process.env.CODEX_CONFIG_PATH || join(codexHome, "config.toml"));
   mkdirSync(dirname(configPath), { recursive: true, mode: 0o700 });
 
-  const child = spawn("codex", ["app-server"], {
+  const child = spawn(process.env.CODEX_BIN || "codex", ["app-server"], {
     env: { ...process.env, CODEX_HOME: codexHome },
     stdio: ["pipe", "pipe", "pipe"],
   });
@@ -62,7 +62,7 @@ export async function configure(): Promise<string> {
       if (message.id === 0) {
         if (message.error) return fail(new Error(message.error.message || "Codex app-server initialization failed"));
         send({ method: "initialized", params: {} });
-        send({ method: "config/batchWrite", id: 1, params: { edits: managedEdits, filePath: configPath } });
+        send({ method: "config/batchWrite", id: 1, params: { edits, filePath: configPath } });
       }
       if (message.id === 1) {
         if (message.error) return fail(new Error(message.error.message || "Codex config update failed"));
@@ -78,6 +78,10 @@ export async function configure(): Promise<string> {
   });
   chmodSync(configPath, 0o600);
   return configPath;
+}
+
+export async function configure(): Promise<string> {
+  return writeConfigEdits(managedEdits);
 }
 
 if (import.meta.main) {

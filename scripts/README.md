@@ -5,7 +5,7 @@ task graph; reusable behavior stays here.
 
 | Directory | Purpose |
 | --- | --- |
-| `agents/` | Install additive global skill selections. |
+| `agents/` | Install additive global skill selections and opt-in coding-client helpers. |
 | `app-store/` | Manage workstation Mac App Store applications through `mas`. |
 | `audit/` | Run non-destructive repository, host, workstation, and devbox audits. |
 | `bootstrap/` | Install packages and configure dotfiles, Git, coding tools, and host policy. |
