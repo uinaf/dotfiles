@@ -6,8 +6,8 @@ import { dirname, join, resolve } from "node:path";
 import readline from "node:readline";
 
 type RpcMessage = { id?: number; result?: unknown; error?: { message?: string } };
-type Scalar = boolean | number | string | readonly string[];
-export type ConfigEdit = { keyPath: string; value: Scalar; mergeStrategy: "upsert" };
+type Scalar = boolean | null | number | string | readonly string[];
+export type ConfigEdit = { keyPath: string; value: Scalar; mergeStrategy: "replace" | "upsert" };
 
 export const managedEdits = [
   { keyPath: "forced_login_method", value: "chatgpt", mergeStrategy: "upsert" },

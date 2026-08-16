@@ -54,7 +54,17 @@ type ClientStateV3 = {
   claudeBackupPath: string | null;
 };
 
-type ClientState = ClientStateV1 | ClientStateV2 | ClientStateV3;
+type ClientStateV4 = {
+  version: 4;
+  codexConfigExisted: boolean;
+  codexBackupPath: string | null;
+  cursorCommands: CursorCommandState[];
+  claudeSettingsExisted: boolean;
+  claudeBackupPath: string | null;
+  authRetired: boolean;
+};
+
+type ClientState = ClientStateV1 | ClientStateV2 | ClientStateV3 | ClientStateV4;
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const sourceCredential = join(repoRoot, "scripts/agents/llm-gateway-credential.sh");
@@ -161,11 +171,20 @@ function readState(path: string): ClientState {
     "claudeSettingsExisted",
     "claudeBackupPath",
   ]);
-  if (!v1 && !v2 && !v3) throw new Error("LLM gateway state has an invalid shape");
+  const v4 = value.version === 4 && exactKeys(value, [
+    "version",
+    "codexConfigExisted",
+    "codexBackupPath",
+    "cursorCommands",
+    "claudeSettingsExisted",
+    "claudeBackupPath",
+    "authRetired",
+  ]);
+  if (!v1 && !v2 && !v3 && !v4) throw new Error("LLM gateway state has an invalid shape");
   if (typeof value.codexConfigExisted !== "boolean" || !(value.codexBackupPath === null || typeof value.codexBackupPath === "string")) {
     throw new Error("LLM gateway state has invalid values");
   }
-  if (v2 || v3) {
+  if (v2 || v3 || v4) {
     if (!Array.isArray(value.cursorCommands) || value.cursorCommands.length !== 2) {
       throw new Error("LLM gateway state has invalid Cursor commands");
     }
@@ -175,9 +194,10 @@ function readState(path: string): ClientState {
       }
     }
   }
-  if (v3 && (typeof value.claudeSettingsExisted !== "boolean" || !(value.claudeBackupPath === null || typeof value.claudeBackupPath === "string"))) {
+  if ((v3 || v4) && (typeof value.claudeSettingsExisted !== "boolean" || !(value.claudeBackupPath === null || typeof value.claudeBackupPath === "string"))) {
     throw new Error("LLM gateway state has invalid Claude settings values");
   }
+  if (v4 && typeof value.authRetired !== "boolean") throw new Error("LLM gateway state has an invalid auth retirement value");
   return value as ClientState;
 }
 
@@ -198,10 +218,19 @@ function restoreCursorCommands(commands: readonly CursorCommandState[]): void {
   }
 }
 
-function assertStateCursorCommands(state: ClientStateV2 | ClientStateV3, expectedPaths: readonly string[]): void {
+function assertStateCursorCommands(state: ClientStateV2 | ClientStateV3 | ClientStateV4, expectedPaths: readonly string[]): void {
   if (!state.cursorCommands.every((command, index) => command.path === expectedPaths[index])) {
     throw new Error("LLM gateway state contains unexpected Cursor command paths");
   }
+}
+
+function runLogout(command: string, args: readonly string[], env: NodeJS.ProcessEnv, label: string): void {
+  const result = spawnSync(command, args, { encoding: "utf8", env });
+  if (result.status !== 0) throw new Error(`${label} logout failed: ${result.stderr.trim() || result.stdout.trim() || `exit ${result.status ?? 1}`}`);
+}
+
+function withoutEnvironmentKey(env: NodeJS.ProcessEnv, key: string): NodeJS.ProcessEnv {
+  return Object.fromEntries(Object.entries(env).filter(([name]) => name !== key));
 }
 
 export function assertCursorAgentBinSafe(cursorAgentBin: string, managedPaths: readonly string[]): void {
@@ -238,8 +267,8 @@ function assertInstalledFile(source: string, target: string): void {
 
 async function run(): Promise<void> {
   const args = process.argv.slice(2);
-  const mode = args.length === 0 ? "apply" : args.length === 1 && ["--check", "--rollback"].includes(args[0]) ? args[0].slice(2) : "invalid";
-  if (mode === "invalid") throw new Error("usage: configure-llm-gateway.ts [--check|--rollback]");
+  const mode = args.length === 0 ? "apply" : args.length === 1 && ["--check", "--retire-auth", "--rollback"].includes(args[0]) ? args[0].slice(2) : "invalid";
+  if (mode === "invalid") throw new Error("usage: configure-llm-gateway.ts [--check|--retire-auth|--rollback]");
 
   const home = resolve(process.env.HOME || "");
   const codexHome = resolve(process.env.CODEX_HOME || join(home, ".codex"));
@@ -271,7 +300,7 @@ async function run(): Promise<void> {
     } else {
       rmSync(codexConfig, { force: true });
     }
-    if (state.version === 3) {
+    if (state.version >= 3) {
       if (state.claudeSettingsExisted) {
         if (!state.claudeBackupPath || !existsSync(state.claudeBackupPath)) throw new Error("Claude rollback backup is missing");
         atomicCopy(state.claudeBackupPath, claudeSettings, 0o600);
@@ -285,9 +314,11 @@ async function run(): Promise<void> {
     rmSync(cursorApiTarget, { force: true });
     if (state.version >= 2) restoreCursorCommands(state.cursorCommands);
     if (state.codexBackupPath) rmSync(state.codexBackupPath, { force: true });
-    if (state.version === 3 && state.claudeBackupPath) rmSync(state.claudeBackupPath, { force: true });
+    if (state.version >= 3 && state.claudeBackupPath) rmSync(state.claudeBackupPath, { force: true });
     rmSync(rollbackStatePath, { force: true });
-    process.stdout.write("rolled back LLM gateway; saved Codex and Claude login state remains untouched\n");
+    process.stdout.write(state.version === 4 && state.authRetired
+      ? "rolled back LLM gateway; coding login state was retired and requires reauthentication\n"
+      : "rolled back LLM gateway; saved Codex and Claude login state remains untouched\n");
     return;
   }
 
@@ -298,10 +329,10 @@ async function run(): Promise<void> {
     config.gatewayBaseUrl,
     credentialTarget,
   );
-  if (mode === "check") {
+  if (mode === "check" || mode === "retire-auth") {
     if (!existsSync(statePath) || !ownerOnly(statePath)) throw new Error("LLM gateway state is missing or not owner-only");
     const state = readState(statePath);
-    if (state.version !== 3) throw new Error("LLM gateway state must be upgraded by applying the configurator");
+    if (state.version !== 4) throw new Error("LLM gateway state must be upgraded by applying the configurator");
     assertStateCursorCommands(state, cursorCommandTargets);
     assertInstalledFile(sourceCredential, credentialTarget);
     assertInstalledFile(sourceCursorAcpAuth, cursorAcpAuthTarget);
@@ -324,7 +355,22 @@ async function run(): Promise<void> {
       const result = spawnSync(credentialTarget, [kind], { encoding: "utf8", env: { ...process.env, LLM_GATEWAY_CONFIG: configPath } });
       if (result.status !== 0 || result.stdout.trim().length === 0) throw new Error(`${kind} credential helper failed`);
     }
-    process.stdout.write("ok LLM gateway config, helpers, ciphertext, Codex provider, and Claude settings\n");
+    if (mode === "check") {
+      process.stdout.write(`ok LLM gateway config, helpers, ciphertext, Codex provider, Claude settings, and auth-retired=${state.authRetired}\n`);
+      return;
+    }
+
+    runLogout(process.env.CODEX_BIN || "codex", ["logout"], { ...process.env, CODEX_HOME: codexHome }, "Codex");
+    runLogout("claude", ["auth", "logout"], process.env, "Claude");
+    runLogout(
+      config.cursorAgentBin,
+      ["logout"],
+      { ...withoutEnvironmentKey(process.env, "CURSOR_API_KEY"), AGENT_CLI_CREDENTIAL_STORE: "file" },
+      "Cursor",
+    );
+    await writeConfigEdits([{ keyPath: "forced_login_method", value: null, mergeStrategy: "replace" }]);
+    atomicWriteJson(statePath, { ...state, authRetired: true } satisfies ClientStateV4);
+    process.stdout.write("retired saved Codex, Claude, and Cursor coding logins; gateway routing remains configured\n");
     return;
   }
 
@@ -339,13 +385,14 @@ async function run(): Promise<void> {
     if (codexExisted) atomicCopy(codexConfig, codexBackupPath, 0o600);
     if (claudeExisted) atomicCopy(claudeSettings, claudeBackupPath, 0o600);
     atomicWriteJson(statePath, {
-      version: 3,
+      version: 4,
       codexConfigExisted: codexExisted,
       codexBackupPath: codexExisted ? codexBackupPath : null,
       cursorCommands,
       claudeSettingsExisted: claudeExisted,
       claudeBackupPath: claudeExisted ? claudeBackupPath : null,
-    } satisfies ClientStateV3);
+      authRetired: false,
+    } satisfies ClientStateV4);
   } else {
     const state = readState(statePath);
     const cursorCommands = state.version === 1 ? captureCursorCommands(cursorCommandTargets) : state.cursorCommands;
@@ -355,13 +402,20 @@ async function run(): Promise<void> {
       if (claudeExisted && existsSync(claudeBackupPath)) throw new Error(`refusing to overwrite existing backup: ${claudeBackupPath}`);
       if (claudeExisted) atomicCopy(claudeSettings, claudeBackupPath, 0o600);
       atomicWriteJson(statePath, {
-        version: 3,
+        version: 4,
         codexConfigExisted: state.codexConfigExisted,
         codexBackupPath: state.codexBackupPath,
         cursorCommands,
         claudeSettingsExisted: claudeExisted,
         claudeBackupPath: claudeExisted ? claudeBackupPath : null,
-      } satisfies ClientStateV3);
+        authRetired: false,
+      } satisfies ClientStateV4);
+    } else if (state.version === 3) {
+      atomicWriteJson(statePath, {
+        ...state,
+        version: 4,
+        authRetired: false,
+      } satisfies ClientStateV4);
     }
   }
 

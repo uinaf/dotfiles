@@ -64,7 +64,7 @@ test("gateway config is strict and provider edits use command-backed Responses a
   );
 });
 
-test("apply, check, Claude settings, Cursor status, and rollback preserve saved login state", { skip: !codexInstalled }, () => {
+test("apply preserves login state, explicit retirement clears it, and rollback remains honest", { skip: !codexInstalled }, () => {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-llm-gateway-"));
   const home = join(root, "home");
   const bin = join(root, "bin");
@@ -78,6 +78,8 @@ test("apply, check, Claude settings, Cursor status, and rollback preserve saved 
   const originalCursorTargets = ["../share/cursor-agent/versions/test/cursor-agent", "../share/cursor-agent/versions/test/cursor-agent"];
   const originalCodex = '# retained\nforced_login_method = "chatgpt"\n';
   const originalAuth = '{"tokens":"saved-login-state"}\n';
+  const originalClaudeAuth = '{"oauth":"saved-login-state"}\n';
+  const originalCursorAuth = '{"accessToken":"saved-login-state"}\n';
   const originalClaudeSettings = '{"permissions":{"defaultMode":"auto"},"env":{"KEEP":"yes"},"theme":"dark"}\n';
   const cursorKey = "crsr_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-";
   const gatewayKey = "0123456789abcdefghijklmnopqrstuvwxyz_ABCD";
@@ -89,14 +91,18 @@ test("apply, check, Claude settings, Cursor status, and rollback preserve saved 
     mkdirSync(dirname(cursorBin), { recursive: true });
     mkdirSync(dirname(cursorCommands[0]), { recursive: true });
     mkdirSync(dirname(claudeSettingsPath), { recursive: true });
+    mkdirSync(join(home, ".cursor"), { recursive: true });
     writeFileSync(join(codexHome, "config.toml"), originalCodex, { mode: 0o600 });
     writeFileSync(join(codexHome, "auth.json"), originalAuth, { mode: 0o600 });
+    writeFileSync(join(home, ".claude/.credentials.json"), originalClaudeAuth, { mode: 0o600 });
+    writeFileSync(join(home, ".cursor/auth.json"), originalCursorAuth, { mode: 0o600 });
     writeFileSync(secretFile, "encrypted fixture\n", { mode: 0o600 });
     writeFileSync(claudeSettingsPath, originalClaudeSettings, { mode: 0o600 });
     writeFileSync(gatewayConfig, `${JSON.stringify({ ...validConfig, secretFile, cursorAgentBin: cursorBin })}\n`, { mode: 0o600 });
     writeFileSync(cursorBin, `#!/usr/bin/env bash
 case "\${1:-}" in
   models) exit 0 ;;
+  logout) rm -f "$HOME/.cursor/auth.json" ;;
   --version) printf '2026.08.11-e8db854\\n' ;;
   acp)
     while IFS= read -r line; do
@@ -120,6 +126,11 @@ case "\${1:-}" in
   decrypt) printf '{"CURSOR_API_KEY":"${cursorKey}","CLIPROXYAPI_CLIENT_API_KEY":"${gatewayKey}"}\\n' ;;
   *) exit 2 ;;
 esac
+`, { mode: 0o700 });
+    writeFileSync(join(bin, "claude"), `#!/usr/bin/env bash
+set -euo pipefail
+[ "\${1:-}" = auth ] && [ "\${2:-}" = logout ] || exit 2
+rm -f "$HOME/.claude/.credentials.json"
 `, { mode: 0o700 });
 
     const env = {
@@ -154,8 +165,9 @@ esac
       assert.equal(lstatSync(command).isSymbolicLink(), false);
       assert.equal(statSync(command).mode & 0o777, 0o700);
     }
-    const state = JSON.parse(readFileSync(join(configDir, "llm-gateway-state.json"), "utf8")) as { version: number; cursorCommands: Array<{ target: string }> };
-    assert.equal(state.version, 3);
+    const state = JSON.parse(readFileSync(join(configDir, "llm-gateway-state.json"), "utf8")) as { version: number; authRetired: boolean; cursorCommands: Array<{ target: string }> };
+    assert.equal(state.version, 4);
+    assert.equal(state.authRetired, false);
     assert.deepEqual(state.cursorCommands.map((command) => command.target), originalCursorTargets);
     assert.equal(statSync(join(home, ".local/libexec/dotfiles/cursor-acp-api-key-auth")).mode & 0o777, 0o700);
 
@@ -201,10 +213,25 @@ esac
       assert.doesNotMatch(readFileSync(acpLog, "utf8"), /"method":"authenticate"/);
     }
 
+    const retire = run("--retire-auth");
+    assert.equal(retire.status, 0, retire.stderr);
+    assert.equal(existsSync(join(codexHome, "auth.json")), false);
+    assert.equal(existsSync(join(home, ".claude/.credentials.json")), false);
+    assert.equal(existsSync(join(home, ".cursor/auth.json")), false);
+    assert.doesNotMatch(readFileSync(join(codexHome, "config.toml"), "utf8"), /forced_login_method/);
+    const retiredState = JSON.parse(readFileSync(join(configDir, "llm-gateway-state.json"), "utf8")) as { authRetired: boolean };
+    assert.equal(retiredState.authRetired, true);
+    const retiredCheck = run("--check");
+    assert.equal(retiredCheck.status, 0, retiredCheck.stderr);
+    assert.match(retiredCheck.stdout, /auth-retired=true/);
+
     const rollback = run("--rollback");
     assert.equal(rollback.status, 0, rollback.stderr);
     assert.equal(readFileSync(join(codexHome, "config.toml"), "utf8"), originalCodex);
-    assert.equal(readFileSync(join(codexHome, "auth.json"), "utf8"), originalAuth);
+    assert.equal(existsSync(join(codexHome, "auth.json")), false);
+    assert.equal(existsSync(join(home, ".claude/.credentials.json")), false);
+    assert.equal(existsSync(join(home, ".cursor/auth.json")), false);
+    assert.match(rollback.stdout, /requires reauthentication/);
     assert.equal(readFileSync(claudeSettingsPath, "utf8"), originalClaudeSettings);
     assert.equal(existsSync(join(home, ".local/bin/cursor-agent-api")), false);
     assert.equal(existsSync(join(home, ".local/libexec/dotfiles/cursor-acp-api-key-auth")), false);
@@ -278,8 +305,9 @@ esac
     assert.equal(apply.status, 0, apply.stderr);
     assert.equal(existsSync(legacyState), false);
     assert.equal(existsSync(legacyCredential), false);
-    const migrated = JSON.parse(readFileSync(join(configDir, "llm-gateway-state.json"), "utf8")) as { version: number; codexBackupPath: string };
-    assert.equal(migrated.version, 3);
+    const migrated = JSON.parse(readFileSync(join(configDir, "llm-gateway-state.json"), "utf8")) as { version: number; authRetired: boolean; codexBackupPath: string };
+    assert.equal(migrated.version, 4);
+    assert.equal(migrated.authRetired, false);
     assert.equal(migrated.codexBackupPath, legacyBackup);
     assert.equal(readFileSync(`${claudeSettingsPath}.llm-gateway.backup`, "utf8"), originalClaude);
 

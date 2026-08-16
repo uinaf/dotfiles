@@ -135,6 +135,21 @@ incompatible saved ChatGPT auth file when the next session starts. Remove the
 saved login only in the separate, explicit auth-retirement step after the
 gateway and rollback path are accepted.
 
+After the gateway has been accepted, retire the three coding-client login
+caches through their supported logout commands and remove Codex's obsolete
+login-method restriction:
+
+```bash
+./scripts/bootstrap/configure-llm-gateway.ts --retire-auth
+./scripts/bootstrap/configure-llm-gateway.ts --check
+```
+
+This is intentionally separate from enrollment. It is idempotent, keeps the
+gateway configuration and encrypted credential payload in place, and does not
+touch GitHub, SSH, OpenClaw, or connector credentials. Rollback after retirement
+restores the pre-gateway client configuration but cannot restore deleted login
+credentials; each coding client must be authenticated again before direct use.
+
 Claude Code receives `ANTHROPIC_BASE_URL` and `apiKeyHelper` in its existing
 user settings. Every unrelated setting and the saved Claude login remain in
 place. Enrollment fails if the settings already define `ANTHROPIC_API_KEY`,
@@ -158,8 +173,8 @@ synthetic `api-key@local` identity for tools that parse `agent about`. ACP
 automatically reapply the managed commands.
 
 Rollback restores the exact pre-enrollment Codex config, Claude settings, and
-Cursor command symlinks, then removes the helpers. Saved Codex, Claude, and
-Cursor login state is never edited:
+Cursor command symlinks, then removes the helpers. Saved coding login state is
+untouched unless the separate `--retire-auth` operation was run:
 
 ```bash
 ./scripts/bootstrap/configure-llm-gateway.ts --rollback
