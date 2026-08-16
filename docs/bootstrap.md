@@ -154,14 +154,13 @@ its Codex settings and set:
 - Font Smoothing: on
 
 `./scripts/bootstrap/install.sh` uses Codex's config API to update selected
-defaults in `~/.codex/config.toml`. The default direct-login flow includes
-`forced_login_method = "chatgpt"` so Codex uses ChatGPT subscription access
-instead of API-key billing. It sets high reasoning effort, selects the standard
+defaults in `~/.codex/config.toml`. It removes the legacy
+`forced_login_method` setting so each identity can use its active ChatGPT
+session or an explicitly configured API provider without the bootstrap
+overriding that choice. It sets high reasoning effort, selects the standard
 service tier, and disables fast mode by default while preserving unrelated
 settings and formatting. It does not manage Codex auth tokens, sessions,
-approvals, or app state. An identity enrolled in the optional coding LLM
-gateway removes that direct-login restriction through the separate retirement
-flow in [Devbox setup](devbox.md#opt-in-coding-llm-gateway).
+approvals, or app state.
 The typed edit list in `scripts/bootstrap/configure-codex.ts` is the source of
 truth; the bootstrap client sends it through Codex's native writer as one
 atomic update.

@@ -19,7 +19,7 @@ function run(home: string) {
 
 test("Codex defaults are one typed atomic edit batch", () => {
   assert.deepEqual(managedEdits, [
-    { keyPath: "forced_login_method", value: "chatgpt", mergeStrategy: "upsert" },
+    { keyPath: "forced_login_method", value: null, mergeStrategy: "replace" },
     { keyPath: "model", value: "gpt-5.6-sol", mergeStrategy: "upsert" },
     { keyPath: "model_reasoning_effort", value: "high", mergeStrategy: "upsert" },
     { keyPath: "service_tier", value: "default", mergeStrategy: "upsert" },
@@ -35,7 +35,7 @@ test("installed Codex uses the native atomic writer and preserves local config",
   const config = join(home, "config.toml");
   try {
     mkdirSync(home);
-    writeFileSync(config, '# keep this comment\napproval_policy = "never"\n\n[mcp_servers.fixture]\ncommand = "example"\n');
+    writeFileSync(config, 'forced_login_method = "chatgpt"\n# keep this comment\napproval_policy = "never"\n\n[mcp_servers.fixture]\ncommand = "example"\n');
     chmodSync(config, 0o644);
 
     const first = run(home);
@@ -43,8 +43,9 @@ test("installed Codex uses the native atomic writer and preserves local config",
     const contents = readFileSync(config, "utf8");
     assert.ok(contents.includes("# keep this comment"));
     assert.ok(contents.includes('[mcp_servers.fixture]\ncommand = "example"'));
+    assert.ok(!contents.includes("forced_login_method"));
     for (const expected of [
-      'forced_login_method = "chatgpt"', 'model = "gpt-5.6-sol"',
+      'model = "gpt-5.6-sol"',
       'model_reasoning_effort = "high"', 'service_tier = "default"',
       "fast_mode = false", "goals = true", "memories = true",
     ]) assert.ok(contents.includes(expected), `missing ${expected}`);

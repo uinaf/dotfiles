@@ -10,7 +10,7 @@ type Scalar = boolean | null | number | string | readonly string[];
 export type ConfigEdit = { keyPath: string; value: Scalar; mergeStrategy: "replace" | "upsert" };
 
 export const managedEdits = [
-  { keyPath: "forced_login_method", value: "chatgpt", mergeStrategy: "upsert" },
+  { keyPath: "forced_login_method", value: null, mergeStrategy: "replace" },
   { keyPath: "model", value: "gpt-5.6-sol", mergeStrategy: "upsert" },
   { keyPath: "model_reasoning_effort", value: "high", mergeStrategy: "upsert" },
   { keyPath: "service_tier", value: "default", mergeStrategy: "upsert" },

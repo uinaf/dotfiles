@@ -129,11 +129,9 @@ config writer to select a command-authenticated Responses provider:
 ./scripts/bootstrap/configure-llm-gateway.ts --check
 ```
 
-The first enrollment keeps the existing `forced_login_method` and saved Codex
-login intact. Setting it to `api` before retirement can make Codex delete the
-incompatible saved ChatGPT auth file when the next session starts. Remove the
-saved login only in the separate, explicit auth-retirement step after the
-gateway and rollback path are accepted.
+The first enrollment keeps any saved Codex login intact. The standard bootstrap
+does not force a login method. Remove the saved login only in the separate,
+explicit auth-retirement step after the gateway and rollback path are accepted.
 
 After the gateway has been accepted, retire the three coding-client login
 caches through their supported logout commands and remove Codex's obsolete
@@ -150,9 +148,8 @@ touch GitHub, SSH, OpenClaw, or connector credentials. Rollback after retirement
 restores the pre-gateway client configuration but cannot restore deleted login
 credentials; each coding client must be authenticated again before direct use.
 
-A complete developer-profile `install.sh` run reapplies Codex's default direct
-ChatGPT login restriction. On an enrolled gateway identity, rerun the enrollment
-and retirement sequence above, ending with `--check`.
+A complete developer-profile `install.sh` run preserves gateway routing and
+removes any legacy Codex login-method restriction.
 
 Claude Code receives `ANTHROPIC_BASE_URL` and `apiKeyHelper` in its existing
 user settings. Every unrelated setting remains in place, and enrollment alone
