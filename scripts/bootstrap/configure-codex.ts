@@ -1,33 +1,27 @@
 #!/usr/bin/env node
 
 import { spawn } from "node:child_process";
-import { chmodSync, mkdirSync, readFileSync } from "node:fs";
+import { chmodSync, mkdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import readline from "node:readline";
-import { fileURLToPath } from "node:url";
 
 type RpcMessage = { id?: number; result?: unknown; error?: { message?: string } };
 type Scalar = boolean | number | string;
+type ConfigEdit = { keyPath: string; value: Scalar; mergeStrategy: "upsert" };
 
-const scriptDir = dirname(fileURLToPath(import.meta.url));
-const defaultsPath = join(scriptDir, "codex-defaults.json");
+export const managedEdits = [
+  { keyPath: "forced_login_method", value: "chatgpt", mergeStrategy: "upsert" },
+  { keyPath: "model", value: "gpt-5.6-sol", mergeStrategy: "upsert" },
+  { keyPath: "model_reasoning_effort", value: "high", mergeStrategy: "upsert" },
+  { keyPath: "service_tier", value: "default", mergeStrategy: "upsert" },
+  { keyPath: "features.fast_mode", value: false, mergeStrategy: "upsert" },
+  { keyPath: "features.goals", value: true, mergeStrategy: "upsert" },
+  { keyPath: "features.memories", value: true, mergeStrategy: "upsert" },
+] satisfies ConfigEdit[];
 
-function readDefaults(path: string): Array<{ keyPath: string; value: Scalar; mergeStrategy: "upsert" }> {
-  const document = JSON.parse(readFileSync(path, "utf8")) as unknown;
-  if (!document || typeof document !== "object" || Array.isArray(document)) throw new Error("Codex defaults must be an object");
-  const { version, values } = document as { version?: unknown; values?: unknown };
-  if (version !== 1 || !values || typeof values !== "object" || Array.isArray(values)) throw new Error("unsupported Codex defaults schema");
-  return Object.entries(values).map(([keyPath, value]) => {
-    if (!keyPath || !/^[A-Za-z0-9_.-]+$/.test(keyPath)) throw new Error(`invalid Codex config key: ${keyPath}`);
-    if (!["boolean", "number", "string"].includes(typeof value)) throw new Error(`invalid Codex config value: ${keyPath}`);
-    return { keyPath, value: value as Scalar, mergeStrategy: "upsert" };
-  });
-}
-
-async function configure(): Promise<string> {
+export async function configure(): Promise<string> {
   const codexHome = resolve(process.env.CODEX_HOME || join(process.env.HOME || "", ".codex"));
   const configPath = resolve(process.env.CODEX_CONFIG_PATH || join(codexHome, "config.toml"));
-  const edits = readDefaults(defaultsPath);
   mkdirSync(dirname(configPath), { recursive: true, mode: 0o700 });
 
   const child = spawn("codex", ["app-server"], {
@@ -68,7 +62,7 @@ async function configure(): Promise<string> {
       if (message.id === 0) {
         if (message.error) return fail(new Error(message.error.message || "Codex app-server initialization failed"));
         send({ method: "initialized", params: {} });
-        send({ method: "config/batchWrite", id: 1, params: { edits, filePath: configPath } });
+        send({ method: "config/batchWrite", id: 1, params: { edits: managedEdits, filePath: configPath } });
       }
       if (message.id === 1) {
         if (message.error) return fail(new Error(message.error.message || "Codex config update failed"));
@@ -86,10 +80,12 @@ async function configure(): Promise<string> {
   return configPath;
 }
 
-try {
-  const configPath = await configure();
-  process.stdout.write(`configured Codex defaults in ${configPath}\n`);
-} catch (error) {
-  process.stderr.write(`FAILED: ${error instanceof Error ? error.message : String(error)}\n`);
-  process.exitCode = 1;
+if (import.meta.main) {
+  try {
+    const configPath = await configure();
+    process.stdout.write(`configured Codex defaults in ${configPath}\n`);
+  } catch (error) {
+    process.stderr.write(`FAILED: ${error instanceof Error ? error.message : String(error)}\n`);
+    process.exitCode = 1;
+  }
 }

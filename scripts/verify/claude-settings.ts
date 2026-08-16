@@ -22,7 +22,6 @@ type Fixture = {
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const sourceDir = join(repoRoot, "chezmoi");
 const templatePath = join(sourceDir, "private_dot_claude/modify_private_settings.json");
-const managedKey = "CLAUDE_CODE_DISABLE_1M_CONTEXT";
 const managedMode = "defaultMode";
 const fixtures: Fixture[] = [
   { contents: "", expected: {} },
@@ -31,10 +30,13 @@ const fixtures: Fixture[] = [
     contents: '{"env":{"KEEP":"yes"},"permissions":{"allow":["Read"]}}',
     expected: { env: { KEEP: "yes" }, permissions: { allow: ["Read"] } },
   },
-  { contents: '{"env":{"CLAUDE_CODE_DISABLE_1M_CONTEXT":"1"}}', expected: {} },
+  {
+    contents: '{"env":{"CLAUDE_CODE_DISABLE_1M_CONTEXT":"1"}}',
+    expected: { env: { CLAUDE_CODE_DISABLE_1M_CONTEXT: "1" } },
+  },
   {
     contents: '{"env":{"CLAUDE_CODE_DISABLE_1M_CONTEXT":"1","KEEP":"yes"}}',
-    expected: { env: { KEEP: "yes" } },
+    expected: { env: { CLAUDE_CODE_DISABLE_1M_CONTEXT: "1", KEEP: "yes" } },
   },
   {
     contents: '{\n    "theme": "dark",\n    "env": {\n        "KEEP": "yes"\n    }\n}\n',
@@ -105,16 +107,13 @@ function renderFixture(fixture: Fixture, root: string): Promise<void> {
         assert.deepEqual(
           {
             ...actual,
-            env: { ...actual.env, [managedKey]: undefined },
             permissions: { ...actual.permissions, [managedMode]: undefined },
           },
           {
             ...expected,
-            env: { ...expected.env, [managedKey]: undefined },
             permissions: { ...expected.permissions, [managedMode]: undefined },
           },
         );
-        assert.equal(actual.env?.[managedKey], undefined);
         assert.equal(actual.permissions?.[managedMode], "auto");
         finish();
       } catch (failure) {
@@ -130,7 +129,6 @@ async function verifyMissingFile(root: string): Promise<void> {
   await runApply("workstation", fixtureRoot);
   const path = settingsPath(fixtureRoot);
   const written = JSON.parse(readFileSync(path, "utf8")) as Settings;
-  assert.equal(written.env?.[managedKey], undefined);
   assert.equal(written.permissions?.[managedMode], "auto");
   assert.equal(Number(statSync(path, { bigint: true }).mode & 0o777n), 0o600);
 }

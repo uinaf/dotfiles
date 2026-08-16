@@ -1,7 +1,8 @@
-# React Native
+# Mobile and TV Development
 
-Manual setup for building React Native apps on a workstation Mac. Covers
-react-native-tvos targets that need both Apple TV and Android TV simulators.
+Manual setup for Apple and Android app development on a workstation Mac. The
+shared toolchain supports mobile apps; the additional steps below cover React
+Native TV targets that need both Apple TV and Android TV simulators.
 
 The dotfiles install Android Studio, Xcode tooling, Watchman, and a Temurin 21
 JDK via mise. They also select the Android Studio SDK at

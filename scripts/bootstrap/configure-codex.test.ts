@@ -8,26 +8,25 @@ import { dirname, join, resolve } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
+import { managedEdits } from "./configure-codex.ts";
+
 const script = resolve(dirname(fileURLToPath(import.meta.url)), "configure-codex.ts");
-const defaults = JSON.parse(readFileSync(resolve(dirname(script), "codex-defaults.json"))) as {
-  version?: unknown;
-  values?: Record<string, unknown>;
-};
 const codexInstalled = spawnSync("codex", ["--version"], { stdio: "ignore" }).status === 0;
 
 function run(home: string) {
   return spawnSync(script, { encoding: "utf8", env: { ...process.env, CODEX_HOME: home } });
 }
 
-test("Codex defaults use the supported scalar schema", () => {
-  assert.equal(defaults.version, 1);
-  assert.ok(defaults.values);
-  assert.equal(defaults.values.forced_login_method, "chatgpt");
-  assert.equal(defaults.values["features.fast_mode"], false);
-  for (const [key, value] of Object.entries(defaults.values)) {
-    assert.match(key, /^[A-Za-z0-9_.-]+$/);
-    assert.ok(["boolean", "number", "string"].includes(typeof value));
-  }
+test("Codex defaults are one typed atomic edit batch", () => {
+  assert.deepEqual(managedEdits, [
+    { keyPath: "forced_login_method", value: "chatgpt", mergeStrategy: "upsert" },
+    { keyPath: "model", value: "gpt-5.6-sol", mergeStrategy: "upsert" },
+    { keyPath: "model_reasoning_effort", value: "high", mergeStrategy: "upsert" },
+    { keyPath: "service_tier", value: "default", mergeStrategy: "upsert" },
+    { keyPath: "features.fast_mode", value: false, mergeStrategy: "upsert" },
+    { keyPath: "features.goals", value: true, mergeStrategy: "upsert" },
+    { keyPath: "features.memories", value: true, mergeStrategy: "upsert" },
+  ]);
 });
 
 test("installed Codex uses the native atomic writer and preserves local config", { skip: !codexInstalled }, () => {
@@ -46,7 +45,7 @@ test("installed Codex uses the native atomic writer and preserves local config",
     assert.ok(contents.includes('[mcp_servers.fixture]\ncommand = "example"'));
     for (const expected of [
       'forced_login_method = "chatgpt"', 'model = "gpt-5.6-sol"',
-      'model_reasoning_effort = "medium"', 'service_tier = "default"',
+      'model_reasoning_effort = "high"', 'service_tier = "default"',
       "fast_mode = false", "goals = true", "memories = true",
     ]) assert.ok(contents.includes(expected), `missing ${expected}`);
     assert.equal(statSync(config).mode & 0o777, 0o600);

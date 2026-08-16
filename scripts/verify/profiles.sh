@@ -336,7 +336,7 @@ for required in 'brew "gh"' 'cask "google-chrome"'; do
     fi
   done
 done
-for required in 'cask "ghostty"' 'cask "1password"' 'cask "1password-cli"' 'cask "slack"' 'cask "chatgpt"' 'cask "cursor"' 'brew "ykman"'; do
+for required in 'cask "ghostty"' 'cask "1password"' 'cask "1password-cli"' 'cask "slack"' 'cask "chatgpt"' 'cask "t3-code"' 'cask "cursor"' 'brew "ykman"'; do
   grep -Fqx "$required" "$repo_root/Brewfile.workstation" \
     || fail "workstation layer missed shared human desktop app $required"
 done
@@ -485,7 +485,7 @@ assert_install_rejected 'unsupported profile' --profile unsupported
 assert_install_rejected 'unknown option' --unknown
 
 assistant_mise="$(render_target assistant .config/mise/config.toml)"
-printf '%s\n' "$assistant_mise" | grep -Fqx 'node = "24.18.0"' \
+printf '%s\n' "$assistant_mise" | grep -Fqx 'node = "24.19.0"' \
   || fail 'assistant mise config missed the pinned Node runtime'
 for rejected in 'python =' 'uv =' 'bun =' 'java =' 'ruby =' 'go =' 'playwright' 'vite-plus' 'trusted_config_paths' 'pnpm@'; do
   if printf '%s\n' "$assistant_mise" | grep -Fq "$rejected"; then
@@ -501,7 +501,7 @@ for rejected in 'node =' 'python =' 'uv =' 'bun =' 'java =' 'ruby =' 'go =' 'pla
 done
 
 workstation_mise="$(render_target workstation .config/mise/config.toml)"
-for expected in 'node = { version = "24.18.0"' 'npm@12.0.2' 'pnpm@11.20.0' 'bun = "1.3.10"' 'java = "temurin-21"' 'ruby = "4.0.6"' 'go = "1.26.6"' '"npm:@playwright/cli" = "0.1.17"' 'trusted_config_paths'; do
+for expected in 'node = { version = "24.19.0"' 'npm@12.0.2' 'pnpm@11.22.0' 'bun = "1.3.14"' 'java = "temurin-21"' 'ruby = "4.0.6"' 'go = "1.26.6"' '"npm:@playwright/cli" = "0.1.18"' 'trusted_config_paths'; do
   printf '%s\n' "$workstation_mise" | grep -Fq "$expected" || fail "workstation mise config missed $expected"
 done
 for rejected in 'pnpm@12.0.0-beta.2' 'npm:vite-plus'; do

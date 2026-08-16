@@ -6,7 +6,9 @@ import { dirname, join, resolve } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-const hook = resolve(dirname(fileURLToPath(import.meta.url)), "pre-push.ts");
+const verifyDir = dirname(fileURLToPath(import.meta.url));
+const hook = resolve(verifyDir, "pre-push.ts");
+const installer = resolve(verifyDir, "install-pre-push-hook.sh");
 
 type Repository = {
   path: string;
@@ -78,18 +80,16 @@ test("installed hook reports a missing Node runtime", () => {
   const root = mkdtempSync(join(tmpdir(), "pre-push-installer-"));
   try {
     const repo = init(root);
-    const bootstrapDir = join(repo.path, "scripts/bootstrap");
     const verifyDir = join(repo.path, "scripts/verify");
     const bin = join(root, "bin");
-    mkdirSync(bootstrapDir, { recursive: true });
     mkdirSync(verifyDir, { recursive: true });
     mkdirSync(bin);
-    copyFileSync(join(dirname(hook), "../bootstrap/install-git-hooks.sh"), join(bootstrapDir, "install-git-hooks.sh"));
+    copyFileSync(installer, join(verifyDir, "install-pre-push-hook.sh"));
     copyFileSync(hook, join(verifyDir, "pre-push.ts"));
     symlinkSync("/usr/bin/git", join(bin, "git"));
     symlinkSync("/usr/bin/false", join(bin, "node"));
 
-    const install = spawnSync("/bin/bash", [join(bootstrapDir, "install-git-hooks.sh")], {
+    const install = spawnSync("/bin/bash", [join(verifyDir, "install-pre-push-hook.sh")], {
       cwd: repo.path,
       encoding: "utf8",
       env: process.env,

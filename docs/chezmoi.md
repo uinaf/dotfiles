@@ -31,11 +31,12 @@ and allowed-signers sources. Assistant and service profiles render a minimal
 Git base with a local workload-identity include and exclude those developer
 surfaces; only assistant includes the optional GitHub App helper.
 
-All four developer profiles set `CLAUDE_CODE_DISABLE_1M_CONTEXT=1` in the `env`
-object of the Claude Code user settings. The modify template preserves unrelated
-settings and sibling environment values. User settings are the lowest-precedence
-Claude Code scope; project, local, command-line, and managed settings can override
-this default. The repository does not manage `~/.claude.json`.
+All four developer profiles set `permissions.defaultMode=auto` in the Claude
+Code user settings. The modify template preserves every other setting,
+including the complete `env` object. User settings are the lowest-precedence
+Claude Code scope; project, local, command-line, and managed settings can
+override this default. The repository does not manage Claude Code environment
+values or `~/.claude.json`.
 
 The developer SSH entrypoint is exclusively Chezmoi-managed. Host-specific
 directives belong in `~/.ssh/config.local`, and tools that support a configurable

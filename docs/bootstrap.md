@@ -127,10 +127,9 @@ does not use:
 This uses `mas`, which discovers installed apps through Spotlight, and may ask
 for the local account password during uninstall.
 
-Install optional external tools:
+Install optional shell customization:
 
 ```zsh
-./scripts/bootstrap/install-blacksmith.sh
 sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
 ```
 
@@ -157,11 +156,12 @@ its Codex settings and set:
 `./scripts/bootstrap/install.sh` uses Codex's config API to update selected
 defaults in `~/.codex/config.toml`, including `forced_login_method = "chatgpt"`
 so Codex uses ChatGPT subscription access instead of API-key billing. It
-selects the standard service tier and disables fast mode by default while
-preserving unrelated settings and formatting. It does not manage Codex auth
-tokens, sessions, approvals, or app state.
-Change the managed values in `scripts/bootstrap/codex-defaults.json`; the
-bootstrap client sends them as one atomic update.
+sets high reasoning effort, selects the standard service tier, and disables
+fast mode by default while preserving unrelated settings and formatting. It
+does not manage Codex auth tokens, sessions, approvals, or app state.
+The typed edit list in `scripts/bootstrap/configure-codex.ts` is the source of
+truth; the bootstrap client sends it through Codex's native writer as one
+atomic update.
 
 The same install step installs or updates GitHub's official `github/gh-stack`
 extension through `gh extension install --force`. GitHub CLI authentication and
@@ -260,7 +260,6 @@ Install shared plus devbox Homebrew dependencies:
 ```zsh
 profile=devbox # use personal-devbox for headless personal tools and skills
 ./scripts/bootstrap/brew-bundle.sh "$profile"
-./scripts/bootstrap/install-blacksmith.sh
 ```
 
 Run every other Homebrew mutation on a shared devbox through the repo wrapper:
@@ -280,9 +279,6 @@ umask. Run these commands once from the owning admin identity, then run the
 devbox bootstrap verification as every Unix identity. Verification disables
 Homebrew auto-update so a read-only package check cannot mutate the shared
 checkout.
-
-Blacksmith uses its official per-user installer rather than Homebrew and
-self-updates from `~/.local/bin`.
 
 Apply dotfiles:
 
@@ -430,11 +426,11 @@ Use the target Unix user's `personal-devbox`, `devbox`, `assistant`, or
 `service` role instead when appropriate, and keep the age-identity step for
 those profiles.
 
-## React Native
+## Mobile and TV Development
 
 Xcode tvOS simulators, Android SDK, Android TV system images, CocoaPods, and
 Fastlane are per-machine state set up by hand. See
-[React Native](react-native.md) for the manual steps.
+[Mobile and TV development](mobile-and-tv-development.md) for the manual steps.
 
 ## Tizen
 

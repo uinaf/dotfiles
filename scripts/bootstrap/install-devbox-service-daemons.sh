@@ -14,8 +14,19 @@ print_labels=0
 launchd_namespace="${DOTFILES_LAUNCHD_NAMESPACE:-}"
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
+fail() {
+  printf 'FAILED: %s\n' "$1" >&2
+  exit 1
+}
+
 # shellcheck source=scripts/lib/launchd.sh
 . "$repo_root/scripts/lib/launchd.sh"
+# shellcheck source=scripts/lib/devbox-service-common.sh
+. "$repo_root/scripts/lib/devbox-service-common.sh"
+# shellcheck source=scripts/lib/devbox-service-openclaw.sh
+. "$repo_root/scripts/lib/devbox-service-openclaw.sh"
+# shellcheck source=scripts/lib/devbox-service-colima.sh
+. "$repo_root/scripts/lib/devbox-service-colima.sh"
 
 usage() {
   cat <<'USAGE'
@@ -41,11 +52,6 @@ The installer must run as root on macOS. It creates root-owned system
 LaunchDaemons that drop privileges to the selected user. Conflicting
 GUI-session LaunchAgents must be retired explicitly before installation.
 USAGE
-}
-
-fail() {
-  printf 'FAILED: %s\n' "$1" >&2
-  exit 1
 }
 
 while [ "$#" -gt 0 ]; do
@@ -121,7 +127,7 @@ if [ "$print_labels" -eq 1 ]; then
   exit 0
 fi
 
-[ "$(uname -s)" = "Darwin" ] || fail "this installer supports macOS only"
+[ "$(uname -s)" = Darwin ] || fail "this installer supports macOS only"
 [ "$install_openclaw" -eq 1 ] || [ "$allow_openclaw_restart" -eq 1 ] \
   || [ "$install_colima" -eq 1 ] \
   || fail "select at least one service"
@@ -165,137 +171,12 @@ sudoers_dir="/etc/sudoers.d"
 openclaw_restart_sudoers="$sudoers_dir/$(
   dotfiles_openclaw_restart_sudoers_name "$target_user" "$target_uid"
 )"
-colima_binary=""
 colima_start="$target_home/.local/bin/colima-ensure"
-
-find_executable() {
-  local name="$1"
-  local candidate
-  for candidate in \
-    "$target_home/.local/bin/$name" \
-    "$target_home/.local/share/mise/shims/$name" \
-    "/opt/homebrew/bin/$name" \
-    "/usr/local/bin/$name"
-  do
-    [ ! -x "$candidate" ] || { printf '%s\n' "$candidate"; return; }
-  done
-  return 1
-}
-
-validate_openclaw_wrapper() {
-  local wrapper="$1"
-  local wrapper_parent
-  local trusted_path
-  local current_dir
-  local path_mode
-
-  [ -f "$wrapper" ] || fail "OpenClaw wrapper must be a regular file: $wrapper"
-  [ ! -L "$wrapper" ] || fail "OpenClaw wrapper must not be a symlink: $wrapper"
-  wrapper_parent="$(cd -P -- "$(dirname "$wrapper")" && pwd)"
-  trusted_path="$wrapper_parent/$(basename "$wrapper")"
-  case "$trusted_path" in
-    "$target_home"/*) ;;
-    *) fail "OpenClaw wrapper must resolve inside $target_home" ;;
-  esac
-  [ -x "$trusted_path" ] || fail "missing executable $trusted_path"
-  [ "$(stat -f '%Su' "$trusted_path")" = "$target_user" ] \
-    || fail "OpenClaw wrapper must be owned by $target_user"
-  path_mode="$(stat -f '%Lp' "$trusted_path")"
-  [ $((8#$path_mode & 0022)) -eq 0 ] \
-    || fail "OpenClaw wrapper must not be group/world-writable: $trusted_path"
-
-  current_dir="$wrapper_parent"
-  while :; do
-    path_mode="$(stat -f '%Lp' "$current_dir")"
-    [ $((8#$path_mode & 0022)) -eq 0 ] \
-      || fail "OpenClaw wrapper parent must not be group/world-writable: $current_dir"
-    [ "$current_dir" != "$target_home" ] || break
-    current_dir="$(dirname "$current_dir")"
-  done
-
-  openclaw_wrapper="$trusted_path"
-}
-
-can_run_as_target() {
-  [ "$(id -u)" -eq "$target_uid" ] || [ "$(id -u)" -eq 0 ]
-}
-
-run_as_target() {
-  if [ "$(id -u)" -eq "$target_uid" ]; then
-    "$@"
-  elif [ "$(id -u)" -eq 0 ]; then
-    /usr/bin/sudo -u "$target_user" -H "$@"
-  else
-    fail "run this step as root or $target_user"
-  fi
-}
-
-# Functional preconditions live in the target user's home. Other callers in
-# check mode still get the launchd-level checks plus a skip notice.
-needs_target_files() {
-  [ "$check_only" -eq 0 ] || can_run_as_target
-}
+colima_binary=""
 
 if [ "$install_colima" -eq 1 ] && needs_target_files; then
-  colima_binary="$(find_executable colima 2>/dev/null || true)"
-  [ -n "$colima_binary" ] || fail "missing colima binary"
-  [ -x "$colima_start" ] || fail "missing executable $colima_start"
+  prepare_colima_service
 fi
-
-check_job() {
-  local label="$1"
-
-  [ -f "$launch_daemon_dir/$label.plist" ] || fail "missing $launch_daemon_dir/$label.plist"
-  [ "$(stat -f '%Su:%Sg:%Lp' "$launch_daemon_dir/$label.plist")" = "root:wheel:644" ] \
-    || fail "$label plist must be root:wheel mode 0644"
-  launchctl print "system/$label" >/dev/null 2>&1 || fail "$label is not loaded"
-  printf 'ok %s loaded for %s\n' "$label" "$target_user"
-}
-
-check_openclaw_restart_sudoers() {
-  local expected_rule
-  local allowed_command
-  local authorization_output
-
-  expected_rule="$(dotfiles_openclaw_restart_sudoers_rule "$target_user" "$openclaw_label")"
-  allowed_command="${expected_rule#*NOPASSWD: }"
-  if [ "$(id -u)" -ne 0 ]; then
-    [ "$(id -u)" -eq "$target_uid" ] \
-      || fail "OpenClaw restart policy check requires root or $target_user"
-    authorization_output="$(
-      /usr/bin/sudo -n -l \
-        /bin/launchctl kickstart -k "system/$openclaw_label"
-    )" || fail "$target_user cannot restart only $openclaw_label without a password"
-    printf '%s\n' "$authorization_output" | grep -Fqx -- "$allowed_command" \
-      || fail "$target_user sudo authorization does not match the exact OpenClaw restart command"
-    printf 'ok %s may restart only %s\n' "$target_user" "$openclaw_label"
-    return
-  fi
-
-  [ -f "$openclaw_restart_sudoers" ] && [ ! -L "$openclaw_restart_sudoers" ] \
-    || fail "missing regular sudoers policy $openclaw_restart_sudoers"
-  [ "$(stat -f '%Su:%Sg:%Lp' "$openclaw_restart_sudoers")" = "root:wheel:440" ] \
-    || fail "$openclaw_restart_sudoers must be root:wheel mode 0440"
-  if [ "$(wc -l < "$openclaw_restart_sudoers" | tr -d ' ')" != 1 ] \
-    || ! grep -Fqx -- "$expected_rule" "$openclaw_restart_sudoers"; then
-    fail "$openclaw_restart_sudoers does not match the exact OpenClaw restart policy"
-  fi
-  /usr/sbin/visudo -cf "$openclaw_restart_sudoers" >/dev/null \
-    || fail "invalid sudoers policy $openclaw_restart_sudoers"
-  printf 'ok %s may restart only %s\n' "$target_user" "$openclaw_label"
-}
-
-check_colima() {
-  local status_output
-  check_job "$colima_label"
-  if can_run_as_target; then
-    status_output="$(run_as_target "$colima_binary" status 2>&1 || true)"
-    printf '%s\n' "$status_output" | grep -qi "colima is running" \
-      || fail "$colima_label is loaded but Colima is not running"
-  else
-    printf 'skipped %s functional check (requires root or %s)\n' "$colima_label" "$target_user"
-  fi
-}
 
 if [ "$check_only" -eq 1 ]; then
   if [ "$install_openclaw" -eq 1 ]; then
@@ -319,157 +200,19 @@ command -v launchctl >/dev/null || fail "missing launchctl"
 tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/dotfiles-service-daemons.XXXXXX")"
 trap 'rm -rf "$tmp_dir"' EXIT
 
-plist_add_arguments() {
-  local plist="$1"
-  shift
-  local index=0
-  local argument
-
-  plutil -insert ProgramArguments -xml '<array></array>' "$plist"
-  for argument in "$@"; do
-    plutil -insert "ProgramArguments.$index" -string "$argument" "$plist"
-    index=$((index + 1))
-  done
-}
-
-create_plist() {
-  local plist="$1"
-  local label="$2"
-  local working_directory="$3"
-  local stdout_path="$4"
-  local stderr_path="$5"
-  shift 5
-
-  plutil -create xml1 "$plist"
-  plutil -insert Label -string "$label" "$plist"
-  plutil -insert UserName -string "$target_user" "$plist"
-  plutil -insert GroupName -string "$target_group" "$plist"
-  plutil -insert WorkingDirectory -string "$working_directory" "$plist"
-  plutil -insert RunAtLoad -bool true "$plist"
-  plutil -insert KeepAlive -bool true "$plist"
-  plutil -insert SessionCreate -bool true "$plist"
-  plutil -insert ThrottleInterval -integer 10 "$plist"
-  plutil -insert Umask -integer 63 "$plist"
-  plutil -insert StandardOutPath -string "$stdout_path" "$plist"
-  plutil -insert StandardErrorPath -string "$stderr_path" "$plist"
-  plist_add_arguments "$plist" "$@"
-  plutil -lint "$plist" >/dev/null
-}
-
-bootout_if_loaded() {
-  local domain="$1"
-  local label="$2"
-
-  if ! launchctl print "$domain/$label" >/dev/null 2>&1; then
-    return 0
-  fi
-  launchctl bootout "$domain/$label" >/dev/null \
-    || fail "could not unload $domain/$label"
-  if launchctl print "$domain/$label" >/dev/null 2>&1; then
-    fail "$domain/$label remains loaded after bootout"
-  fi
-}
-
-install_job() {
-  local source_plist="$1"
-  local label="$2"
-
-  bootout_if_loaded system "$label"
-  install -o root -g wheel -m 0644 "$source_plist" "$launch_daemon_dir/$label.plist"
-  launchctl bootstrap system "$launch_daemon_dir/$label.plist"
-  launchctl enable "system/$label"
-  launchctl kickstart -k "system/$label"
-  launchctl print "system/$label" >/dev/null
-  printf 'installed %s for %s\n' "$label" "$target_user"
-}
-
-install_openclaw_restart_policy() {
-  local policy_source="$tmp_dir/openclaw-restart-sudoers"
-
-  [ -d "$sudoers_dir" ] || fail "missing $sudoers_dir"
-  dotfiles_openclaw_restart_sudoers_rule "$target_user" "$openclaw_label" > "$policy_source"
-  chmod 0440 "$policy_source"
-  /usr/sbin/visudo -cf "$policy_source" >/dev/null \
-    || fail "generated OpenClaw restart policy is invalid"
-  install -o root -g wheel -m 0440 "$policy_source" "$openclaw_restart_sudoers"
-  /usr/sbin/visudo -cf /etc/sudoers >/dev/null \
-    || fail "installed sudoers policy does not validate with /etc/sudoers"
-  check_openclaw_restart_sudoers
-}
-
-env_wrapper="$target_home/.openclaw/service-env/ai.openclaw.gateway-env-wrapper.sh"
-env_file="$target_home/.openclaw/service-env/ai.openclaw.gateway.env"
-gateway_wrapper="$target_home/.local/bin/openclaw-gateway-mise-wrapper"
-openclaw_binary=""
 if [ "$install_openclaw" -eq 1 ]; then
-  if [ -n "$openclaw_wrapper" ]; then
-    validate_openclaw_wrapper "$openclaw_wrapper"
-    openclaw_binary="$(find_executable openclaw 2>/dev/null || true)"
-    [ -n "$openclaw_binary" ] || fail "missing OpenClaw executable"
-  else
-    [ -x "$env_wrapper" ] || fail "missing executable $env_wrapper"
-    [ -f "$env_file" ] || fail "missing $env_file"
-    [ -x "$gateway_wrapper" ] || fail "missing executable $gateway_wrapper"
-  fi
+  prepare_openclaw_service
 fi
-launchd_namespace_dir="$(dirname "$launchd_namespace_file")"
-run_as_target install -d -m 0700 "$launchd_namespace_dir"
-namespace_tmp="$(run_as_target mktemp "$launchd_namespace_dir/.launchd-namespace.XXXXXX")"
-printf '%s\n' "$launchd_namespace" | run_as_target tee "$namespace_tmp" >/dev/null
-run_as_target chmod 0600 "$namespace_tmp"
-run_as_target mv -f "$namespace_tmp" "$launchd_namespace_file"
+persist_launchd_namespace
 
 if [ "$install_openclaw" -eq 1 ]; then
-  install -d -o "$target_user" -g "$target_group" -m 0750 "$target_home/Library/Logs/openclaw"
-  openclaw_plist="$tmp_dir/$openclaw_label.plist"
-  if [ -n "$openclaw_wrapper" ]; then
-    create_plist \
-      "$openclaw_plist" \
-      "$openclaw_label" \
-      "$target_home/.openclaw" \
-      "$target_home/Library/Logs/openclaw/gateway.log" \
-      "$target_home/Library/Logs/openclaw/gateway-error.log" \
-      "$openclaw_wrapper" \
-      "$openclaw_binary" \
-      gateway \
-      --port \
-      "$openclaw_port"
-  else
-    create_plist \
-      "$openclaw_plist" \
-      "$openclaw_label" \
-      "$target_home/.openclaw" \
-      "$target_home/Library/Logs/openclaw/gateway.log" \
-      "$target_home/Library/Logs/openclaw/gateway-error.log" \
-      /bin/sh \
-      "$env_wrapper" \
-      "$env_file" \
-      "$gateway_wrapper" \
-      gateway \
-      --port \
-      "$openclaw_port"
-  fi
-  install_job "$openclaw_plist" "$openclaw_label"
+  install_openclaw_service
 fi
-
 if [ "$allow_openclaw_restart" -eq 1 ]; then
   install_openclaw_restart_policy
 fi
-
 if [ "$install_colima" -eq 1 ]; then
-  run_as_target "$colima_start"
-  install -d -o "$target_user" -g "$target_group" -m 0750 "$target_home/.local/log/colima"
-  colima_plist="$tmp_dir/$colima_label.plist"
-  create_plist \
-    "$colima_plist" \
-    "$colima_label" \
-    "$target_home" \
-    "$target_home/.local/log/colima/launchd.log" \
-    "$target_home/.local/log/colima/launchd-error.log" \
-    "$colima_start"
-  plutil -replace KeepAlive -bool false "$colima_plist"
-  install_job "$colima_plist" "$colima_label"
-  check_colima
+  install_colima_service
 fi
 
 printf 'devbox service daemon installation ok\n'

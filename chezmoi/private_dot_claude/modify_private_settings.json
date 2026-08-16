@@ -3,11 +3,4 @@
 {{- if ne (trim .chezmoi.stdin) "" -}}
 {{- $settings = fromJson .chezmoi.stdin -}}
 {{- end -}}
-{{- if hasKey $settings "env" -}}
-{{- $env := omit (get $settings "env") "CLAUDE_CODE_DISABLE_1M_CONTEXT" -}}
-{{- $settings = set $settings "env" $env -}}
-{{- if not (len $env) -}}
-{{- $settings = omit $settings "env" -}}
-{{- end -}}
-{{- end -}}
 {{ $settings | setValueAtPath "permissions.defaultMode" "auto" | toPrettyJson }}

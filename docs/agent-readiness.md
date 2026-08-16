@@ -24,7 +24,7 @@ the complete deterministic graph.
 Install the focused commit-hygiene hook with:
 
 ```zsh
-./scripts/bootstrap/install-git-hooks.sh
+./scripts/verify/install-pre-push-hook.sh
 ```
 
 The hook reads the ref updates supplied by Git and checks only outgoing commit

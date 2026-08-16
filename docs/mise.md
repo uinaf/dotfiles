@@ -104,7 +104,7 @@ Avoid floating runtime versions such as `latest` in profile machine config.
 
 The personal-workstation/personal-devbox/workstation/devbox runtime group pins
 Ruby alongside its other development runtimes. Its Node entry enables Corepack
-and installs pnpm 11.20.0 as the default outside projects. A project's
+and installs pnpm 11.22.0 as the default outside projects. A project's
 `packageManager` field remains the repository-owned version source. The Node
 postinstall pins npm itself to 12.0.2, while Playwright CLI is an exact `npm:`
 backend entry. Vite+ stays repository-local and is invoked through the owning

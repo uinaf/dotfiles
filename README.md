@@ -94,7 +94,7 @@ checks are documented in [Agent readiness](docs/agent-readiness.md) and
 | Understand local and CI proof | [Agent readiness](docs/agent-readiness.md) |
 | Understand Actions and releases | [GitHub pipelines](docs/github-pipelines.md) |
 | Run security checks | [Security audits](docs/security-audits.md) |
-| Build React Native apps | [React Native](docs/react-native.md) |
+| Build mobile and TV apps | [Mobile and TV development](docs/mobile-and-tv-development.md) |
 | Find script entrypoints | [Scripts](scripts/README.md) |
 
 ## Contributing

@@ -41,8 +41,8 @@
       "id": "codex-settings",
       "domain": "config",
       "command": ["node", "--test", "scripts/bootstrap/configure-codex.test.ts"],
-      "inputs": ["scripts/bootstrap/configure-codex.ts", "scripts/bootstrap/configure-codex.test.ts", "scripts/bootstrap/codex-defaults.json"],
-      "output": "Codex defaults schema plus native write integration when Codex is installed"
+      "inputs": ["scripts/bootstrap/configure-codex.ts", "scripts/bootstrap/configure-codex.test.ts"],
+      "output": "Codex typed atomic edits plus native write integration when Codex is installed"
     },
     {
       "id": "agent-rules",
@@ -125,7 +125,7 @@
       "id": "service-labels",
       "domain": "services",
       "command": ["scripts/verify/service-labels.sh"],
-      "inputs": ["scripts/bootstrap/install-devbox-service-daemons.sh", "scripts/lib/launchd.sh"],
+      "inputs": ["scripts/bootstrap/install-devbox-service-daemons.sh", "scripts/lib/devbox-service-*.sh", "scripts/lib/launchd.sh"],
       "output": "Launchd service labels"
     },
     {
@@ -188,7 +188,7 @@
       "id": "pre-push",
       "domain": "git",
       "command": ["node", "--test", "scripts/verify/pre-push.test.ts"],
-      "inputs": ["scripts/verify/pre-push.ts", "scripts/verify/pre-push.test.ts", "scripts/bootstrap/install-git-hooks.sh"],
+      "inputs": ["scripts/verify/pre-push.ts", "scripts/verify/pre-push.test.ts", "scripts/verify/install-pre-push-hook.sh"],
       "output": "Outgoing commit hygiene across Git ref update shapes"
     },
     {

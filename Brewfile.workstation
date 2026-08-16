@@ -7,6 +7,7 @@ cask "1password"
 cask "1password-cli"
 cask "slack"
 cask "chatgpt"
+cask "t3-code"
 cask "cursor"
 
 # Hardware security

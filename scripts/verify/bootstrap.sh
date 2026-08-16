@@ -121,7 +121,6 @@ personal_workstation_cli_checks=(
 )
 
 devbox_cli_checks=(
-  "blacksmith --version"
   "tmux -V"
   "xcodes version"
   "tailscale status --peers=false"
