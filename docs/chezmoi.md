@@ -27,7 +27,7 @@ should land as owner-only local config.
 
 Personal-workstation and workstation manage Ghostty settings. All four
 developer profiles share GitHub authentication, outbound SSH, signing-helper,
-and allowed-signers sources. Assistant and service profiles render a minimal
+and allowed-signers sources. The assistant profile renders a minimal
 Git base with a local workload-identity include and exclude those developer
 surfaces; only assistant includes the optional GitHub App helper.
 

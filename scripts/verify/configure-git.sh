@@ -363,28 +363,4 @@ fi
 [ "$assistant_before" = "$(shasum -a 256 "$assistant_config")" ] \
   || fail "assistant workload config changed after rejecting GitHub SSH authentication"
 
-service_home="$tmp_root/service"
-mkdir -p "$service_home"
-HOME="$service_home" "$repo_root/scripts/bootstrap/apply-dotfiles.sh" --profile service >/dev/null
-HOME="$service_home" \
-GIT_USER_NAME='Example Service' \
-GIT_USER_EMAIL='example-service@example.invalid' \
-  "$configure_git" --profile service --non-interactive >/dev/null
-
-service_config="$service_home/.gitconfig.local"
-[ "$(HOME="$service_home" git config --file "$service_config" --get user.name)" = 'Example Service' ] \
-  || fail "service workload Git name was not configured"
-[ "$(HOME="$service_home" git config --file "$service_config" --get user.email)" = 'example-service@example.invalid' ] \
-  || fail "service workload Git email was not configured"
-[ "$(HOME="$service_home" git config --file "$service_config" --get dotfiles.identity)" = workload ] \
-  || fail "service workload identity marker was not configured"
-[ "$(HOME="$service_home" git config --file "$service_config" --get commit.gpgsign)" = false ] \
-  || fail "service workload commits did not disable signing"
-if HOME="$service_home" git config --file "$service_config" --get user.signingkey >/dev/null 2>&1; then
-  fail "service workload config persisted a signing key"
-fi
-if grep -Fq 'github-app.gitconfig' "$service_home/.gitconfig"; then
-  fail "service Git base inherited assistant GitHub App authentication"
-fi
-
-printf 'ok Git bootstrap preserves developer signing and configures unsigned assistant and service workloads\n'
+printf 'ok Git bootstrap preserves developer signing and configures the unsigned assistant workload\n'

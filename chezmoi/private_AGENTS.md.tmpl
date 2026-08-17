@@ -107,8 +107,6 @@ Good, a high-level summary; depth only when requested:
 
 ### Workflow
 
-- When supported, rename the session once its task is clear:
-  `<ticket-id>-<descriptive-slug>` or `<descriptive-slug>`.
 - Run repository gates. Match extra proof to risk: reproduce bugs, prove
   refactor parity, and exercise feature contracts or runtime behavior.
 - Report failed or skipped proof exactly.
@@ -162,6 +160,8 @@ Good, a high-level summary; depth only when requested:
 - Keep hierarchy and the primary action clear.
 - Model loading, empty, error, ready, disabled, and submitting states.
 - Preserve user input and offer recovery.
+- Keep copy concise and human. Labels, empty states, and messages carry the
+  action, not a tour.
 - Verify keyboard use, responsive layout, contrast, reduced motion, and visible
   states.
 
@@ -177,10 +177,6 @@ Good, a high-level summary; depth only when requested:
 ### Delivery
 
 - Prefer conventional commits.
-- Delivery requires authorization. Create a pull request only when requested
-  or required, ready for review unless a draft is explicitly required;
-  otherwise commit and push the approved current branch.
-- Never force-push without explicit approval.
 - Use the repository's change-request template. Without one, open with the
   problem, then the solution; mention proof only when CI cannot show it.
 - Give a non-trivial change the clearest visual evidence; reply to fixed

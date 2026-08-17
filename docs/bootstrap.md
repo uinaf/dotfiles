@@ -9,7 +9,6 @@ The repo has six per-user profiles:
 - `personal-devbox` for a devbox plus headless personal tools and skills.
 - `devbox` for a remote coding identity on an SSH-first host.
 - `assistant` for an unattended persona or agent identity.
-- `service` for a non-persona managed workload identity.
 
 The role contract and host/user boundary are defined in [User profiles](profiles.md).
 Cursor Agent CLI is required for personal-workstation, personal-devbox, workstation, and devbox profiles
@@ -22,7 +21,7 @@ Run commands from the repo root unless a step says otherwise.
 
 Keep the SOPS and age CLIs in the portable Homebrew baseline. Require a
 per-user SOPS age identity only for profiles and workflows that decrypt
-encrypted material (`personal-devbox`, `devbox`, `assistant`, `service`, and any vault or sudo
+encrypted material (`personal-devbox`, `devbox`, `assistant`, and any vault or sudo
 consumer). Portable `workstation` and `personal-workstation` boots can pass readiness
 without an identity; decryption stays fail-closed until one is provisioned.
 When you do create an identity, follow [Identity provisioning](identities.md),
@@ -375,36 +374,6 @@ restart capability with `--allow-openclaw-restart` as documented in
 that user's exact gateway label; the workload owns its executable wrapper and
 OpenClaw lifecycle policy.
 
-## Service User
-
-A service is a minimal non-persona, non-admin Unix identity. It does not
-inherit assistant browser, Node, GitHub App, or coding-agent setup. An
-authorized host administrator installs its Homebrew layers once:
-
-```zsh
-./scripts/bootstrap/brew-bundle.sh service
-```
-
-Run the user-local setup as the service identity:
-
-```zsh
-git clone https://github.com/uinaf/dotfiles.git ~/projects/dotfiles
-cd ~/projects/dotfiles
-mise trust
-./dotfiles diff service
-./dotfiles apply service
-./scripts/secrets/configure-sops-age-identity.sh
-GIT_USER_NAME='Service Name' \
-GIT_USER_EMAIL='service@example.invalid' \
-  ./scripts/bootstrap/configure-git.sh --profile service --non-interactive
-./dotfiles check service
-```
-
-The workload repository owns service authentication, runtimes, containers,
-supervision, health checks, backups, and recovery. Keep playground workloads
-containerized and bounded there instead of expanding the service profile into
-a remote coding or host-administrator role.
-
 ## Updating an Existing Machine
 
 Pull the repo and rerun the relevant profile:
@@ -417,16 +386,15 @@ profile=workstation # use personal-workstation for the personal layers
 mise trust
 ./dotfiles diff "$profile"
 ./dotfiles apply "$profile"
-# Optional for workstation/personal-workstation; required for personal-devbox/devbox/assistant/service:
+# Optional for workstation/personal-workstation; required for personal-devbox/devbox/assistant:
 ./scripts/secrets/configure-sops-age-identity.sh
 ./scripts/bootstrap/configure-power.sh --profile "$profile"
 ./scripts/bootstrap/configure-spotlight.sh
 ./dotfiles check "$profile"
 ```
 
-Use the target Unix user's `personal-devbox`, `devbox`, `assistant`, or
-`service` role instead when appropriate, and keep the age-identity step for
-those profiles.
+Use the target Unix user's `personal-devbox`, `devbox`, or `assistant` role
+instead when appropriate, and keep the age-identity step for those profiles.
 
 ## Mobile and TV Development
 

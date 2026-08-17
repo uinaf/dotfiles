@@ -127,7 +127,7 @@ test("applies public rules and links without private output", () => {
   assert.doesNotMatch(rules, /private fixture rule/);
   assert.match(rules, /Extend the closest structured owner instead\s+of creating a parallel script/);
   assert.match(rules, /#### Design and implementation/);
-  assert.match(rules, /Create a pull request only when requested\s+or required/);
+  assert.match(rules, /Use the repository's change-request template/);
   assert.match(rules, /reply to fixed\s+findings with the commit hash\.\n$/);
   assert.equal(runChezmoi(home, config, "diff"), "");
   runChezmoi(home, config, "apply");
@@ -135,7 +135,7 @@ test("applies public rules and links without private output", () => {
 });
 
 test("omits global rules for workload profiles", () => {
-  for (const profile of ["assistant", "service"]) {
+  for (const profile of ["assistant"]) {
     const { config, home } = createFixture();
     runChezmoi(home, config, "apply", sourceDir, profile);
 
@@ -407,7 +407,7 @@ test("rejects a local Markdown symlink resolving to a directory", () => {
 
 test("ignores broken local Markdown links for workload profiles", () => {
   for (const name of ["agents.start.md", "agents.end.md"]) {
-    for (const profile of ["assistant", "service"]) {
+    for (const profile of ["assistant"]) {
       const { home } = createFixture();
       const privateRules = join(home, ".config/dotfiles", name);
       mkdirSync(dirname(privateRules), { recursive: true });

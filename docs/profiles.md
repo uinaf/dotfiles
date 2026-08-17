@@ -12,7 +12,6 @@ host and they are not a security boundary by themselves.
 | `personal-devbox` | Owner-operated remote coding identity | Devbox capabilities plus headless personal tools, skills, and preferences |
 | `devbox` | Remote coding identity on an SSH-first host | Coding agents, Git/GitHub, SDKs, containers, and verification tools |
 | `assistant` | Unattended persona or agent identity | Minimal agent runtime, browser, and scoped GitHub App access |
-| `service` | Non-persona managed workload identity | Identity-safe bootstrap tools; workload-owned runtime, authentication, and supervision |
 
 Choose `workstation` when another trusted system may supply or govern software.
 Choose `personal-workstation` when this repository should own the full personal
@@ -51,13 +50,11 @@ Personal-workstation, personal-devbox, workstation, and devbox also install
 Both personal profiles finish with `Brewfile.personal`; its profile-aware
 declarations install GUI casks only for personal-workstation.
 Assistant skips the developer layer and installs only `Brewfile.assistant`.
-Service installs only the base and `Brewfile.service`.
 
 The assistant mise config contains only Node. Its profile layer adds portable
 document, media, Google, and macOS automation tools. Workload repositories own
 OpenClaw, Hermes, model providers, containers, process supervision, language
-runtimes, and other framework-specific packages. The service profile declares
-no additional Homebrew software or language runtime.
+runtimes, and other framework-specific packages.
 
 Personal-workstation, personal-devbox, workstation, and devbox share Codex CLI,
 Claude Code CLI, Cursor Agent CLI, autoreview, Watchman, Docker credential
@@ -99,7 +96,7 @@ Run Homebrew changes from the authorized host administrator:
 ./scripts/bootstrap/brew-bundle.sh workstation
 ./scripts/bootstrap/brew-bundle.sh devbox
 ./scripts/bootstrap/brew-bundle.sh assistant
-./scripts/bootstrap/brew-bundle.sh service
+./scripts/bootstrap/brew-bundle.sh assistant
 ```
 
 Then run the per-user setup as the target Unix user:
@@ -117,7 +114,7 @@ mise trust
 Use `profile=personal-workstation` for the personal workstation composition or
 `profile=personal-devbox` for the personal devbox composition. The
 remaining steps are identical. Secret-consuming profiles (`personal-devbox`,
-`devbox`, `assistant`, `service`) still require the age-identity step before
+`devbox`, `assistant`) still require the age-identity step before
 bootstrap verification.
 
 Configure the appropriate human or workload Git identity separately:
@@ -137,8 +134,8 @@ GIT_USER_EMAIL='APP_BOT_NOREPLY_EMAIL' \
   --repo github.com/example/workspace \
   --repo github.com/example/vault
 GIT_USER_NAME='Service Name' \
-GIT_USER_EMAIL='service@example.invalid' \
-  ./scripts/bootstrap/configure-git.sh --profile service --non-interactive
+GIT_USER_EMAIL='workload@example.invalid' \
+  ./scripts/bootstrap/configure-git.sh --profile assistant --non-interactive
 ```
 
 ## Externally Managed Homebrew Capabilities

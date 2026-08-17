@@ -152,27 +152,6 @@
           "install-runtimes",
           "install-gh-app-auth"
         ]
-      },
-      "service": {
-        "capabilities": {
-          "developer": false,
-          "workload": true,
-          "sharedHomebrew": true,
-          "requiresSopsIdentity": true,
-          "devbox": false,
-          "workstation": false,
-          "personal": false,
-          "githubAppAuth": false
-        },
-        "brewfiles": [
-          "Brewfile",
-          "Brewfile.service"
-        ],
-        "runtimeGroup": "none",
-        "skillLayers": [],
-        "installSteps": [
-          "apply-dotfiles"
-        ]
       }
     }
   }

@@ -84,16 +84,15 @@ configurator.
 
 ## Workload Git Authorship
 
-Assistant and service profiles write unsigned workload authorship to
-`~/.gitconfig.local`. This metadata is not authentication. Assistant repository
-access may use the scoped GitHub App flow below; service authentication belongs
-to the owning workload and is absent by default.
+The assistant profile writes unsigned workload authorship to
+`~/.gitconfig.local`. This metadata is not authentication; repository access
+may use the scoped GitHub App flow below.
 
 ```sh
 GIT_USER_NAME='Workload Name' \
 GIT_USER_EMAIL='workload@example.invalid' \
-  ./scripts/bootstrap/configure-git.sh --profile service --non-interactive
-./scripts/verify/workload-git-boundary.sh --profile service
+  ./scripts/bootstrap/configure-git.sh --profile assistant --non-interactive
+./scripts/verify/workload-git-boundary.sh --profile assistant
 ```
 
 ## SOPS Age Identity

@@ -26,7 +26,7 @@ while [ "$#" -gt 0 ]; do
   case "$1" in
     --profile)
       shift
-      [ "$#" -gt 0 ] || fail "--profile requires assistant or service"
+      [ "$#" -gt 0 ] || fail "--profile requires assistant"
       profile="$1"
       ;;
     *)
@@ -37,7 +37,7 @@ while [ "$#" -gt 0 ]; do
 done
 
 if ! profile="$(dotfiles_resolve_profile "$profile")"; then
-  fail "a persisted assistant or service profile is required"
+  fail "a persisted assistant profile is required"
 fi
 dotfiles_profile_is_workload "$profile" \
   || fail "workload Git verification does not support profile: $profile"
