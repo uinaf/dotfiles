@@ -121,6 +121,25 @@ Personal CLI-backed skills retain their owning repositories. Shared selections
 live in `scripts/agents/skills/shared.json`; personal additions live in
 `scripts/agents/skills/personal.json`.
 
+## Plugin Sync
+
+`agents:sync` and `agents:update` also apply the plugin manifests through
+`./scripts/agents/plugins.ts`. The layering matches skills: shared selections
+live in `scripts/agents/plugins/shared.json` and personal additions live in
+`scripts/agents/plugins/personal.json`, keyed by the same profile marker.
+
+Each entry sets `marketplace` as `owner/repo` and `name` as the plugin. Optional
+`harnesses` narrows an entry to a subset of `claude`, `codex`, and `cursor`; the
+default is all three. Optional `marketplaceId` overrides the registered
+marketplace name when it differs from the repository name.
+
+Sync adds each marketplace once per harness, then installs with
+`claude plugin install` and `codex plugin add`. Both are idempotent, and
+`codex plugin add` is what records `enabled = true` in `~/.codex/config.toml`,
+so plugin sync never edits that file itself. Cursor exposes no non-interactive
+install, so sync adds the marketplace and prints a one-line notice to finish in
+`/plugins`. A harness whose CLI is absent is skipped with a notice.
+
 ## Verify
 
 ```zsh

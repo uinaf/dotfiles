@@ -54,8 +54,10 @@ mise run agents:update
 ```
 
 Chezmoi owns global rules and links. The direct skill entrypoint is
-`./scripts/agents/sync.ts`. See [Agent setup](../docs/agents.md) for the optional
-private rule layer and `--update` global skill refresh.
+`./scripts/agents/sync.ts`; plugin marketplaces apply through
+`./scripts/agents/plugins.ts`. See [Agent setup](../docs/agents.md) for the
+optional private rule layer, the plugin manifests, and `--update` global skill
+refresh.
 
 ## Live Audits
 

@@ -59,6 +59,16 @@ while IFS=: read -r file line content; do
         *'"name": "uinaf-design"'*|*'"name": "uinaf-radar"'*|*'"source": "uinaf/agent-skills"'*|*'"source": "uinaf/attach"'*|*'"source": "uinaf/autoreview"'*|*'"source": "uinaf/design"'*|*'"source": "https://cdn.uinaf.dev/skills/ui"'*) continue ;;
       esac
       ;;
+    scripts/agents/plugins/shared.json|scripts/agents/plugins/personal.json)
+      case "$content" in
+        *'"marketplace": "uinaf/ffsstack"'*) continue ;;
+      esac
+      ;;
+    scripts/agents/plugins.test.ts)
+      case "$content" in
+        *uinaf/ffsstack*) continue ;;
+      esac
+      ;;
     scripts/agents/sync.test.ts)
       case "$content" in
         *uinaf/agents*|*uinaf/skills*|*uinaf/agent-skills*|*uinaf/attach*|*uinaf/autoreview*|*uinaf/design*|*uinaf-design*) continue ;;

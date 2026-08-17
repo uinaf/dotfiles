@@ -164,6 +164,13 @@
       "output": "External agent skill installation and ownership"
     },
     {
+      "id": "agent-plugins",
+      "domain": "agents",
+      "command": ["node", "--test", "scripts/agents/plugins.test.ts"],
+      "inputs": ["scripts/agents/**", "scripts/profiles/model.ts", "chezmoi/.chezmoidata/profiles.json"],
+      "output": "Declarative coding-agent plugin marketplaces and per-harness install planning"
+    },
+    {
       "id": "gh-extensions",
       "domain": "agents",
       "command": ["scripts/verify/gh-extensions.sh"],
