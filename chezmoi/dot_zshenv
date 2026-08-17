@@ -3,6 +3,12 @@
 export LANG="en_US.UTF-8"
 export LC_ALL="en_US.UTF-8"
 
+# Only login shells run /etc/zprofile's path_helper. Agent harnesses and
+# `zsh -c` inherit whatever PATH the parent had; guarantee the system
+# directories as the lowest-precedence baseline for every zsh process.
+path+=(/usr/local/bin /usr/bin /bin /usr/sbin /sbin)
+typeset -U path PATH
+
 # Headless devbox sessions cannot rely on an unlocked macOS login keychain.
 # Keep Cursor Agent credentials owner-local without changing personal Macs.
 if [ -r "$HOME/.config/dotfiles/devbox.env" ]; then
