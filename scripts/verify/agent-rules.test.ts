@@ -128,7 +128,7 @@ test("applies public rules and links without private output", () => {
   assert.match(rules, /Extend the closest structured owner instead\s+of creating a parallel script/);
   assert.match(rules, /#### Design and implementation/);
   assert.match(rules, /Create a pull request only when requested\s+or required/);
-  assert.match(rules, /follow it when\s+installed\.\n$/);
+  assert.match(rules, /Direct commit-and-push stays outside its lane\.\n$/);
   assert.equal(runChezmoi(home, config, "diff"), "");
   runChezmoi(home, config, "apply");
   assert.equal(runChezmoi(home, config, "diff"), "");
@@ -158,7 +158,7 @@ test("reads an optional private end layer from machine-local Markdown", () => {
 
   assert.match(
     assertManagedRules(home),
-    /installed\.\n\n## Private fixture rule\n\nKeep this fixture local\.\n$/,
+    /lane\.\n\n## Private fixture rule\n\nKeep this fixture local\.\n$/,
   );
 });
 
@@ -205,7 +205,7 @@ test("omits the private end layer for blank Markdown", () => {
 
   runWrapper(home);
 
-  assert.match(assertManagedRules(home), /installed\.\n$/);
+  assert.match(assertManagedRules(home), /lane\.\n$/);
 });
 
 test("ignores the retired agents.local.md path", () => {
