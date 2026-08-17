@@ -51,7 +51,7 @@ while IFS=: read -r file line content; do
       ;;
     docs/agents.md)
       case "$content" in
-        *github.com/uinaf/skills*|*github.com/uinaf/attach*|*github.com/uinaf/autoreview*|*github.com/uinaf/design*|*uinaf-design*) continue ;;
+        *github.com/uinaf/agent-skills*|*github.com/uinaf/attach*|*github.com/uinaf/autoreview*|*github.com/uinaf/design*|*uinaf-design*) continue ;;
       esac
       ;;
     scripts/agents/skills/shared.json|scripts/agents/skills/personal.json)

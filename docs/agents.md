@@ -116,7 +116,8 @@ Pass `--update` to run `skills update -g` after manifest sync. That refreshes al
 global skills, including extras the lock never owned. Manifest failures skip the
 updater. An updater failure leaves the completed manifest sync in place.
 
-Shared first-party skills live in [`uinaf/skills`](https://github.com/uinaf/skills).
+Shared first-party skills live in
+[`uinaf/agent-skills`](https://github.com/uinaf/agent-skills).
 Personal CLI-backed skills retain their owning repositories. Shared selections
 live in `scripts/agents/skills/shared.json`; personal additions live in
 `scripts/agents/skills/personal.json`.
