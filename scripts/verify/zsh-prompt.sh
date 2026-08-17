@@ -19,6 +19,7 @@ unset \
   GIT_WORK_TREE
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+zprofile="$repo_root/chezmoi/dot_zprofile"
 zshrc="$repo_root/chezmoi/dot_zshrc"
 test_home="$(mktemp -d "${TMPDIR:-/tmp}/dotfiles-zsh-prompt.XXXXXX")"
 
@@ -29,12 +30,26 @@ trap cleanup EXIT
 
 mkdir -p "$test_home/.config/dotfiles"
 touch "$test_home/.config/dotfiles/devbox.env"
+ln -s "$zprofile" "$test_home/.zprofile"
 mkdir -p \
+  "$test_home/.local/bin" \
   "$test_home/Library/Android/sdk/platform-tools" \
   "$test_home/Library/Android/sdk/emulator" \
   "$test_home/Library/Android/sdk/cmdline-tools/latest/bin"
 git init -q "$test_home/repo"
 git -C "$test_home/repo" symbolic-ref HEAD refs/heads/demo
+
+# Login and non-interactive agent shells must discover managed user commands.
+# shellcheck disable=SC2016
+env -i \
+  HOME="$test_home" \
+  PATH=/usr/bin:/bin \
+  /bin/zsh -dlc '
+    (( ${path[(Ie)$HOME/.local/bin]} > 0 )) || {
+      print -u2 "FAILED: user-local bin is absent from login PATH: ${PATH}"
+      exit 1
+    }
+  '
 
 # Let zsh expand the embedded prompt expressions.
 # shellcheck disable=SC2016
@@ -98,4 +113,4 @@ env -i \
     }
   ' zsh "$zshrc"
 
-printf 'ok devbox zsh prompt substitution and Android SDK environment\n'
+printf 'ok login PATH, devbox zsh prompt substitution, and Android SDK environment\n'

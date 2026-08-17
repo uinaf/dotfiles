@@ -162,7 +162,9 @@ enrollment instead of silently routing around it.
 The configurator records the exact installer-managed symlink targets, then
 replaces `~/.local/bin/cursor-agent` and `~/.local/bin/agent` with the API-key
 launcher. This covers interactive shells and automation that executes either
-canonical path directly. `cursorAgentBin` must therefore point to Cursor's
+canonical path directly. Managed login and non-interactive zsh shells include
+`~/.local/bin` in `PATH`, so agent harnesses can discover both commands by name.
+`cursorAgentBin` must therefore point to Cursor's
 versioned vendor executable, never one of those launcher paths. The standalone
 `~/.local/bin/cursor-agent-api` path remains available for explicit calls.
 

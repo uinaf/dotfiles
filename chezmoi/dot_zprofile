@@ -6,6 +6,10 @@ fi
 
 typeset -U path PATH
 
+# User binaries must be available to login and non-interactive shells, not only
+# interactive .zshrc sessions. Agent harnesses inherit this login-shell PATH.
+path+=("$HOME/.local/bin")
+
 # Add mise shims for login/non-interactive shells. Full interactive activation
 # runs near the end of .zshrc after PATH edits.
 if command -v mise >/dev/null 2>&1; then

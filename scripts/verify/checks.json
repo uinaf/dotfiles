@@ -188,8 +188,8 @@
       "id": "zsh-prompt",
       "domain": "config",
       "command": ["scripts/verify/zsh-prompt.sh"],
-      "inputs": ["chezmoi/dot_zshrc"],
-      "output": "Managed zsh prompt behavior"
+      "inputs": ["chezmoi/dot_zprofile", "chezmoi/dot_zshrc"],
+      "output": "Managed zsh login PATH and prompt behavior"
     },
     {
       "id": "pre-push",
