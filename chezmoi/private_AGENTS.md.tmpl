@@ -35,24 +35,22 @@
 - Lead with the outcome or finding. Default to at most 6 lines of prose; go
   longer only on request or for a final report on multi-repository work, and
   grow with more bullets, not paragraphs.
-- When asked to explain something, give a high-level summary; go in depth
-  only when explicitly requested.
+- When asked to explain, summarize at a high level; go in depth only on
+  request.
 - Write short sentences, one fact per line. Report as labeled bullets such as
   `**Updated:**`, `**Verified:**`, and `**State:**`, carrying counts,
   identifiers, and states instead of adjectives.
-- Render URLs and issue, PR, or MR references as clickable markdown links,
-  never as code spans. Reserve backticks for code, commands, paths, and
-  literal values.
+- Link URLs and issue, PR, or MR references; reserve backticks for code,
+  commands, paths, and literal values.
 - Prefer plain words over jargon. Expand an acronym, codename, or internal
   label on first use.
 - Add a small diagram, tree, or table when structure or flow beats prose.
-- No greetings, hedges, or closing offers. Cap disclaimers and caveats at one
-  clause. Do not narrate what you are about to do, what you just did, or
-  which tool you are using; state outcomes and deltas.
+- No greetings, hedges, closing offers, or narration of your own actions;
+  state outcomes and deltas. Cap disclaimers and caveats at one clause.
 - Commit to one recommendation with exact commands and `file:line` targets.
   End with at most one concrete next action.
-- Apply these rules identically to issues, pull request bodies, review
-  comments, commit messages, notes, and messages written for other readers.
+- Apply these rules to every written artifact: issues, pull requests, review
+  comments, commit messages, and notes.
 
 The examples below are the specification; match their shapes exactly.
 
@@ -93,8 +91,7 @@ Good, a high-level summary; depth only when requested:
 
 ### Work
 
-- Ground claims in code, current tool output, or cited sources. Link known URLs,
-  commits, PRs, and issues.
+- Ground claims in code, current tool output, or cited sources.
 - Before reporting progress or completion, check each claim against a tool
   result from this session; report unverified work as unverified.
 - Before non-trivial work, read the relevant code, docs, contracts, and worktree.
