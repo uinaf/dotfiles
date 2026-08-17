@@ -18,7 +18,7 @@ ghostty_config="$HOME/Library/Application Support/com.mitchellh.ghostty/config"
 usage() {
   cat <<'USAGE'
 Usage:
-  scripts/verify/bootstrap.sh [--profile personal-workstation|personal-devbox|workstation|devbox|assistant|service] [--desktop] [--verbose]
+  scripts/verify/bootstrap.sh [--profile personal-workstation|personal-devbox|workstation|devbox|assistant] [--desktop] [--verbose]
 
 Checks the live per-user bootstrap for the selected profile. An existing
 ~/.config/dotfiles/profile is used when --profile is omitted. --desktop is

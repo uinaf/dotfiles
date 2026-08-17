@@ -135,7 +135,7 @@ test("applies public rules and links without private output", () => {
 });
 
 test("omits global rules for workload profiles", () => {
-  for (const profile of ["assistant", "service"]) {
+  for (const profile of ["assistant"]) {
     const { config, home } = createFixture();
     runChezmoi(home, config, "apply", sourceDir, profile);
 
@@ -407,7 +407,7 @@ test("rejects a local Markdown symlink resolving to a directory", () => {
 
 test("ignores broken local Markdown links for workload profiles", () => {
   for (const name of ["agents.start.md", "agents.end.md"]) {
-    for (const profile of ["assistant", "service"]) {
+    for (const profile of ["assistant"]) {
       const { home } = createFixture();
       const privateRules = join(home, ".config/dotfiles", name);
       mkdirSync(dirname(privateRules), { recursive: true });

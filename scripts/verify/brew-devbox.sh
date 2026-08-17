@@ -226,18 +226,6 @@ if grep -Fqx "arg=$repo_root/Brewfile.developer" "$assistant_log"; then
   fail "assistant bundle installed the developer layer"
 fi
 
-service_log="$tmp_dir/service.log"
-: >"$service_log"
-run_brew_bundle "$service_log" service
-[ "$(grep -c '^umask=0002$' "$service_log")" -eq 2 ] || fail "service bundle bypassed the shared umask"
-[ "$(grep -c '^profile=service$' "$service_log")" -eq 2 ] || fail "service bundle omitted its profile environment"
-[ "$(grep -c '^arg=bundle$' "$service_log")" -eq 2 ] || fail "service bundle did not run base and service layers"
-grep -Fqx "arg=$repo_root/Brewfile" "$service_log" || fail "service bundle missed the base Brewfile"
-grep -Fqx "arg=$repo_root/Brewfile.service" "$service_log" || fail "service bundle missed its profile Brewfile"
-if grep -Fqx "arg=$repo_root/Brewfile.developer" "$service_log"; then
-  fail "service bundle installed the developer layer"
-fi
-
 shared_log="$tmp_dir/shared.log"
 : >"$shared_log"
 run_brew_bundle "$shared_log" --shared-only devbox

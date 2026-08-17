@@ -155,7 +155,7 @@ async function verifyModeAndIdempotence(root: string): Promise<void> {
   assert.equal(statSync(path, { bigint: true }).mtimeNs, firstMtime);
 }
 
-async function verifyExcludedProfile(root: string, profile: "assistant" | "service", contents?: string): Promise<void> {
+async function verifyExcludedProfile(root: string, profile: "assistant", contents?: string): Promise<void> {
   const fixtureRoot = join(root, profile);
   if (contents !== undefined) {
     writeSettings(fixtureRoot, contents, 0o644);
@@ -179,7 +179,6 @@ async function main(): Promise<void> {
       verifyMalformedFile(root),
       verifyModeAndIdempotence(root),
       verifyExcludedProfile(root, "assistant", '{"env":{"KEEP":"yes"}}\n'),
-      verifyExcludedProfile(root, "service"),
     ]);
     const failure = results.find((result) => result.status === "rejected");
     if (failure?.status === "rejected") {

@@ -2,10 +2,9 @@
 
 Devbox automation keeps dedicated Unix users reproducible without making
 secrets or identities part of the public dotfiles repository. Personal-devbox
-uses the devbox operational contract with headless personal tools and skills. Assistant and
-service profiles reuse the same Unix-user and service boundaries without
-inheriting the coding toolchain or a human Git identity. Services remain
-non-persona workloads and do not inherit assistant runtime or authentication.
+uses the devbox operational contract with headless personal tools and skills.
+The assistant profile reuses the same Unix-user and service boundaries without
+inheriting the coding toolchain or a human Git identity.
 See [Identity provisioning](identities.md).
 
 ## Boundaries
@@ -105,7 +104,7 @@ Do not create broad workspace env bundles or load secrets in shell startup.
 Developer-profile users may route Codex and Claude Code through a private LLM
 gateway and run Cursor Agent with an identity-owned API key. This capability is
 off until the identity creates an owner-only local configuration file. It does
-not change assistant or service profiles, and it does not store secrets in
+not change the assistant profile, and it does not store secrets in
 shell startup, Codex configuration, or Claude settings.
 
 Create `~/.config/dotfiles/llm-gateway.json` with mode `0600`:

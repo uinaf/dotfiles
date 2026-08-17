@@ -1,7 +1,7 @@
 # Agent Setup
 
 personal-workstation, personal-devbox, workstation, and devbox profiles install
-machine-global instructions and skills. Assistant and service profiles install
+machine-global instructions and skills. The assistant profile installs
 neither.
 
 ## Global Rules

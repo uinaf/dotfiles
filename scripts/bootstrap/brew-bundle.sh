@@ -19,18 +19,18 @@ Usage:
   scripts/bootstrap/brew-bundle.sh personal-workstation
   scripts/bootstrap/brew-bundle.sh personal-devbox
   scripts/bootstrap/brew-bundle.sh assistant
-  scripts/bootstrap/brew-bundle.sh service
+  scripts/bootstrap/brew-bundle.sh assistant
   scripts/bootstrap/brew-bundle.sh --shared-only workstation
   scripts/bootstrap/brew-bundle.sh --shared-only devbox
   scripts/bootstrap/brew-bundle.sh --shared-only assistant
-  scripts/bootstrap/brew-bundle.sh --shared-only service
+  scripts/bootstrap/brew-bundle.sh --shared-only assistant
   scripts/bootstrap/brew-bundle.sh --print-files PROFILE
 
 Installs the shared base first, the developer layer for personal-workstation/personal-devbox/workstation/devbox,
 then the selected profile layers. --shared-only installs only the base.
 An owner-controlled external-homebrew.plist can validate and skip entries
 supplied by another trusted installer.
-Devbox, assistant, and service host changes use the group-safe Homebrew wrapper.
+Devbox and assistant host changes use the group-safe Homebrew wrapper.
 USAGE
 }
 

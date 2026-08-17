@@ -66,7 +66,6 @@ mise run verify:bootstrap personal-devbox
 mise run verify:bootstrap workstation
 mise run verify:bootstrap devbox
 mise run verify:bootstrap assistant
-mise run verify:bootstrap service
 mise run verify:devbox-services
 mise run audit host
 mise run audit workstation --format json
@@ -114,9 +113,8 @@ package manager.
 `scripts/bootstrap/install.sh` calls `mise install` once for every profile with
 a runtime group. Mise owns the Node postinstall that pins npm and the stable
 pnpm default.
-The assistant profile intentionally contains only Node. The service profile
-declares no language runtime. Additional runtimes belong to the workload that
-requires them.
+The assistant profile intentionally contains only Node. Additional runtimes
+belong to the workload that requires them.
 `scripts/verify/bootstrap.sh` checks that rendered mise tools converged and
 that their commands resolve from mise. Independent live-check groups run in
 parallel and print one success line each; pass `--verbose` to expose successful

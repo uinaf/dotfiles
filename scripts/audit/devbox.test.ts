@@ -78,7 +78,7 @@ test("devbox policy rejects another user's Codex trust", () => {
 });
 
 test("workload profiles omit developer trust and authentication checks", () => {
-  for (const profile of ["assistant", "service"]) {
+  for (const profile of ["assistant"]) {
     const policy = devboxPolicy("fixture", "fixture", "/fixture/devbox.env", "/", profile);
     const titles = policy.sections.map((section) => section.title);
     assert.equal(titles.includes("Codex trust boundaries"), false);

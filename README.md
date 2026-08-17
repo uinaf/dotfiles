@@ -3,7 +3,7 @@
 # uinaf/dotfiles
 
 A vendor-neutral macOS bootstrap framework for workstations, remote coding
-users, unattended assistants, and managed service identities.
+users and unattended assistants.
 
 The repository manages Homebrew layers, chezmoi source state, mise runtimes,
 Git and SSH defaults, coding-agent setup, and verification scripts. Installed
@@ -45,7 +45,7 @@ its recovery copy as described in [Identity
 provisioning](docs/identities.md#back-up-and-verify-recovery).
 
 Use the [Bootstrap guide](docs/bootstrap.md) for first-machine prerequisites,
-devbox, assistant, and service flows, optional desktop setup, updates, and
+devbox and assistant flows, optional desktop setup, updates, and
 troubleshooting.
 
 ## Managed Surfaces
