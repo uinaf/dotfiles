@@ -67,7 +67,7 @@ machine-global instructions through chezmoi and sync additive skills from
 `scripts/agents/`; see [Agent setup](agents.md).
 
 Both personal profiles add App Store Connect CLI, Attach, Crabbox, Discrawl,
-Gitcrawl, putio-cli, Mole, and slopshipper. Only personal-workstation adds
+Gitcrawl, putio-cli, and Mole. Only personal-workstation adds
 personal GUI applications such as Slopwake, plus `mas`. The workstation layer
 applies to personal-workstation and workstation only; it supplies 1Password and
 its CLI, Slack, ChatGPT, T3 Code, Cursor, Ghostty, and YubiKey Manager.

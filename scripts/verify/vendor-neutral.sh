@@ -51,17 +51,17 @@ while IFS=: read -r file line content; do
       ;;
     docs/agents.md)
       case "$content" in
-        *github.com/uinaf/skills*|*github.com/uinaf/attach*|*github.com/uinaf/autoreview*|*github.com/uinaf/slopshipper*|*github.com/uinaf/design*|*uinaf-design*) continue ;;
+        *github.com/uinaf/skills*|*github.com/uinaf/attach*|*github.com/uinaf/autoreview*|*github.com/uinaf/design*|*uinaf-design*) continue ;;
       esac
       ;;
     scripts/agents/skills/shared.json|scripts/agents/skills/personal.json)
       case "$content" in
-        *'"name": "uinaf-design"'*|*'"name": "uinaf-radar"'*|*'"source": "uinaf/skills"'*|*'"source": "uinaf/attach"'*|*'"source": "uinaf/autoreview"'*|*'"source": "uinaf/slopshipper"'*|*'"source": "uinaf/design"'*|*'"source": "https://cdn.uinaf.dev/skills/ui"'*) continue ;;
+        *'"name": "uinaf-design"'*|*'"name": "uinaf-radar"'*|*'"source": "uinaf/skills"'*|*'"source": "uinaf/attach"'*|*'"source": "uinaf/autoreview"'*|*'"source": "uinaf/design"'*|*'"source": "https://cdn.uinaf.dev/skills/ui"'*) continue ;;
       esac
       ;;
     scripts/agents/sync.test.ts)
       case "$content" in
-        *uinaf/agents*|*uinaf/skills*|*uinaf/attach*|*uinaf/autoreview*|*uinaf/slopshipper*|*uinaf/design*|*uinaf-design*) continue ;;
+        *uinaf/agents*|*uinaf/skills*|*uinaf/attach*|*uinaf/autoreview*|*uinaf/design*|*uinaf-design*) continue ;;
       esac
       ;;
     scripts/verify/profiles.sh)

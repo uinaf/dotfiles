@@ -26,7 +26,6 @@ brew "openclaw/tap/discrawl"
 brew "openclaw/tap/gitcrawl"
 brew "putdotio/tap/putio-cli"
 brew "mole"
-cask "uinaf/tap/slopshipper"
 
 if workstation_enabled
   # App Store automation

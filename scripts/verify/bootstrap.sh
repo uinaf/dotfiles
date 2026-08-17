@@ -112,7 +112,6 @@ personal_common_cli_checks=(
   "crabbox --version"
   "gitcrawl --version"
   "mole --version"
-  "slopshipper version"
 )
 
 personal_workstation_cli_checks=(
