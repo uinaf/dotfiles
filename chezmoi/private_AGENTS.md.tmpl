@@ -177,19 +177,14 @@ Good, a high-level summary; depth only when requested:
 ### Delivery
 
 - Prefer conventional commits.
-- Create a pull request only when requested or required, ready for review
-  unless a draft is explicitly required.
-- Otherwise, when delivery is authorized, commit and push the approved current
-  branch.
+- Delivery requires authorization. Create a pull request only when requested
+  or required, ready for review unless a draft is explicitly required;
+  otherwise commit and push the approved current branch.
 - Never force-push without explicit approval.
-- Use the pull request template.
-- If none exists, concisely cover Summary, Changed, Risks, Verification, and
-  Complexity in plain language.
-- Give non-trivial changes the single clearest review aid: a focused diagram,
-  labeled UI evidence, or sanitized contract input/output.
-- Address review feedback concisely.
-- If fixed, reply with the commit hash as a link.
-- If declined, explain why with evidence.
+- Use the repository's change-request template. Without one, open with the
+  problem, then the solution; mention proof only when CI cannot show it.
+- Give a non-trivial change the clearest visual evidence; reply to fixed
+  findings with the commit hash.
 {{- if ne $privateEnd "" }}
 
 {{ $privateEnd }}
