@@ -82,9 +82,10 @@ mise run agents:update
 mise run bootstrap:trust-agent-worktrees
 ```
 
-`agents:sync` installs the profile-selected skills and plugin marketplaces
-described in [Agent setup](agents.md). `agents:update` also refreshes globally
-installed skills. Both run `./scripts/agents/plugins.ts` after the skill sync.
+`agents:sync` installs the profile-selected skills, plugin marketplaces, and
+MCP servers described in [Agent setup](agents.md). `agents:update` also
+refreshes globally installed skills. Both run `./scripts/agents/plugins.ts` and
+`./scripts/agents/mcps.ts` after the skill sync.
 
 Workstation and devbox configs trust Codex and Claude generated worktree roots:
 `~/.codex/worktrees` and `~/.claude/worktrees`. The helper also refreshes trust

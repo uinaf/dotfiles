@@ -1,7 +1,16 @@
 #!/usr/bin/env node
 
-import { readFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  readlinkSync,
+  symlinkSync,
+  unlinkSync,
+} from "node:fs";
+import { dirname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { readProfileModel, requireProfile, type SkillLayer } from "../profiles/model.ts";
@@ -18,7 +27,9 @@ import {
 const MARKETPLACE_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*\/[A-Za-z0-9][A-Za-z0-9._-]*$/;
 const NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 
-export const HARNESSES = ["claude", "codex", "cursor"] as const;
+// Claude must precede opencode: the OpenCode skill links resolve into the
+// Claude marketplace checkout that Claude's own sync creates and updates.
+export const HARNESSES = ["claude", "codex", "cursor", "grok", "opencode"] as const;
 
 export type Harness = (typeof HARNESSES)[number];
 
@@ -32,6 +43,9 @@ export type Plugin = {
 export type PlannedCommand = {
   command: string;
   args: readonly string[];
+  // Set on install commands whose harness installs a whole marketplace repository,
+  // so apply can skip sources its CLI already lists.
+  marketplace?: string;
 };
 
 type PluginFailure = {
@@ -42,9 +56,18 @@ type PluginFailure = {
 type HarnessSpec = {
   binary: string;
   label: string;
-  marketplaceArgs(plugin: Plugin): string[];
+  marketplaceArgs?(plugin: Plugin): string[];
   // Cursor exposes no non-interactive install subcommand; installation happens via /plugins.
   installArgs?(plugin: Plugin): string[];
+  // Grok installs a source repository once, not a plugin ref, and re-installing
+  // an installed source exits non-zero; apply consults `plugin list` first.
+  installsMarketplace?: {
+    listArgs: readonly string[];
+    installed(listOutput: string, plugin: Plugin): boolean;
+  };
+  // OpenCode has no compatible plugin format; apply links the Claude checkout's
+  // skills into OpenCode's native skill discovery instead of running commands.
+  linksClaudeSkills?: boolean;
 };
 
 const HARNESS_SPECS: Record<Harness, HarnessSpec> = {
@@ -64,6 +87,21 @@ const HARNESS_SPECS: Record<Harness, HarnessSpec> = {
     binary: "cursor-agent",
     label: "Cursor",
     marketplaceArgs: (plugin) => ["plugin", "marketplace", "add", `github.com/${plugin.marketplace}`],
+  },
+  grok: {
+    binary: "grok",
+    label: "Grok",
+    installArgs: (plugin) => ["plugin", "install", plugin.marketplace, "--trust"],
+    installsMarketplace: {
+      listArgs: ["plugin", "list"],
+      installed: (listOutput, plugin) =>
+        listOutput.includes(`git: https://github.com/${plugin.marketplace}]`),
+    },
+  },
+  opencode: {
+    binary: "opencode",
+    label: "OpenCode",
+    linksClaudeSkills: true,
   },
 };
 
@@ -126,6 +164,11 @@ function readPlugin(value: unknown, manifestPath: string): Plugin {
     manifestPath,
     value.name,
   );
+  if (harnesses.includes("opencode") && !harnesses.includes("claude")) {
+    throw new Error(
+      `Invalid plugins manifest at ${manifestPath}: ${value.name} targets opencode without claude; the OpenCode skill links resolve the Claude marketplace checkout`,
+    );
+  }
 
   return { marketplace: value.marketplace, marketplaceId, name: value.name, harnesses };
 }
@@ -202,16 +245,35 @@ export function planHarness(harness: Harness, plugins: readonly Plugin[]): Plann
   const planned: PlannedCommand[] = [];
   const marketplaces = new Set<string>();
 
-  for (const plugin of selected) {
-    if (marketplaces.has(plugin.marketplace)) {
-      continue;
+  const marketplaceArgs = spec.marketplaceArgs;
+  if (marketplaceArgs !== undefined) {
+    for (const plugin of selected) {
+      if (marketplaces.has(plugin.marketplace)) {
+        continue;
+      }
+      marketplaces.add(plugin.marketplace);
+      planned.push({ command: spec.binary, args: marketplaceArgs(plugin) });
     }
-    marketplaces.add(plugin.marketplace);
-    planned.push({ command: spec.binary, args: spec.marketplaceArgs(plugin) });
   }
 
   const installArgs = spec.installArgs;
   if (installArgs === undefined) {
+    return planned;
+  }
+
+  if (spec.installsMarketplace !== undefined) {
+    const installed = new Set<string>();
+    for (const plugin of selected) {
+      if (installed.has(plugin.marketplace)) {
+        continue;
+      }
+      installed.add(plugin.marketplace);
+      planned.push({
+        command: spec.binary,
+        args: installArgs(plugin),
+        marketplace: plugin.marketplace,
+      });
+    }
     return planned;
   }
 
@@ -220,6 +282,118 @@ export function planHarness(harness: Harness, plugins: readonly Plugin[]): Plann
   }
 
   return planned;
+}
+
+function claudeMarketplacesRoot(home: string): string {
+  return join(home, ".claude", "plugins", "marketplaces");
+}
+
+function removeBrokenSkillLinks(home: string, linkRoot: string): number {
+  if (!existsSync(linkRoot)) {
+    return 0;
+  }
+
+  const managedRoot = claudeMarketplacesRoot(home) + sep;
+  let removed = 0;
+  for (const entry of readdirSync(linkRoot)) {
+    const linkPath = join(linkRoot, entry);
+    if (!lstatSync(linkPath).isSymbolicLink()) {
+      continue;
+    }
+    const target = readlinkSync(linkPath);
+    if (target.startsWith(managedRoot) && !existsSync(linkPath)) {
+      unlinkSync(linkPath);
+      removed += 1;
+    }
+  }
+  return removed;
+}
+
+function linkClaudeSkills(
+  runtime: Runtime,
+  label: string,
+  selected: readonly Plugin[],
+  failures: PluginFailure[],
+): void {
+  const home = runtime.env.HOME;
+  if (!home) {
+    failures.push({
+      diagnostic: "HOME is required to link OpenCode skills",
+      summary: `${label}: skill links (missing HOME)`,
+    });
+    return;
+  }
+
+  const linkRoot = join(home, ".config", "opencode", "skills");
+  const linkedMarketplaces = new Set<string>();
+  for (const plugin of selected) {
+    if (linkedMarketplaces.has(plugin.marketplaceId)) {
+      continue; // plugins from one marketplace repository share a checkout
+    }
+    linkedMarketplaces.add(plugin.marketplaceId);
+    const source = join(claudeMarketplacesRoot(home), plugin.marketplaceId, "skills");
+    if (!existsSync(source)) {
+      failures.push({
+        diagnostic: `${source} is missing; the Claude Code plugin sync creates it`,
+        summary: `${label}: link ${pluginRef(plugin)} skills (missing Claude checkout)`,
+      });
+      continue;
+    }
+
+    mkdirSync(linkRoot, { recursive: true });
+    let linked = 0;
+    for (const entry of readdirSync(source, { withFileTypes: true })) {
+      if (!entry.isDirectory() || !existsSync(join(source, entry.name, "SKILL.md"))) {
+        continue;
+      }
+      const target = join(source, entry.name);
+      const linkPath = join(linkRoot, entry.name);
+      // lstat instead of exists: a dangling symlink still occupies the path.
+      const existing = lstatSync2(linkPath);
+      if (existing !== undefined) {
+        if (!existing.isSymbolicLink()) {
+          failures.push({
+            diagnostic: `${linkPath} exists and is not a symlink; move it aside to let sync manage it`,
+            summary: `${label}: link ${entry.name} (conflicting entry)`,
+          });
+          continue;
+        }
+        const currentTarget = readlinkSync(linkPath);
+        if (currentTarget === target) {
+          linked += 1;
+          continue;
+        }
+        if (!currentTarget.startsWith(claudeMarketplacesRoot(home) + sep)) {
+          failures.push({
+            diagnostic: `${linkPath} points at ${currentTarget}, which sync does not manage; move it aside to let sync manage it`,
+            summary: `${label}: link ${entry.name} (conflicting entry)`,
+          });
+          continue;
+        }
+        unlinkSync(linkPath);
+      }
+      symlinkSync(target, linkPath);
+      linked += 1;
+    }
+    writeLine(
+      runtime.stdout,
+      `${label}: linked ${linked} ${plugin.marketplaceId} skills into ${linkRoot}`,
+    );
+  }
+
+  const removed = removeBrokenSkillLinks(home, linkRoot);
+  if (removed > 0) {
+    writeLine(runtime.stdout, `${label}: removed ${removed} broken managed skill links`);
+  }
+}
+
+// lstat that reports a dangling symlink (existsSync follows links and misses it).
+function lstatSync2(path: string): ReturnType<typeof lstatSync> | undefined {
+  try {
+    return lstatSync(path);
+  } catch {
+    return undefined;
+  }
 }
 
 function applyHarness(
@@ -240,7 +414,36 @@ function applyHarness(
     return;
   }
 
+  if (spec.linksClaudeSkills === true) {
+    linkClaudeSkills(runtime, spec.label, selected, failures);
+    return;
+  }
+
+  let installedSources = "";
+  const guard = spec.installsMarketplace;
+  if (guard !== undefined) {
+    const listed = runtime.run(spec.binary, [...guard.listArgs], {
+      stdout: "capture",
+      stderr: "capture",
+    });
+    if (listed.status !== 0) {
+      failures.push({
+        diagnostic: sanitizeDiagnostic(`${listed.stdout}\n${listed.stderr}`),
+        summary: `${spec.label}: ${guard.listArgs.join(" ")} (exit ${listed.status})`,
+      });
+      return;
+    }
+    installedSources = listed.stdout;
+  }
+
   for (const planned of planHarness(harness, plugins)) {
+    if (guard !== undefined && planned.marketplace !== undefined) {
+      const plugin = selected.find((candidate) => candidate.marketplace === planned.marketplace);
+      if (plugin !== undefined && guard.installed(installedSources, plugin)) {
+        writeLine(runtime.stdout, `${spec.label}: ${planned.marketplace} is already installed`);
+        continue;
+      }
+    }
     writeLine(runtime.stdout, `${spec.label}: ${planned.command} ${planned.args.join(" ")}`);
     const result = runtime.run(planned.command, planned.args, {
       stdout: "capture",
@@ -254,7 +457,7 @@ function applyHarness(
     }
   }
 
-  if (spec.installArgs === undefined) {
+  if (spec.marketplaceArgs !== undefined && spec.installArgs === undefined) {
     writeLine(
       runtime.stdout,
       `${spec.label} plugin installation is interactive; run /plugins to enable ${selected.map(pluginRef).join(", ")}`,
