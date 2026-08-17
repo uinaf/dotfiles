@@ -82,6 +82,8 @@ run_step() {
       ;;
     sync-agents)
       "$repo_root/scripts/agents/sync.ts" --profile "$profile"
+      "$repo_root/scripts/agents/plugins.ts" --profile "$profile"
+      "$repo_root/scripts/agents/mcps.ts" --profile "$profile"
       ;;
     *)
       printf 'unsupported install step: %s\n' "$1" >&2

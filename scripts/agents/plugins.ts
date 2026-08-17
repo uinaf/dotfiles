@@ -164,6 +164,11 @@ function readPlugin(value: unknown, manifestPath: string): Plugin {
     manifestPath,
     value.name,
   );
+  if (harnesses.includes("opencode") && !harnesses.includes("claude")) {
+    throw new Error(
+      `Invalid plugins manifest at ${manifestPath}: ${value.name} targets opencode without claude; the OpenCode skill links resolve the Claude marketplace checkout`,
+    );
+  }
 
   return { marketplace: value.marketplace, marketplaceId, name: value.name, harnesses };
 }
@@ -353,8 +358,16 @@ function linkClaudeSkills(
           });
           continue;
         }
-        if (readlinkSync(linkPath) === target) {
+        const currentTarget = readlinkSync(linkPath);
+        if (currentTarget === target) {
           linked += 1;
+          continue;
+        }
+        if (!currentTarget.startsWith(claudeMarketplacesRoot(home) + sep)) {
+          failures.push({
+            diagnostic: `${linkPath} points at ${currentTarget}, which sync does not manage; move it aside to let sync manage it`,
+            summary: `${label}: link ${entry.name} (conflicting entry)`,
+          });
           continue;
         }
         unlinkSync(linkPath);

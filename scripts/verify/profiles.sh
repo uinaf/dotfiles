@@ -397,13 +397,15 @@ fi
 EOF
   chmod 0700 "$install_fixture/scripts/bootstrap/$helper"
 done
-cat > "$install_fixture/scripts/agents/sync.ts" <<'EOF'
+for agent_script in sync.ts plugins.ts mcps.ts; do
+cat > "$install_fixture/scripts/agents/$agent_script" <<'EOF'
 #!/usr/bin/env bash
-printf 'sync.ts' >> "${DOTFILES_INSTALL_LOG:?}"
+printf '%s' "$(basename "$0")" >> "${DOTFILES_INSTALL_LOG:?}"
 [ "$#" -eq 0 ] || printf ' %s' "$@" >> "${DOTFILES_INSTALL_LOG:?}"
 printf '\n' >> "${DOTFILES_INSTALL_LOG:?}"
 EOF
-chmod 0700 "$install_fixture/scripts/agents/sync.ts"
+  chmod 0700 "$install_fixture/scripts/agents/$agent_script"
+done
 cat > "$install_fixture/bin/mise" <<'EOF'
 #!/usr/bin/env bash
 printf '%s' "$(basename "$0")" >> "${DOTFILES_INSTALL_LOG:?}"
@@ -434,6 +436,8 @@ trust-agent-worktrees.sh
 install-gh-extensions.sh
 configure-codex.ts
 sync.ts --profile devbox
+plugins.ts --profile devbox
+mcps.ts --profile devbox
 EOF
 )"
 assert_eq "$expected_install_log" "$(cat "$install_log")" "devbox install execution"

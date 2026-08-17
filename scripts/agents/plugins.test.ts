@@ -241,6 +241,31 @@ test("plans one marketplace add per marketplace followed by each install", () =>
   );
 });
 
+test("rejects an entry that targets opencode without claude", () => {
+  const { repoDir } = createFixture();
+  writeManifest(repoDir, "developer", [
+    { marketplace: "fixture/market", name: "one", harnesses: ["opencode"] },
+  ]);
+
+  assert.throws(
+    () => readPlugins(manifestPath(repoDir, "developer")),
+    /targets opencode without claude/,
+  );
+});
+
+test("refuses to repoint a symlink sync does not manage", () => {
+  const { repoDir, home } = createFixture();
+  mkdirSync(join(home, ".config", "opencode", "skills"), { recursive: true });
+  mkdirSync(join(home, "my-own-alpha"), { recursive: true });
+  symlinkSync(join(home, "my-own-alpha"), opencodeLink(home, "alpha"));
+  const runtime = new FixtureRuntime(repoDir, home);
+
+  assert.equal(main([], runtime), 1);
+  assert.match(runtime.stderr.value, /link alpha \(conflicting entry\)/);
+  assert.match(runtime.stderr.value, /which sync does not manage/);
+  assert.equal(readlinkSync(opencodeLink(home, "alpha")), join(home, "my-own-alpha"));
+});
+
 test("plans one trusted source install for Grok and no commands for OpenCode", () => {
   const { repoDir } = createFixture();
   const plugins = readPlugins(manifestPath(repoDir, "developer"));
