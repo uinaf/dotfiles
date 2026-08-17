@@ -1,14 +1,6 @@
 {
   "skills": [
     {
-      "name": "agent-dx-cli-scale",
-      "source": "jpoehnelt/skills"
-    },
-    {
-      "name": "autoreview",
-      "source": "uinaf/autoreview"
-    },
-    {
       "name": "effect-ts",
       "source": "Effect-TS/skills"
     },
@@ -51,10 +43,6 @@
     {
       "name": "tanstack-start",
       "source": "tanstack-skills/tanstack-skills"
-    },
-    {
-      "name": "vercel-react-best-practices",
-      "source": "vercel-labs/agent-skills"
     },
     {
       "name": "vite-plus",

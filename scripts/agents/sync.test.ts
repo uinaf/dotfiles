@@ -571,12 +571,9 @@ test("uses the current first-party skill sources", () => {
   assert.equal(sources.includes("uinaf/agent-skills"), true);
   assert.equal(sourceByName.get("attach-cli"), "uinaf/attach");
   assert.equal(sourceByName.get("uinaf-design"), "uinaf/design");
-  assert.equal(sourceByName.get("autoreview"), "uinaf/autoreview");
 
   const inventory = [
-    ["agent-dx-cli-scale", "jpoehnelt/skills"],
     ["attach-cli", "uinaf/attach"],
-    ["autoreview", "uinaf/autoreview"],
     ["effect-ts", "Effect-TS/skills"],
     ["gh-setup", "uinaf/agent-skills"],
     ["gh-stack", "github/gh-stack"],
@@ -588,7 +585,6 @@ test("uses the current first-party skill sources", () => {
     ["tanstack-form", "tanstack-skills/tanstack-skills"],
     ["tanstack-query", "tanstack-skills/tanstack-skills"],
     ["tanstack-start", "tanstack-skills/tanstack-skills"],
-    ["vercel-react-best-practices", "vercel-labs/agent-skills"],
     ["vite-plus", "uinaf/agent-skills"],
   ].map(([name, source]) => ({ name, source }));
   assert.deepEqual(
