@@ -41,10 +41,6 @@
       "source": "shadcn/ui"
     },
     {
-      "name": "skill-audit",
-      "source": "uinaf/agent-skills"
-    },
-    {
       "name": "tanstack-form",
       "source": "tanstack-skills/tanstack-skills"
     },

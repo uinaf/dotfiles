@@ -7,10 +7,6 @@
     {
       "name": "uinaf-design",
       "source": "uinaf/design"
-    },
-    {
-      "name": "uinaf-radar",
-      "source": "uinaf/agent-skills"
     }
   ]
 }

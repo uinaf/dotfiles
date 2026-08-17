@@ -571,7 +571,6 @@ test("uses the current first-party skill sources", () => {
   assert.equal(sources.includes("uinaf/agent-skills"), true);
   assert.equal(sourceByName.get("attach-cli"), "uinaf/attach");
   assert.equal(sourceByName.get("uinaf-design"), "uinaf/design");
-  assert.equal(sourceByName.get("uinaf-radar"), "uinaf/agent-skills");
   assert.equal(sourceByName.get("autoreview"), "uinaf/autoreview");
 
   const inventory = [
@@ -586,11 +585,9 @@ test("uses the current first-party skill sources", () => {
     ["react-ban-use-effect", "uinaf/agent-skills"],
     ["react-doctor", "millionco/react-doctor"],
     ["shadcn", "shadcn/ui"],
-    ["skill-audit", "uinaf/agent-skills"],
     ["tanstack-form", "tanstack-skills/tanstack-skills"],
     ["tanstack-query", "tanstack-skills/tanstack-skills"],
     ["tanstack-start", "tanstack-skills/tanstack-skills"],
-    ["uinaf-radar", "uinaf/agent-skills"],
     ["vercel-react-best-practices", "vercel-labs/agent-skills"],
     ["vite-plus", "uinaf/agent-skills"],
   ].map(([name, source]) => ({ name, source }));
