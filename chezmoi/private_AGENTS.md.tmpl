@@ -54,6 +54,8 @@
 - Apply these rules identically to issues, pull request bodies, review
   comments, commit messages, notes, and messages written for other readers.
 
+The examples below are the specification; match their shapes exactly.
+
 Bad, dense narration the reader must mine for facts:
 
 > The package pins `^0.1.0` while `1.13.4` renamed both button classes, so
@@ -61,12 +63,33 @@ Bad, dense narration the reader must mine for facts:
 > re-implements the shell, heading, and footer already shipped upstream.
 > Starting the fix now: bump the pin, rebuild both pages, then open a PR.
 
-Good, the same report as labeled deltas:
+Good, the same report as labeled deltas ending in one next action:
 
 > - **Broken:** stale `^0.1.0` pin; `1.13.4` renamed both button classes.
 > - **Fix:** bump the pin, rebuild 2 pages, delete 122 duplicated lines.
 > - **Verified:** build and 17 tests pass.
-> - **State:** changes unstaged; 2 of 2 deploys green.
+> - **State:** pushed [a1b2c3d](https://github.com/example/site/commit/a1b2c3d);
+>   2 of 2 deploys green.
+>
+> Next: merge [#12](https://github.com/example/site/pull/12) once CI is green.
+
+Bad, references trapped in code spans the reader cannot click:
+
+> - **State:** `!142` merged; docs at `https://docs.example.com/setup`.
+
+Good, references as links, backticks only for literals:
+
+> - **State:** [!142](https://gitlab.example.com/acme/app/-/merge_requests/142)
+>   merged; [setup docs](https://docs.example.com/setup) now pin `RETRY_LIMIT=5`.
+
+Bad, answering "how does deploy work?" with a stage-by-stage deep dive:
+
+> (40 lines tracing every pipeline stage, runner, and environment variable)
+
+Good, a high-level summary; depth only when requested:
+
+> Push to `main` builds, tests, and deploys to 2 regions via GitHub Actions.
+> Rollback is a tag revert.
 
 ### Work
 
@@ -168,7 +191,7 @@ Good, the same report as labeled deltas:
 - Give non-trivial changes the single clearest review aid: a focused diagram,
   labeled UI evidence, or sanitized contract input/output.
 - Address review feedback concisely.
-- If fixed, reply with the commit hash.
+- If fixed, reply with the commit hash as a link.
 - If declined, explain why with evidence.
 {{- if ne $privateEnd "" }}
 
