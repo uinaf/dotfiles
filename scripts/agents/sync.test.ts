@@ -567,38 +567,36 @@ test("uses the current first-party skill sources", () => {
   const sourceByName = new Map(skills.map((skill) => [skill.name, skill.source]));
 
   assert.equal(sources.includes("uinaf/agents"), false);
-  assert.equal(sources.includes("uinaf/skills"), true);
+  assert.equal(sources.includes("uinaf/skills"), false);
+  assert.equal(sources.includes("uinaf/agent-skills"), true);
   assert.equal(sourceByName.get("attach-cli"), "uinaf/attach");
   assert.equal(sourceByName.get("uinaf-design"), "uinaf/design");
-  assert.equal(sourceByName.get("uinaf-radar"), "uinaf/skills");
+  assert.equal(sourceByName.get("uinaf-radar"), "uinaf/agent-skills");
   assert.equal(sourceByName.get("autoreview"), "uinaf/autoreview");
 
-  const preSplitInventory = [
+  const inventory = [
     ["agent-dx-cli-scale", "jpoehnelt/skills"],
-    ["agent-readiness", "uinaf/skills"],
     ["attach-cli", "uinaf/attach"],
     ["autoreview", "uinaf/autoreview"],
-    ["docs", "uinaf/skills"],
     ["effect-ts", "Effect-TS/skills"],
-    ["gh-setup", "uinaf/skills"],
+    ["gh-setup", "uinaf/agent-skills"],
     ["gh-stack", "github/gh-stack"],
     ["grilling", "mattpocock/skills"],
     ["improve", "shadcn/improve"],
-    ["planning", "uinaf/skills"],
-    ["react-ban-use-effect", "uinaf/skills"],
+    ["react-ban-use-effect", "uinaf/agent-skills"],
     ["react-doctor", "millionco/react-doctor"],
     ["shadcn", "shadcn/ui"],
-    ["skill-audit", "uinaf/skills"],
+    ["skill-audit", "uinaf/agent-skills"],
     ["tanstack-form", "tanstack-skills/tanstack-skills"],
     ["tanstack-query", "tanstack-skills/tanstack-skills"],
     ["tanstack-start", "tanstack-skills/tanstack-skills"],
-    ["uinaf-radar", "uinaf/skills"],
+    ["uinaf-radar", "uinaf/agent-skills"],
     ["vercel-react-best-practices", "vercel-labs/agent-skills"],
-    ["vite-plus", "uinaf/skills"],
+    ["vite-plus", "uinaf/agent-skills"],
   ].map(([name, source]) => ({ name, source }));
   assert.deepEqual(
     skills.filter((skill) => skill.name !== "uinaf-design").sort((a, b) => a.name.localeCompare(b.name)),
-    preSplitInventory.sort((a, b) => a.name.localeCompare(b.name)),
+    inventory.sort((a, b) => a.name.localeCompare(b.name)),
   );
 });
 
