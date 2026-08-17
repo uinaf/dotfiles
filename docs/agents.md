@@ -131,16 +131,47 @@ and an identical entry selected by more than one axis installs once.
 the same profile marker and composed the same way.
 
 Each entry sets `marketplace` as `owner/repo` and `name` as the plugin. Optional
-`harnesses` narrows an entry to a subset of `claude`, `codex`, and `cursor`; the
-default is all three. Optional `marketplaceId` overrides the registered
-marketplace name when it differs from the repository name.
+`harnesses` narrows an entry to a subset of `claude`, `codex`, `cursor`, `grok`,
+and `opencode`; the default is all five. Optional `marketplaceId` overrides the
+registered marketplace name when it differs from the repository name.
 
 Sync adds each marketplace once per harness, then installs with
 `claude plugin install` and `codex plugin add`. Both are idempotent, and
 `codex plugin add` is what records `enabled = true` in `~/.codex/config.toml`,
 so plugin sync never edits that file itself. Cursor exposes no non-interactive
 install, so sync adds the marketplace and prints a one-line notice to finish in
-`/plugins`. A harness whose CLI is absent is skipped with a notice.
+`/plugins`. Grok installs each source repository directly with
+`grok plugin install <owner/repo> --trust`; re-installing an installed source
+fails, so sync consults `grok plugin list` first. A harness whose CLI is absent
+is skipped with a notice.
+
+OpenCode has no compatible plugin format; its plugin API carries hooks and
+tools, not skills. Sync instead links each selected plugin's skill directories
+from the Claude Code marketplace checkout
+(`~/.claude/plugins/marketplaces/<marketplaceId>/skills/*`) into OpenCode's
+native skill discovery at `~/.config/opencode/skills/`. The links follow
+marketplace updates automatically, broken managed links are pruned, and a
+non-symlink entry at a managed name is reported instead of replaced. The Claude
+harness therefore syncs first; a missing checkout is a reported failure.
+
+## MCP Sync
+
+`agents:sync` and `agents:update` finish with `./scripts/agents/mcps.ts`, which
+converges remote MCP servers across the same five harnesses. The layering
+matches skills and plugins:
+`scripts/agents/mcps/{developer,workstation,devbox,personal}.json`, keyed by the
+same profile marker and composed the same way. Each entry sets a `name` and an
+`https` `url`; optional `harnesses` narrows the entry.
+
+Grok and OpenCode `mcp add` upsert plain config, so sync re-adds every selected
+server. `claude mcp add` refuses an existing name, so sync converges through
+`claude mcp get`: a matching URL is a no-op and anything else is removed and
+re-added at user scope. `codex mcp add` upserts config but then probes the
+server and can start an interactive OAuth login, so sync gets first and skips a
+matching URL; an add whose config landed before the login step failed is
+reported as pending `codex mcp login`, not a failure. `cursor-agent` has no add
+subcommand, so sync merges `~/.cursor/mcp.json` directly, updating only the
+managed entries' `url` and preserving everything else in the file.
 
 ## Verify
 

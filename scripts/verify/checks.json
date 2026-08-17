@@ -171,6 +171,13 @@
       "output": "Declarative coding-agent plugin marketplaces and per-harness install planning"
     },
     {
+      "id": "agent-mcps",
+      "domain": "agents",
+      "command": ["node", "--test", "scripts/agents/mcps.test.ts"],
+      "inputs": ["scripts/agents/**", "scripts/profiles/model.ts", "chezmoi/.chezmoidata/profiles.json"],
+      "output": "Declarative MCP server convergence across coding-agent harnesses"
+    },
+    {
       "id": "gh-extensions",
       "domain": "agents",
       "command": ["scripts/verify/gh-extensions.sh"],

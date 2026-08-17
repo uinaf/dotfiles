@@ -69,6 +69,16 @@ while IFS=: read -r file line content; do
         *uinaf/ffsstack*) continue ;;
       esac
       ;;
+    scripts/agents/mcps/developer.json|scripts/agents/mcps/workstation.json|scripts/agents/mcps/devbox.json|scripts/agents/mcps/personal.json)
+      case "$content" in
+        *'"name": "uinaf-executor"'*) continue ;;
+      esac
+      ;;
+    scripts/agents/mcps.test.ts)
+      case "$content" in
+        *uinaf-executor*) continue ;;
+      esac
+      ;;
     scripts/agents/sync.test.ts)
       case "$content" in
         *uinaf/agents*|*uinaf/skills*|*uinaf/agent-skills*|*uinaf/attach*|*uinaf/autoreview*|*uinaf/design*|*uinaf-design*) continue ;;

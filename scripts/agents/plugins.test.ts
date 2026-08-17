@@ -1,6 +1,15 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readlinkSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { afterEach, test } from "node:test";
@@ -25,6 +34,7 @@ type FixtureFailure = {
 
 type FixtureOptions = {
   failures?: ReadonlyMap<string, FixtureFailure>;
+  outputs?: ReadonlyMap<string, string>;
   profile?: string;
 };
 
@@ -41,14 +51,16 @@ class FixtureRuntime implements Runtime {
   readonly stdout = new BufferWriter();
   readonly stderr = new BufferWriter();
   readonly calls: CommandCall[] = [];
-  readonly installedCommands = new Set(["claude", "codex", "cursor-agent"]);
+  readonly installedCommands = new Set(["claude", "codex", "cursor-agent", "grok", "opencode"]);
   readonly failures: ReadonlyMap<string, FixtureFailure>;
+  readonly outputs: ReadonlyMap<string, string>;
   readonly profile: string;
   readonly repoDir: string;
 
   constructor(repoDir: string, home: string, options: FixtureOptions = {}) {
     this.repoDir = repoDir;
     this.failures = options.failures ?? new Map();
+    this.outputs = options.outputs ?? new Map();
     this.profile = options.profile ?? "workstation";
     this.env = { HOME: home };
   }
@@ -76,7 +88,7 @@ class FixtureRuntime implements Runtime {
     if (diagnostic !== undefined) {
       return { status: 1, stdout: diagnostic.stdout, stderr: diagnostic.stderr };
     }
-    return { status: 0, stdout: "", stderr: "" };
+    return { status: 0, stdout: this.outputs.get(`${command} ${args.join(" ")}`) ?? "", stderr: "" };
   }
 }
 
@@ -114,8 +126,22 @@ function createFixture(): { repoDir: string; home: string } {
   writeManifest(repoDir, "workstation", []);
   writeManifest(repoDir, "devbox", []);
   writeManifest(repoDir, "personal", fixturePersonalPlugins);
+  writeClaudeCheckout(home, "shared-market", ["alpha", "beta"]);
+  writeClaudeCheckout(home, "personal-market", ["gamma"]);
 
   return { repoDir, home };
+}
+
+function writeClaudeCheckout(home: string, marketplaceId: string, skills: readonly string[]): void {
+  for (const skill of skills) {
+    const skillDir = join(home, ".claude", "plugins", "marketplaces", marketplaceId, "skills", skill);
+    mkdirSync(skillDir, { recursive: true });
+    writeFileSync(join(skillDir, "SKILL.md"), `---\nname: ${skill}\n---\n`);
+  }
+}
+
+function opencodeLink(home: string, skill: string): string {
+  return join(home, ".config", "opencode", "skills", skill);
 }
 
 function writeManifest(repoDir: string, layer: string, plugins: unknown): void {
@@ -215,6 +241,17 @@ test("plans one marketplace add per marketplace followed by each install", () =>
   );
 });
 
+test("plans one trusted source install for Grok and no commands for OpenCode", () => {
+  const { repoDir } = createFixture();
+  const plugins = readPlugins(manifestPath(repoDir, "developer"));
+
+  assert.deepEqual(
+    planHarness("grok", plugins).map((planned) => `${planned.command} ${planned.args.join(" ")}`),
+    ["grok plugin install fixture/shared-market --trust"],
+  );
+  assert.deepEqual(planHarness("opencode", plugins), []);
+});
+
 test("plans only a marketplace add for Cursor and uses its URL form", () => {
   const { repoDir } = createFixture();
   const plugins = readPlugins(manifestPath(repoDir, "developer"));
@@ -249,9 +286,96 @@ test("applies the developer layer across every installed harness", () => {
     "plugin add shared-plugin@shared-market",
     "plugin add second-plugin@shared-market",
   ]);
+  assert.deepEqual(harnessCalls(runtime, "grok"), [
+    "plugin list",
+    "plugin install fixture/shared-market --trust",
+  ]);
   assert.match(runtime.stdout.value, /Plugin layers: developer/);
   assert.match(runtime.stdout.value, /Done\./);
 });
+
+test("links the Claude checkout's skills into OpenCode's skill directory", () => {
+  const { repoDir, home } = createFixture();
+  const runtime = new FixtureRuntime(repoDir, home);
+
+  assert.equal(main([], runtime), 0);
+  assert.deepEqual(harnessCalls(runtime, "opencode"), []);
+  for (const skill of ["alpha", "beta"]) {
+    assert.equal(
+      readlinkSync(opencodeLink(home, skill)),
+      join(home, ".claude", "plugins", "marketplaces", "shared-market", "skills", skill),
+    );
+  }
+  assert.match(runtime.stdout.value, /OpenCode: linked 2 shared-market skills/);
+});
+
+test("skips a Grok source its plugin list already contains", () => {
+  const { repoDir, home } = createFixture();
+  const runtime = new FixtureRuntime(repoDir, home, {
+    outputs: new Map([
+      [
+        "grok plugin list",
+        "  shared-abc123: shared-plugin [git: https://github.com/fixture/shared-market]\n",
+      ],
+    ]),
+  });
+
+  assert.equal(main([], runtime), 0);
+  assert.deepEqual(harnessCalls(runtime, "grok"), ["plugin list"]);
+  assert.match(runtime.stdout.value, /Grok: fixture\/shared-market is already installed/);
+});
+
+test("fails OpenCode linking when the Claude checkout is missing", () => {
+  const { repoDir, home } = createFixture();
+  rmSync(join(home, ".claude", "plugins", "marketplaces", "shared-market"), {
+    force: true,
+    recursive: true,
+  });
+  const runtime = new FixtureRuntime(repoDir, home);
+
+  assert.equal(main([], runtime), 1);
+  assert.match(runtime.stderr.value, /link shared-plugin@shared-market skills \(missing Claude checkout\)/);
+  assert.match(runtime.stderr.value, /the Claude Code plugin sync creates it/);
+});
+
+test("refuses to replace a non-symlink entry in OpenCode's skill directory", () => {
+  const { repoDir, home } = createFixture();
+  mkdirSync(opencodeLink(home, "alpha"), { recursive: true });
+  const runtime = new FixtureRuntime(repoDir, home);
+
+  assert.equal(main([], runtime), 1);
+  assert.match(runtime.stderr.value, /link alpha \(conflicting entry\)/);
+  assert.ok(lstatSync(opencodeLink(home, "alpha")).isDirectory());
+  assert.equal(readlinkSync(opencodeLink(home, "beta")).endsWith("beta"), true);
+});
+
+test("repoints a stale managed link and removes broken managed links", () => {
+  const { repoDir, home } = createFixture();
+  const managedRoot = join(home, ".claude", "plugins", "marketplaces");
+  mkdirSync(join(home, ".config", "opencode", "skills"), { recursive: true });
+  symlinkSync(join(managedRoot, "shared-market", "skills", "beta"), opencodeLink(home, "alpha"));
+  symlinkSync(join(managedRoot, "gone-market", "skills", "gone"), opencodeLink(home, "gone"));
+  symlinkSync(join(home, "elsewhere"), opencodeLink(home, "foreign"));
+  const runtime = new FixtureRuntime(repoDir, home);
+
+  assert.equal(main([], runtime), 0);
+  assert.equal(
+    readlinkSync(opencodeLink(home, "alpha")),
+    join(managedRoot, "shared-market", "skills", "alpha"),
+  );
+  assert.equal(lstatSync2Exists(opencodeLink(home, "gone")), false);
+  assert.equal(lstatSync2Exists(opencodeLink(home, "foreign")), true);
+  assert.match(runtime.stdout.value, /removed 1 broken managed skill links/);
+});
+
+function lstatSync2Exists(path: string): boolean {
+  try {
+    lstatSync(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 test("adds the personal layer only for personal profiles", () => {
   const { repoDir, home } = createFixture();
