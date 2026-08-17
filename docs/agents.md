@@ -119,15 +119,15 @@ updater. An updater failure leaves the completed manifest sync in place.
 Shared first-party skills live in
 [`uinaf/agent-skills`](https://github.com/uinaf/agent-skills).
 Personal CLI-backed skills retain their owning repositories. Layer manifests are named for the profile axes they serve:
-`scripts/agents/skills/{shared,workstation,devbox,personal}.json`. A profile
-composes its axes (personal-workstation is shared + workstation + personal),
+`scripts/agents/skills/{developer,workstation,devbox,personal}.json`. A profile
+composes its axes (personal-workstation is developer + workstation + personal),
 and an identical entry selected by more than one axis installs once.
 
 ## Plugin Sync
 
 `agents:sync` and `agents:update` also apply the plugin manifests through
 `./scripts/agents/plugins.ts`. The layering matches skills:
-`scripts/agents/plugins/{shared,workstation,devbox,personal}.json`, keyed by
+`scripts/agents/plugins/{developer,workstation,devbox,personal}.json`, keyed by
 the same profile marker and composed the same way.
 
 Each entry sets `marketplace` as `owner/repo` and `name` as the plugin. Optional

@@ -21,7 +21,7 @@
         ],
         "runtimeGroup": "developer",
         "skillLayers": [
-          "shared",
+          "developer",
           "workstation",
           "personal"
         ],
@@ -54,7 +54,7 @@
         ],
         "runtimeGroup": "developer",
         "skillLayers": [
-          "shared",
+          "developer",
           "devbox",
           "personal"
         ],
@@ -86,7 +86,7 @@
         ],
         "runtimeGroup": "developer",
         "skillLayers": [
-          "shared",
+          "developer",
           "workstation"
         ],
         "installSteps": [
@@ -117,7 +117,7 @@
         ],
         "runtimeGroup": "developer",
         "skillLayers": [
-          "shared",
+          "developer",
           "devbox"
         ],
         "installSteps": [

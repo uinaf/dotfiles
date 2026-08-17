@@ -146,7 +146,16 @@ export function readPlugins(manifestPath: string): Plugin[] {
     throw new Error(`Invalid plugins manifest at ${manifestPath}: expected a plugins array`);
   }
 
-  return parsed.plugins.map((plugin) => readPlugin(plugin, manifestPath));
+  const plugins = parsed.plugins.map((plugin) => readPlugin(plugin, manifestPath));
+  const refs = new Set<string>();
+  for (const plugin of plugins) {
+    const ref = pluginRef(plugin);
+    if (refs.has(ref)) {
+      throw new Error(`Invalid plugins manifest at ${manifestPath}: ${ref} is defined more than once`);
+    }
+    refs.add(ref);
+  }
+  return plugins;
 }
 
 export function readLayeredPlugins(
@@ -159,7 +168,7 @@ export function readLayeredPlugins(
   }
 
   const manifests = new Map<SkillLayer, Plugin[]>();
-  for (const layer of ["shared", "workstation", "devbox", "personal"] as const) {
+  for (const layer of ["developer", "workstation", "devbox", "personal"] as const) {
     manifests.set(
       layer,
       readPlugins(join(repoDir, "scripts", "agents", "plugins", `${layer}.json`)),
