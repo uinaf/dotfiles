@@ -66,12 +66,12 @@ arg "<profile>" help="Profile to preview" {
 run = './scripts/bootstrap/apply-dotfiles.sh --profile "$usage_profile" --dry-run --verbose'
 
 [tasks."agents:sync"]
-description = "Sync selected global coding-agent skills"
-run = "./scripts/agents/sync.ts"
+description = "Sync selected global coding-agent skills and plugins"
+run = ["./scripts/agents/sync.ts", "./scripts/agents/plugins.ts"]
 
 [tasks."agents:update"]
-description = "Update selected global coding-agent skills"
-run = "./scripts/agents/sync.ts --update"
+description = "Update selected global coding-agent skills, then sync plugins"
+run = ["./scripts/agents/sync.ts --update", "./scripts/agents/plugins.ts"]
 
 [tasks."bootstrap:trust-agent-worktrees"]
 description = "Trust mise configs in generated agent worktrees"
