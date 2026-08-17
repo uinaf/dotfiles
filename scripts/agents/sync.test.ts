@@ -165,13 +165,19 @@ function createFixture(): { repoDir: string; home: string } {
     readFileSync(join(repoRoot, "chezmoi", ".chezmoidata", "profiles.json")),
   );
   writeFileSync(
-    join(repoDir, "scripts", "agents", "skills", "shared.json"),
+    join(repoDir, "scripts", "agents", "skills", "developer.json"),
     JSON.stringify({ skills: fixtureSkills }, null, 2),
   );
   writeFileSync(
     join(repoDir, "scripts", "agents", "skills", "personal.json"),
     JSON.stringify({ skills: fixturePersonalSkills }, null, 2),
   );
+  for (const axis of ["workstation", "devbox"]) {
+    writeFileSync(
+      join(repoDir, "scripts", "agents", "skills", `${axis}.json`),
+      JSON.stringify({ skills: [] }, null, 2),
+    );
+  }
   writeFileSync(
     join(repoDir, "scripts", "agents", "skills.lock.json"),
     JSON.stringify({ version: 1, skills: fixtureSkills }, null, 2),
@@ -296,7 +302,7 @@ test("installs the personal layer only for personal profiles", () => {
   assert.equal(main(["--profile", "personal-devbox"], runtime), 0);
   assert.deepEqual(installedSkillNames(runtime), [...fixtureSkills, ...fixturePersonalSkills].map((skill) => skill.name));
   assert.match(runtime.stdout.value, /Profile: personal-devbox/);
-  assert.match(runtime.stdout.value, /Skill layers: shared, personal/);
+  assert.match(runtime.stdout.value, /Skill layers: developer, devbox, personal/);
 });
 
 test("rejects duplicate names across selected layers before installing skills", () => {
@@ -457,7 +463,7 @@ test("rejects unsafe ownership lock names before changing skills", () => {
 test("rejects an invalid manifest before changing skills", () => {
   const { repoDir, home } = createFixture();
   writeFileSync(
-    join(repoDir, "scripts", "agents", "skills", "shared.json"),
+    join(repoDir, "scripts", "agents", "skills", "developer.json"),
     '{"skills":[{"name":"missing-source"}]}',
   );
   const runtime = new FixtureRuntime(repoDir, home);
@@ -539,7 +545,7 @@ test("skips the updater when managed skill installation fails", () => {
 
 test("uses the current first-party skill sources", () => {
   const scriptDir = dirname(fileURLToPath(import.meta.url));
-  const manifests: unknown[] = ["shared", "personal"].map((layer) =>
+  const manifests: unknown[] = ["developer", "workstation", "devbox", "personal"].map((layer) =>
     JSON.parse(readFileSync(join(scriptDir, "skills", `${layer}.json`), "utf8")),
   );
 

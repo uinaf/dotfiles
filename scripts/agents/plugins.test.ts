@@ -110,7 +110,9 @@ function createFixture(): { repoDir: string; home: string } {
     join(repoDir, "chezmoi", ".chezmoidata", "profiles.json"),
     readFileSync(join(repoRoot, "chezmoi", ".chezmoidata", "profiles.json")),
   );
-  writeManifest(repoDir, "shared", fixtureSharedPlugins);
+  writeManifest(repoDir, "developer", fixtureSharedPlugins);
+  writeManifest(repoDir, "workstation", []);
+  writeManifest(repoDir, "devbox", []);
   writeManifest(repoDir, "personal", fixturePersonalPlugins);
 
   return { repoDir, home };
@@ -135,7 +137,7 @@ function harnessCalls(runtime: FixtureRuntime, binary: string): string[] {
 
 test("defaults a manifest entry to every harness and derives the marketplace id", () => {
   const { repoDir } = createFixture();
-  const plugins = readPlugins(manifestPath(repoDir, "shared"));
+  const plugins = readPlugins(manifestPath(repoDir, "developer"));
   const first = plugins[0];
 
   assert.ok(first !== undefined);
@@ -146,54 +148,54 @@ test("defaults a manifest entry to every harness and derives the marketplace id"
 
 test("honours an explicit marketplaceId when the marketplace name diverges", () => {
   const { repoDir } = createFixture();
-  writeManifest(repoDir, "shared", [
+  writeManifest(repoDir, "developer", [
     { marketplace: "fixture/dotfiles-marketplace", name: "one", marketplaceId: "renamed" },
   ]);
 
-  assert.equal(readPlugins(manifestPath(repoDir, "shared"))[0]?.marketplaceId, "renamed");
+  assert.equal(readPlugins(manifestPath(repoDir, "developer"))[0]?.marketplaceId, "renamed");
 });
 
 test("rejects a marketplace that is not owner/repo", () => {
   const { repoDir } = createFixture();
-  writeManifest(repoDir, "shared", [{ marketplace: "fixture", name: "one" }]);
+  writeManifest(repoDir, "developer", [{ marketplace: "fixture", name: "one" }]);
 
   assert.throws(
-    () => readPlugins(manifestPath(repoDir, "shared")),
+    () => readPlugins(manifestPath(repoDir, "developer")),
     /expected owner\/repo marketplace and safe plugin name strings/,
   );
 });
 
 test("rejects an unsafe plugin name before planning any command", () => {
   const { repoDir } = createFixture();
-  writeManifest(repoDir, "shared", [{ marketplace: "fixture/market", name: "../escape" }]);
+  writeManifest(repoDir, "developer", [{ marketplace: "fixture/market", name: "../escape" }]);
 
   assert.throws(
-    () => readPlugins(manifestPath(repoDir, "shared")),
+    () => readPlugins(manifestPath(repoDir, "developer")),
     /expected owner\/repo marketplace and safe plugin name strings/,
   );
 });
 
 test("rejects an unknown or duplicated harness", () => {
   const { repoDir } = createFixture();
-  writeManifest(repoDir, "shared", [
+  writeManifest(repoDir, "developer", [
     { marketplace: "fixture/market", name: "one", harnesses: ["claude", "windsurf"] },
   ]);
-  assert.throws(() => readPlugins(manifestPath(repoDir, "shared")), /harnesses must be a unique/);
+  assert.throws(() => readPlugins(manifestPath(repoDir, "developer")), /harnesses must be a unique/);
 
-  writeManifest(repoDir, "shared", [
+  writeManifest(repoDir, "developer", [
     { marketplace: "fixture/market", name: "one", harnesses: ["claude", "claude"] },
   ]);
-  assert.throws(() => readPlugins(manifestPath(repoDir, "shared")), /harnesses must be a unique/);
+  assert.throws(() => readPlugins(manifestPath(repoDir, "developer")), /harnesses must be a unique/);
 
-  writeManifest(repoDir, "shared", [
+  writeManifest(repoDir, "developer", [
     { marketplace: "fixture/market", name: "one", harnesses: [] },
   ]);
-  assert.throws(() => readPlugins(manifestPath(repoDir, "shared")), /harnesses must be a unique/);
+  assert.throws(() => readPlugins(manifestPath(repoDir, "developer")), /harnesses must be a unique/);
 });
 
 test("plans one marketplace add per marketplace followed by each install", () => {
   const { repoDir } = createFixture();
-  const plugins = readPlugins(manifestPath(repoDir, "shared"));
+  const plugins = readPlugins(manifestPath(repoDir, "developer"));
 
   assert.deepEqual(
     planHarness("claude", plugins).map((planned) => `${planned.command} ${planned.args.join(" ")}`),
@@ -215,7 +217,7 @@ test("plans one marketplace add per marketplace followed by each install", () =>
 
 test("plans only a marketplace add for Cursor and uses its URL form", () => {
   const { repoDir } = createFixture();
-  const plugins = readPlugins(manifestPath(repoDir, "shared"));
+  const plugins = readPlugins(manifestPath(repoDir, "developer"));
 
   assert.deepEqual(
     planHarness("cursor", plugins).map((planned) => `${planned.command} ${planned.args.join(" ")}`),
@@ -232,7 +234,7 @@ test("plans nothing for a harness the entry does not target", () => {
   assert.deepEqual(planHarness("cursor", plugins), []);
 });
 
-test("applies the shared layer across every installed harness", () => {
+test("applies the developer layer across every installed harness", () => {
   const { repoDir, home } = createFixture();
   const runtime = new FixtureRuntime(repoDir, home);
 
@@ -247,7 +249,7 @@ test("applies the shared layer across every installed harness", () => {
     "plugin add shared-plugin@shared-market",
     "plugin add second-plugin@shared-market",
   ]);
-  assert.match(runtime.stdout.value, /Plugin layers: shared/);
+  assert.match(runtime.stdout.value, /Plugin layers: developer/);
   assert.match(runtime.stdout.value, /Done\./);
 });
 
@@ -256,7 +258,7 @@ test("adds the personal layer only for personal profiles", () => {
   const runtime = new FixtureRuntime(repoDir, home, { profile: "personal-devbox" });
 
   assert.equal(main(["--profile", "personal-devbox"], runtime), 0);
-  assert.match(runtime.stdout.value, /Plugin layers: shared, personal/);
+  assert.match(runtime.stdout.value, /Plugin layers: developer, devbox, personal/);
   assert.ok(harnessCalls(runtime, "claude").includes("plugin install personal-plugin@personal-market"));
   assert.ok(harnessCalls(runtime, "claude").includes("plugin marketplace add fixture/personal-market"));
   assert.equal(
@@ -322,14 +324,31 @@ test("reports every failing command with a redacted diagnostic", () => {
   assert.doesNotMatch(runtime.stdout.value, /Done\./);
 });
 
-test("rejects a plugin defined twice across selected layers", () => {
+test("rejects a conflicting plugin definition across selected layers", () => {
   const { repoDir, home } = createFixture();
-  writeManifest(repoDir, "personal", fixtureSharedPlugins);
+  writeManifest(repoDir, "personal", [
+    { marketplace: "fixture/shared-market", name: "shared-plugin", harnesses: ["claude"] },
+  ]);
   const runtime = new FixtureRuntime(repoDir, home, { profile: "personal-workstation" });
 
   assert.equal(main([], runtime), 1);
   assert.match(runtime.stderr.value, /shared-plugin@shared-market is defined more than once/);
   assert.equal(harnessCalls(runtime, "claude").length, 0);
+});
+
+test("collapses an identical plugin selected by more than one layer", () => {
+  const { repoDir, home } = createFixture();
+  writeManifest(repoDir, "personal", fixtureSharedPlugins);
+  const runtime = new FixtureRuntime(repoDir, home, { profile: "personal-workstation" });
+
+  assert.equal(main([], runtime), 0);
+  const installs = harnessCalls(runtime, "claude").filter((call) =>
+    call.startsWith("plugin install"),
+  );
+  assert.deepEqual(installs, [
+    "plugin install shared-plugin@shared-market",
+    "plugin install second-plugin@shared-market",
+  ]);
 });
 
 test("refuses profiles without agent setup before touching a harness", () => {
@@ -354,14 +373,19 @@ test("rejects unknown arguments and prints help without applying", () => {
   assert.equal(helped.calls.length, 0);
 });
 
-test("ships the ffsstack plugin on the personal layer only", () => {
-  const shared = readPlugins(join(repoRoot, "scripts/agents/plugins/shared.json"));
+test("ships the ffsstack plugin on workstation and personal layers, not plain devbox", () => {
+  const developer = readPlugins(join(repoRoot, "scripts/agents/plugins/developer.json"));
+  const workstation = readPlugins(join(repoRoot, "scripts/agents/plugins/workstation.json"));
+  const devbox = readPlugins(join(repoRoot, "scripts/agents/plugins/devbox.json"));
   const personal = readPlugins(join(repoRoot, "scripts/agents/plugins/personal.json"));
 
-  assert.deepEqual(shared, []);
-  assert.deepEqual(personal.map(pluginRef), ["ffsstack@ffsstack"]);
-  assert.equal(personal[0]?.marketplace, "uinaf/ffsstack");
-  assert.deepEqual(personal[0]?.harnesses, HARNESSES);
+  assert.deepEqual(developer, []);
+  assert.deepEqual(devbox, []);
+  for (const layer of [workstation, personal]) {
+    assert.deepEqual(layer.map(pluginRef), ["ffsstack@ffsstack"]);
+    assert.equal(layer[0]?.marketplace, "uinaf/ffsstack");
+    assert.deepEqual(layer[0]?.harnesses, HARNESSES);
+  }
 });
 
 test("the executable TypeScript entrypoint runs the CLI", () => {

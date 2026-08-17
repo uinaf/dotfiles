@@ -99,8 +99,8 @@ mise run agents:update
 ```
 
 The direct entrypoint is `./scripts/agents/sync.ts`. It reads the secure stored
-profile marker, selects `shared.json` plus the personal layer when configured,
-and installs those skills for available Codex and Claude Code CLIs. It does not
+profile marker, composes the profile's layer manifests, and installs those
+skills for available Codex and Claude Code CLIs. It does not
 pull Git or manage rule files.
 
 The ignored `scripts/agents/skills.lock.json` records the last manifest applied
@@ -118,16 +118,17 @@ updater. An updater failure leaves the completed manifest sync in place.
 
 Shared first-party skills live in
 [`uinaf/agent-skills`](https://github.com/uinaf/agent-skills).
-Personal CLI-backed skills retain their owning repositories. Shared selections
-live in `scripts/agents/skills/shared.json`; personal additions live in
-`scripts/agents/skills/personal.json`.
+Personal CLI-backed skills retain their owning repositories. Layer manifests are named for the profile axes they serve:
+`scripts/agents/skills/{developer,workstation,devbox,personal}.json`. A profile
+composes its axes (personal-workstation is developer + workstation + personal),
+and an identical entry selected by more than one axis installs once.
 
 ## Plugin Sync
 
 `agents:sync` and `agents:update` also apply the plugin manifests through
-`./scripts/agents/plugins.ts`. The layering matches skills: shared selections
-live in `scripts/agents/plugins/shared.json` and personal additions live in
-`scripts/agents/plugins/personal.json`, keyed by the same profile marker.
+`./scripts/agents/plugins.ts`. The layering matches skills:
+`scripts/agents/plugins/{developer,workstation,devbox,personal}.json`, keyed by
+the same profile marker and composed the same way.
 
 Each entry sets `marketplace` as `owner/repo` and `name` as the plugin. Optional
 `harnesses` narrows an entry to a subset of `claude`, `codex`, and `cursor`; the

@@ -83,6 +83,18 @@ function readSkills(manifestPath: string): Skill[] {
   return parsed.skills;
 }
 
+function assertUniqueSkillNames(skills: readonly Skill[], manifestPath: string): void {
+  const names = new Set<string>();
+  for (const skill of skills) {
+    if (names.has(skill.name)) {
+      throw new Error(
+        `Invalid skills manifest at ${manifestPath}: ${skill.name} is defined more than once`,
+      );
+    }
+    names.add(skill.name);
+  }
+}
+
 function readLayeredSkills(
   repoDir: string,
   profile: string,
@@ -93,22 +105,27 @@ function readLayeredSkills(
   }
 
   const manifests = new Map<SkillLayer, Skill[]>();
-  for (const layer of ["shared", "personal"] as const) {
-    manifests.set(
-      layer,
-      readSkills(join(repoDir, "scripts", "agents", "skills", `${layer}.json`)),
-    );
+  for (const layer of ["developer", "workstation", "devbox", "personal"] as const) {
+    const manifestPath = join(repoDir, "scripts", "agents", "skills", `${layer}.json`);
+    const skillsForLayer = readSkills(manifestPath);
+    assertUniqueSkillNames(skillsForLayer, manifestPath);
+    manifests.set(layer, skillsForLayer);
   }
 
-  const skills = layers.flatMap((layer) => manifests.get(layer) ?? []);
   const sources = new Map<string, string>();
-  for (const skill of skills) {
+  const skills: Skill[] = [];
+  for (const skill of layers.flatMap((layer) => manifests.get(layer) ?? [])) {
     const previousSource = sources.get(skill.name);
+    if (previousSource === skill.source) {
+      continue; // the same skill selected by more than one composed layer
+    }
     if (previousSource !== undefined) {
-      const detail = previousSource === skill.source ? skill.source : `${previousSource} and ${skill.source}`;
-      throw new Error(`Invalid layered skills: ${skill.name} is defined more than once (${detail})`);
+      throw new Error(
+        `Invalid layered skills: ${skill.name} is defined more than once (${previousSource} and ${skill.source})`,
+      );
     }
     sources.set(skill.name, skill.source);
+    skills.push(skill);
   }
 
   return { layers, skills };

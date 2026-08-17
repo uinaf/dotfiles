@@ -89,7 +89,9 @@ function readHarnesses(value: unknown, manifestPath: string, name: string): read
       `Invalid plugins manifest at ${manifestPath}: ${name} harnesses must be a unique non-empty subset of ${HARNESSES.join(", ")}`,
     );
   }
-  return value;
+  // Selection uses membership, never order; normalize so composition compares
+  // manifests by meaning rather than authoring order.
+  return HARNESSES.filter((harness) => value.includes(harness));
 }
 
 function readPlugin(value: unknown, manifestPath: string): Plugin {
@@ -146,7 +148,16 @@ export function readPlugins(manifestPath: string): Plugin[] {
     throw new Error(`Invalid plugins manifest at ${manifestPath}: expected a plugins array`);
   }
 
-  return parsed.plugins.map((plugin) => readPlugin(plugin, manifestPath));
+  const plugins = parsed.plugins.map((plugin) => readPlugin(plugin, manifestPath));
+  const refs = new Set<string>();
+  for (const plugin of plugins) {
+    const ref = pluginRef(plugin);
+    if (refs.has(ref)) {
+      throw new Error(`Invalid plugins manifest at ${manifestPath}: ${ref} is defined more than once`);
+    }
+    refs.add(ref);
+  }
+  return plugins;
 }
 
 export function readLayeredPlugins(
@@ -159,21 +170,27 @@ export function readLayeredPlugins(
   }
 
   const manifests = new Map<SkillLayer, Plugin[]>();
-  for (const layer of ["shared", "personal"] as const) {
+  for (const layer of ["developer", "workstation", "devbox", "personal"] as const) {
     manifests.set(
       layer,
       readPlugins(join(repoDir, "scripts", "agents", "plugins", `${layer}.json`)),
     );
   }
 
-  const plugins = layers.flatMap((layer) => manifests.get(layer) ?? []);
-  const seen = new Set<string>();
-  for (const plugin of plugins) {
+  const seen = new Map<string, string>();
+  const plugins: Plugin[] = [];
+  for (const plugin of layers.flatMap((layer) => manifests.get(layer) ?? [])) {
     const ref = pluginRef(plugin);
-    if (seen.has(ref)) {
+    const shape = JSON.stringify(plugin);
+    const previous = seen.get(ref);
+    if (previous === shape) {
+      continue; // the same plugin selected by more than one composed layer
+    }
+    if (previous !== undefined) {
       throw new Error(`Invalid layered plugins: ${ref} is defined more than once`);
     }
-    seen.add(ref);
+    seen.set(ref, shape);
+    plugins.push(plugin);
   }
 
   return { layers, plugins };
