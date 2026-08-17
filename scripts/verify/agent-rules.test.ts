@@ -127,7 +127,7 @@ test("applies public rules and links without private output", () => {
   assert.doesNotMatch(rules, /private fixture rule/);
   assert.match(rules, /Extend the closest structured owner instead\s+of creating a parallel script/);
   assert.match(rules, /#### Design and implementation/);
-  assert.match(rules, /Create a pull request only when requested\s+or required/);
+  assert.match(rules, /Use the repository's change-request template/);
   assert.match(rules, /reply to fixed\s+findings with the commit hash\.\n$/);
   assert.equal(runChezmoi(home, config, "diff"), "");
   runChezmoi(home, config, "apply");
