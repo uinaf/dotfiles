@@ -89,7 +89,9 @@ function readHarnesses(value: unknown, manifestPath: string, name: string): read
       `Invalid plugins manifest at ${manifestPath}: ${name} harnesses must be a unique non-empty subset of ${HARNESSES.join(", ")}`,
     );
   }
-  return value;
+  // Selection uses membership, never order; normalize so composition compares
+  // manifests by meaning rather than authoring order.
+  return HARNESSES.filter((harness) => value.includes(harness));
 }
 
 function readPlugin(value: unknown, manifestPath: string): Plugin {
