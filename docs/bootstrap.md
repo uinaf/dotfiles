@@ -2,7 +2,7 @@
 
 Use this guide when installing or refreshing a Mac from this repository.
 
-The repo has six per-user profiles:
+The repo has five per-user profiles:
 
 - `workstation` for a portable human-operated development Mac.
 - `personal-workstation` for a workstation plus personal packages and skills.

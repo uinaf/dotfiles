@@ -70,10 +70,9 @@ applies to personal-workstation and workstation only; it supplies 1Password and
 its CLI, Slack, ChatGPT, T3 Code, Cursor, Ghostty, and YubiKey Manager.
 
 Assistant dotfile application installs the shared Git base and the
-`gh-app-auth` execution adapter. Service dotfile application installs only the
-shared Git base. Both omit developer signing, human credential helpers,
-outbound SSH defaults, desktop settings, global coding-agent instructions, and
-development skills. Service authentication remains entirely workload-owned.
+`gh-app-auth` execution adapter. It omits developer signing, human credential
+helpers, outbound SSH defaults, desktop settings, global coding-agent
+instructions, and development skills.
 
 ## Identity Policy
 
@@ -95,7 +94,6 @@ Run Homebrew changes from the authorized host administrator:
 ./scripts/bootstrap/brew-bundle.sh personal-devbox
 ./scripts/bootstrap/brew-bundle.sh workstation
 ./scripts/bootstrap/brew-bundle.sh devbox
-./scripts/bootstrap/brew-bundle.sh assistant
 ./scripts/bootstrap/brew-bundle.sh assistant
 ```
 
@@ -133,9 +131,6 @@ GIT_USER_EMAIL='APP_BOT_NOREPLY_EMAIL' \
   --installation-id INSTALLATION_ID \
   --repo github.com/example/workspace \
   --repo github.com/example/vault
-GIT_USER_NAME='Service Name' \
-GIT_USER_EMAIL='workload@example.invalid' \
-  ./scripts/bootstrap/configure-git.sh --profile assistant --non-interactive
 ```
 
 ## Externally Managed Homebrew Capabilities
