@@ -5,16 +5,8 @@
       "source": "jpoehnelt/skills"
     },
     {
-      "name": "agent-readiness",
-      "source": "uinaf/skills"
-    },
-    {
       "name": "autoreview",
       "source": "uinaf/autoreview"
-    },
-    {
-      "name": "docs",
-      "source": "uinaf/skills"
     },
     {
       "name": "effect-ts",
@@ -22,7 +14,7 @@
     },
     {
       "name": "gh-setup",
-      "source": "uinaf/skills"
+      "source": "uinaf/agent-skills"
     },
     {
       "name": "gh-stack",
@@ -37,12 +29,8 @@
       "source": "shadcn/improve"
     },
     {
-      "name": "planning",
-      "source": "uinaf/skills"
-    },
-    {
       "name": "react-ban-use-effect",
-      "source": "uinaf/skills"
+      "source": "uinaf/agent-skills"
     },
     {
       "name": "react-doctor",
@@ -54,7 +42,7 @@
     },
     {
       "name": "skill-audit",
-      "source": "uinaf/skills"
+      "source": "uinaf/agent-skills"
     },
     {
       "name": "tanstack-form",
@@ -74,7 +62,7 @@
     },
     {
       "name": "vite-plus",
-      "source": "uinaf/skills"
+      "source": "uinaf/agent-skills"
     }
   ]
 }
