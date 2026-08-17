@@ -12,9 +12,9 @@ const capabilityNames = [
 ] as const;
 const profileFields = ["capabilities", "brewfiles", "runtimeGroup", "skillLayers", "installSteps"];
 const runtimeGroups = new Set(["developer", "assistant", "none"]);
-const skillLayers = new Set(["shared", "personal"]);
+const skillLayers = new Set(["shared", "workstation", "devbox", "personal"]);
 
-export type SkillLayer = "shared" | "personal";
+export type SkillLayer = "shared" | "workstation" | "devbox" | "personal";
 
 export type ProfileConfig = {
   capabilities: Record<string, boolean>;

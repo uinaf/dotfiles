@@ -13,10 +13,27 @@
           "personal": true,
           "githubAppAuth": false
         },
-        "brewfiles": ["Brewfile", "Brewfile.developer", "Brewfile.workstation", "Brewfile.personal"],
+        "brewfiles": [
+          "Brewfile",
+          "Brewfile.developer",
+          "Brewfile.workstation",
+          "Brewfile.personal"
+        ],
         "runtimeGroup": "developer",
-        "skillLayers": ["shared", "personal"],
-        "installSteps": ["apply-dotfiles", "install-runtimes", "install-cursor-agent", "trust-agent-worktrees", "install-gh-extensions", "configure-codex", "sync-agents"]
+        "skillLayers": [
+          "shared",
+          "workstation",
+          "personal"
+        ],
+        "installSteps": [
+          "apply-dotfiles",
+          "install-runtimes",
+          "install-cursor-agent",
+          "trust-agent-worktrees",
+          "install-gh-extensions",
+          "configure-codex",
+          "sync-agents"
+        ]
       },
       "personal-devbox": {
         "capabilities": {
@@ -29,10 +46,27 @@
           "personal": true,
           "githubAppAuth": false
         },
-        "brewfiles": ["Brewfile", "Brewfile.developer", "Brewfile.devbox", "Brewfile.personal"],
+        "brewfiles": [
+          "Brewfile",
+          "Brewfile.developer",
+          "Brewfile.devbox",
+          "Brewfile.personal"
+        ],
         "runtimeGroup": "developer",
-        "skillLayers": ["shared", "personal"],
-        "installSteps": ["apply-dotfiles", "install-runtimes", "install-cursor-agent", "trust-agent-worktrees", "install-gh-extensions", "configure-codex", "sync-agents"]
+        "skillLayers": [
+          "shared",
+          "devbox",
+          "personal"
+        ],
+        "installSteps": [
+          "apply-dotfiles",
+          "install-runtimes",
+          "install-cursor-agent",
+          "trust-agent-worktrees",
+          "install-gh-extensions",
+          "configure-codex",
+          "sync-agents"
+        ]
       },
       "workstation": {
         "capabilities": {
@@ -45,10 +79,25 @@
           "personal": false,
           "githubAppAuth": false
         },
-        "brewfiles": ["Brewfile", "Brewfile.developer", "Brewfile.workstation"],
+        "brewfiles": [
+          "Brewfile",
+          "Brewfile.developer",
+          "Brewfile.workstation"
+        ],
         "runtimeGroup": "developer",
-        "skillLayers": ["shared"],
-        "installSteps": ["apply-dotfiles", "install-runtimes", "install-cursor-agent", "trust-agent-worktrees", "install-gh-extensions", "configure-codex", "sync-agents"]
+        "skillLayers": [
+          "shared",
+          "workstation"
+        ],
+        "installSteps": [
+          "apply-dotfiles",
+          "install-runtimes",
+          "install-cursor-agent",
+          "trust-agent-worktrees",
+          "install-gh-extensions",
+          "configure-codex",
+          "sync-agents"
+        ]
       },
       "devbox": {
         "capabilities": {
@@ -61,10 +110,25 @@
           "personal": false,
           "githubAppAuth": false
         },
-        "brewfiles": ["Brewfile", "Brewfile.developer", "Brewfile.devbox"],
+        "brewfiles": [
+          "Brewfile",
+          "Brewfile.developer",
+          "Brewfile.devbox"
+        ],
         "runtimeGroup": "developer",
-        "skillLayers": ["shared"],
-        "installSteps": ["apply-dotfiles", "install-runtimes", "install-cursor-agent", "trust-agent-worktrees", "install-gh-extensions", "configure-codex", "sync-agents"]
+        "skillLayers": [
+          "shared",
+          "devbox"
+        ],
+        "installSteps": [
+          "apply-dotfiles",
+          "install-runtimes",
+          "install-cursor-agent",
+          "trust-agent-worktrees",
+          "install-gh-extensions",
+          "configure-codex",
+          "sync-agents"
+        ]
       },
       "assistant": {
         "capabilities": {
@@ -77,10 +141,17 @@
           "personal": false,
           "githubAppAuth": true
         },
-        "brewfiles": ["Brewfile", "Brewfile.assistant"],
+        "brewfiles": [
+          "Brewfile",
+          "Brewfile.assistant"
+        ],
         "runtimeGroup": "assistant",
         "skillLayers": [],
-        "installSteps": ["apply-dotfiles", "install-runtimes", "install-gh-app-auth"]
+        "installSteps": [
+          "apply-dotfiles",
+          "install-runtimes",
+          "install-gh-app-auth"
+        ]
       },
       "service": {
         "capabilities": {
@@ -93,10 +164,15 @@
           "personal": false,
           "githubAppAuth": false
         },
-        "brewfiles": ["Brewfile", "Brewfile.service"],
+        "brewfiles": [
+          "Brewfile",
+          "Brewfile.service"
+        ],
         "runtimeGroup": "none",
         "skillLayers": [],
-        "installSteps": ["apply-dotfiles"]
+        "installSteps": [
+          "apply-dotfiles"
+        ]
       }
     }
   }

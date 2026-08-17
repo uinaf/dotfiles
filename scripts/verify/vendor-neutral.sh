@@ -54,12 +54,12 @@ while IFS=: read -r file line content; do
         *github.com/uinaf/agent-skills*|*github.com/uinaf/attach*|*github.com/uinaf/autoreview*|*github.com/uinaf/design*|*uinaf-design*) continue ;;
       esac
       ;;
-    scripts/agents/skills/shared.json|scripts/agents/skills/personal.json)
+    scripts/agents/skills/shared.json|scripts/agents/skills/workstation.json|scripts/agents/skills/devbox.json|scripts/agents/skills/personal.json)
       case "$content" in
         *'"name": "uinaf-design"'*|*'"name": "uinaf-radar"'*|*'"source": "uinaf/agent-skills"'*|*'"source": "uinaf/attach"'*|*'"source": "uinaf/autoreview"'*|*'"source": "uinaf/design"'*|*'"source": "https://cdn.uinaf.dev/skills/ui"'*) continue ;;
       esac
       ;;
-    scripts/agents/plugins/shared.json|scripts/agents/plugins/personal.json)
+    scripts/agents/plugins/shared.json|scripts/agents/plugins/workstation.json|scripts/agents/plugins/devbox.json|scripts/agents/plugins/personal.json)
       case "$content" in
         *'"marketplace": "uinaf/ffsstack"'*) continue ;;
       esac
