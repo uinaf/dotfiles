@@ -152,6 +152,7 @@ Each manifest entry uses these fields:
 | `name` | Plugin name |
 | `harnesses` | Optional subset of `claude`, `codex`, `cursor`, `grok`, and `opencode`; the default is all five |
 | `marketplaceId` | Optional override when the registered marketplace name differs from the repository name |
+| `cursorMode` | Optional Cursor install path: `marketplace` (the default) or `skills`, which links the plugin's skill directories instead of importing the marketplace and requires both `cursor` and `claude` selection |
 
 Sync adds each marketplace once per harness, then installs it:
 
@@ -159,19 +160,23 @@ Sync adds each marketplace once per harness, then installs it:
 | --- | --- |
 | Claude | `claude plugin install`, idempotent |
 | Codex | `codex plugin add`, idempotent. It records `enabled = true` in `~/.codex/config.toml`, so plugin sync never edits that file itself |
-| Cursor | No non-interactive install exists, so sync adds the marketplace and prints a one-line notice to finish in `/plugins` |
+| Cursor | No non-interactive install exists, so sync adds the marketplace and prints a one-line notice to finish in `/plugins`. Managed Cursor workspaces can block third-party imports outright; a `cursorMode: "skills"` entry skips the marketplace and uses skill links instead |
 | Grok | `grok plugin install <owner/repo> --trust` per source repository. Re-installing an installed source fails, so sync consults `grok plugin list` first |
 
 A harness whose CLI is absent is skipped with a notice.
 
-OpenCode has no compatible plugin format: its plugin API carries hooks and
-tools, not skills. Sync links each selected plugin's skill directories instead.
+Two cases install through skill links instead of plugin commands: OpenCode
+always (its plugin API carries hooks and tools, not skills), and Cursor for
+entries with `cursorMode: "skills"`. Both share one link mechanism:
 
 - Source: `~/.claude/plugins/marketplaces/<marketplaceId>/skills/*` in the
-  Claude Code marketplace checkout.
-- Target: OpenCode's native skill discovery at `~/.config/opencode/skills/`.
+  Claude Code marketplace checkout; only directories containing `SKILL.md`
+  are linked.
+- Target: the harness's native skill discovery, `~/.config/opencode/skills/`
+  for OpenCode and `~/.cursor/skills/` for Cursor.
 - Links follow marketplace updates automatically.
-- Broken managed links are pruned.
+- Managed links that no longer match a selected plugin are pruned, including
+  links left behind when a plugin changes `cursorMode`.
 - A non-symlink entry at a managed name is reported instead of replaced.
 - The Claude harness therefore syncs first; a missing checkout is a reported
   failure.

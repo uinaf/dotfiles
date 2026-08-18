@@ -144,6 +144,10 @@ function opencodeLink(home: string, skill: string): string {
   return join(home, ".config", "opencode", "skills", skill);
 }
 
+function cursorLink(home: string, skill: string): string {
+  return join(home, ".cursor", "skills", skill);
+}
+
 function writeManifest(repoDir: string, layer: string, plugins: unknown): void {
   writeFileSync(
     join(repoDir, "scripts", "agents", "plugins", `${layer}.json`),
@@ -169,7 +173,35 @@ test("defaults a manifest entry to every harness and derives the marketplace id"
   assert.ok(first !== undefined);
   assert.deepEqual(first.harnesses, HARNESSES);
   assert.equal(first.marketplaceId, "shared-market");
+  assert.equal(first.cursorMode, "marketplace");
   assert.equal(pluginRef(first), "shared-plugin@shared-market");
+});
+
+test("rejects an unknown cursorMode and skills mode without cursor and claude", () => {
+  const { repoDir } = createFixture();
+  writeManifest(repoDir, "developer", [
+    { marketplace: "fixture/market", name: "one", cursorMode: "symlink" },
+  ]);
+  assert.throws(
+    () => readPlugins(manifestPath(repoDir, "developer")),
+    /cursorMode must be "marketplace" or "skills"/,
+  );
+
+  writeManifest(repoDir, "developer", [
+    { marketplace: "fixture/market", name: "one", cursorMode: "skills", harnesses: ["cursor"] },
+  ]);
+  assert.throws(
+    () => readPlugins(manifestPath(repoDir, "developer")),
+    /sets cursorMode "skills" without targeting cursor and claude/,
+  );
+
+  writeManifest(repoDir, "developer", [
+    { marketplace: "fixture/market", name: "one", cursorMode: "skills", harnesses: ["claude"] },
+  ]);
+  assert.throws(
+    () => readPlugins(manifestPath(repoDir, "developer")),
+    /sets cursorMode "skills" without targeting cursor and claude/,
+  );
 });
 
 test("honours an explicit marketplaceId when the marketplace name diverges", () => {
@@ -390,7 +422,7 @@ test("repoints a stale managed link and removes broken managed links", () => {
   );
   assert.equal(lstatSync2Exists(opencodeLink(home, "gone")), false);
   assert.equal(lstatSync2Exists(opencodeLink(home, "foreign")), true);
-  assert.match(runtime.stdout.value, /removed 1 broken managed skill links/);
+  assert.match(runtime.stdout.value, /removed 1 stale managed skill links/);
 });
 
 function lstatSync2Exists(path: string): boolean {
@@ -428,6 +460,80 @@ test("emits a one-line interactive notice for Cursor instead of installing", () 
     runtime.stdout.value,
     /Cursor plugin installation is interactive; run \/plugins to enable shared-plugin@shared-market, second-plugin@shared-market/,
   );
+});
+
+test("links a native-skills plugin into Cursor and plans no marketplace for it", () => {
+  const { repoDir, home } = createFixture();
+  writeManifest(repoDir, "developer", [
+    ...fixtureSharedPlugins,
+    { marketplace: "fixture/native-market", name: "native-plugin", cursorMode: "skills" },
+  ]);
+  writeClaudeCheckout(home, "native-market", ["delta"]);
+  const runtime = new FixtureRuntime(repoDir, home);
+
+  assert.equal(main([], runtime), 0);
+  assert.deepEqual(harnessCalls(runtime, "cursor-agent"), [
+    "plugin marketplace add github.com/fixture/shared-market",
+  ]);
+  assert.equal(
+    readlinkSync(cursorLink(home, "delta")),
+    join(home, ".claude", "plugins", "marketplaces", "native-market", "skills", "delta"),
+  );
+  assert.match(runtime.stdout.value, /Cursor: linked 1 native-market skills/);
+  assert.match(
+    runtime.stdout.value,
+    /run \/plugins to enable shared-plugin@shared-market, second-plugin@shared-market/,
+  );
+  assert.doesNotMatch(runtime.stdout.value, /enable.*native-plugin/);
+});
+
+test("skips every Cursor marketplace command when all plugins are native skills", () => {
+  const { repoDir, home } = createFixture();
+  writeManifest(repoDir, "developer", [
+    { marketplace: "fixture/shared-market", name: "shared-plugin", cursorMode: "skills" },
+  ]);
+  const runtime = new FixtureRuntime(repoDir, home);
+
+  assert.equal(main([], runtime), 0);
+  assert.deepEqual(harnessCalls(runtime, "cursor-agent"), []);
+  assert.deepEqual(planHarness("cursor", readPlugins(manifestPath(repoDir, "developer"))), []);
+  for (const skill of ["alpha", "beta"]) {
+    assert.equal(readlinkSync(cursorLink(home, skill)).endsWith(skill), true);
+  }
+  assert.doesNotMatch(runtime.stdout.value, /Cursor plugin installation is interactive/);
+  assert.equal(main([], new FixtureRuntime(repoDir, home)), 0);
+  assert.equal(readlinkSync(cursorLink(home, "alpha")).endsWith("alpha"), true);
+});
+
+test("prunes Cursor links when a plugin returns to marketplace mode", () => {
+  const { repoDir, home } = createFixture();
+  writeManifest(repoDir, "developer", [
+    { marketplace: "fixture/shared-market", name: "shared-plugin", cursorMode: "skills" },
+  ]);
+  assert.equal(main([], new FixtureRuntime(repoDir, home)), 0);
+  assert.equal(lstatSync2Exists(cursorLink(home, "alpha")), true);
+
+  writeManifest(repoDir, "developer", [
+    { marketplace: "fixture/shared-market", name: "shared-plugin" },
+  ]);
+  const runtime = new FixtureRuntime(repoDir, home);
+  assert.equal(main([], runtime), 0);
+  assert.equal(lstatSync2Exists(cursorLink(home, "alpha")), false);
+  assert.equal(lstatSync2Exists(cursorLink(home, "beta")), false);
+  assert.match(runtime.stdout.value, /Cursor: removed 2 stale managed skill links/);
+});
+
+test("refuses to replace a non-symlink entry in Cursor's skill directory", () => {
+  const { repoDir, home } = createFixture();
+  writeManifest(repoDir, "developer", [
+    { marketplace: "fixture/shared-market", name: "shared-plugin", cursorMode: "skills" },
+  ]);
+  mkdirSync(cursorLink(home, "alpha"), { recursive: true });
+  const runtime = new FixtureRuntime(repoDir, home);
+
+  assert.equal(main([], runtime), 1);
+  assert.match(runtime.stderr.value, /Cursor: link alpha \(conflicting entry\)/);
+  assert.ok(lstatSync(cursorLink(home, "alpha")).isDirectory());
 });
 
 test("skips a harness whose CLI is not installed", () => {
@@ -534,6 +640,7 @@ test("ships the ffss plugin on workstation and personal layers, not plain devbox
     assert.deepEqual(layer.map(pluginRef), ["ffss@ffss"]);
     assert.equal(layer[0]?.marketplace, "uinaf/ffss");
     assert.deepEqual(layer[0]?.harnesses, HARNESSES);
+    assert.equal(layer[0]?.cursorMode, "skills");
   }
 });
 

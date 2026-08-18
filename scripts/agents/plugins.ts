@@ -27,18 +27,30 @@ import {
 const MARKETPLACE_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*\/[A-Za-z0-9][A-Za-z0-9._-]*$/;
 const NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 
-// Claude must precede opencode: the OpenCode skill links resolve into the
+// Claude must precede cursor and opencode: their skill links resolve into the
 // Claude marketplace checkout that Claude's own sync creates and updates.
 export const HARNESSES = ["claude", "codex", "cursor", "grok", "opencode"] as const;
 
 export type Harness = (typeof HARNESSES)[number];
+
+// How Cursor installs a plugin: through its marketplace and the interactive
+// /plugins flow, or by linking standard skill directories into Cursor's
+// native discovery path when team policy blocks third-party imports.
+export type CursorMode = "marketplace" | "skills";
 
 export type Plugin = {
   marketplace: string;
   marketplaceId: string;
   name: string;
   harnesses: readonly Harness[];
+  cursorMode: CursorMode;
 };
+
+// Native skill discovery paths, relative to HOME, per link-capable harness.
+const SKILL_LINK_ROOTS = {
+  cursor: [".cursor", "skills"],
+  opencode: [".config", "opencode", "skills"],
+} as const;
 
 export type PlannedCommand = {
   command: string;
@@ -170,7 +182,20 @@ function readPlugin(value: unknown, manifestPath: string): Plugin {
     );
   }
 
-  return { marketplace: value.marketplace, marketplaceId, name: value.name, harnesses };
+  const cursorMode =
+    "cursorMode" in value && value.cursorMode !== undefined ? value.cursorMode : "marketplace";
+  if (cursorMode !== "marketplace" && cursorMode !== "skills") {
+    throw new Error(
+      `Invalid plugins manifest at ${manifestPath}: ${value.name} cursorMode must be "marketplace" or "skills"`,
+    );
+  }
+  if (cursorMode === "skills" && (!harnesses.includes("cursor") || !harnesses.includes("claude"))) {
+    throw new Error(
+      `Invalid plugins manifest at ${manifestPath}: ${value.name} sets cursorMode "skills" without targeting cursor and claude; the Cursor skill links resolve the Claude marketplace checkout`,
+    );
+  }
+
+  return { marketplace: value.marketplace, marketplaceId, name: value.name, harnesses, cursorMode };
 }
 
 export function readPlugins(manifestPath: string): Plugin[] {
@@ -241,7 +266,11 @@ export function readLayeredPlugins(
 
 export function planHarness(harness: Harness, plugins: readonly Plugin[]): PlannedCommand[] {
   const spec = HARNESS_SPECS[harness];
-  const selected = plugins.filter((plugin) => plugin.harnesses.includes(harness));
+  let selected = plugins.filter((plugin) => plugin.harnesses.includes(harness));
+  if (harness === "cursor") {
+    // Native-skills plugins install through skill links, never marketplace commands.
+    selected = selected.filter((plugin) => plugin.cursorMode !== "skills");
+  }
   const planned: PlannedCommand[] = [];
   const marketplaces = new Set<string>();
 
@@ -288,7 +317,10 @@ function claudeMarketplacesRoot(home: string): string {
   return join(home, ".claude", "plugins", "marketplaces");
 }
 
-function removeBrokenSkillLinks(home: string, linkRoot: string): number {
+// Removes managed links (those pointing into the Claude marketplace checkout)
+// that are dangling or no longer belong to a planned target: a skill removed
+// upstream, a deselected marketplace, or a plugin that left native-skills mode.
+function removeStaleSkillLinks(home: string, linkRoot: string, keep: ReadonlySet<string>): number {
   if (!existsSync(linkRoot)) {
     return 0;
   }
@@ -301,10 +333,14 @@ function removeBrokenSkillLinks(home: string, linkRoot: string): number {
       continue;
     }
     const target = readlinkSync(linkPath);
-    if (target.startsWith(managedRoot) && !existsSync(linkPath)) {
-      unlinkSync(linkPath);
-      removed += 1;
+    if (!target.startsWith(managedRoot)) {
+      continue;
     }
+    if (keep.has(target) && existsSync(linkPath)) {
+      continue;
+    }
+    unlinkSync(linkPath);
+    removed += 1;
   }
   return removed;
 }
@@ -314,17 +350,19 @@ function linkClaudeSkills(
   label: string,
   selected: readonly Plugin[],
   failures: PluginFailure[],
+  rootSegments: readonly string[],
 ): void {
   const home = runtime.env.HOME;
   if (!home) {
     failures.push({
-      diagnostic: "HOME is required to link OpenCode skills",
+      diagnostic: `HOME is required to link ${label} skills`,
       summary: `${label}: skill links (missing HOME)`,
     });
     return;
   }
 
-  const linkRoot = join(home, ".config", "opencode", "skills");
+  const linkRoot = join(home, ...rootSegments);
+  const plannedTargets = new Set<string>();
   const linkedMarketplaces = new Set<string>();
   for (const plugin of selected) {
     if (linkedMarketplaces.has(plugin.marketplaceId)) {
@@ -348,6 +386,7 @@ function linkClaudeSkills(
       }
       const target = join(source, entry.name);
       const linkPath = join(linkRoot, entry.name);
+      plannedTargets.add(target);
       // lstat instead of exists: a dangling symlink still occupies the path.
       const existing = lstatSync2(linkPath);
       if (existing !== undefined) {
@@ -381,9 +420,9 @@ function linkClaudeSkills(
     );
   }
 
-  const removed = removeBrokenSkillLinks(home, linkRoot);
+  const removed = removeStaleSkillLinks(home, linkRoot, plannedTargets);
   if (removed > 0) {
-    writeLine(runtime.stdout, `${label}: removed ${removed} broken managed skill links`);
+    writeLine(runtime.stdout, `${label}: removed ${removed} stale managed skill links`);
   }
 }
 
@@ -415,8 +454,20 @@ function applyHarness(
   }
 
   if (spec.linksClaudeSkills === true) {
-    linkClaudeSkills(runtime, spec.label, selected, failures);
+    linkClaudeSkills(runtime, spec.label, selected, failures, SKILL_LINK_ROOTS.opencode);
     return;
+  }
+
+  let commandSelected = selected;
+  if (harness === "cursor") {
+    // Native-skills plugins bypass the blocked marketplace import entirely;
+    // linking also prunes links left behind by a plugin that changed mode.
+    const nativeSkills = selected.filter((plugin) => plugin.cursorMode === "skills");
+    commandSelected = selected.filter((plugin) => plugin.cursorMode === "marketplace");
+    linkClaudeSkills(runtime, spec.label, nativeSkills, failures, SKILL_LINK_ROOTS.cursor);
+    if (commandSelected.length === 0) {
+      return;
+    }
   }
 
   let installedSources = "";
@@ -460,7 +511,7 @@ function applyHarness(
   if (spec.marketplaceArgs !== undefined && spec.installArgs === undefined) {
     writeLine(
       runtime.stdout,
-      `${spec.label} plugin installation is interactive; run /plugins to enable ${selected.map(pluginRef).join(", ")}`,
+      `${spec.label} plugin installation is interactive; run /plugins to enable ${commandSelected.map(pluginRef).join(", ")}`,
     );
   }
 }
