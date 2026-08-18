@@ -5,6 +5,8 @@ tizen-migration-*.tar.gz
 .zcompdump*
 home/.codex/
 scripts/agents/skills.lock.json
+scripts/agents/plugins.lock.json
+scripts/agents/mcps.lock.json
 chezmoi.toml
 **/.config/chezmoi/
 **/.config/dotfiles/agents.start.md

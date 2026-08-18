@@ -14,6 +14,7 @@ import { dirname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { readProfileModel, requireProfile, type SkillLayer } from "../profiles/model.ts";
+import { readLockFile, writeLockFile } from "./lock.ts";
 import {
   createRuntime,
   errorMessage,
@@ -26,6 +27,11 @@ import {
 // `owner/repo` as accepted by the marketplace-add subcommands.
 const MARKETPLACE_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*\/[A-Za-z0-9][A-Za-z0-9._-]*$/;
 const NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
+const RESERVED_NAMES = new Set(["__proto__", "constructor", "prototype"]);
+
+function isSafeName(value: string): boolean {
+  return NAME_PATTERN.test(value) && !RESERVED_NAMES.has(value);
+}
 
 // Claude must precede cursor and opencode: their skill links resolve into the
 // Claude marketplace checkout that Claude's own sync creates and updates.
@@ -153,7 +159,7 @@ function readPlugin(value: unknown, manifestPath: string): Plugin {
     !MARKETPLACE_PATTERN.test(value.marketplace) ||
     !("name" in value) ||
     typeof value.name !== "string" ||
-    !NAME_PATTERN.test(value.name)
+    !isSafeName(value.name)
   ) {
     throw new Error(
       `Invalid plugins manifest at ${manifestPath}: expected owner/repo marketplace and safe plugin name strings`,
@@ -165,7 +171,7 @@ function readPlugin(value: unknown, manifestPath: string): Plugin {
   // repository name for every marketplace we ship; `marketplaceId` overrides the divergent case.
   const marketplaceId =
     "marketplaceId" in value && value.marketplaceId !== undefined ? value.marketplaceId : repository;
-  if (typeof marketplaceId !== "string" || !NAME_PATTERN.test(marketplaceId)) {
+  if (typeof marketplaceId !== "string" || !isSafeName(marketplaceId)) {
     throw new Error(
       `Invalid plugins manifest at ${manifestPath}: ${value.name} marketplaceId must be a safe name`,
     );
@@ -264,6 +270,243 @@ export function readLayeredPlugins(
   return { layers, plugins };
 }
 
+type PluginLock = {
+  version: 1;
+  plugins: Plugin[];
+};
+
+function readLockedHarnesses(value: unknown, lockPath: string, name: string): readonly Harness[] {
+  if (
+    !Array.isArray(value) ||
+    value.length === 0 ||
+    !value.every(isHarness) ||
+    new Set(value).size !== value.length
+  ) {
+    throw new Error(
+      `Invalid managed plugins lock at ${lockPath}: ${name} harnesses must be an explicit unique non-empty subset of ${HARNESSES.join(", ")}`,
+    );
+  }
+  return HARNESSES.filter((harness) => value.includes(harness));
+}
+
+function readLockedPlugin(value: unknown, lockPath: string): Plugin {
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    !("marketplace" in value) ||
+    typeof value.marketplace !== "string" ||
+    !MARKETPLACE_PATTERN.test(value.marketplace) ||
+    !("name" in value) ||
+    typeof value.name !== "string" ||
+    !isSafeName(value.name) ||
+    !("marketplaceId" in value) ||
+    typeof value.marketplaceId !== "string" ||
+    !isSafeName(value.marketplaceId) ||
+    !("cursorMode" in value) ||
+    (value.cursorMode !== "marketplace" && value.cursorMode !== "skills") ||
+    !("harnesses" in value)
+  ) {
+    throw new Error(
+      `Invalid managed plugins lock at ${lockPath}: expected explicit marketplace, marketplaceId, name, cursorMode, and harnesses`,
+    );
+  }
+
+  return {
+    marketplace: value.marketplace,
+    marketplaceId: value.marketplaceId,
+    name: value.name,
+    cursorMode: value.cursorMode,
+    harnesses: readLockedHarnesses(value.harnesses, lockPath, value.name),
+  };
+}
+
+function readPluginLock(lockPath: string): Plugin[] | undefined {
+  const parsed = readLockFile(lockPath, "plugins");
+  if (parsed === undefined) {
+    return undefined;
+  }
+
+  if (
+    typeof parsed !== "object" ||
+    parsed === null ||
+    !("version" in parsed) ||
+    parsed.version !== 1 ||
+    !("plugins" in parsed) ||
+    !Array.isArray(parsed.plugins)
+  ) {
+    throw new Error(
+      `Invalid managed plugins lock at ${lockPath}: expected version 1 and a plugins array`,
+    );
+  }
+
+  const plugins = parsed.plugins.map((plugin) => readLockedPlugin(plugin, lockPath));
+  const refs = plugins.map(pluginRef);
+  if (new Set(refs).size !== refs.length) {
+    throw new Error(`Invalid managed plugins lock at ${lockPath}: plugin refs must be unique`);
+  }
+  return plugins;
+}
+
+function writePluginLock(lockPath: string, plugins: readonly Plugin[]): void {
+  const lock: PluginLock = { version: 1, plugins: [...plugins] };
+  writeLockFile(lockPath, lock);
+}
+
+function stalePlugins(previous: readonly Plugin[], current: readonly Plugin[]): Plugin[] {
+  const currentByRef = new Map(current.map((plugin) => [pluginRef(plugin), plugin]));
+  const stale: Plugin[] = [];
+
+  for (const owned of previous) {
+    const next = currentByRef.get(pluginRef(owned));
+    if (next === undefined) {
+      stale.push(owned);
+      continue;
+    }
+    const dropped = owned.harnesses.filter((harness) => !next.harnesses.includes(harness));
+    if (
+      owned.cursorMode === "marketplace" &&
+      next.cursorMode === "skills" &&
+      owned.harnesses.includes("cursor") &&
+      next.harnesses.includes("cursor") &&
+      !dropped.includes("cursor")
+    ) {
+      dropped.push("cursor");
+    }
+    if (dropped.length > 0) {
+      stale.push({ ...owned, harnesses: dropped, cursorMode: owned.cursorMode });
+    }
+  }
+
+  return stale;
+}
+
+function appliedPlugins(runtime: Runtime, plugins: readonly Plugin[]): Plugin[] {
+  return plugins
+    .map((plugin) => ({
+      ...plugin,
+      harnesses: plugin.harnesses.filter((harness) =>
+        runtime.commandExists(HARNESS_SPECS[harness].binary),
+      ),
+    }))
+    .filter((plugin) => plugin.harnesses.length > 0);
+}
+
+function retainAbsentPlugins(
+  runtime: Runtime,
+  previous: readonly Plugin[],
+  current: readonly Plugin[],
+): Plugin[] {
+  const currentByRef = new Map(current.map((plugin) => [pluginRef(plugin), plugin]));
+  const leftover: Plugin[] = [];
+
+  for (const owned of previous) {
+    const next = currentByRef.get(pluginRef(owned));
+    if (next === undefined) {
+      continue;
+    }
+    const absent = owned.harnesses.filter(
+      (harness) =>
+        next.harnesses.includes(harness) && !runtime.commandExists(HARNESS_SPECS[harness].binary),
+    );
+    if (absent.length > 0) {
+      leftover.push({ ...owned, harnesses: absent });
+    }
+  }
+
+  return leftover;
+}
+
+function mergePluginLock(current: readonly Plugin[], leftover: readonly Plugin[]): Plugin[] {
+  const byRef = new Map(
+    current.map((plugin) => [pluginRef(plugin), { ...plugin, harnesses: [...plugin.harnesses] }]),
+  );
+
+  for (const extra of leftover) {
+    const existing = byRef.get(pluginRef(extra));
+    if (existing === undefined) {
+      byRef.set(pluginRef(extra), extra);
+      continue;
+    }
+    existing.harnesses = HARNESSES.filter(
+      (harness) => existing.harnesses.includes(harness) || extra.harnesses.includes(harness),
+    );
+    if (extra.harnesses.includes("cursor")) {
+      existing.cursorMode = extra.cursorMode;
+    }
+  }
+
+  return [...byRef.values()];
+}
+
+function uninstallArgs(harness: Harness, plugin: Plugin): string[] | undefined {
+  switch (harness) {
+    case "claude":
+      return ["plugin", "uninstall", "-y", pluginRef(plugin)];
+    case "codex":
+      return ["plugin", "remove", pluginRef(plugin)];
+    case "grok":
+      return ["plugin", "uninstall", plugin.name, "--confirm"];
+    case "cursor":
+    case "opencode":
+      return undefined;
+  }
+}
+
+function harnessPresent(runtime: Runtime): boolean {
+  return HARNESSES.some((harness) => runtime.commandExists(HARNESS_SPECS[harness].binary));
+}
+
+function removeStalePlugins(
+  runtime: Runtime,
+  stale: readonly Plugin[],
+  failures: PluginFailure[],
+): Plugin[] {
+  const leftover: Plugin[] = [];
+
+  for (const plugin of stale) {
+    const leftoverHarnesses: Harness[] = [];
+    for (const harness of plugin.harnesses) {
+      const spec = HARNESS_SPECS[harness];
+      if (!runtime.commandExists(spec.binary)) {
+        leftoverHarnesses.push(harness);
+        writeLine(
+          runtime.stdout,
+          `Skipping ${spec.label} plugin removal: '${spec.binary}' is not installed`,
+        );
+        continue;
+      }
+
+      const args = uninstallArgs(harness, plugin);
+      if (args === undefined) {
+        if (harness === "cursor" && plugin.cursorMode === "marketplace") {
+          leftoverHarnesses.push(harness);
+          writeLine(
+            runtime.stdout,
+            `${spec.label} plugin removal is interactive; disable ${pluginRef(plugin)} in /plugins`,
+          );
+        }
+        continue;
+      }
+
+      writeLine(runtime.stdout, `Removing stale managed plugin: ${pluginRef(plugin)} from ${spec.label}`);
+      const result = runtime.run(spec.binary, args, { stdout: "capture", stderr: "capture" });
+      if (result.status !== 0) {
+        leftoverHarnesses.push(harness);
+        failures.push({
+          diagnostic: sanitizeDiagnostic(`${result.stdout}\n${result.stderr}`),
+          summary: `${spec.label}: ${args.join(" ")} (exit ${result.status})`,
+        });
+      }
+    }
+
+    if (leftoverHarnesses.length > 0) {
+      leftover.push({ ...plugin, harnesses: leftoverHarnesses });
+    }
+  }
+
+  return leftover;
+}
+
 export function planHarness(harness: Harness, plugins: readonly Plugin[]): PlannedCommand[] {
   const spec = HARNESS_SPECS[harness];
   let selected = plugins.filter((plugin) => plugin.harnesses.includes(harness));
@@ -317,15 +560,38 @@ function claudeMarketplacesRoot(home: string): string {
   return join(home, ".claude", "plugins", "marketplaces");
 }
 
-// Removes managed links (those pointing into the Claude marketplace checkout)
-// that are dangling or no longer belong to a planned target: a skill removed
-// upstream, a deselected marketplace, or a plugin that left native-skills mode.
-function removeStaleSkillLinks(home: string, linkRoot: string, keep: ReadonlySet<string>): number {
+function marketplaceIds(plugins: readonly Plugin[]): Set<string> {
+  return new Set(plugins.map((plugin) => plugin.marketplaceId));
+}
+
+function ownedMarketplaceTarget(
+  home: string,
+  linkPath: string,
+  target: string,
+  ownedMarketplaceIds: ReadonlySet<string>,
+): boolean {
+  const resolved = resolve(dirname(linkPath), target);
+  const managedRoot = resolve(claudeMarketplacesRoot(home)) + sep;
+  if (!resolved.startsWith(managedRoot)) {
+    return false;
+  }
+  const marketplaceId = resolved.slice(managedRoot.length).split(sep)[0];
+  return marketplaceId !== undefined && ownedMarketplaceIds.has(marketplaceId);
+}
+
+// Removes links that point at a previously owned Claude marketplace checkout
+// and are dangling or no longer a planned target: a skill removed upstream, a
+// deselected marketplace, or a plugin that left native-skills mode.
+function removeStaleSkillLinks(
+  home: string,
+  linkRoot: string,
+  keep: ReadonlySet<string>,
+  ownedMarketplaceIds: ReadonlySet<string>,
+): number {
   if (!existsSync(linkRoot)) {
     return 0;
   }
 
-  const managedRoot = claudeMarketplacesRoot(home) + sep;
   let removed = 0;
   for (const entry of readdirSync(linkRoot)) {
     const linkPath = join(linkRoot, entry);
@@ -333,10 +599,11 @@ function removeStaleSkillLinks(home: string, linkRoot: string, keep: ReadonlySet
       continue;
     }
     const target = readlinkSync(linkPath);
-    if (!target.startsWith(managedRoot)) {
+    if (!ownedMarketplaceTarget(home, linkPath, target, ownedMarketplaceIds)) {
       continue;
     }
-    if (keep.has(target) && existsSync(linkPath)) {
+    const resolved = resolve(dirname(linkPath), target);
+    if (keep.has(resolved) && existsSync(linkPath)) {
       continue;
     }
     unlinkSync(linkPath);
@@ -351,6 +618,8 @@ function linkClaudeSkills(
   selected: readonly Plugin[],
   failures: PluginFailure[],
   rootSegments: readonly string[],
+  pruneLinks: boolean,
+  ownedMarketplaceIds: ReadonlySet<string>,
 ): void {
   const home = runtime.env.HOME;
   if (!home) {
@@ -362,7 +631,6 @@ function linkClaudeSkills(
   }
 
   const linkRoot = join(home, ...rootSegments);
-  const plannedTargets = new Set<string>();
   const linkedMarketplaces = new Set<string>();
   for (const plugin of selected) {
     if (linkedMarketplaces.has(plugin.marketplaceId)) {
@@ -386,7 +654,6 @@ function linkClaudeSkills(
       }
       const target = join(source, entry.name);
       const linkPath = join(linkRoot, entry.name);
-      plannedTargets.add(target);
       // lstat instead of exists: a dangling symlink still occupies the path.
       const existing = lstatSync2(linkPath);
       if (existing !== undefined) {
@@ -402,7 +669,11 @@ function linkClaudeSkills(
           linked += 1;
           continue;
         }
-        if (!currentTarget.startsWith(claudeMarketplacesRoot(home) + sep)) {
+        if (
+          !pruneLinks ||
+          !ownedMarketplaceTarget(home, linkPath, currentTarget, ownedMarketplaceIds) ||
+          !ownedMarketplaceTarget(home, linkPath, target, ownedMarketplaceIds)
+        ) {
           failures.push({
             diagnostic: `${linkPath} points at ${currentTarget}, which sync does not manage; move it aside to let sync manage it`,
             summary: `${label}: link ${entry.name} (conflicting entry)`,
@@ -419,10 +690,71 @@ function linkClaudeSkills(
       `${label}: linked ${linked} ${plugin.marketplaceId} skills into ${linkRoot}`,
     );
   }
+}
 
-  const removed = removeStaleSkillLinks(home, linkRoot, plannedTargets);
-  if (removed > 0) {
-    writeLine(runtime.stdout, `${label}: removed ${removed} stale managed skill links`);
+function plannedSkillTargets(home: string, plugins: readonly Plugin[]): Set<string> {
+  const targets = new Set<string>();
+  const seen = new Set<string>();
+  for (const plugin of plugins) {
+    if (seen.has(plugin.marketplaceId)) {
+      continue;
+    }
+    seen.add(plugin.marketplaceId);
+    const source = join(claudeMarketplacesRoot(home), plugin.marketplaceId, "skills");
+    if (!existsSync(source)) {
+      continue;
+    }
+    for (const entry of readdirSync(source, { withFileTypes: true })) {
+      if (!entry.isDirectory() || !existsSync(join(source, entry.name, "SKILL.md"))) {
+        continue;
+      }
+      targets.add(resolve(join(source, entry.name)));
+    }
+  }
+  return targets;
+}
+
+function pruneNativeSkillLinks(
+  runtime: Runtime,
+  plugins: readonly Plugin[],
+  previous: readonly Plugin[],
+): void {
+  const home = runtime.env.HOME;
+  if (!home) {
+    return;
+  }
+
+  const owned = marketplaceIds(previous);
+  const jobs = [
+    {
+      binary: HARNESS_SPECS.opencode.binary,
+      label: HARNESS_SPECS.opencode.label,
+      root: SKILL_LINK_ROOTS.opencode,
+      selected: plugins.filter((plugin) => plugin.harnesses.includes("opencode")),
+    },
+    {
+      binary: HARNESS_SPECS.cursor.binary,
+      label: HARNESS_SPECS.cursor.label,
+      root: SKILL_LINK_ROOTS.cursor,
+      selected: plugins.filter(
+        (plugin) => plugin.harnesses.includes("cursor") && plugin.cursorMode === "skills",
+      ),
+    },
+  ] as const;
+
+  for (const job of jobs) {
+    if (!runtime.commandExists(job.binary)) {
+      continue;
+    }
+    const removed = removeStaleSkillLinks(
+      home,
+      join(home, ...job.root),
+      plannedSkillTargets(home, job.selected),
+      owned,
+    );
+    if (removed > 0) {
+      writeLine(runtime.stdout, `${job.label}: removed ${removed} stale managed skill links`);
+    }
   }
 }
 
@@ -440,6 +772,8 @@ function applyHarness(
   harness: Harness,
   plugins: readonly Plugin[],
   failures: PluginFailure[],
+  pruneLinks: boolean,
+  ownedMarketplaceIds: ReadonlySet<string>,
 ): void {
   const spec = HARNESS_SPECS[harness];
   const selected = plugins.filter((plugin) => plugin.harnesses.includes(harness));
@@ -448,13 +782,17 @@ function applyHarness(
     writeLine(runtime.stdout, `Skipping ${spec.label} plugins: '${spec.binary}' is not installed`);
     return;
   }
-  if (selected.length === 0) {
-    writeLine(runtime.stdout, `No ${spec.label} plugins are selected for this profile`);
-    return;
-  }
 
   if (spec.linksClaudeSkills === true) {
-    linkClaudeSkills(runtime, spec.label, selected, failures, SKILL_LINK_ROOTS.opencode);
+    linkClaudeSkills(
+      runtime,
+      spec.label,
+      selected,
+      failures,
+      SKILL_LINK_ROOTS.opencode,
+      pruneLinks,
+      ownedMarketplaceIds,
+    );
     return;
   }
 
@@ -464,10 +802,26 @@ function applyHarness(
     // linking also prunes links left behind by a plugin that changed mode.
     const nativeSkills = selected.filter((plugin) => plugin.cursorMode === "skills");
     commandSelected = selected.filter((plugin) => plugin.cursorMode === "marketplace");
-    linkClaudeSkills(runtime, spec.label, nativeSkills, failures, SKILL_LINK_ROOTS.cursor);
+    linkClaudeSkills(
+      runtime,
+      spec.label,
+      nativeSkills,
+      failures,
+      SKILL_LINK_ROOTS.cursor,
+      pruneLinks,
+      ownedMarketplaceIds,
+    );
     if (commandSelected.length === 0) {
+      if (selected.length === 0) {
+        writeLine(runtime.stdout, `No ${spec.label} plugins are selected for this profile`);
+      }
       return;
     }
+  }
+
+  if (selected.length === 0) {
+    writeLine(runtime.stdout, `No ${spec.label} plugins are selected for this profile`);
+    return;
   }
 
   let installedSources = "";
@@ -565,28 +919,64 @@ function apply(runtime: Runtime, options: PluginOptions): number {
   writeLine(runtime.stdout, `Profile: ${profileName}`);
   writeLine(runtime.stdout, `Plugin layers: ${layers.join(", ")}`);
 
+  const pluginLockPath = join(repoDir, "scripts", "agents", "plugins.lock.json");
+  const previouslyManaged = readPluginLock(pluginLockPath);
+
   const failures: PluginFailure[] = [];
   for (const harness of HARNESSES) {
-    applyHarness(runtime, harness, plugins, failures);
+    applyHarness(
+      runtime,
+      harness,
+      plugins,
+      failures,
+      previouslyManaged !== undefined,
+      marketplaceIds(previouslyManaged ?? []),
+    );
   }
 
   if (failures.length > 0) {
-    const noun = failures.length === 1 ? "command" : "commands";
-    writeLine(runtime.stderr, `Plugin sync failed for ${failures.length} ${noun}:`);
-    for (const failure of failures) {
-      writeLine(runtime.stderr, `  - ${failure.summary}`);
-      for (const line of failure.diagnostic.split("\n")) {
-        if (line.length > 0) {
-          writeLine(runtime.stderr, `    ${line}`);
-        }
-      }
-    }
-    writeLine(runtime.stderr, "Fix the reported plugin failures, then rerun sync.");
-    return 1;
+    return reportPluginFailures(runtime, failures);
   }
 
+  if (previouslyManaged === undefined) {
+    if (!harnessPresent(runtime)) {
+      writeLine(runtime.stdout, "No managed plugins lock found; skipping ownership initialization");
+      writeLine(runtime.stdout, "Done.");
+      return 0;
+    }
+    writeLine(runtime.stdout, "Initializing managed plugins lock without removing existing plugins");
+    writePluginLock(pluginLockPath, appliedPlugins(runtime, plugins));
+    writeLine(runtime.stdout, "Done.");
+    return 0;
+  }
+
+  const leftover = [
+    ...removeStalePlugins(runtime, stalePlugins(previouslyManaged, plugins), failures),
+    ...retainAbsentPlugins(runtime, previouslyManaged, plugins),
+  ];
+  if (failures.length > 0) {
+    return reportPluginFailures(runtime, failures);
+  }
+
+  pruneNativeSkillLinks(runtime, plugins, previouslyManaged);
+  writePluginLock(pluginLockPath, mergePluginLock(appliedPlugins(runtime, plugins), leftover));
   writeLine(runtime.stdout, "Done.");
   return 0;
+}
+
+function reportPluginFailures(runtime: Runtime, failures: readonly PluginFailure[]): 1 {
+  const noun = failures.length === 1 ? "command" : "commands";
+  writeLine(runtime.stderr, `Plugin sync failed for ${failures.length} ${noun}:`);
+  for (const failure of failures) {
+    writeLine(runtime.stderr, `  - ${failure.summary}`);
+    for (const line of failure.diagnostic.split("\n")) {
+      if (line.length > 0) {
+        writeLine(runtime.stderr, `    ${line}`);
+      }
+    }
+  }
+  writeLine(runtime.stderr, "Fix the reported plugin failures, then rerun sync.");
+  return 1;
 }
 
 export function main(args: readonly string[], runtime: Runtime = createRuntime()): number {

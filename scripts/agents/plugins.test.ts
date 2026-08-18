@@ -8,6 +8,7 @@ import {
   readlinkSync,
   rmSync,
   symlinkSync,
+  unlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -16,7 +17,7 @@ import { afterEach, test } from "node:test";
 import { fileURLToPath } from "node:url";
 
 import { readProfileModel } from "../profiles/model.ts";
-import { HARNESSES, main, planHarness, pluginRef, readPlugins } from "./plugins.ts";
+import { HARNESSES, main, planHarness, pluginRef, readLayeredPlugins, readPlugins } from "./plugins.ts";
 import { type Runtime } from "./runtime.ts";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -163,6 +164,32 @@ function harnessCalls(runtime: FixtureRuntime, binary: string): string[] {
   return runtime.calls
     .filter((call) => call.command === binary)
     .map((call) => call.args.join(" "));
+}
+
+function pluginLockPath(repoDir: string): string {
+  return join(repoDir, "scripts", "agents", "plugins.lock.json");
+}
+
+function lockPlugin(plugin: {
+  marketplace: string;
+  name: string;
+  harnesses?: readonly string[];
+  cursorMode?: "marketplace" | "skills";
+}): unknown {
+  return {
+    marketplace: plugin.marketplace,
+    marketplaceId: plugin.marketplace.split("/")[1],
+    name: plugin.name,
+    cursorMode: plugin.cursorMode ?? "marketplace",
+    harnesses: plugin.harnesses ?? [...HARNESSES],
+  };
+}
+
+function writePluginLock(repoDir: string, plugins: Parameters<typeof lockPlugin>[0][]): void {
+  writeFileSync(
+    pluginLockPath(repoDir),
+    JSON.stringify({ version: 1, plugins: plugins.map(lockPlugin) }, null, 2),
+  );
 }
 
 test("defaults a manifest entry to every harness and derives the marketplace id", () => {
@@ -406,21 +433,27 @@ test("refuses to replace a non-symlink entry in OpenCode's skill directory", () 
   assert.equal(readlinkSync(opencodeLink(home, "beta")).endsWith("beta"), true);
 });
 
-test("repoints a stale managed link and removes broken managed links", () => {
+test("repoints a stale owned link and leaves never-owned marketplace links", () => {
   const { repoDir, home } = createFixture();
   const managedRoot = join(home, ".claude", "plugins", "marketplaces");
   mkdirSync(join(home, ".config", "opencode", "skills"), { recursive: true });
-  symlinkSync(join(managedRoot, "shared-market", "skills", "beta"), opencodeLink(home, "alpha"));
   symlinkSync(join(managedRoot, "gone-market", "skills", "gone"), opencodeLink(home, "gone"));
   symlinkSync(join(home, "elsewhere"), opencodeLink(home, "foreign"));
-  const runtime = new FixtureRuntime(repoDir, home);
 
+  assert.equal(main([], new FixtureRuntime(repoDir, home)), 0);
+  assert.equal(lstatSync2Exists(opencodeLink(home, "gone")), true);
+  unlinkSync(opencodeLink(home, "alpha"));
+  symlinkSync(join(managedRoot, "shared-market", "skills", "beta"), opencodeLink(home, "alpha"));
+  symlinkSync(join(managedRoot, "shared-market", "skills", "ghost"), opencodeLink(home, "ghost"));
+
+  const runtime = new FixtureRuntime(repoDir, home);
   assert.equal(main([], runtime), 0);
   assert.equal(
     readlinkSync(opencodeLink(home, "alpha")),
     join(managedRoot, "shared-market", "skills", "alpha"),
   );
-  assert.equal(lstatSync2Exists(opencodeLink(home, "gone")), false);
+  assert.equal(lstatSync2Exists(opencodeLink(home, "ghost")), false);
+  assert.equal(lstatSync2Exists(opencodeLink(home, "gone")), true);
   assert.equal(lstatSync2Exists(opencodeLink(home, "foreign")), true);
   assert.match(runtime.stdout.value, /removed 1 stale managed skill links/);
 });
@@ -642,6 +675,294 @@ test("ships the ffss plugin on workstation and personal layers, not plain devbox
     assert.deepEqual(layer[0]?.harnesses, HARNESSES);
     assert.equal(layer[0]?.cursorMode, "skills");
   }
+});
+
+test("initializes a missing ownership lock without removing unowned plugins", () => {
+  const { repoDir, home } = createFixture();
+  const runtime = new FixtureRuntime(repoDir, home);
+
+  assert.equal(main([], runtime), 0);
+  assert.equal(
+    harnessCalls(runtime, "claude").some((call) => call.includes("uninstall")),
+    false,
+  );
+  assert.deepEqual(
+    JSON.parse(readFileSync(pluginLockPath(repoDir), "utf8")),
+    {
+      version: 1,
+      plugins: readLayeredPlugins(repoDir, "workstation", ["developer", "workstation"]).plugins,
+    },
+  );
+  assert.match(runtime.stdout.value, /Initializing managed plugins lock without removing existing plugins/);
+});
+
+test("removes only plugins dropped from the previous managed lock", () => {
+  const { repoDir, home } = createFixture();
+  const retired = { marketplace: "fixture/retired-market", name: "retired-plugin" };
+  writePluginLock(repoDir, [...fixtureSharedPlugins, retired]);
+  const runtime = new FixtureRuntime(repoDir, home);
+
+  assert.equal(main([], runtime), 0);
+  assert.ok(harnessCalls(runtime, "claude").includes("plugin uninstall -y retired-plugin@retired-market"));
+  assert.ok(harnessCalls(runtime, "codex").includes("plugin remove retired-plugin@retired-market"));
+  assert.ok(harnessCalls(runtime, "grok").includes("plugin uninstall retired-plugin --confirm"));
+  assert.match(
+    runtime.stdout.value,
+    /Cursor plugin removal is interactive; disable retired-plugin@retired-market in \/plugins/,
+  );
+  const locked = JSON.parse(readFileSync(pluginLockPath(repoDir), "utf8")).plugins;
+  assert.deepEqual(
+    locked.map(pluginRef),
+    ["shared-plugin@shared-market", "second-plugin@shared-market", "retired-plugin@retired-market"],
+  );
+  assert.deepEqual(locked[2]?.harnesses, ["cursor"]);
+});
+
+test("keeps a dropped plugin in the lock when its harness CLI is missing", () => {
+  const { repoDir, home } = createFixture();
+  const retired = { marketplace: "fixture/retired-market", name: "retired-plugin", harnesses: ["codex"] };
+  writePluginLock(repoDir, [...fixtureSharedPlugins, retired]);
+  const runtime = new FixtureRuntime(repoDir, home);
+  runtime.installedCommands.delete("codex");
+
+  assert.equal(main([], runtime), 0);
+  assert.equal(
+    harnessCalls(runtime, "codex").some((call) => call.includes("retired-plugin")),
+    false,
+  );
+  assert.match(runtime.stdout.value, /Skipping Codex plugin removal: 'codex' is not installed/);
+  const locked = JSON.parse(readFileSync(pluginLockPath(repoDir), "utf8")).plugins;
+  assert.deepEqual(
+    locked.map(pluginRef),
+    ["shared-plugin@shared-market", "second-plugin@shared-market", "retired-plugin@retired-market"],
+  );
+  assert.deepEqual(locked[2]?.harnesses, ["codex"]);
+});
+
+test("does not prune or advance ownership when installation fails", () => {
+  const { repoDir, home } = createFixture();
+  const retired = { marketplace: "fixture/retired-market", name: "retired-plugin" };
+  const previous = { version: 1, plugins: [...fixtureSharedPlugins, retired].map(lockPlugin) };
+  writePluginLock(repoDir, [...fixtureSharedPlugins, retired]);
+  const runtime = new FixtureRuntime(repoDir, home, {
+    failures: new Map([
+      ["claude plugin marketplace add fixture/shared-market", { stdout: "", stderr: "install failed" }],
+    ]),
+  });
+
+  assert.equal(main([], runtime), 1);
+  assert.equal(
+    harnessCalls(runtime, "claude").some((call) => call.includes("uninstall")),
+    false,
+  );
+  assert.deepEqual(JSON.parse(readFileSync(pluginLockPath(repoDir), "utf8")), previous);
+});
+
+test("does not advance ownership when a managed removal fails", () => {
+  const { repoDir, home } = createFixture();
+  const retired = { marketplace: "fixture/retired-market", name: "retired-plugin" };
+  const previous = { version: 1, plugins: [...fixtureSharedPlugins, retired].map(lockPlugin) };
+  writePluginLock(repoDir, [...fixtureSharedPlugins, retired]);
+  const runtime = new FixtureRuntime(repoDir, home, {
+    failures: new Map([
+      ["claude plugin uninstall -y retired-plugin@retired-market", { stdout: "", stderr: "remove failed" }],
+    ]),
+  });
+
+  assert.equal(main([], runtime), 1);
+  assert.ok(harnessCalls(runtime, "claude").includes("plugin uninstall -y retired-plugin@retired-market"));
+  assert.deepEqual(JSON.parse(readFileSync(pluginLockPath(repoDir), "utf8")), previous);
+  assert.match(runtime.stderr.value, /Plugin sync failed for 1 command:/);
+});
+
+test("prunes OpenCode links when every plugin leaves the selection", () => {
+  const { repoDir, home } = createFixture();
+  assert.equal(main([], new FixtureRuntime(repoDir, home)), 0);
+  assert.equal(lstatSync2Exists(opencodeLink(home, "alpha")), true);
+
+  writeManifest(repoDir, "developer", []);
+  const runtime = new FixtureRuntime(repoDir, home);
+  assert.equal(main([], runtime), 0);
+  assert.equal(lstatSync2Exists(opencodeLink(home, "alpha")), false);
+  assert.equal(lstatSync2Exists(opencodeLink(home, "beta")), false);
+  assert.match(runtime.stdout.value, /OpenCode: removed 2 stale managed skill links/);
+});
+
+test("rejects an unsafe ownership lock before changing plugins", () => {
+  const { repoDir, home } = createFixture();
+  writePluginLock(repoDir, [{ marketplace: "fixture/market", name: "../escape" }]);
+  const runtime = new FixtureRuntime(repoDir, home);
+
+  assert.equal(main([], runtime), 1);
+  assert.match(runtime.stderr.value, /Invalid managed plugins lock/);
+  assert.equal(harnessCalls(runtime, "claude").length, 0);
+});
+
+test("rejects a lock that omits explicit harness membership", () => {
+  const { repoDir, home } = createFixture();
+  writeFileSync(
+    pluginLockPath(repoDir),
+    JSON.stringify({
+      version: 1,
+      plugins: [
+        {
+          marketplace: "fixture/shared-market",
+          marketplaceId: "shared-market",
+          name: "shared-plugin",
+          cursorMode: "marketplace",
+        },
+      ],
+    }),
+  );
+  const runtime = new FixtureRuntime(repoDir, home);
+
+  assert.equal(main([], runtime), 1);
+  assert.match(runtime.stderr.value, /expected explicit marketplace, marketplaceId, name, cursorMode, and harnesses/);
+  assert.equal(harnessCalls(runtime, "claude").length, 0);
+});
+
+test("accepts a residual OpenCode-only lock after Claude removal succeeded", () => {
+  const { repoDir, home } = createFixture();
+  writePluginLock(repoDir, [
+    ...fixtureSharedPlugins,
+    { marketplace: "fixture/retired-market", name: "retired-plugin", harnesses: ["opencode"] },
+  ]);
+  const runtime = new FixtureRuntime(repoDir, home);
+
+  assert.equal(main([], runtime), 0);
+  const locked = JSON.parse(readFileSync(pluginLockPath(repoDir), "utf8")).plugins;
+  assert.equal(
+    locked.some((plugin: { name: string }) => plugin.name === "retired-plugin"),
+    false,
+  );
+});
+
+test("records only harnesses whose CLI was present", () => {
+  const { repoDir, home } = createFixture();
+  const runtime = new FixtureRuntime(repoDir, home);
+  runtime.installedCommands.delete("grok");
+
+  assert.equal(main([], runtime), 0);
+  const locked = JSON.parse(readFileSync(pluginLockPath(repoDir), "utf8")).plugins;
+  for (const plugin of locked) {
+    assert.equal(plugin.harnesses.includes("grok"), false);
+    assert.ok(plugin.harnesses.includes("claude"));
+  }
+});
+
+test("keeps previously owned harnesses when that CLI is temporarily absent", () => {
+  const { repoDir, home } = createFixture();
+  writePluginLock(repoDir, fixtureSharedPlugins);
+  const runtime = new FixtureRuntime(repoDir, home);
+  runtime.installedCommands.delete("grok");
+
+  assert.equal(main([], runtime), 0);
+  const locked = JSON.parse(readFileSync(pluginLockPath(repoDir), "utf8")).plugins;
+  assert.ok(locked[0]?.harnesses.includes("grok"));
+});
+
+test("does not prune owned links when a later apply fails", () => {
+  const { repoDir, home } = createFixture();
+  assert.equal(main([], new FixtureRuntime(repoDir, home)), 0);
+  rmSync(join(home, ".claude", "plugins", "marketplaces", "shared-market"), {
+    force: true,
+    recursive: true,
+  });
+  const runtime = new FixtureRuntime(repoDir, home);
+
+  assert.equal(main([], runtime), 1);
+  assert.equal(lstatSync2Exists(opencodeLink(home, "alpha")), true);
+  assert.equal(lstatSync2Exists(opencodeLink(home, "beta")), true);
+});
+
+test("does not replace an owned skill name when a new marketplace reuses it", () => {
+  const { repoDir, home } = createFixture();
+  const managedRoot = join(home, ".claude", "plugins", "marketplaces");
+  assert.equal(main([], new FixtureRuntime(repoDir, home)), 0);
+  writeClaudeCheckout(home, "fresh-market", ["alpha"]);
+  writeManifest(repoDir, "developer", [
+    ...fixtureSharedPlugins,
+    { marketplace: "fixture/fresh-market", name: "fresh-plugin" },
+  ]);
+  const runtime = new FixtureRuntime(repoDir, home);
+
+  assert.equal(main([], runtime), 1);
+  assert.match(runtime.stderr.value, /link alpha \(conflicting entry\)/);
+  assert.equal(
+    readlinkSync(opencodeLink(home, "alpha")),
+    join(managedRoot, "shared-market", "skills", "alpha"),
+  );
+});
+
+test("keeps previous Cursor mode when that CLI is absent during a mode change", () => {
+  const { repoDir, home } = createFixture();
+  writePluginLock(repoDir, [
+    { marketplace: "fixture/shared-market", name: "shared-plugin", cursorMode: "skills" },
+    { marketplace: "fixture/shared-market", name: "second-plugin", cursorMode: "skills" },
+  ]);
+  writeManifest(repoDir, "developer", [
+    { marketplace: "fixture/shared-market", name: "shared-plugin", cursorMode: "marketplace" },
+    { marketplace: "fixture/shared-market", name: "second-plugin", cursorMode: "marketplace" },
+  ]);
+  const runtime = new FixtureRuntime(repoDir, home);
+  runtime.installedCommands.delete("cursor-agent");
+
+  assert.equal(main([], runtime), 0);
+  const locked = JSON.parse(readFileSync(pluginLockPath(repoDir), "utf8")).plugins;
+  assert.equal(locked[0]?.cursorMode, "skills");
+  assert.ok(locked[0]?.harnesses.includes("cursor"));
+});
+
+test("keeps Cursor marketplace ownership when a plugin switches to skills mode", () => {
+  const { repoDir, home } = createFixture();
+  writePluginLock(repoDir, fixtureSharedPlugins);
+  writeManifest(repoDir, "developer", [
+    { marketplace: "fixture/shared-market", name: "shared-plugin", cursorMode: "skills" },
+    { marketplace: "fixture/shared-market", name: "second-plugin", cursorMode: "skills" },
+  ]);
+  const runtime = new FixtureRuntime(repoDir, home);
+
+  assert.equal(main([], runtime), 0);
+  assert.match(runtime.stdout.value, /disable shared-plugin@shared-market in \/plugins/);
+  const locked = JSON.parse(readFileSync(pluginLockPath(repoDir), "utf8")).plugins;
+  assert.equal(locked[0]?.cursorMode, "marketplace");
+  assert.ok(locked[0]?.harnesses.includes("cursor"));
+});
+
+test("does not replace a never-owned link when a new marketplace is selected", () => {
+  const { repoDir, home } = createFixture();
+  const managedRoot = join(home, ".claude", "plugins", "marketplaces");
+  assert.equal(main([], new FixtureRuntime(repoDir, home)), 0);
+
+  writeClaudeCheckout(home, "fresh-market", ["delta"]);
+  writeManifest(repoDir, "developer", [
+    ...fixtureSharedPlugins,
+    { marketplace: "fixture/fresh-market", name: "fresh-plugin" },
+  ]);
+  symlinkSync(join(managedRoot, "fresh-market", "skills", "other"), opencodeLink(home, "delta"));
+  const runtime = new FixtureRuntime(repoDir, home);
+
+  assert.equal(main([], runtime), 1);
+  assert.match(runtime.stderr.value, /link delta \(conflicting entry\)/);
+  assert.equal(
+    readlinkSync(opencodeLink(home, "delta")),
+    join(managedRoot, "fresh-market", "skills", "other"),
+  );
+});
+
+test("does not replace a managed-looking link on first apply", () => {
+  const { repoDir, home } = createFixture();
+  const managedRoot = join(home, ".claude", "plugins", "marketplaces");
+  mkdirSync(join(home, ".config", "opencode", "skills"), { recursive: true });
+  symlinkSync(join(managedRoot, "other-market", "skills", "alpha"), opencodeLink(home, "alpha"));
+  const runtime = new FixtureRuntime(repoDir, home);
+
+  assert.equal(main([], runtime), 1);
+  assert.match(runtime.stderr.value, /link alpha \(conflicting entry\)/);
+  assert.equal(
+    readlinkSync(opencodeLink(home, "alpha")),
+    join(managedRoot, "other-market", "skills", "alpha"),
+  );
 });
 
 test("the executable TypeScript entrypoint runs the CLI", () => {

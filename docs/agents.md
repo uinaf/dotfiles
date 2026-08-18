@@ -165,6 +165,29 @@ Sync adds each marketplace once per harness, then installs it:
 
 A harness whose CLI is absent is skipped with a notice.
 
+The ignored `scripts/agents/plugins.lock.json` records the last plugin
+selection applied by this checkout:
+
+- Sync uninstalls plugins dropped from that lock while preserving plugins it
+  never owned.
+- The lock records only harnesses whose CLI was present, leftovers that could
+  not be removed yet, and previously owned still-selected harnesses whose CLI
+  is temporarily absent.
+- First apply never prunes or replaces native-skill links.
+- A plugin that stays selected but loses a harness is removed from that
+  harness only.
+- Claude uses `plugin uninstall -y`, Codex uses `plugin remove`, and Grok uses
+  `plugin uninstall --confirm`.
+- Cursor marketplace disable stays interactive and remains owned until a later
+  sync can confirm it is gone; native-skills and OpenCode links are pruned
+  after ownership exists, including when the layer becomes empty.
+- When the lock is missing, sync installs the current selection and
+  initializes ownership without removing anything.
+- With no supported harness and no lock, sync skips ownership initialization.
+- A missing harness CLI during removal keeps that plugin and harness in the
+  lock until the CLI returns.
+- Installation or removal failures leave the lock unchanged.
+
 Two cases install through skill links instead of plugin commands: OpenCode
 always (its plugin API carries hooks and tools, not skills), and Cursor for
 entries with `cursorMode: "skills"`. Both share one link mechanism:
@@ -175,8 +198,11 @@ entries with `cursorMode: "skills"`. Both share one link mechanism:
 - Target: the harness's native skill discovery, `~/.config/opencode/skills/`
   for OpenCode and `~/.cursor/skills/` for Cursor.
 - Links follow marketplace updates automatically.
-- Managed links that no longer match a selected plugin are pruned, including
-  links left behind when a plugin changes `cursorMode`.
+- After apply and leftover removal succeed, links from previously owned
+  marketplace checkouts that no longer match a selected plugin are pruned,
+  including links left behind when a plugin changes `cursorMode`. Never-owned
+  marketplace-tree links stay. A newly selected marketplace that collides with
+  an existing link is reported instead of replaced.
 - A non-symlink entry at a managed name is reported instead of replaced.
 - The Claude harness therefore syncs first; a missing checkout is a reported
   failure.
@@ -201,6 +227,27 @@ Convergence differs per harness:
 | Codex | `codex mcp add` upserts config, then probes the server and can start an interactive OAuth login. Sync gets first and skips a matching URL. An add whose config landed before the login step failed is reported as pending `codex mcp login`, not a failure |
 | Cursor | `cursor-agent` has no add subcommand, so sync merges `~/.cursor/mcp.json` directly, updating only the managed entries' `url` and preserving everything else in the file |
 
+The ignored `scripts/agents/mcps.lock.json` records the last server names
+applied by this checkout:
+
+- Sync removes servers dropped from that lock while preserving servers it
+  never owned.
+- The lock records only harnesses whose CLI was present, leftovers that could
+  not be removed yet, and previously owned still-selected harnesses whose CLI
+  is temporarily absent.
+- A server that stays selected but loses a harness is removed from that
+  harness only.
+- Claude and Grok use `mcp remove -s user`. Codex uses `mcp remove`.
+- Cursor deletes owned keys from `~/.cursor/mcp.json`. OpenCode has no remove
+  subcommand, so sync deletes owned keys from `~/.config/opencode/opencode.jsonc`
+  or `opencode.json` and leaves every other key untouched.
+- When the lock is missing, sync applies the current selection and initializes
+  ownership without removing anything.
+- With no supported harness and no lock, sync skips ownership initialization.
+- A missing harness CLI during removal keeps that server and harness in the
+  lock until the CLI returns.
+- Add or removal failures leave the lock unchanged.
+
 When one service has historical harness-specific names, narrow each manifest
 entry with `harnesses`. Do not add both names to one harness; the URL and
 service identity remain the same.
@@ -221,3 +268,6 @@ mise run verify:domain agents
   conflicts.
 - Skill fixtures cover install, update, conflict, removal, and ownership without
   touching rules or Git.
+- Plugin and MCP fixtures cover the same ownership contract: first-run lock
+  init, drop-from-lock removal, missing-CLI leftovers, and failed apply or
+  remove leaving the lock unchanged.
