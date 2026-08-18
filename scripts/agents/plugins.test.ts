@@ -522,7 +522,7 @@ test("rejects unknown arguments and prints help without applying", () => {
   assert.equal(helped.calls.length, 0);
 });
 
-test("ships the ffsstack plugin on workstation and personal layers, not plain devbox", () => {
+test("ships the ffss plugin on workstation and personal layers, not plain devbox", () => {
   const developer = readPlugins(join(repoRoot, "scripts/agents/plugins/developer.json"));
   const workstation = readPlugins(join(repoRoot, "scripts/agents/plugins/workstation.json"));
   const devbox = readPlugins(join(repoRoot, "scripts/agents/plugins/devbox.json"));
@@ -531,8 +531,8 @@ test("ships the ffsstack plugin on workstation and personal layers, not plain de
   assert.deepEqual(developer, []);
   assert.deepEqual(devbox, []);
   for (const layer of [workstation, personal]) {
-    assert.deepEqual(layer.map(pluginRef), ["ffsstack@ffsstack"]);
-    assert.equal(layer[0]?.marketplace, "uinaf/ffsstack");
+    assert.deepEqual(layer.map(pluginRef), ["ffss@ffss"]);
+    assert.equal(layer[0]?.marketplace, "uinaf/ffss");
     assert.deepEqual(layer[0]?.harnesses, HARNESSES);
   }
 });

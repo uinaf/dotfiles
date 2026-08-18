@@ -1,8 +1,8 @@
 {
   "plugins": [
     {
-      "marketplace": "uinaf/ffsstack",
-      "name": "ffsstack"
+      "marketplace": "uinaf/ffss",
+      "name": "ffss"
     }
   ]
 }
