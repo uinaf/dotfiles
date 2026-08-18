@@ -14,4 +14,10 @@ path+=("$HOME/.local/bin")
 # runs near the end of .zshrc after PATH edits.
 if command -v mise >/dev/null 2>&1; then
   eval "$(mise activate zsh --shims)"
+  # A nested login shell from a mise-active parent inherits the shim directory
+  # in PATH, so activate emits no update while brew shellenv has moved ahead of
+  # it. Re-front the shims so mise-selected tools keep precedence.
+  mise_shims="${MISE_DATA_DIR:-$HOME/.local/share/mise}/shims"
+  path=("$mise_shims" ${path:#$mise_shims})
+  unset mise_shims
 fi

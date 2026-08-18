@@ -57,6 +57,33 @@ env -i \
     }
   '
 
+# A nested login shell from a mise-active parent inherits the shim directory
+# late in PATH; mise activate emits no update then, so the zprofile must
+# re-front the shims ahead of Homebrew itself.
+mise_shims="$test_home/.local/share/mise/shims"
+mkdir -p "$mise_shims" "$test_home/fake-tools"
+cat >"$test_home/fake-tools/mise" <<'EOF'
+#!/bin/sh
+exit 0
+EOF
+chmod 755 "$test_home/fake-tools/mise"
+# shellcheck disable=SC2016
+env -i \
+  HOME="$test_home" \
+  PATH="$test_home/fake-tools:/opt/homebrew/bin:/usr/bin:/bin:$mise_shims" \
+  /bin/zsh -dlc '
+    shims="$HOME/.local/share/mise/shims"
+    (( ${path[(Ie)$shims]} == 1 )) || {
+      print -u2 "FAILED: inherited mise shims are not first on login PATH: ${PATH}"
+      exit 1
+    }
+    brew_index=${path[(Ie)/opt/homebrew/bin]}
+    (( brew_index > 1 )) || {
+      print -u2 "FAILED: inherited Homebrew bin left the login PATH: ${PATH}"
+      exit 1
+    }
+  '
+
 # Let zsh expand the embedded prompt expressions.
 # shellcheck disable=SC2016
 env -i \
@@ -119,4 +146,26 @@ env -i \
     }
   ' zsh "$zshrc"
 
-printf 'ok login PATH, devbox zsh prompt substitution, and Android SDK environment\n'
+# Interactive shells rerun brew shellenv in .zshrc, which re-fronted Homebrew
+# ahead of the login-shell shims, and zsh -ic never fires the activation hook
+# that would repair PATH. Sourcing the rendered zshrc with an inherited
+# brew-before-shims PATH must leave the shims ahead of Homebrew again.
+# shellcheck disable=SC2016
+env -i \
+  HOME="$test_home" \
+  PATH="$test_home/fake-tools:/opt/homebrew/bin:/usr/bin:/bin:$mise_shims" \
+  /bin/zsh -dfc '
+    source "$1" 2>/dev/null
+    shims_index=${path[(Ie)$HOME/.local/share/mise/shims]}
+    brew_index=${path[(Ie)/opt/homebrew/bin]}
+    (( shims_index > 0 )) || {
+      print -u2 "FAILED: mise shims left the interactive PATH: ${PATH}"
+      exit 1
+    }
+    (( brew_index == 0 || shims_index < brew_index )) || {
+      print -u2 "FAILED: Homebrew precedes mise shims after zshrc: ${PATH}"
+      exit 1
+    }
+  ' zsh "$zshrc"
+
+printf 'ok login PATH, mise shim precedence, devbox zsh prompt substitution, and Android SDK environment\n'
