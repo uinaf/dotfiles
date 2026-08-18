@@ -63,6 +63,53 @@ dotfiles_homebrew_bundle_check() {
     brew bundle check --no-upgrade --file "$file"
 }
 
+# Layered Brewfiles resolve profiles.json relative to their own directory, so
+# the composition must be a sibling file at the repository root, never stdin.
+# Callers must remove the printed path when done.
+dotfiles_homebrew_compose_brewfile() {
+  local repo_root="$1"
+  local profile="$2"
+  local composed
+  local file
+
+  composed="$(mktemp "$repo_root/Brewfile.composed.XXXXXX")" || return 1
+  while IFS= read -r file; do
+    cat "$repo_root/$file" >>"$composed" || {
+      rm -f "$composed"
+      return 1
+    }
+  done < <(dotfiles_profile_brewfiles "$profile")
+  printf '%s\n' "$composed"
+}
+
+# Reports installed packages the profile's composed Brewfiles no longer
+# declare. `brew bundle cleanup` exits 1 for cache-only housekeeping too, so
+# package drift is read from its Would-uninstall/Would-untap sections instead
+# of the exit code. Prints the drifted packages and returns 1 when any exist.
+dotfiles_homebrew_bundle_drift() {
+  local repo_root="$1"
+  local profile="$2"
+  local composed
+  local output
+  local drift
+
+  composed="$(dotfiles_homebrew_compose_brewfile "$repo_root" "$profile")" || return 2
+  output="$(HOMEBREW_BUNDLE_DOTFILES_PROFILE="$profile" HOMEBREW_NO_AUTO_UPDATE=1 \
+    brew bundle cleanup --file "$composed" 2>/dev/null || true)"
+  rm -f "$composed"
+
+  drift="$(printf '%s\n' "$output" | awk '
+    /^Would (uninstall|untap)/ { show = 1 }
+    /^Would `brew cleanup`/ { show = 0 }
+    show { print }
+  ')"
+  if [ -n "$drift" ]; then
+    printf '%s\n' "$drift"
+    return 1
+  fi
+  return 0
+}
+
 # Homebrew refuses formulae and casks from untrusted third-party taps once
 # trust enforcement is available; older Homebrew has no trust command and
 # needs no step. Trust is stored per user, so shared prefixes need no wrapper.
