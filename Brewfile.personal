@@ -26,6 +26,7 @@ brew "openclaw/tap/discrawl"
 brew "openclaw/tap/gitcrawl"
 brew "putdotio/tap/putio-cli"
 brew "mole"
+brew "pi-coding-agent"
 
 if workstation_enabled
   # App Store automation

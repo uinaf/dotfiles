@@ -275,7 +275,7 @@ printf '%s\n' "$personal_error" | grep -Fq \
   'Brewfile.personal requires a personal-workstation or personal-devbox profile' \
   || fail "personal Brewfile profile failure was not actionable"
 
-for required in 'cask "codex"' 'cask "claude-code@latest"' 'brew "pi-coding-agent"' 'cask "uinaf/tap/slopguard"' 'cask "uinaf/tap/slopmachine"'; do
+for required in 'cask "codex"' 'cask "claude-code@latest"' 'cask "uinaf/tap/slopguard"' 'cask "uinaf/tap/slopmachine"'; do
   grep -Fqx "$required" "$repo_root/Brewfile.developer" \
     || fail "developer layer missed $required"
   for file in Brewfile.workstation Brewfile.personal Brewfile.devbox; do
@@ -300,7 +300,7 @@ for file in Brewfile.workstation Brewfile.personal Brewfile.devbox Brewfile.assi
     fail "$file duplicates developer Watchman"
   fi
 done
-for required in 'brew "asc"' 'brew "uinaf/tap/attach"' 'brew "openclaw/tap/crabbox"' 'brew "openclaw/tap/discrawl"' 'brew "openclaw/tap/gitcrawl"' 'brew "putdotio/tap/putio-cli"' 'brew "mole"'; do
+for required in 'brew "asc"' 'brew "uinaf/tap/attach"' 'brew "openclaw/tap/crabbox"' 'brew "openclaw/tap/discrawl"' 'brew "openclaw/tap/gitcrawl"' 'brew "putdotio/tap/putio-cli"' 'brew "mole"' 'brew "pi-coding-agent"'; do
   grep -Fqx "$required" "$repo_root/Brewfile.personal" \
     || fail "personal layer missed $required"
   for file in Brewfile.developer Brewfile.workstation Brewfile.devbox Brewfile.assistant; do
