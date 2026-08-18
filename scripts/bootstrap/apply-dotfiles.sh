@@ -82,7 +82,13 @@ backup_path() {
   if [ "$dry_run" -eq 1 ]; then
     printf 'would back up %s -> %s\n' "$target" "$backup"
   else
-    mv "$target" "$backup"
+    if [ "$expected_type" = "file" ]; then
+      # chezmoi modify_ templates read the live target as stdin; moving the
+      # file away regenerates it from empty input and drops unmanaged keys.
+      cp -p "$target" "$backup"
+    else
+      mv "$target" "$backup"
+    fi
     printf 'backed up %s -> %s\n' "$target" "$backup"
   fi
 }
