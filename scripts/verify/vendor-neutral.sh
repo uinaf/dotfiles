@@ -61,12 +61,12 @@ while IFS=: read -r file line content; do
       ;;
     scripts/agents/plugins/developer.json|scripts/agents/plugins/workstation.json|scripts/agents/plugins/devbox.json|scripts/agents/plugins/personal.json)
       case "$content" in
-        *'"marketplace": "uinaf/ffsstack"'*) continue ;;
+        *'"marketplace": "uinaf/ffss"'*) continue ;;
       esac
       ;;
     scripts/agents/plugins.test.ts)
       case "$content" in
-        *uinaf/ffsstack*) continue ;;
+        *uinaf/ffss*) continue ;;
       esac
       ;;
     scripts/agents/mcps/developer.json|scripts/agents/mcps/workstation.json|scripts/agents/mcps/devbox.json|scripts/agents/mcps/personal.json)
