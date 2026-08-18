@@ -71,12 +71,12 @@ while IFS=: read -r file line content; do
       ;;
     scripts/agents/mcps/developer.json|scripts/agents/mcps/workstation.json|scripts/agents/mcps/devbox.json|scripts/agents/mcps/personal.json)
       case "$content" in
-        *'"name": "uinaf-executor"'*) continue ;;
+        *'"name": "uinaf-executor"'*|*'"name": "uinaf_executor"'*) continue ;;
       esac
       ;;
     scripts/agents/mcps.test.ts)
       case "$content" in
-        *uinaf-executor*) continue ;;
+        *uinaf-executor*|*uinaf_executor*) continue ;;
       esac
       ;;
     scripts/agents/sync.test.ts)

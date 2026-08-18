@@ -80,6 +80,15 @@ run_step() {
     configure-codex)
       "$repo_root/scripts/bootstrap/configure-codex.ts"
       ;;
+    configure-llm-gateway)
+      gateway_config="${LLM_GATEWAY_CONFIG:-$HOME/.config/dotfiles/llm-gateway.json}"
+      if [ ! -f "$gateway_config" ] || [ -L "$gateway_config" ]; then
+        printf 'personal setup requires an owner-only LLM gateway config: %s\n' "$gateway_config" >&2
+        return 1
+      fi
+      "$repo_root/scripts/bootstrap/configure-llm-gateway.ts"
+      "$repo_root/scripts/bootstrap/configure-llm-gateway.ts" --retire-auth
+      ;;
     sync-agents)
       "$repo_root/scripts/agents/sync.ts" --profile "$profile"
       "$repo_root/scripts/agents/plugins.ts" --profile "$profile"

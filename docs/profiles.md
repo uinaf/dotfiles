@@ -76,20 +76,22 @@ What each layer supplies:
 - The development runtime set, including mise-managed Ruby, comes from the
   `developer` runtime group through `install-runtimes`.
 - `Brewfile.workstation`, used by `personal-workstation` and `workstation`:
-  1Password and its CLI, Slack, ChatGPT, T3 Code, Cursor, Ghostty, and YubiKey
-  Manager.
+  1Password and its CLI, Slack, T3 Code, Zed, Ghostty, and YubiKey Manager.
 - `Brewfile.personal`, used by both personal profiles: App Store Connect CLI,
   Attach, Crabbox, Discrawl, Gitcrawl, putio-cli, and Mole. Only
   `personal-workstation` also gets personal GUI applications such as Slopwake,
   plus `mas`.
 - `Brewfile.assistant`: portable document, media, Google, and macOS automation
   tools.
+- Coding stays in T3 Code, Zed, and the managed Codex, Claude Code, OpenCode,
+  Grok Build, and Cursor Agent CLIs. ChatGPT and Cursor desktop are absent.
 
 Runtimes and dotfiles:
 
 - Developer-profile install flows apply machine-global instructions through
   chezmoi and sync additive skills from `scripts/agents/`; see
   [Agent setup](agents.md).
+- Both workstation profiles manage Zed settings and keymap through chezmoi.
 - The assistant mise config contains only Node. Workload repositories own
   OpenClaw, Hermes, model providers, containers, process supervision, language
   runtimes, and other framework-specific packages.

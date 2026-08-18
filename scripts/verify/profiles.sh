@@ -87,13 +87,13 @@ for supported_profile in $(dotfiles_profiles); do
   done
 done
 
-if ! dotfiles_profile_requires_sops_identity personal-devbox \
+if ! dotfiles_profile_requires_sops_identity personal-workstation \
+  || ! dotfiles_profile_requires_sops_identity personal-devbox \
   || ! dotfiles_profile_requires_sops_identity devbox \
   || ! dotfiles_profile_requires_sops_identity assistant; then
   fail "secret-consuming profiles must require a SOPS age identity"
 fi
-if dotfiles_profile_requires_sops_identity workstation \
-  || dotfiles_profile_requires_sops_identity personal-workstation; then
+if dotfiles_profile_requires_sops_identity workstation; then
   fail "portable profiles must not require a SOPS age identity"
 fi
 if dotfiles_profile_requires_sops_identity unsupported >/dev/null 2>&1; then
@@ -327,7 +327,7 @@ for required in 'brew "gh"' 'cask "google-chrome"'; do
     fi
   done
 done
-for required in 'cask "ghostty"' 'cask "1password"' 'cask "1password-cli"' 'cask "slack"' 'cask "chatgpt"' 'cask "t3-code"' 'cask "cursor"' 'brew "ykman"'; do
+for required in 'cask "ghostty"' 'cask "1password"' 'cask "1password-cli"' 'cask "slack"' 'cask "t3-code"' 'cask "zed"' 'brew "ykman"'; do
   grep -Fqx "$required" "$repo_root/Brewfile.workstation" \
     || fail "workstation layer missed shared human desktop app $required"
 done
@@ -351,9 +351,11 @@ for removed in 'cask "gcloud-cli"' 'brew "openclaw/tap/crabbox"' 'brew "openclaw
   fi
 done
 for file in Brewfile Brewfile.developer Brewfile.workstation Brewfile.personal Brewfile.devbox Brewfile.assistant; do
-  if grep -Fqx 'cask "zed"' "$repo_root/$file"; then
-    fail "$file retained removed Zed cask"
-  fi
+  for removed_cask in 'cask "chatgpt"' 'cask "cursor"'; do
+    if grep -Fqx "$removed_cask" "$repo_root/$file"; then
+      fail "$file retained removed cask $removed_cask"
+    fi
+  done
 done
 printf '%s\n' "$personal_workstation_casks" | grep -Fqx grok-build \
   || fail "personal workstation layer missed Grok Build"
@@ -372,9 +374,15 @@ done
 devbox_steps="$("$repo_root/scripts/bootstrap/install.sh" --print-steps --profile devbox)"
 assert_eq "$developer_steps" "$devbox_steps" "devbox developer install steps"
 personal_devbox_steps="$("$repo_root/scripts/bootstrap/install.sh" --print-steps --profile personal-devbox)"
-assert_eq "$devbox_steps" "$personal_devbox_steps" "personal devbox developer install steps"
+printf '%s\n' "$personal_devbox_steps" | grep -Fqx configure-llm-gateway \
+  || fail "personal devbox install missed configure-llm-gateway"
 personal_workstation_steps="$("$repo_root/scripts/bootstrap/install.sh" --print-steps --profile personal-workstation)"
-assert_eq "$developer_steps" "$personal_workstation_steps" "personal workstation developer install steps"
+printf '%s\n' "$personal_workstation_steps" | grep -Fqx configure-llm-gateway \
+  || fail "personal workstation install missed configure-llm-gateway"
+for personal_steps in "$personal_devbox_steps" "$personal_workstation_steps"; do
+  assert_eq 1 "$(comm -13 <(printf '%s\n' "$developer_steps" | sort) <(printf '%s\n' "$personal_steps" | sort) | grep -Fxc configure-llm-gateway)" \
+    "personal install adds only the gateway convergence step"
+done
 
 install_fixture="$tmp_root/install-fixture"
 install_log="$tmp_root/install-fixture.log"
@@ -384,7 +392,7 @@ mkdir -p "$install_fixture/scripts/agents" "$install_fixture/scripts/bootstrap" 
 cp "$repo_root/scripts/bootstrap/install.sh" "$install_fixture/scripts/bootstrap/install.sh"
 cp "$repo_root/scripts/lib/profile.sh" "$install_fixture/scripts/lib/profile.sh"
 cp "$repo_root/chezmoi/.chezmoidata/profiles.json" "$install_fixture/chezmoi/.chezmoidata/profiles.json"
-for helper in apply-dotfiles.sh install-gh-app-auth.sh install-cursor-agent.sh trust-agent-worktrees.sh install-gh-extensions.sh configure-codex.ts; do
+for helper in apply-dotfiles.sh install-gh-app-auth.sh install-cursor-agent.sh trust-agent-worktrees.sh install-gh-extensions.sh configure-codex.ts configure-llm-gateway.ts; do
 cat > "$install_fixture/scripts/bootstrap/$helper" <<'EOF'
 #!/usr/bin/env bash
 printf '%s' "$(basename "$0")" >> "${DOTFILES_INSTALL_LOG:?}"
@@ -441,6 +449,31 @@ mcps.ts --profile devbox
 EOF
 )"
 assert_eq "$expected_install_log" "$(cat "$install_log")" "devbox install execution"
+
+: > "$install_log"
+install_personal_home="$tmp_root/install-personal-home"
+mkdir -p "$install_personal_home/.config/dotfiles"
+printf '{}\n' > "$install_personal_home/.config/dotfiles/llm-gateway.json"
+chmod 0600 "$install_personal_home/.config/dotfiles/llm-gateway.json"
+PATH="$install_fixture_path" \
+DOTFILES_INSTALL_LOG="$install_log" \
+HOME="$install_personal_home" \
+  "$install_fixture/scripts/bootstrap/install.sh" --profile personal-workstation
+expected_personal_install_log="$(cat <<EOF
+apply-dotfiles.sh --profile personal-workstation
+mise install
+install-cursor-agent.sh
+trust-agent-worktrees.sh
+install-gh-extensions.sh
+configure-codex.ts
+configure-llm-gateway.ts
+configure-llm-gateway.ts --retire-auth
+sync.ts --profile personal-workstation
+plugins.ts --profile personal-workstation
+mcps.ts --profile personal-workstation
+EOF
+)"
+assert_eq "$expected_personal_install_log" "$(cat "$install_log")" "personal workstation install execution"
 
 : > "$install_log"
 printf 'caller-input\n' | \
@@ -510,7 +543,7 @@ assistant_managed="$({
 printf '%s\n' "$assistant_managed" | grep -Fqx '.config/dotfiles/profile' || fail "assistant profile marker is unmanaged"
 printf '%s\n' "$assistant_managed" | grep -Fqx '.gitconfig' \
   || fail "assistant profile does not manage .gitconfig"
-if printf '%s\n' "$assistant_managed" | grep -Eq '^(\.codex|\.config/1Password/ssh|\.config/git|\.local/libexec/dotfiles/git-ssh-sign-agentless|\.ssh|Library/Application Support/com.mitchellh.ghostty)(/|$)'; then
+if printf '%s\n' "$assistant_managed" | grep -Eq '^(\.codex|\.config/1Password/ssh|\.config/git|\.config/zed|\.local/libexec/dotfiles/git-ssh-sign-agentless|\.ssh|Library/Application Support/com.mitchellh.ghostty)(/|$)'; then
   fail "assistant profile manages developer or identity state"
 fi
 
@@ -527,6 +560,8 @@ for required_path in \
   '.gitconfig' \
   '.local/libexec/dotfiles/git-ssh-sign-agentless' \
   '.ssh/config' \
+  '.config/zed/keymap.json' \
+  '.config/zed/settings.json' \
   'Library/Application Support/com.mitchellh.ghostty/config'; do
   printf '%s\n' "$workstation_managed" | grep -Fqx "$required_path" \
     || fail "workstation profile does not manage $required_path"
@@ -539,6 +574,10 @@ personal_workstation_managed="$({
     --override-data "$data" \
     managed --path-style relative
 })"
+for required_path in '.config/zed/keymap.json' '.config/zed/settings.json'; do
+  printf '%s\n' "$personal_workstation_managed" | grep -Fqx "$required_path" \
+    || fail "personal workstation profile does not manage $required_path"
+done
 devbox_managed="$({
   data='{"dotfilesProfile":"devbox"}'
   chezmoi \
@@ -562,14 +601,12 @@ done
 if printf '%s\n' "$devbox_managed" | grep -Eq '^Library/Application Support/com\.mitchellh\.ghostty(/|$)'; then
   fail "devbox profile manages workstation-only Ghostty state"
 fi
-for rendered_managed in \
+for rendered_unmanaged in \
   "$assistant_managed" \
-  "$workstation_managed" \
-  "$personal_workstation_managed" \
   "$personal_devbox_managed" \
   "$devbox_managed"; do
-  if printf '%s\n' "$rendered_managed" | grep -Eq '^\.config/zed(/|$)'; then
-    fail "profile manages retired Zed state"
+  if printf '%s\n' "$rendered_unmanaged" | grep -Eq '^\.config/zed(/|$)'; then
+    fail "non-workstation profile manages Zed state"
   fi
 done
 

@@ -1,5 +1,6 @@
 {{ $profile := includeTemplate "profile" . | fromJson }}
 {{ if not $profile.capabilities.workstation }}
+.config/zed
 Library/Application Support/com.mitchellh.ghostty
 {{ end }}
 {{ if $profile.capabilities.workload }}

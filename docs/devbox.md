@@ -107,8 +107,10 @@ Do not create broad workspace env bundles or load secrets in shell startup.
 Developer-profile users may route Codex and Claude Code through a private LLM
 gateway and run Cursor Agent with an identity-owned API key.
 
-- The capability stays off until the identity creates an owner-only local
-  configuration file.
+- Generic developer profiles opt in with an owner-only local configuration
+  file. Personal profiles require that file and apply the gateway during normal
+  setup.
+- Personal setup retires saved vendor sessions automatically and idempotently.
 - It does not change the assistant profile.
 - It stores no secrets in shell startup, Codex configuration, or Claude
   settings.
@@ -120,12 +122,14 @@ Create `~/.config/dotfiles/llm-gateway.json` with mode `0600`:
   "version": 1,
   "secretFile": "/Users/example/projects/example/vault/secrets/identity/example-coding.sops.env",
   "gatewayBaseUrl": "https://gateway.example/v1",
-  "cursorAgentBin": "/Users/example/.local/share/cursor-agent/versions/2026.08.11-e8db854/cursor-agent"
+  "cursorAgentBin": "/Users/example/.local/share/cursor-agent/versions/2026.08.11-e8db854/cursor-agent",
+  "grokBin": "/opt/homebrew/bin/grok"
 }
 ```
 
-The SOPS payload must provide `CLIPROXYAPI_CLIENT_API_KEY` and
-`CURSOR_API_KEY`. The configurator then:
+The SOPS payload must provide `CLIPROXYAPI_CLIENT_API_KEY`. Add
+`CURSOR_API_KEY` only when `cursorAgentBin` is configured. Both
+`cursorAgentBin` and `grokBin` are optional. The configurator then:
 
 - installs owner-only process helpers
 - backs up the current Codex and Claude settings once
@@ -138,7 +142,9 @@ The SOPS payload must provide `CLIPROXYAPI_CLIENT_API_KEY` and
 ```
 
 - The first enrollment keeps any saved Codex login intact.
-- The standard bootstrap does not force a login method.
+- Generic developer profiles can accept the rollback path before running the
+  separate retirement step.
+- Personal setup runs the retirement step automatically and idempotently.
 - Remove the saved login only in the separate, explicit auth-retirement step
   after the gateway and rollback path are accepted.
 
@@ -185,6 +191,8 @@ Cursor commands:
 - The standalone `~/.local/bin/cursor-agent-api` path remains available for
   explicit calls.
 - Cursor installer upgrades automatically reapply the managed commands.
+- The launcher uses Cursor's in-memory credential store so API-key checks do
+  not recreate saved login state.
 
 Launcher behavior:
 
@@ -195,6 +203,14 @@ Launcher behavior:
   parse `agent about`.
 - Acknowledges ACP `authenticate` locally, so clients that always send
   `cursor_login` do not start a browser flow.
+
+Grok Build:
+
+- When `grokBin` is configured, the normal `grok` command uses the gateway's
+  OpenAI-compatible model catalog and the command-backed gateway bearer. The
+  configurator backs up `~/.grok/config.toml` and `~/.grok/auth.json` before
+  selecting the gateway, preserves unrelated Grok settings, and never calls
+  `grok logout`. Rollback restores the exact saved config and SpaceXAI session.
 
 Rollback restores the exact pre-enrollment Codex config, Claude settings, and
 Cursor command symlinks, then removes the helpers. Saved coding login state is

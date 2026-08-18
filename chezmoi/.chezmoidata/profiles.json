@@ -7,7 +7,7 @@
           "developer": true,
           "workload": false,
           "sharedHomebrew": false,
-          "requiresSopsIdentity": false,
+          "requiresSopsIdentity": true,
           "devbox": false,
           "workstation": true,
           "personal": true,
@@ -32,6 +32,7 @@
           "trust-agent-worktrees",
           "install-gh-extensions",
           "configure-codex",
+          "configure-llm-gateway",
           "sync-agents"
         ]
       },
@@ -65,6 +66,7 @@
           "trust-agent-worktrees",
           "install-gh-extensions",
           "configure-codex",
+          "configure-llm-gateway",
           "sync-agents"
         ]
       },

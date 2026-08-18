@@ -13,6 +13,7 @@ import {
   claudeGatewayBaseUrl,
   claudeGatewaySettings,
   gatewayEdits,
+  grokGatewaySettings,
   parseGatewayConfig,
 } from "./configure-llm-gateway.ts";
 
@@ -30,7 +31,7 @@ test("gateway config is strict and provider edits use command-backed Responses a
   assert.deepEqual(parseGatewayConfig(JSON.stringify(validConfig)), validConfig);
   assert.throws(
     () => parseGatewayConfig(JSON.stringify({ ...validConfig, token: "secret" })),
-    /must contain exactly/,
+    /unknown field/,
   );
   assert.throws(
     () => parseGatewayConfig(JSON.stringify({ ...validConfig, gatewayBaseUrl: "http://gateway.example/v1" })),
@@ -39,6 +40,9 @@ test("gateway config is strict and provider edits use command-backed Responses a
 
   const edits = gatewayEdits(validConfig, "/Users/example/.local/libexec/dotfiles/llm-gateway-credential");
   assert.equal(edits.some((edit) => edit.keyPath === "forced_login_method"), false);
+  assert.ok(edits.some((edit) => edit.keyPath === "features.apps" && edit.value === false));
+  assert.ok(edits.some((edit) => edit.keyPath === "mcp_servers.node_repl" && edit.value === null));
+  assert.ok(edits.some((edit) => edit.keyPath === "model_providers.llm_gateway.name" && edit.value === "zebroid-gateway"));
   assert.ok(edits.some((edit) => edit.keyPath === "model_providers.llm_gateway.wire_api" && edit.value === "responses"));
   assert.ok(edits.some((edit) => edit.keyPath === "model_providers.llm_gateway.auth.command"));
   assert.ok(edits.some((edit) => edit.keyPath === "model_providers.llm_gateway.auth.args" && Array.isArray(edit.value) && edit.value[0] === "gateway"));
@@ -61,6 +65,24 @@ test("gateway config is strict and provider edits use command-backed Responses a
   assert.throws(
     () => assertCursorAgentBinSafe("/Users/example/.local/bin/agent", ["/Users/example/.local/bin/agent"]),
     /versioned vendor executable/,
+  );
+
+  assert.deepEqual(parseGatewayConfig(JSON.stringify({
+    version: 1,
+    secretFile: validConfig.secretFile,
+    gatewayBaseUrl: validConfig.gatewayBaseUrl,
+    grokBin: "/opt/homebrew/bin/grok",
+  })), {
+    version: 1,
+    secretFile: validConfig.secretFile,
+    gatewayBaseUrl: validConfig.gatewayBaseUrl,
+    grokBin: "/opt/homebrew/bin/grok",
+  });
+  assert.match(grokGatewaySettings("[ui]\ntheme = \"dark\"\n", validConfig.gatewayBaseUrl, "/helper"), /models_base_url = "https:\/\/gateway\.example\/v1"/);
+  assert.match(grokGatewaySettings("", validConfig.gatewayBaseUrl, "/helper"), /auth_provider_command = "\/helper gateway"/);
+  assert.throws(
+    () => grokGatewaySettings('[auth]\nauth_provider_command = "/other"\n', validConfig.gatewayBaseUrl, "/helper"),
+    /conflicts with gateway section: auth/,
   );
 });
 
@@ -166,7 +188,7 @@ rm -f "$HOME/.claude/.credentials.json"
       assert.equal(statSync(command).mode & 0o777, 0o700);
     }
     const state = JSON.parse(readFileSync(join(configDir, "llm-gateway-state.json"), "utf8")) as { version: number; authRetired: boolean; cursorCommands: Array<{ target: string }> };
-    assert.equal(state.version, 4);
+    assert.equal(state.version, 6);
     assert.equal(state.authRetired, false);
     assert.deepEqual(state.cursorCommands.map((command) => command.target), originalCursorTargets);
     assert.equal(statSync(join(home, ".local/libexec/dotfiles/cursor-acp-api-key-auth")).mode & 0o777, 0o700);
@@ -245,6 +267,118 @@ rm -f "$HOME/.claude/.credentials.json"
   }
 });
 
+test("gateway-only payload configures canonical Grok and retirement discards its saved vendor login", { skip: !codexInstalled }, () => {
+  const root = mkdtempSync(join(tmpdir(), "dotfiles-llm-gateway-grok-"));
+  const home = join(root, "home");
+  const bin = join(root, "bin");
+  const codexHome = join(home, ".codex");
+  const configDir = join(home, ".config/dotfiles");
+  const gatewayConfig = join(configDir, "llm-gateway.json");
+  const claudeSettingsPath = join(home, ".claude/settings.json");
+  const secretFile = join(root, "coding.sops.env");
+  const grokBin = join(bin, "grok-vendor");
+  const grokConfig = join(home, ".grok/config.toml");
+  const grokLogin = join(home, ".grok/auth.json");
+  const originalCodex = '# retained\nforced_login_method = "chatgpt"\n';
+  const originalClaude = '{"theme":"dark"}\n';
+  const originalGrokConfig = '[ui]\ntheme = "dark"\n';
+  const originalGrokLogin = '{"access_token":"saved-vendor-login"}\n';
+
+  try {
+    for (const path of [codexHome, configDir, bin, dirname(claudeSettingsPath), dirname(grokLogin)]) mkdirSync(path, { recursive: true });
+    writeFileSync(join(codexHome, "config.toml"), originalCodex, { mode: 0o600 });
+    writeFileSync(claudeSettingsPath, originalClaude, { mode: 0o600 });
+    writeFileSync(grokConfig, originalGrokConfig, { mode: 0o600 });
+    writeFileSync(grokLogin, originalGrokLogin, { mode: 0o600 });
+    writeFileSync(secretFile, "encrypted fixture\n", { mode: 0o600 });
+    writeFileSync(gatewayConfig, `${JSON.stringify({
+      version: 1,
+      secretFile,
+      gatewayBaseUrl: "https://gateway.example/v1",
+      grokBin,
+    })}\n`, { mode: 0o600 });
+    writeFileSync(grokBin, `#!/usr/bin/env bash
+if [ "\${1:-}" = login ]; then
+  printf '{"access_token":"gateway-token"}\\n' > "$HOME/.grok/auth.json"
+  chmod 600 "$HOME/.grok/auth.json"
+  exit 0
+fi
+printf "%s\\n" "$*"
+`, { mode: 0o700 });
+    writeFileSync(join(bin, "sops"), `#!/usr/bin/env bash
+case "\${1:-}" in
+  filestatus) printf '{"encrypted":true}\\n' ;;
+  decrypt) printf '{"CLIPROXYAPI_CLIENT_API_KEY":"0123456789abcdefghijklmnopqrstuvwxyz_ABCD"}\\n' ;;
+  *) exit 2 ;;
+esac
+`, { mode: 0o700 });
+    writeFileSync(join(bin, "claude"), '#!/usr/bin/env bash\n[ "${1:-}" = auth ] && [ "${2:-}" = logout ]\n', { mode: 0o700 });
+
+    const env = {
+      ...process.env,
+      HOME: home,
+      CODEX_HOME: codexHome,
+      LLM_GATEWAY_CONFIG: gatewayConfig,
+      PATH: `${bin}:${process.env.PATH || ""}`,
+    };
+    const run = (...args: string[]) => spawnSync(script, args, { encoding: "utf8", env });
+
+    const apply = run();
+    assert.equal(apply.status, 0, apply.stderr);
+    assert.match(apply.stdout, /canonical Grok gateway routing/);
+    assert.equal(readFileSync(grokLogin, "utf8"), '{"access_token":"gateway-token"}\n');
+    assert.equal(readFileSync(`${grokLogin}.llm-gateway.backup`, "utf8"), originalGrokLogin);
+    assert.equal(readFileSync(`${grokConfig}.llm-gateway.backup`, "utf8"), originalGrokConfig);
+    assert.equal(existsSync(join(home, ".local/bin/cursor-agent-api")), false);
+    assert.equal(existsSync(join(home, ".local/libexec/dotfiles/cursor-acp-api-key-auth")), false);
+    assert.match(readFileSync(grokConfig, "utf8"), /default = "grok-4\.6"/);
+    assert.match(readFileSync(grokConfig, "utf8"), /\[ui\]\ntheme = "dark"/);
+    const grok = spawnSync(grokBin, ["-p", "hello"], { encoding: "utf8", env });
+    assert.equal(grok.status, 0, grok.stderr);
+    assert.match(grok.stdout, /-p hello/);
+
+    const state = JSON.parse(readFileSync(join(configDir, "llm-gateway-state.json"), "utf8")) as {
+      version: number;
+      cursorCommands: unknown[];
+      grokEnabled: boolean;
+    };
+    assert.equal(state.version, 6);
+    assert.deepEqual(state.cursorCommands, []);
+    assert.equal(state.grokEnabled, true);
+    const check = run("--check");
+    assert.equal(check.status, 0, check.stderr);
+    assert.match(check.stdout, /Cursor=false, Grok=true/);
+
+    const retire = run("--retire-auth");
+    assert.equal(retire.status, 0, retire.stderr);
+    assert.equal(existsSync(`${grokLogin}.llm-gateway.backup`), false);
+    const retiredState = JSON.parse(readFileSync(join(configDir, "llm-gateway-state.json"), "utf8")) as {
+      authRetired: boolean;
+      grokAuthExisted: boolean;
+      grokAuthBackupPath: string | null;
+    };
+    assert.equal(retiredState.authRetired, true);
+    assert.equal(retiredState.grokAuthExisted, false);
+    assert.equal(retiredState.grokAuthBackupPath, null);
+    const secondRetire = run("--retire-auth");
+    assert.equal(secondRetire.status, 0, secondRetire.stderr);
+    assert.match(secondRetire.stdout, /already retired/);
+
+    const rollback = run("--rollback");
+    assert.equal(rollback.status, 0, rollback.stderr);
+    assert.equal(readFileSync(join(codexHome, "config.toml"), "utf8"), originalCodex);
+    assert.equal(readFileSync(claudeSettingsPath, "utf8"), originalClaude);
+    assert.equal(readFileSync(grokConfig, "utf8"), originalGrokConfig);
+    assert.equal(existsSync(grokLogin), false);
+    assert.equal(existsSync(join(home, ".local/bin/grok-gateway")), false);
+    assert.equal(existsSync(join(home, ".config/dotfiles/grok-gateway")), false);
+    assert.equal(existsSync(`${grokConfig}.llm-gateway.backup`), false);
+    assert.equal(existsSync(`${grokLogin}.llm-gateway.backup`), false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("deployed llm-client version 2 state migrates to the Claude-capable llm-gateway state", { skip: !codexInstalled }, () => {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-llm-gateway-migration-"));
   const home = join(root, "home");
@@ -306,7 +440,7 @@ esac
     assert.equal(existsSync(legacyState), false);
     assert.equal(existsSync(legacyCredential), false);
     const migrated = JSON.parse(readFileSync(join(configDir, "llm-gateway-state.json"), "utf8")) as { version: number; authRetired: boolean; codexBackupPath: string };
-    assert.equal(migrated.version, 4);
+    assert.equal(migrated.version, 6);
     assert.equal(migrated.authRetired, false);
     assert.equal(migrated.codexBackupPath, legacyBackup);
     assert.equal(readFileSync(`${claudeSettingsPath}.llm-gateway.backup`, "utf8"), originalClaude);

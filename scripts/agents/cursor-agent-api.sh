@@ -32,7 +32,7 @@ esac
 
 cursor_key="$($credential_helper cursor)"
 export CURSOR_API_KEY="$cursor_key"
-export AGENT_CLI_CREDENTIAL_STORE=file
+export AGENT_CLI_CREDENTIAL_STORE=memory
 unset cursor_key
 
 about_format() {

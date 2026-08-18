@@ -456,10 +456,11 @@ test("ships the tailnet executor on the personal layer only", () => {
   assert.deepEqual(devbox, []);
   assert.deepEqual(
     personal.map((server) => server.name),
-    ["uinaf-executor"],
+    ["uinaf_executor", "uinaf-executor"],
   );
   assert.equal(personal[0]?.url, "https://executor.zebroid-skate.ts.net/mcp");
-  assert.deepEqual(personal[0]?.harnesses, HARNESSES);
+  assert.deepEqual(personal[0]?.harnesses, ["codex"]);
+  assert.deepEqual(personal[1]?.harnesses, ["claude", "cursor", "opencode"]);
 });
 
 test("the executable TypeScript entrypoint runs the CLI", () => {

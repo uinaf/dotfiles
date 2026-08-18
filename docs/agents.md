@@ -196,6 +196,14 @@ Convergence differs per harness:
 | Codex | `codex mcp add` upserts config, then probes the server and can start an interactive OAuth login. Sync gets first and skips a matching URL. An add whose config landed before the login step failed is reported as pending `codex mcp login`, not a failure |
 | Cursor | `cursor-agent` has no add subcommand, so sync merges `~/.cursor/mcp.json` directly, updating only the managed entries' `url` and preserving everything else in the file |
 
+When one service has historical harness-specific names, narrow each manifest
+entry with `harnesses`. Do not add both names to one harness; the URL and
+service identity remain the same.
+
+Executor is not selected for Grok Build 1.0.4. Its pinned `rmcp 2.1.0` rejects
+same-origin MCP paths during OAuth discovery; enable the entry only after Grok
+uses `rmcp 2.2.0` or newer.
+
 ## Verify
 
 ```zsh

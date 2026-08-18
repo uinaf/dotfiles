@@ -155,15 +155,6 @@ Fonts and terminal:
   unavailable. See
   [Ghostty SSH integration](https://ghostty.org/docs/features/ssh).
 
-The personal-workstation profile's ChatGPT desktop app includes Codex. Its Codex appearance
-is manual app state, not repo-managed config. After installing ChatGPT, open
-its Codex settings and set:
-
-- code font: `Berkeley Mono Variable`
-- UI font size: `14 px`
-- code font size: `14 px`
-- Font Smoothing: on
-
 `./scripts/bootstrap/install.sh` uses Codex's config API to update selected
 defaults in `~/.codex/config.toml`:
 
@@ -178,6 +169,10 @@ defaults in `~/.codex/config.toml`:
 The typed edit list in `scripts/bootstrap/configure-codex.ts` is the source of
 truth; the bootstrap client sends it through Codex's native writer as one
 atomic update.
+
+Personal profiles then require the owner-only LLM gateway config, apply it to
+Codex, Claude Code, Cursor Agent, and Grok Build, and retire their saved vendor
+login sessions. T3 Code remains the only managed coding desktop app.
 
 The same install step also:
 
