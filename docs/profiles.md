@@ -67,10 +67,14 @@ Brewfile order per profile:
 What each layer supplies:
 
 - `Brewfile.developer`, shared by `personal-workstation`, `personal-devbox`,
-  `workstation`, and `devbox`: Codex CLI, Claude Code CLI, Cursor Agent CLI,
-  autoreview, Watchman, Docker credential helpers, AWS CLI, XcodeGen, Android
-  command-line tools, and the development runtime set, including mise-managed
-  Ruby.
+  `workstation`, and `devbox`: Codex CLI, Claude Code CLI, opencode,
+  autoreview, Watchman, Docker and its credential helper, AWS CLI, XcodeGen,
+  `xcodes`, Android command-line tools, and the shell, secret, and network
+  scanning tools.
+- Cursor Agent CLI comes from the `install-cursor-agent` install step, not a
+  Brewfile.
+- The development runtime set, including mise-managed Ruby, comes from the
+  `developer` runtime group through `install-runtimes`.
 - `Brewfile.workstation`, used by `personal-workstation` and `workstation`:
   1Password and its CLI, Slack, ChatGPT, T3 Code, Cursor, Ghostty, and YubiKey
   Manager.

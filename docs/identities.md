@@ -193,8 +193,7 @@ git clone https://github.com/example/workspace.git ~/projects/example/workspace
   `gh-app-auth`.
 - Exact patterns remain in the App configuration, so a token is minted only on
   demand for a selected repository.
-- Nothing is cached and there is no retained `gh auth` login. Name the
-  repository on every call.
+- Nothing is cached and there is no retained `gh auth` login.
 
 For GitHub CLI or API commands, select the repository explicitly:
 
