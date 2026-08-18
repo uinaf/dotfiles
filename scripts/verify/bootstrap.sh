@@ -98,7 +98,6 @@ developer_cli_checks=(
   "java -version"
   "codex --version"
   "claude --version"
-  "pi --version"
   "cursor-agent --version"
   "slopguard version"
   "slopmachine version"
@@ -114,6 +113,7 @@ personal_common_cli_checks=(
   "crabbox --version"
   "gitcrawl --version"
   "mole --version"
+  "pi --version"
 )
 
 personal_workstation_cli_checks=(

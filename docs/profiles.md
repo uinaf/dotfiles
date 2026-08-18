@@ -67,7 +67,7 @@ Brewfile order per profile:
 What each layer supplies:
 
 - `Brewfile.developer`, shared by `personal-workstation`, `personal-devbox`,
-  `workstation`, and `devbox`: Codex CLI, Claude Code CLI, OpenCode, Pi,
+  `workstation`, and `devbox`: Codex CLI, Claude Code CLI, OpenCode,
   slopguard, slopmachine, Watchman, Docker and its credential helper, AWS CLI,
   XcodeGen, `xcodes`, Android command-line tools, and the shell, secret, and
   network scanning tools.
@@ -78,13 +78,14 @@ What each layer supplies:
 - `Brewfile.workstation`, used by `personal-workstation` and `workstation`:
   1Password and its CLI, Slack, T3 Code, Zed, Ghostty, and YubiKey Manager.
 - `Brewfile.personal`, used by both personal profiles: App Store Connect CLI,
-  Attach, Crabbox, Discrawl, Gitcrawl, putio-cli, and Mole. Only
+  Attach, Crabbox, Discrawl, Gitcrawl, Pi, putio-cli, and Mole. Only
   `personal-workstation` also gets personal applications such as Slopwake and
   the Google Cloud CLI, plus `mas`.
 - `Brewfile.assistant`: portable document, media, Google, and macOS automation
   tools.
-- Coding stays in T3 Code, Zed, and the managed Codex, Claude Code, OpenCode,
-  Pi, Grok Build, and Cursor Agent CLIs. ChatGPT and Cursor desktop are absent.
+- Developer profiles manage the Codex, Claude Code, OpenCode, and Cursor Agent
+  CLIs. Personal profiles add Pi; personal workstations add T3 Code, Zed, and
+  Grok Build. ChatGPT and Cursor desktop are absent.
 
 Runtimes and dotfiles:
 
