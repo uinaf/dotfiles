@@ -51,12 +51,12 @@ while IFS=: read -r file line content; do
       ;;
     docs/agents.md)
       case "$content" in
-        *github.com/uinaf/agent-skills*|*github.com/uinaf/attach*|*github.com/uinaf/autoreview*|*github.com/uinaf/design*|*uinaf-design*) continue ;;
+        *github.com/uinaf/agent-skills*|*github.com/uinaf/attach*|*github.com/uinaf/design*|*uinaf-design*) continue ;;
       esac
       ;;
     scripts/agents/skills/developer.json|scripts/agents/skills/workstation.json|scripts/agents/skills/devbox.json|scripts/agents/skills/personal.json)
       case "$content" in
-        *'"name": "uinaf-design"'*|*'"name": "uinaf-radar"'*|*'"source": "uinaf/agent-skills"'*|*'"source": "uinaf/attach"'*|*'"source": "uinaf/autoreview"'*|*'"source": "uinaf/design"'*|*'"source": "https://cdn.uinaf.dev/skills/ui"'*) continue ;;
+        *'"name": "uinaf-design"'*|*'"name": "uinaf-radar"'*|*'"source": "uinaf/agent-skills"'*|*'"source": "uinaf/attach"'*|*'"source": "uinaf/design"'*|*'"source": "https://cdn.uinaf.dev/skills/ui"'*) continue ;;
       esac
       ;;
     scripts/agents/plugins/developer.json|scripts/agents/plugins/workstation.json|scripts/agents/plugins/devbox.json|scripts/agents/plugins/personal.json)
@@ -81,7 +81,7 @@ while IFS=: read -r file line content; do
       ;;
     scripts/agents/sync.test.ts)
       case "$content" in
-        *uinaf/agents*|*uinaf/skills*|*uinaf/agent-skills*|*uinaf/attach*|*uinaf/autoreview*|*uinaf/design*|*uinaf-design*) continue ;;
+        *uinaf/agents*|*uinaf/skills*|*uinaf/agent-skills*|*uinaf/attach*|*uinaf/design*|*uinaf-design*) continue ;;
       esac
       ;;
     scripts/verify/profiles.sh)

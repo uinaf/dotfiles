@@ -8,7 +8,8 @@ tap "uinaf/tap"
 cask "codex"
 cask "claude-code@latest"
 brew "opencode"
-cask "uinaf/tap/autoreview"
+cask "uinaf/tap/slopguard"
+cask "uinaf/tap/slopmachine"
 
 # Development CLI
 brew "awscli"
