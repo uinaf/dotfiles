@@ -10,23 +10,31 @@ The repo has five per-user profiles:
 - `devbox` for a remote coding identity on an SSH-first host.
 - `assistant` for an unattended persona or agent identity.
 
-The role contract and host/user boundary are defined in [User profiles](profiles.md).
-Cursor Agent CLI is required for personal-workstation, personal-devbox, workstation, and devbox profiles
-and installed by `./scripts/bootstrap/install.sh`. Cursor desktop belongs to
-the workstation Homebrew layer. Devbox shells use Cursor's
-owner-local file credential store because SSH sessions cannot depend on an
-unlocked macOS login keychain.
+The role contract and host/user boundary are defined in
+[User profiles](profiles.md). Run commands from the repo root unless a step
+says otherwise.
 
-Run commands from the repo root unless a step says otherwise.
+Cursor:
 
-Keep the SOPS and age CLIs in the portable Homebrew baseline. Require a
-per-user SOPS age identity only for profiles and workflows that decrypt
-encrypted material (`personal-devbox`, `devbox`, `assistant`, and any vault or sudo
-consumer). Portable `workstation` and `personal-workstation` boots can pass readiness
-without an identity; decryption stays fail-closed until one is provisioned.
-When you do create an identity, follow [Identity provisioning](identities.md),
-back it up through an approved human recovery system, and verify the restored
-recipient before protecting live ciphertext.
+- Cursor Agent CLI is required for `personal-workstation`, `personal-devbox`,
+  `workstation`, and `devbox`, and is installed by
+  `./scripts/bootstrap/install.sh`.
+- Cursor desktop belongs to the workstation Homebrew layer.
+- Devbox shells use Cursor's owner-local file credential store because SSH
+  sessions cannot depend on an unlocked macOS login keychain.
+
+SOPS and age:
+
+- Keep the SOPS and age CLIs in the portable Homebrew baseline.
+- Require a per-user SOPS age identity only for profiles and workflows that
+  decrypt encrypted material: `personal-devbox`, `devbox`, `assistant`, and any
+  vault or sudo consumer.
+- Portable `workstation` and `personal-workstation` boots can pass readiness
+  without an identity; decryption stays fail-closed until one is provisioned.
+- When you do create an identity, follow
+  [Identity provisioning](identities.md), back it up through an approved human
+  recovery system, and verify the restored recipient before protecting live
+  ciphertext.
 
 ## First-Time Prerequisites
 
@@ -83,11 +91,12 @@ mv ~/projects/dotfiles-main ~/projects/dotfiles
 cd ~/projects/dotfiles
 ```
 
-Archive checkouts are disposable. They are acceptable for reading docs and
-running the first public bootstrap scripts, and `scripts/bootstrap/install.sh`
-can install files from an archive checkout. After Homebrew, `git`, and `gh`
-are installed, replace the archive with a real clone so updates, diffs, hooks,
-and contribution checks work normally:
+Archive checkouts are disposable:
+
+- Reading docs and running the first public bootstrap scripts is supported.
+  `scripts/bootstrap/install.sh` can install files from an archive checkout.
+- After Homebrew, `git`, and `gh` are installed, replace the archive with a real
+  clone so updates, diffs, hooks, and contribution checks work normally:
 
 ```zsh
 cd ~/projects
@@ -132,16 +141,19 @@ Install optional shell customization:
 sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
 ```
 
-Editor and terminal defaults prefer `Berkeley Mono Variable`. This repo does
-not install it because it is a licensed font; ask the human to provide and
-install it when available. Ghostty falls back to `Menlo`, which ships
-with macOS and does not require another font package.
+Fonts and terminal:
 
-The managed Ghostty config enables its `ssh-env` and `ssh-terminfo` shell
-integration features. Interactive SSH connections install Ghostty's terminfo
-entry on the remote host when possible and fall back to `xterm-256color` when
-installation is unavailable. See [Ghostty SSH
-integration](https://ghostty.org/docs/features/ssh).
+- Editor and terminal defaults prefer `Berkeley Mono Variable`.
+- This repo does not install that font because it is licensed; ask the human to
+  provide and install it when available.
+- Ghostty falls back to `Menlo`, which ships with macOS and needs no extra font
+  package.
+- The managed Ghostty config enables its `ssh-env` and `ssh-terminfo` shell
+  integration features.
+- Interactive SSH connections install Ghostty's terminfo entry on the remote
+  host when possible, and fall back to `xterm-256color` when installation is
+  unavailable. See
+  [Ghostty SSH integration](https://ghostty.org/docs/features/ssh).
 
 The personal-workstation profile's ChatGPT desktop app includes Codex. Its Codex appearance
 is manual app state, not repo-managed config. After installing ChatGPT, open
@@ -153,28 +165,31 @@ its Codex settings and set:
 - Font Smoothing: on
 
 `./scripts/bootstrap/install.sh` uses Codex's config API to update selected
-defaults in `~/.codex/config.toml`. It removes the legacy
-`forced_login_method` setting so each identity can use its active ChatGPT
-session or an explicitly configured API provider without the bootstrap
-overriding that choice. It sets high reasoning effort, selects the standard
-service tier, and disables fast mode by default while preserving unrelated
-settings and formatting. It does not manage Codex auth tokens, sessions,
-approvals, or app state.
+defaults in `~/.codex/config.toml`:
+
+- Removes the legacy `forced_login_method` setting so each identity can use its
+  active ChatGPT session or an explicitly configured API provider without the
+  bootstrap overriding that choice.
+- Sets high reasoning effort, selects the standard service tier, and disables
+  fast mode by default.
+- Preserves unrelated settings and formatting.
+- Does not manage Codex auth tokens, sessions, approvals, or app state.
+
 The typed edit list in `scripts/bootstrap/configure-codex.ts` is the source of
 truth; the bootstrap client sends it through Codex's native writer as one
 atomic update.
 
-The same install step installs or updates GitHub's official `github/gh-stack`
-extension through `gh extension install --force`. GitHub CLI authentication and
-other extensions remain machine-local.
+The same install step also:
 
-The same install step applies mise's trusted Codex and Claude worktree roots
-and runs the agent worktree mise trust helper. Use the matching task in
-[Mise tasks](mise.md#task-namespaces) to refresh local trust after new
-worktrees are created.
-
-It also runs the machine-global instruction and additive skill sync described
-in [Agent setup](agents.md).
+- Installs or updates GitHub's official `github/gh-stack` extension through
+  `gh extension install --force`. GitHub CLI authentication and other
+  extensions remain machine-local.
+- Applies mise's trusted Codex and Claude worktree roots and runs the agent
+  worktree mise trust helper. Use the matching task in
+  [Mise tasks](mise.md#task-namespaces) to refresh local trust after new
+  worktrees are created.
+- Runs the machine-global instruction and additive skill sync described in
+  [Agent setup](agents.md).
 
 Remote Codex connections are also manual user config. If the machine should use
 them, ask the human to add this to `~/.codex/config.toml`:
@@ -198,22 +213,22 @@ mise trust
 ./scripts/bootstrap/configure-spotlight.sh
 ```
 
-The installer applies the profile's dotfiles, installs its mise runtimes, then
-configures the remaining integrations.
+What each step does:
 
-The developer mise config pins Node, enables the stable Corepack-managed pnpm
-default, and installs exact shared npm and Playwright CLI versions. Vite+ stays
-repository-local.
-
-The dotfile step applies the repo-local chezmoi source state from `chezmoi/`.
-Preview the whole per-user flow with `./dotfiles diff "$profile"`. The power
-step disables system, display, and disk sleep only while the Mac is plugged in.
-Battery settings stay under macOS defaults so laptops still sleep normally
-when unplugged. It prompts for sudo;
-`./dotfiles apply` remains a user-level convergence step.
-`configure-spotlight.sh` is the same host-wide baseline for workstation and
-devbox Macs: it disables indexing on mounted volumes without deleting existing
-index data.
+- The installer applies the profile's dotfiles, installs its mise runtimes, then
+  configures the remaining integrations.
+- The developer mise config pins Node, enables the stable Corepack-managed pnpm
+  default, and installs exact shared npm and Playwright CLI versions. Vite+
+  stays repository-local.
+- The dotfile step applies the repo-local chezmoi source state from `chezmoi/`.
+  Preview the whole per-user flow with `./dotfiles diff "$profile"`.
+- The power step disables system, display, and disk sleep only while the Mac is
+  plugged in. Battery settings stay under macOS defaults so laptops still sleep
+  normally when unplugged. It prompts for sudo; `./dotfiles apply` remains a
+  user-level convergence step.
+- `configure-spotlight.sh` is the same host-wide baseline for workstation and
+  devbox Macs: it disables indexing on mounted volumes without deleting existing
+  index data.
 
 Chrome vertical tabs are a local browser preference. Quit Chrome first, then:
 
@@ -270,16 +285,20 @@ Run every other Homebrew mutation on a shared devbox through the repo wrapper:
 ./scripts/bootstrap/brew-devbox.sh upgrade --cask
 ```
 
-The wrapper requires the current Unix user to own the Homebrew prefix, then
-scopes a group-safe umask to the Homebrew child process. After every attempted
-mutation it restores group read and traverse permissions on prefix-owner-owned
-content, including macOS symlinks, while preserving Homebrew's exit status. It
-does not change content owned by another Unix identity. The devbox bundle
-command uses the wrapper internally; it does not change the caller's shell
-umask. Run these commands once from the owning admin identity, then run the
-devbox bootstrap verification as every Unix identity. Verification disables
-Homebrew auto-update so a read-only package check cannot mutate the shared
-checkout.
+Wrapper contract:
+
+- Requires the current Unix user to own the Homebrew prefix.
+- Scopes a group-safe umask to the Homebrew child process. The caller's shell
+  umask is unchanged.
+- Restores group read and traverse permissions on prefix-owner-owned content,
+  including macOS symlinks, after every attempted mutation, while preserving
+  Homebrew's exit status.
+- Never changes content owned by another Unix identity.
+- The devbox bundle command uses the wrapper internally.
+
+Run these commands once from the owning admin identity, then run the devbox
+bootstrap verification as every Unix identity. Verification disables Homebrew
+auto-update so a read-only package check cannot mutate the shared checkout.
 
 Apply dotfiles:
 
@@ -292,14 +311,15 @@ mise trust
 ./scripts/bootstrap/configure-spotlight.sh
 ```
 
-The installer applies the developer runtime pins before typed agent sync. Mise
-installs Node, the stable Corepack-managed pnpm default, and exact shared npm
-and Playwright CLI versions. Vite+ stays repository-local.
+What each step does:
 
-The power step keeps plugged-in devboxes awake for agents, remote access, and
-always-on dashboards. It leaves battery settings untouched and prompts for sudo
-instead of hiding system changes inside `install.sh`.
-The Spotlight step is the same host-wide baseline used by workstation Macs.
+- The installer applies the developer runtime pins before typed agent sync.
+  Mise installs Node, the stable Corepack-managed pnpm default, and exact shared
+  npm and Playwright CLI versions. Vite+ stays repository-local.
+- The power step keeps plugged-in devboxes awake for agents, remote access, and
+  always-on dashboards. It leaves battery settings untouched and prompts for
+  sudo instead of hiding system changes inside `install.sh`.
+- The Spotlight step is the same host-wide baseline used by workstation Macs.
 
 Configure local Git identity from explicit values. Do not invent these for the
 user. On headless devboxes, prefer a human-provisioned local SSH key file over
@@ -358,15 +378,16 @@ GIT_USER_EMAIL='APP_BOT_NOREPLY_EMAIL' \
 ./dotfiles check assistant
 ```
 
-Start assistants as dedicated Unix users with clean homes. Their Git flow
-writes unsigned workload authorship and configures exact-repository GitHub App
-access; see [Assistant GitHub App](identities.md#assistant-github-app). The
-workload repository owns additional runtimes, providers, channels, and service
-definitions.
-
-Bootstrap verification checks the managed Git base, `gh-app-auth` dispatch,
-and workload identity. Run `./scripts/verify/assistant-git-boundary.sh` for the
-standalone workload boundary check.
+- Start assistants as dedicated Unix users with clean homes.
+- Their Git flow writes unsigned workload authorship and configures
+  exact-repository GitHub App access; see
+  [Assistant GitHub App](identities.md#assistant-github-app).
+- The workload repository owns additional runtimes, providers, channels, and
+  service definitions.
+- Bootstrap verification checks the managed Git base, `gh-app-auth` dispatch,
+  and workload identity.
+- `./scripts/verify/assistant-git-boundary.sh` is the standalone workload
+  boundary check.
 
 When an assistant runs OpenClaw as a system LaunchDaemon, install the explicit
 restart capability with `--allow-openclaw-restart` as documented in

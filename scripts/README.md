@@ -40,9 +40,11 @@ mise trust
 `./dotfiles` is the operator entrypoint. The scripts below it remain narrow
 implementation owners and are also used by repository tests.
 
-Use [Bootstrap](../docs/bootstrap.md) for the required order,
-[Identity provisioning](../docs/identities.md) for Git and credential setup,
-and [User profiles](../docs/profiles.md) for role boundaries.
+| Need | Guide |
+| --- | --- |
+| Required order | [Bootstrap](../docs/bootstrap.md) |
+| Git and credential setup | [Identity provisioning](../docs/identities.md) |
+| Role boundaries | [User profiles](../docs/profiles.md) |
 
 ## Global Agent Setup
 
@@ -53,11 +55,11 @@ mise run agents:sync
 mise run agents:update
 ```
 
-Chezmoi owns global rules and links. The direct skill entrypoint is
-`./scripts/agents/sync.ts`; plugin marketplaces apply through
-`./scripts/agents/plugins.ts`. See [Agent setup](../docs/agents.md) for the
-optional private rule layer, the plugin manifests, and `--update` global skill
-refresh.
+- Chezmoi owns global rules and links.
+- `./scripts/agents/sync.ts` is the direct skill entrypoint.
+- `./scripts/agents/plugins.ts` applies plugin marketplaces.
+- See [Agent setup](../docs/agents.md) for the optional private rule layer, the
+  plugin manifests, and `--update` global skill refresh.
 
 ## Live Audits
 

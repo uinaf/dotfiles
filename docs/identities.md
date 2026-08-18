@@ -30,20 +30,19 @@ provider credentials must remain independently replaceable.
 | Git authorship metadata | required | required | required | required |
 | Provider credentials | identity-scoped | identity-scoped | identity-scoped | workload-scoped |
 
-Personal uses the workstation identity policy. Personal-devbox uses the devbox
-identity policy.
-
-Inbound SSH does not require the workload to own a private SSH key. Put an
-administrator's public key in the target user's `authorized_keys`. Provision a
-private SSH identity for an assistant only when the assistant must initiate an
-SSH connection.
+- Personal uses the workstation identity policy; personal-devbox uses the
+  devbox identity policy.
+- Inbound SSH does not require the workload to own a private SSH key. Put an
+  administrator's public key in the target user's `authorized_keys`.
+- Provision a private SSH identity for an assistant only when the assistant must
+  initiate an SSH connection.
 
 ## Developer Git and SSH
 
-Workstation, personal-workstation, personal-devbox, and devbox users require explicit Git authorship
-and an owner-only, unencrypted local SSH private key for unattended commit
-signing. Agent-backed, encrypted, and public-key-only signing paths are not
-supported.
+`workstation`, `personal-workstation`, `personal-devbox`, and `devbox` users
+require explicit Git authorship and an owner-only, unencrypted local SSH private
+key for unattended commit signing. Agent-backed, encrypted, and public-key-only
+signing paths are unsupported.
 
 If the key comes from a human recovery system, export it in OpenSSH format
 without a passphrase, save it outside this repository, derive its public key,
@@ -66,17 +65,16 @@ GIT_SSH_IDENTITY_FILE="$HOME/.ssh/developer_ed25519" \
   ./scripts/bootstrap/configure-git.sh --profile "$profile" --non-interactive
 ```
 
-`GIT_SSH_IDENTITY_FILE` may point to a different local key. GitHub registers
-authentication and signing keys separately; add the public key for each role
-the deployment uses.
-
-The configurator writes authorship and signing state to `~/.gitconfig.local`.
-When SSH authentication is configured, it writes a managed
-`~/.ssh/github.config` block that selects the local key and disables ambient
-agent identities and key additions for `github.com`. Preserve unrelated
-directives in `~/.ssh/config.local`. Move aside an unmanaged
-`~/.ssh/github.config` or any other `Host github.com` block before running the
-configurator.
+- `GIT_SSH_IDENTITY_FILE` may point to a different local key.
+- GitHub registers authentication and signing keys separately; add the public key
+  for each role the deployment uses.
+- The configurator writes authorship and signing state to `~/.gitconfig.local`.
+- When SSH authentication is configured, it also writes a managed
+  `~/.ssh/github.config` block that selects the local key and disables ambient
+  agent identities and key additions for `github.com`.
+- Keep unrelated directives in `~/.ssh/config.local`.
+- Move aside an unmanaged `~/.ssh/github.config` or any other
+  `Host github.com` block before running the configurator.
 
 ## Workload Git Authorship
 
@@ -94,12 +92,15 @@ GIT_USER_EMAIL='workload@example.invalid' \
 ## SOPS Age Identity
 
 Age calls the private decryption key an **identity** and its derived public
-encryption address a **recipient**. Secret-consuming deployments
-(`personal-devbox`, `devbox`, `assistant`, vault/sudo consumers) require one general
-SOPS age identity per managed Unix user. Portable workstation and personal-workstation
-profiles keep the SOPS CLI without an identity until they decrypt encrypted
-material. Keep sudo-specific age identities separate because they protect a
-different capability and have a different rotation lifecycle.
+encryption address a **recipient**.
+
+- Secret-consuming deployments (`personal-devbox`, `devbox`, `assistant`, and
+  vault or sudo consumers) require one general SOPS age identity per managed
+  Unix user.
+- Portable `workstation` and `personal-workstation` profiles keep the SOPS CLI
+  without an identity until they decrypt encrypted material.
+- Keep sudo-specific age identities separate: they protect a different
+  capability and have a different rotation lifecycle.
 
 Install the selected profile's Homebrew layers, then provision the identity
 when the deployment will decrypt secrets:
@@ -108,9 +109,12 @@ when the deployment will decrypt secrets:
 ./scripts/secrets/configure-sops-age-identity.sh
 ```
 
-The command is idempotent. It creates an identity only when one does not exist,
-sets owner-only permissions, derives the public recipient, and proves a real
-SOPS encrypt/decrypt round trip. It never prints the private identity.
+The command is idempotent:
+
+- Creates an identity only when one does not exist.
+- Sets owner-only permissions and derives the public recipient.
+- Proves a real SOPS encrypt/decrypt round trip.
+- Never prints the private identity.
 
 SOPS' native default paths are used:
 
@@ -182,12 +186,15 @@ git clone https://github.com/example/workspace.git ~/projects/example/workspace
   --repo github.com/example/vault
 ```
 
-The command writes `~/.config/dotfiles/github-app.gitconfig` with mode `0600`.
-The assistant profile includes it globally, resets inherited GitHub credential
-helpers, enables path-aware matching, and delegates directly to `gh-app-auth`.
-Exact patterns remain in the App configuration, so a token is minted only on
-demand for a selected repository. There is no retained `gh auth` login, token
-cache contract, repository-specific wrapper, or refresh daemon.
+- The command writes `~/.config/dotfiles/github-app.gitconfig` with mode
+  `0600`.
+- The assistant profile includes it globally, resets inherited GitHub credential
+  helpers, enables path-aware matching, and delegates directly to
+  `gh-app-auth`.
+- Exact patterns remain in the App configuration, so a token is minted only on
+  demand for a selected repository.
+- Nothing is cached and there is no retained `gh auth` login. Name the
+  repository on every call.
 
 For GitHub CLI or API commands, select the repository explicitly:
 
@@ -195,10 +202,11 @@ For GitHub CLI or API commands, select the repository explicitly:
 gh app-auth exec --repo github.com/example/workspace -- gh repo view
 ```
 
-Run the configurator once per App scope change and use `--check` for routine
-verification. Do not use `gh app-auth gitconfig`; its generated URL sections
-can collapse multiple exact repositories under the same organization. The
-dotfiles-owned path-aware helper avoids that ambiguity.
+- Run the configurator once per App scope change; use `--check` for routine
+  verification.
+- Do not use `gh app-auth gitconfig`: its generated URL sections can collapse
+  multiple exact repositories under the same organization. The dotfiles-owned
+  path-aware helper avoids that ambiguity.
 
 ## Back Up and Verify Recovery
 
@@ -243,11 +251,15 @@ identity provisioning, and local verification.
 For a new vault, the optional
 [SOPS vault template](https://github.com/uinaf/sops-vault-template) provides a
 small standalone starting point with recipient policy, safe create/edit
-commands, and verification. Create a private repository from the template,
-replace its example recipients with the public recovery and deployment
-recipients, then run `mise run verify`. The generated repository owns its copied
-scripts and policy; it does not depend on this dotfiles repository or the
-template after creation.
+commands, and verification:
+
+1. Create a private repository from the template.
+2. Replace its example recipients with the public recovery and deployment
+   recipients.
+3. Run `mise run verify`.
+
+The generated repository owns its copied scripts and policy; it does not depend
+on this dotfiles repository or the template after creation.
 
 Safe repository state may include:
 

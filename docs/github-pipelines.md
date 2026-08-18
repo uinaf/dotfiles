@@ -41,6 +41,7 @@ a later push cannot interrupt an in-progress release.
 
 ## Maintenance
 
-Dependabot tracks GitHub Actions monthly. Keep Actions and semantic-release
-plugins pinned, keep `.releaserc.json` aligned with the table above, and verify
-workflow changes on GitHub before closing them.
+- Dependabot tracks GitHub Actions monthly.
+- Keep Actions and semantic-release plugins pinned.
+- Keep `.releaserc.json` aligned with the table above.
+- Verify workflow changes on GitHub before closing them.

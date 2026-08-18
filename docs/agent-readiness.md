@@ -13,13 +13,13 @@ mise run verify:fast
 mise run verify
 ```
 
-Each domain declares its inputs and proof in the
-[verification registry](../scripts/verify/checks.json).
-Checks marked `complete only` cover cross-domain parity and stay out of focused
-domain runs.
-`mise run verify:fast` runs every deterministic check in parallel. `mise run
-verify` also runs Gitleaks and TruffleHog against full history. CI always runs
-the complete deterministic graph.
+- Each domain declares its inputs and proof in the
+  [verification registry](../scripts/verify/checks.json).
+- Checks marked `complete only` cover cross-domain parity and stay out of focused
+  domain runs.
+- `mise run verify:fast` runs every deterministic check in parallel.
+- `mise run verify` also runs Gitleaks and TruffleHog against full history.
+- CI always runs the complete deterministic graph.
 
 Install the focused commit-hygiene hook with:
 
@@ -27,10 +27,11 @@ Install the focused commit-hygiene hook with:
 ./scripts/verify/install-pre-push-hook.sh
 ```
 
-The hook reads the ref updates supplied by Git and checks only outgoing commit
-objects for whitespace and conflict-marker errors. It does not inspect the
-working tree or run repository domains. Like every local hook, it can be
-bypassed with `git push --no-verify`; CI is the enforcement boundary.
+- The hook reads the ref updates supplied by Git and checks only outgoing commit
+  objects for whitespace and conflict-marker errors.
+- It leaves the working tree and repository domains alone.
+- Like every local hook, it can be bypassed with `git push --no-verify`. CI is
+  the enforcement boundary.
 
 ## Live Proof
 

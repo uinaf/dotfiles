@@ -12,10 +12,11 @@ secret values remain local or in an approved recovery system.
 
 ## Choose a Profile
 
-Profiles apply to one Unix user. Host-wide Homebrew, power, Spotlight,
-Tailscale, and LaunchDaemon state still requires an authorized administrator.
-Choose the profile and software layers in [User profiles](docs/profiles.md)
-before configuring one or more users on a Mac.
+- Profiles apply to one Unix user.
+- Host-wide Homebrew, power, Spotlight, Tailscale, and LaunchDaemon state still
+  requires an authorized administrator.
+- Choose the profile and software layers in [User profiles](docs/profiles.md)
+  before configuring one or more users on a Mac.
 
 ## Install
 
@@ -75,10 +76,12 @@ mise run verify:fast
 mise run verify
 ```
 
-The fast task runs the deterministic graph. The complete task also scans full
-Git history. CI always runs the deterministic graph. Live profile and host
-checks are documented in [Agent readiness](docs/agent-readiness.md) and
-[Security audits](docs/security-audits.md).
+- `verify:fast` runs the deterministic graph.
+- `verify` also scans full Git history.
+- CI always runs the deterministic graph.
+- Live profile and host checks live in
+  [Agent readiness](docs/agent-readiness.md) and
+  [Security audits](docs/security-audits.md).
 
 ## Documentation
 

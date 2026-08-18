@@ -3,16 +3,20 @@
 Security audits in this repo are check-only by default. They make drift visible
 without applying remediation.
 
-Treat local audit stdout and saved logs as sensitive. Workstation and devbox
-local Gitleaks scans write an owner-only temporary report (outside the staged
-scan tree) and print only sanitized locators in prose mode (`rule` and staged
-relative `path`). Compact `--json` mode exposes aggregate finding counts by
-rule ID and never includes matched secret material. Sanitized locators and rule
-aggregates use the repository's typed Node tooling; without Node the scan still
-fails closed on a non-zero Gitleaks status but omits locators. Other maintained scanners can
-still include matched material in their own prose output; use `--json` for
-remote collection, and do not paste raw scanner output into issues, pull
-requests, or chat.
+Treat local audit stdout and saved logs as sensitive.
+
+- Workstation and devbox local Gitleaks scans write an owner-only temporary
+  report outside the staged scan tree.
+- Prose mode prints only sanitized locators: `rule` and the staged relative
+  `path`.
+- Compact `--json` mode exposes aggregate finding counts by rule ID and never
+  includes matched secret material.
+- Sanitized locators and rule aggregates use the repository's typed Node
+  tooling. Without Node the scan still fails closed on a non-zero Gitleaks
+  status but omits locators.
+- Other maintained scanners can still include matched material in their own
+  prose output. Use `--json` for remote collection, and do not paste raw scanner
+  output into issues, pull requests, or chat.
 
 Live credential stores are checked against their own boundaries instead of
 failing merely because they contain credentials. For example, `~/.npmrc` is
@@ -52,29 +56,38 @@ For agent or dashboard consumption, add `--json`:
 mise run audit repo --format json
 ```
 
-JSON summaries use `status=pass` only when there are no failures or warnings,
-`status=warn` when checks completed with warnings, and `status=fail` when any
-check failed.
+JSON summaries carry one `status`:
+
+| Value | Meaning |
+| --- | --- |
+| `status=pass` | No failures and no warnings |
+| `status=warn` | Checks completed with warnings |
+| `status=fail` | At least one check failed |
 
 ## Finding Severity
 
 Local Gitleaks severity policy lives in
-`scripts/audit/gitleaks-policy.json`. Unknown rules default to `high` and fail
-the audit. `low` and `medium` findings warn; `high` and `critical` findings
-fail. The `generic-api-key` rule is `low` because it is heuristic and commonly
-matches shell assignment history. Findings verified by TruffleHog still fail
-independently.
+`scripts/audit/gitleaks-policy.json`.
 
-JSON summaries include finding totals grouped by Gitleaks rule and severity.
-The policy changes the audit outcome, not the scanner output or the sanitized
-locators.
+| Severity | Audit outcome |
+| --- | --- |
+| `low`, `medium` | Warn |
+| `high`, `critical` | Fail |
+| Unknown rule | Treated as `high`, so it fails |
+
+- The `generic-api-key` rule is `low` because it is heuristic and commonly
+  matches shell assignment history.
+- Findings verified by TruffleHog still fail independently.
+- JSON summaries include finding totals grouped by Gitleaks rule and severity.
+- The policy changes the audit outcome, not the scanner output or the sanitized
+  locators.
 
 ## Local Audit Policy
 
-Shared audit policy lives in `~/.config/dotfiles/audit.env`, installed from the
-tracked `chezmoi/private_dot_config/private_dotfiles/audit.env`. Keep it public-safe: it may contain
-accepted scope names and drift thresholds, but never secrets, tokens, 1Password
-references, or identity-specific values.
+- Shared audit policy lives in `~/.config/dotfiles/audit.env`, installed from
+  the tracked `chezmoi/private_dot_config/private_dotfiles/audit.env`.
+- Keep it public-safe: accepted scope names and drift thresholds are allowed,
+  but never secrets, tokens, 1Password references, or identity-specific values.
 
 GitHub CLI scope checks use this file:
 
@@ -83,17 +96,16 @@ GH_SENSITIVE_SCOPES="delete_repo workflow admin:org admin:public_key admin:repo_
 GH_ACCEPTED_SCOPES="delete_repo workflow admin:org admin:public_key admin:repo_hook write:packages"
 ```
 
-Scopes in `GH_SENSITIVE_SCOPES` are audited centrally. A scope also
-listed in `GH_ACCEPTED_SCOPES` is reported as accepted by policy instead
-of warning. Override with `AUDIT_POLICY_FILE=/path/to/file` for local
-experiments.
+- Scopes in `GH_SENSITIVE_SCOPES` are audited centrally.
+- A scope also listed in `GH_ACCEPTED_SCOPES` is reported as accepted by policy
+  instead of warning.
+- Override with `AUDIT_POLICY_FILE=/path/to/file` for local experiments.
 
-GitHub Actions also runs Gitleaks and TruffleHog on pushes to `main`, pull
-requests, weekly schedule, and manual dispatch through
-`.github/workflows/secrets.yml`.
-The separate Verify workflow skips scanner work in CI and leaves that surface
-to the dedicated Secret scanning workflow. See
-[GitHub pipelines](github-pipelines.md) for the workflow split.
+GitHub Actions runs Gitleaks and TruffleHog through
+`.github/workflows/secrets.yml` on pushes to `main`, pull requests, a weekly
+schedule, and manual dispatch. The Verify workflow leaves that surface to the
+dedicated Secret scanning workflow; see
+[GitHub pipelines](github-pipelines.md) for the split.
 
 If either scanner reports a real secret:
 
@@ -112,19 +124,21 @@ logic:
 mise run audit host
 ```
 
-Use `mise run audit host --format json` when an agent needs a compact
-summary. The default run does not prompt for sudo, so it is safe for routine
-workstation and devbox checks. For a deeper local audit:
+- `mise run audit host --format json` gives an agent a compact summary.
+- The default run does not prompt for sudo, so it is safe for routine
+  workstation and devbox checks.
+
+For a deeper local audit:
 
 ```zsh
 node scripts/audit/host.ts --allow-sudo-prompt
 ```
 
-The typed adapter captures Lynis output in a temporary owner-only directory,
-summarizes the hardening index, warning count, and suggestion count, then
-deletes the full report. Use `--keep-artifacts DIR` only for manual review;
-Lynis reports can contain hostnames, local paths, package inventory, and
-network details.
+- The typed adapter captures Lynis output in a temporary owner-only directory,
+  summarizes the hardening index, warning count, and suggestion count, then
+  deletes the full report.
+- Use `--keep-artifacts DIR` only for manual review: Lynis reports can contain
+  hostnames, local paths, package inventory, and network details.
 
 Treat Lynis as a discovery tool, not a policy engine. Review warnings and
 suggestions, decide what fits a workstation or shared devbox setup, then encode
@@ -150,16 +164,17 @@ PATH="$PWD/.venv/bin:$PATH" ./mscp.py --os_name macos --os_version 26 guidance \
   custom/baselines/800-53r5_moderate_macos_26.0.yaml --script --no-docs
 ```
 
-Replace `26` with the host's macOS major version. mSCP 2.0 uses one `main`
-branch and writes the generated script under `build/` with the platform and
-major version in its name. The audit derives that default path from
-`sw_vers`; use `--mscp-script` for a custom path.
-
-mSCP remains optional and external. Its rule model provides control IDs,
-references, tags, and severity, but the generated host checks are still shell.
-It is useful for macOS compliance baselines, not as the policy engine for this
-repo's workstation and devbox boundaries. The bootstrap does not install its
-Python dependencies.
+- Replace `26` with the host's macOS major version.
+- mSCP 2.0 uses one `main` branch and writes the generated script under `build/`
+  with the platform and major version in its name.
+- The audit derives that default path from `sw_vers`; use `--mscp-script` for a
+  custom path.
+- mSCP remains optional and external, and the bootstrap does not install its
+  Python dependencies.
+- Its rule model provides control IDs, references, tags, and severity, but the
+  generated host checks are still shell.
+- Use it for macOS compliance baselines, not as the policy engine for this
+  repo's workstation and devbox boundaries.
 
 Then run:
 
@@ -179,10 +194,10 @@ Run this from a normal workstation user:
 mise run audit workstation
 ```
 
-Use `mise run audit workstation --format json` when an agent needs a compact
-status summary. Workstation policy is declared in `scripts/audit/workstation.ts`
-and executed by the typed engine in `scripts/audit/engine.ts`; it does not use a
-shell runner.
+- `mise run audit workstation --format json` gives an agent a compact status
+  summary.
+- Workstation policy is declared in `scripts/audit/workstation.ts` and executed
+  by the typed engine in `scripts/audit/engine.ts`.
 
 It checks:
 

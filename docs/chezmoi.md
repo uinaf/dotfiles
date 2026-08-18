@@ -25,26 +25,36 @@ Use chezmoi source attributes instead of literal target filenames:
 The `private_` attribute is used for parent config directories and files that
 should land as owner-only local config.
 
-Personal-workstation and workstation manage Ghostty settings. All four
-developer profiles share GitHub authentication, outbound SSH, signing-helper,
-and allowed-signers sources. The assistant profile renders a minimal
-Git base with a local workload-identity include and exclude those developer
-surfaces; only assistant includes the optional GitHub App helper.
+Profile differences:
 
-All four developer profiles set `permissions.defaultMode=auto` in the Claude
-Code user settings. The modify template preserves every other setting,
-including the complete `env` object. User settings are the lowest-precedence
-Claude Code scope; project, local, command-line, and managed settings can
-override this default. The repository does not manage Claude Code environment
-values or `~/.claude.json`.
+- Personal-workstation and workstation manage Ghostty settings.
+- All four developer profiles share GitHub authentication, outbound SSH,
+  signing-helper, and allowed-signers sources.
+- The assistant profile renders a minimal Git base with a local
+  workload-identity include and excludes those developer surfaces. Only
+  assistant includes the optional GitHub App helper.
 
-The developer SSH entrypoint is exclusively Chezmoi-managed. Host-specific
-directives belong in `~/.ssh/config.local`, and tools that support a configurable
-output path should own a fragment under `~/.ssh/config.d/*.conf`. Tools with a
-fixed generated path receive a stable managed include; for example, Colima owns
-and regenerates `~/.colima/ssh_config` as its virtual machines start and stop.
-Do not preserve arbitrary mutations to `~/.ssh/config`: route each writer to its
-own included file so unexpected changes remain visible as drift.
+Claude Code user settings:
+
+- All four developer profiles set `permissions.defaultMode=auto`.
+- The modify template preserves every other setting, including the complete
+  `env` object.
+- User settings are the lowest-precedence Claude Code scope; project, local,
+  command-line, and managed settings can override this default.
+- The repository does not manage Claude Code environment values or
+  `~/.claude.json`.
+
+SSH config ownership:
+
+- The developer SSH entrypoint is exclusively Chezmoi-managed.
+- Host-specific directives belong in `~/.ssh/config.local`.
+- Tools that support a configurable output path should own a fragment under
+  `~/.ssh/config.d/*.conf`.
+- Tools with a fixed generated path receive a stable managed include. For
+  example, Colima owns and regenerates `~/.colima/ssh_config` as its virtual
+  machines start and stop.
+- Do not preserve arbitrary mutations to `~/.ssh/config`: route each writer to
+  its own included file so unexpected changes remain visible as drift.
 
 Use attributes deliberately:
 
