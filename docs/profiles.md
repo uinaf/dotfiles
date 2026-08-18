@@ -93,6 +93,8 @@ Runtimes and dotfiles:
   [Agent setup](agents.md).
 - Both workstation profiles manage Zed settings and keymap through chezmoi
   and set `EDITOR`/`VISUAL` to `zed --wait`. Headless profiles keep `vim`.
+  Zed stays a thin editor: vim on, AI off, telemetry off, and collaboration
+  chrome hidden.
 - The assistant mise config contains only Node. Workload repositories own
   OpenClaw, Hermes, model providers, containers, process supervision, language
   runtimes, and other framework-specific packages.

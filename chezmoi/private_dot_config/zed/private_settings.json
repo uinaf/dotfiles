@@ -6,17 +6,25 @@
     "dock": "left",
   },
   "collaboration_panel": {
+    "button": false,
     "dock": "left",
   },
   "agent": {
-    "dock": "right",
-    "favorite_models": [],
-    "model_parameters": [],
+    "button": false,
   },
   "git_panel": {
     "dock": "left",
   },
   "disable_ai": true,
+  "show_call_status_icon": false,
+  "title_bar": {
+    "show_onboarding_banner": false,
+    "show_user_picture": false,
+    "show_sign_in": false,
+  },
+  "toolbar": {
+    "agent_review": false,
+  },
   "telemetry": {
     "diagnostics": false,
     "metrics": false,
