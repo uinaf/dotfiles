@@ -91,7 +91,8 @@ Runtimes and dotfiles:
 - Developer-profile install flows apply machine-global instructions through
   chezmoi and sync additive skills from `scripts/agents/`; see
   [Agent setup](agents.md).
-- Both workstation profiles manage Zed settings and keymap through chezmoi.
+- Both workstation profiles manage Zed settings and keymap through chezmoi
+  and set `EDITOR`/`VISUAL` to `zed --wait`. Headless profiles keep `vim`.
 - The assistant mise config contains only Node. Workload repositories own
   OpenClaw, Hermes, model providers, containers, process supervision, language
   runtimes, and other framework-specific packages.
