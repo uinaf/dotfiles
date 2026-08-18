@@ -446,6 +446,10 @@ can hang.
 
 - If `brew bundle check` fails, run the matching `brew-bundle.sh` profile and
   retry verification.
+- If the `brew bundle drift` verification fails, packages are installed that no
+  profile layer declares (usually casks dropped from a Brewfile, which
+  `brew bundle` never uninstalls). Run
+  `./scripts/bootstrap/brew-bundle.sh --cleanup <profile>` to remove them.
 - If historical prefix-owner content is unreadable to another devbox identity,
   run `brew-devbox.sh --repair-shared-readability` as the prefix owner, then
   retry verification. The repair is additive and owner-scoped; investigate

@@ -79,8 +79,8 @@ What each layer supplies:
   1Password and its CLI, Slack, T3 Code, Zed, Ghostty, and YubiKey Manager.
 - `Brewfile.personal`, used by both personal profiles: App Store Connect CLI,
   Attach, Crabbox, Discrawl, Gitcrawl, putio-cli, and Mole. Only
-  `personal-workstation` also gets personal GUI applications such as Slopwake,
-  plus `mas`.
+  `personal-workstation` also gets personal applications such as Slopwake and
+  the Google Cloud CLI, plus `mas`.
 - `Brewfile.assistant`: portable document, media, Google, and macOS automation
   tools.
 - Coding stays in T3 Code, Zed, and the managed Codex, Claude Code, OpenCode,

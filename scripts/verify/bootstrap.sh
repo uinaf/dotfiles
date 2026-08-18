@@ -392,6 +392,7 @@ check_assistant_tools() {
 
 check_brew_bundle() {
   local file
+  local drift
 
   section "brew bundle checks"
   dotfiles_homebrew_configure_external_capabilities "$repo_root" "$profile" ||
@@ -400,6 +401,14 @@ check_brew_bundle() {
     dotfiles_homebrew_bundle_check "$repo_root/$file" "$profile" \
       || fail "missing Homebrew dependencies from $file"
   done < <(dotfiles_profile_brewfiles "$profile")
+
+  section "brew bundle drift"
+  if drift="$(dotfiles_homebrew_bundle_drift "$repo_root" "$profile")"; then
+    printf 'ok no installed packages outside the profile manifests\n'
+  else
+    printf '%s\n' "$drift"
+    fail "installed Homebrew packages drift from the profile manifests; run scripts/bootstrap/brew-bundle.sh --cleanup $profile"
+  fi
 }
 
 check_devbox_homebrew() {

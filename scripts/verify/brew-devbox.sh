@@ -272,6 +272,23 @@ run_brew_bundle "$tmp_dir/isolated-ambient.log" --home "$host_home" devbox
 [ "$(grep -c '^arg=bundle$' "$tmp_dir/isolated-ambient.log")" -eq 3 ] \
   || fail "isolated fixture still read ambient workstation Homebrew capabilities"
 
+cleanup_log="$tmp_dir/cleanup.log"
+: >"$cleanup_log"
+run_brew_bundle "$cleanup_log" --home "$host_home" --cleanup devbox
+[ "$(grep -c '^arg=bundle$' "$cleanup_log")" -eq 4 ] \
+  || fail "--cleanup did not install the 3 layers before cleaning"
+grep -Fq 'arg=cleanup' "$cleanup_log" || fail "--cleanup did not run brew bundle cleanup"
+grep -Fq 'arg=--force' "$cleanup_log" || fail "--cleanup did not force the removal"
+if ls "$repo_root"/Brewfile.composed.* >/dev/null 2>&1; then
+  fail "--cleanup left a composed Brewfile behind"
+fi
+
+set +e
+"$repo_root/scripts/bootstrap/brew-bundle.sh" --cleanup --shared-only devbox >/dev/null 2>&1
+status=$?
+set -e
+[ "$status" -eq 2 ] || fail "--cleanup with --shared-only was not rejected"
+
 set +e
 "$repo_root/scripts/bootstrap/brew-bundle.sh" --shared-only >/dev/null 2>&1
 status=$?
