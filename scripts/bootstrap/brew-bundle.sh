@@ -19,10 +19,8 @@ Usage:
   scripts/bootstrap/brew-bundle.sh personal-workstation
   scripts/bootstrap/brew-bundle.sh personal-devbox
   scripts/bootstrap/brew-bundle.sh assistant
-  scripts/bootstrap/brew-bundle.sh assistant
   scripts/bootstrap/brew-bundle.sh --shared-only workstation
   scripts/bootstrap/brew-bundle.sh --shared-only devbox
-  scripts/bootstrap/brew-bundle.sh --shared-only assistant
   scripts/bootstrap/brew-bundle.sh --shared-only assistant
   scripts/bootstrap/brew-bundle.sh --print-files PROFILE
 
