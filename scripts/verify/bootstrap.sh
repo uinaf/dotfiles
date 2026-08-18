@@ -98,6 +98,7 @@ developer_cli_checks=(
   "java -version"
   "codex --version"
   "claude --version"
+  "pi --version"
   "cursor-agent --version"
   "slopguard version"
   "slopmachine version"

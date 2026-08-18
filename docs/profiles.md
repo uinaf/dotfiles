@@ -67,7 +67,7 @@ Brewfile order per profile:
 What each layer supplies:
 
 - `Brewfile.developer`, shared by `personal-workstation`, `personal-devbox`,
-  `workstation`, and `devbox`: Codex CLI, Claude Code CLI, opencode,
+  `workstation`, and `devbox`: Codex CLI, Claude Code CLI, OpenCode, Pi,
   slopguard, slopmachine, Watchman, Docker and its credential helper, AWS CLI,
   XcodeGen, `xcodes`, Android command-line tools, and the shell, secret, and
   network scanning tools.
@@ -84,7 +84,7 @@ What each layer supplies:
 - `Brewfile.assistant`: portable document, media, Google, and macOS automation
   tools.
 - Coding stays in T3 Code, Zed, and the managed Codex, Claude Code, OpenCode,
-  Grok Build, and Cursor Agent CLIs. ChatGPT and Cursor desktop are absent.
+  Pi, Grok Build, and Cursor Agent CLIs. ChatGPT and Cursor desktop are absent.
 
 Runtimes and dotfiles:
 
