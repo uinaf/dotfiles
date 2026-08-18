@@ -63,6 +63,26 @@ dotfiles_homebrew_bundle_check() {
     brew bundle check --no-upgrade --file "$file"
 }
 
+# Homebrew refuses formulae and casks from untrusted third-party taps once
+# trust enforcement is available; older Homebrew has no trust command and
+# needs no step. Trust is stored per user, so shared prefixes need no wrapper.
+dotfiles_homebrew_trust_taps() {
+  local repo_root="$1"
+  shift
+  local file tap
+
+  brew trust --help >/dev/null 2>&1 || return 0
+  for file in "$@"; do
+    while IFS= read -r tap; do
+      [ -n "$tap" ] || continue
+      brew trust "$tap" >/dev/null || {
+        printf 'failed to trust tap %s; a managed Homebrew that refuses trust must supply its entries through the external-homebrew contract\n' "$tap" >&2
+        return 1
+      }
+    done < <(awk -F'"' '$1 == "tap " { print $2 }' "$repo_root/$file")
+  done
+}
+
 dotfiles_homebrew_fail_external() {
   printf 'invalid external Homebrew capability: %s\n' "$1" >&2
   return 1

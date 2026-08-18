@@ -122,8 +122,13 @@ profile=workstation # use personal-workstation for the personal layers
 ./scripts/bootstrap/brew-bundle.sh "$profile"
 ```
 
-For externally supplied Brewfile entries, configure the local validation
-contract in [User profiles](profiles.md#externally-managed-homebrew-capabilities).
+The script trusts each third-party tap declared in the selected Brewfiles
+(`brew trust`) before bundling; Homebrew versions without trust enforcement
+skip the step.
+
+For externally supplied Brewfile entries, or a managed Homebrew that refuses
+tap trust, configure the local validation contract in
+[User profiles](profiles.md#externally-managed-homebrew-capabilities).
 
 On `personal-workstation` only, remove bundled Mac App Store apps this setup
 does not use:

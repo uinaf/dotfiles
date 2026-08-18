@@ -113,13 +113,15 @@ run_bundle() {
 }
 
 if [ "$shared_only" -eq 1 ]; then
-  run_bundle "$repo_root/Brewfile"
+  brewfiles=(Brewfile)
 else
   brewfiles=()
   while IFS= read -r file; do
     brewfiles+=("$file")
   done < <(dotfiles_profile_brewfiles "$profile")
-  for file in "${brewfiles[@]}"; do
-    run_bundle "$repo_root/$file"
-  done
 fi
+
+dotfiles_homebrew_trust_taps "$repo_root" "${brewfiles[@]}"
+for file in "${brewfiles[@]}"; do
+  run_bundle "$repo_root/$file"
+done
