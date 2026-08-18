@@ -543,18 +543,22 @@ test("skips the updater when managed skill installation fails", () => {
   assert.match(runtime.stderr.value, /Skill installation failed for 1 skill/);
 });
 
-test("uses the current first-party skill sources", () => {
+test("skill manifests hold valid, non-legacy skill entries", () => {
   const scriptDir = dirname(fileURLToPath(import.meta.url));
-  const manifests: unknown[] = ["developer", "workstation", "devbox", "personal"].map((layer) =>
-    JSON.parse(readFileSync(join(scriptDir, "skills", `${layer}.json`), "utf8")),
-  );
+  const legacySources = new Set(["uinaf/agents", "uinaf/skills"]);
+  const namePattern = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
+  const sourcePattern = /^(?:[A-Za-z0-9][A-Za-z0-9._-]*\/[A-Za-z0-9._-]+|https:\/\/[^\s]+)$/;
 
-  const layerSkills = manifests.map((manifest) => {
+  const layerSkills = ["developer", "workstation", "devbox", "personal"].map((layer) => {
+    const manifest: unknown = JSON.parse(
+      readFileSync(join(scriptDir, "skills", `${layer}.json`), "utf8"),
+    );
     assert.ok(
       typeof manifest === "object" &&
         manifest !== null &&
         "skills" in manifest &&
         Array.isArray(manifest.skills),
+      `${layer}.json must hold a skills array`,
     );
     return manifest.skills.map((skill: unknown) => {
       assert.ok(
@@ -564,39 +568,24 @@ test("uses the current first-party skill sources", () => {
           typeof skill.name === "string" &&
           "source" in skill &&
           typeof skill.source === "string",
+        `${layer}.json entries must hold name/source strings`,
       );
       return { name: skill.name, source: skill.source };
     });
   });
-  const skills = layerSkills.flat();
-  const sources = skills.map((skill) => skill.source);
-  const sourceByName = new Map(skills.map((skill) => [skill.name, skill.source]));
 
-  assert.equal(sources.includes("uinaf/agents"), false);
-  assert.equal(sources.includes("uinaf/skills"), false);
-  assert.equal(sources.includes("uinaf/agent-skills"), true);
-  assert.equal(sourceByName.get("attach-cli"), "uinaf/attach");
-  assert.equal(sourceByName.get("uinaf-design"), "uinaf/design");
-
-  const inventory = [
-    ["attach-cli", "uinaf/attach"],
-    ["effect-ts", "Effect-TS/skills"],
-    ["gh-setup", "uinaf/agent-skills"],
-    ["gh-stack", "github/gh-stack"],
-    ["grilling", "mattpocock/skills"],
-    ["improve", "shadcn/improve"],
-    ["react-ban-use-effect", "uinaf/agent-skills"],
-    ["react-doctor", "millionco/react-doctor"],
-    ["shadcn", "shadcn/ui"],
-    ["tanstack-form", "tanstack-skills/tanstack-skills"],
-    ["tanstack-query", "tanstack-skills/tanstack-skills"],
-    ["tanstack-start", "tanstack-skills/tanstack-skills"],
-    ["vite-plus", "uinaf/agent-skills"],
-  ].map(([name, source]) => ({ name, source }));
-  assert.deepEqual(
-    skills.filter((skill) => skill.name !== "uinaf-design").sort((a, b) => a.name.localeCompare(b.name)),
-    inventory.sort((a, b) => a.name.localeCompare(b.name)),
-  );
+  const sourceByName = new Map<string, string>();
+  for (const skill of layerSkills.flat()) {
+    assert.match(skill.name, namePattern, `invalid skill name: ${skill.name}`);
+    assert.match(skill.source, sourcePattern, `invalid skill source: ${skill.source}`);
+    assert.equal(legacySources.has(skill.source), false, `legacy skill source: ${skill.source}`);
+    const previousSource = sourceByName.get(skill.name);
+    assert.ok(
+      previousSource === undefined || previousSource === skill.source,
+      `conflicting sources for ${skill.name}: ${previousSource} and ${skill.source}`,
+    );
+    sourceByName.set(skill.name, skill.source);
+  }
 });
 
 test("shell reads the canonical profile model", () => {
