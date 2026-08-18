@@ -20,7 +20,6 @@ unset \
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 zprofile="$repo_root/chezmoi/dot_zprofile"
-zshrc="$repo_root/chezmoi/dot_zshrc"
 test_home="$(mktemp -d "${TMPDIR:-/tmp}/dotfiles-zsh-prompt.XXXXXX")"
 
 cleanup() {
@@ -31,6 +30,13 @@ trap cleanup EXIT
 mkdir -p "$test_home/.config/dotfiles"
 touch "$test_home/.config/dotfiles/devbox.env"
 ln -s "$zprofile" "$test_home/.zprofile"
+zshrc="$test_home/.zshrc.rendered"
+data='{"dotfilesProfile":"personal-devbox"}'
+chezmoi \
+  --source "$repo_root/chezmoi" \
+  --destination "$test_home" \
+  --override-data "$data" \
+  cat "$test_home/.zshrc" > "$zshrc"
 mkdir -p \
   "$test_home/.local/bin" \
   "$test_home/Library/Android/sdk/platform-tools" \

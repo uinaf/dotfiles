@@ -532,6 +532,25 @@ assert_eq assistant "$(render_target assistant .config/dotfiles/profile)" "rende
 assert_eq personal-workstation "$(render_target personal-workstation .config/dotfiles/profile)" "rendered personal workstation profile"
 assert_eq personal-devbox "$(render_target personal-devbox .config/dotfiles/profile)" "rendered personal devbox profile"
 
+for workstation_profile in workstation personal-workstation; do
+  workstation_zshrc="$(render_target "$workstation_profile" .zshrc)"
+  printf '%s\n' "$workstation_zshrc" | grep -Fqx 'export EDITOR="zed --wait"' \
+    || fail "$workstation_profile zshrc missed Zed editor"
+  printf '%s\n' "$workstation_zshrc" | grep -Fqx 'export VISUAL="zed --wait"' \
+    || fail "$workstation_profile zshrc missed Zed visual"
+  if printf '%s\n' "$workstation_zshrc" | grep -Fqx 'export EDITOR="vim"'; then
+    fail "$workstation_profile zshrc retained vim editor"
+  fi
+done
+for headless_profile in personal-devbox devbox assistant; do
+  headless_zshrc="$(render_target "$headless_profile" .zshrc)"
+  printf '%s\n' "$headless_zshrc" | grep -Fqx 'export EDITOR="vim"' \
+    || fail "$headless_profile zshrc missed vim editor"
+  if printf '%s\n' "$headless_zshrc" | grep -Eq 'zed --wait'; then
+    fail "$headless_profile zshrc selected Zed"
+  fi
+done
+
 assistant_managed="$({
   data='{"dotfilesProfile":"assistant"}'
   chezmoi \
