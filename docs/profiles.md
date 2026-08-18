@@ -84,8 +84,9 @@ What each layer supplies:
 - `Brewfile.assistant`: portable document, media, Google, and macOS automation
   tools.
 - Developer profiles manage the Codex, Claude Code, OpenCode, and Cursor Agent
-  CLIs. Personal profiles add Pi; personal workstations add T3 Code, Zed, and
-  Grok Build. ChatGPT and Cursor desktop are absent.
+  CLIs. Personal profiles add Pi, workstation profiles add T3 Code and Zed,
+  and personal workstations add Grok Build. ChatGPT and Cursor desktop are
+  absent.
 
 Runtimes and dotfiles:
 
