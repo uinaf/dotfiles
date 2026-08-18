@@ -93,5 +93,6 @@ mise run audit devbox
   coordinates such as this repository, a tap, or the security contact.
 - Treat Git tags and GitHub Releases as the version boundary. Do not add a
   package manifest, checked-in version file, or release bump commit.
-- Use proper-case headings, sentence-case prose, short direct paragraphs, no
-  emoji, and no marketing copy.
+- Use proper-case headings and sentence-case prose. Prefer bullets, tables, and
+  short labeled lines over paragraphs; keep a paragraph for rationale only. No
+  emoji and no marketing copy.

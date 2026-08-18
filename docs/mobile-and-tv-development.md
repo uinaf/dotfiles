@@ -4,14 +4,17 @@ Manual setup for Apple and Android app development on a workstation Mac. The
 shared toolchain supports mobile apps; the additional steps below cover React
 Native TV targets that need both Apple TV and Android TV simulators.
 
-The dotfiles install Android Studio, Xcode tooling, Watchman, and a Temurin 21
-JDK via mise. They also select the Android Studio SDK at
-`~/Library/Android/sdk`, falling back to Homebrew's command-line-tools SDK on
-headless developer profiles, and put its platform tools, emulator, and command
-line tools on `PATH`. CocoaPods and Fastlane remain project-owned so their
-versions match the target repository. Everything below is per-machine state
-that the repo does not automate, because the steps require sudo, GUI flows,
-large SDK downloads, or license acceptance.
+What the dotfiles already install:
+
+- Android Studio, Xcode tooling, Watchman, and a Temurin 21 JDK via mise.
+- The Android Studio SDK at `~/Library/Android/sdk`, falling back to Homebrew's
+  command-line-tools SDK on headless developer profiles.
+- That SDK's platform tools, emulator, and command line tools on `PATH`.
+
+CocoaPods and Fastlane remain project-owned so their versions match the target
+repository. Everything below is per-machine state the repo does not automate,
+because the steps require sudo, GUI flows, large SDK downloads, or license
+acceptance.
 
 ## Xcode and tvOS Simulator
 
@@ -117,10 +120,11 @@ cd ios
 bundle exec pod install
 ```
 
-Developer profiles provide modern Ruby through mise. A repository with a
-different Ruby requirement must pin that version in its own `mise.toml` or
-`.ruby-version`, and invoke Bundler/Fastlane through that project environment.
-Do not install Homebrew Ruby, CocoaPods, or Fastlane globally.
+- Developer profiles provide modern Ruby through mise.
+- A repository with a different Ruby requirement must pin that version in its own
+  `mise.toml` or `.ruby-version`, and invoke Bundler or Fastlane through that
+  project environment.
+- Do not install Homebrew Ruby, CocoaPods, or Fastlane globally.
 
 ## Watchman
 

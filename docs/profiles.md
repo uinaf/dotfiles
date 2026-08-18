@@ -13,77 +13,103 @@ host and they are not a security boundary by themselves.
 | `devbox` | Remote coding identity on an SSH-first host | Coding agents, Git/GitHub, SDKs, containers, and verification tools |
 | `assistant` | Unattended persona or agent identity | Minimal agent runtime, browser, and scoped GitHub App access |
 
-Choose `workstation` when another trusted system may supply or govern software.
-Choose `personal-workstation` when this repository should own the full personal
-workstation contract. Choose `personal-devbox` for an owner-operated devbox
-that should receive the additive personal formulas and skills without GUI casks.
+- Choose `workstation` when another trusted system may supply or govern
+  software.
+- Choose `personal-workstation` when this repository should own the full personal
+  workstation contract.
+- Choose `personal-devbox` for an owner-operated devbox that should receive the
+  additive personal formulas and skills without GUI casks.
 
 ## Host and User Boundaries
 
-Homebrew, Tailscale, power policy, Spotlight, and system LaunchDaemons can be
-host-wide on macOS. Run those changes once from an authorized host
-administrator. Applying a per-user profile must not imply that the user owns or
-may mutate every host-wide dependency.
-
-The role is stored in `~/.config/dotfiles/profile`. Per-user verification checks
-that the selected role matches this marker.
-
-Shared software visibility is not isolation. Enforce isolation with Unix
-ownership and groups, scoped machine identities, filesystem permissions, and
-service configuration.
+- Homebrew, Tailscale, power policy, Spotlight, and system LaunchDaemons can be
+  host-wide on macOS. Run those changes once from an authorized host
+  administrator.
+- Applying a per-user profile must not imply that the user owns or may mutate
+  every host-wide dependency.
+- The role is stored in `~/.config/dotfiles/profile`. Per-user verification
+  checks that the selected role matches this marker.
+- Shared software visibility is not isolation. Enforce isolation with Unix
+  ownership and groups, scoped machine identities, filesystem permissions, and
+  service configuration.
 
 ## Software Layers
 
 [`chezmoi/.chezmoidata/profiles.json`](../chezmoi/.chezmoidata/profiles.json)
 is the versioned source of truth for profile capabilities, Brewfile order,
-runtime groups, skill layers, and per-user install steps. Chezmoi reads it as
-template data, TypeScript uses the strict parser in `scripts/profiles/model.ts`,
-and shell reads typed values through the small `plutil` boundary in
-`scripts/lib/profile.sh`. These consumers reject unsupported versions, unknown
-profiles, missing fields, and wrong value types. No generated profile adapters
-exist.
+runtime groups, skill layers, and per-user install steps. Three consumers read
+it directly:
 
-All profiles install the shared `Brewfile` base, including Chrome and `gh`.
-Personal-workstation, personal-devbox, workstation, and devbox also install
-`Brewfile.developer`. Workstation installs
-`Brewfile.workstation`; devbox and personal-devbox install `Brewfile.devbox`.
-Both personal profiles finish with `Brewfile.personal`; its profile-aware
-declarations install GUI casks only for personal-workstation.
-Assistant skips the developer layer and installs only `Brewfile.assistant`.
+| Consumer | How it reads the file |
+| --- | --- |
+| Chezmoi | as template data |
+| TypeScript | strict parser in `scripts/profiles/model.ts` |
+| Shell | typed `plutil` boundary in `scripts/lib/profile.sh` |
 
-The assistant mise config contains only Node. Its profile layer adds portable
-document, media, Google, and macOS automation tools. Workload repositories own
-OpenClaw, Hermes, model providers, containers, process supervision, language
-runtimes, and other framework-specific packages.
+Each consumer rejects unsupported versions, unknown profiles, missing fields,
+and wrong value types.
 
-Personal-workstation, personal-devbox, workstation, and devbox share Codex CLI,
-Claude Code CLI, Cursor Agent CLI, autoreview, Watchman, Docker credential
-helpers, AWS CLI, XcodeGen, Android command-line tools, and the development
-runtime set, including mise-managed Ruby. Their install flows also apply
-machine-global instructions through chezmoi and sync additive skills from
-`scripts/agents/`; see [Agent setup](agents.md).
+Brewfile order per profile:
 
-Both personal profiles add App Store Connect CLI, Attach, Crabbox, Discrawl,
-Gitcrawl, putio-cli, and Mole. Only personal-workstation adds
-personal GUI applications such as Slopwake, plus `mas`. The workstation layer
-applies to personal-workstation and workstation only; it supplies 1Password and
-its CLI, Slack, ChatGPT, T3 Code, Cursor, Ghostty, and YubiKey Manager.
+| Profile | Layers, in order |
+| --- | --- |
+| `personal-workstation` | `Brewfile`, `Brewfile.developer`, `Brewfile.workstation`, `Brewfile.personal` |
+| `personal-devbox` | `Brewfile`, `Brewfile.developer`, `Brewfile.devbox`, `Brewfile.personal` |
+| `workstation` | `Brewfile`, `Brewfile.developer`, `Brewfile.workstation` |
+| `devbox` | `Brewfile`, `Brewfile.developer`, `Brewfile.devbox` |
+| `assistant` | `Brewfile`, `Brewfile.assistant` |
 
-Assistant dotfile application installs the shared Git base and the
-`gh-app-auth` execution adapter. It omits developer signing, human credential
-helpers, outbound SSH defaults, desktop settings, global coding-agent
-instructions, and development skills.
+- The shared `Brewfile` base includes Chrome and `gh`.
+- `Brewfile.personal` declarations are profile-aware: GUI casks install only for
+  `personal-workstation`.
+- Assistant skips the developer layer.
+
+What each layer supplies:
+
+- `Brewfile.developer`, shared by `personal-workstation`, `personal-devbox`,
+  `workstation`, and `devbox`: Codex CLI, Claude Code CLI, opencode,
+  autoreview, Watchman, Docker and its credential helper, AWS CLI, XcodeGen,
+  `xcodes`, Android command-line tools, and the shell, secret, and network
+  scanning tools.
+- Cursor Agent CLI comes from the `install-cursor-agent` install step, not a
+  Brewfile.
+- The development runtime set, including mise-managed Ruby, comes from the
+  `developer` runtime group through `install-runtimes`.
+- `Brewfile.workstation`, used by `personal-workstation` and `workstation`:
+  1Password and its CLI, Slack, ChatGPT, T3 Code, Cursor, Ghostty, and YubiKey
+  Manager.
+- `Brewfile.personal`, used by both personal profiles: App Store Connect CLI,
+  Attach, Crabbox, Discrawl, Gitcrawl, putio-cli, and Mole. Only
+  `personal-workstation` also gets personal GUI applications such as Slopwake,
+  plus `mas`.
+- `Brewfile.assistant`: portable document, media, Google, and macOS automation
+  tools.
+
+Runtimes and dotfiles:
+
+- Developer-profile install flows apply machine-global instructions through
+  chezmoi and sync additive skills from `scripts/agents/`; see
+  [Agent setup](agents.md).
+- The assistant mise config contains only Node. Workload repositories own
+  OpenClaw, Hermes, model providers, containers, process supervision, language
+  runtimes, and other framework-specific packages.
+- Assistant dotfile application installs the shared Git base and the
+  `gh-app-auth` execution adapter. It omits developer signing, human credential
+  helpers, outbound SSH defaults, desktop settings, global coding-agent
+  instructions, and development skills.
 
 ## Identity Policy
 
 [Identity provisioning](identities.md) is the source of truth for age, Git,
-SSH, GitHub App, recovery, and deployment lifecycle. Workstation,
-personal-workstation, personal-devbox, and devbox users configure explicit
-human authorship and local signing.
-Assistants configure unsigned workload authorship and use a workload-owned
-GitHub App for repository access. Services configure unsigned workload
-authorship but receive authentication only from their owning workload.
-Identity values remain operator input and are never tracked.
+SSH, GitHub App, recovery, and deployment lifecycle.
+
+- `workstation`, `personal-workstation`, `personal-devbox`, and `devbox` users
+  configure explicit human authorship and local signing.
+- Assistants configure unsigned workload authorship and use a workload-owned
+  GitHub App for repository access.
+- Services configure unsigned workload authorship but receive authentication
+  only from their owning workload.
+- Identity values remain operator input and are never tracked.
 
 ## Apply a Profile
 
@@ -109,11 +135,11 @@ mise trust
 ./dotfiles check "$profile"
 ```
 
-Use `profile=personal-workstation` for the personal workstation composition or
-`profile=personal-devbox` for the personal devbox composition. The
-remaining steps are identical. Secret-consuming profiles (`personal-devbox`,
-`devbox`, `assistant`) still require the age-identity step before
-bootstrap verification.
+- Use `profile=personal-workstation` for the personal workstation composition,
+  or `profile=personal-devbox` for the personal devbox composition. The
+  remaining steps are identical.
+- Secret-consuming profiles (`personal-devbox`, `devbox`, `assistant`) still
+  require the age-identity step before bootstrap verification.
 
 Configure the appropriate human or workload Git identity separately:
 
@@ -137,8 +163,8 @@ GIT_USER_EMAIL='APP_BOT_NOREPLY_EMAIL' \
 
 A workstation can accept a formula or cask from another trusted installer
 without pretending Homebrew owns it. Create
-`~/.config/dotfiles/external-homebrew.plist` as a regular XML property list owned by the current
-user and not writable by group or other users.
+`~/.config/dotfiles/external-homebrew.plist` as a regular XML property list
+owned by the current user and not writable by group or other users.
 
 The root dictionary has version `1` and a `capabilities` array. Each capability
 names a selected-profile entry and either a command or app-bundle validator:
@@ -173,16 +199,16 @@ names a selected-profile entry and either a command or app-bundle validator:
 </plist>
 ```
 
-The `command` validator requires an absolute executable path owned by the
-current user or root and not writable by group or other users. It runs up to
-three literal arguments. Use it when a safe version or health probe can prove
-that endpoint policy permits execution. The `bundle` validator requires an
-absolute nonsymlinked app bundle, exact bundle identifier, exact signing team,
-and a valid strict code signature.
+| Validator | Requirements |
+| --- | --- |
+| `command` | Absolute executable path owned by the current user or root, not writable by group or other users. Runs up to three literal arguments. Use it when a safe version or health probe can prove that endpoint policy permits execution |
+| `bundle` | Absolute nonsymlinked app bundle, exact bundle identifier, exact signing team, and a valid strict code signature |
 
-Both `brew-bundle.sh` and bootstrap verification reject ambient Homebrew Bundle
-skip variables. They use macOS `plutil` to lint the file and enforce root,
-version, record, field, and value types before setting a formula or cask skip
-list. Unknown entries, duplicates, failed commands, signature mismatches,
-unsafe permissions, and unreadable files fail closed. Delimiters, whitespace,
-and Unicode are normal plist string content.
+Enforcement in `brew-bundle.sh` and bootstrap verification:
+
+- Ambient Homebrew Bundle skip variables are rejected.
+- macOS `plutil` lints the file and enforces root, version, record, field, and
+  value types before setting a formula or cask skip list.
+- Unknown entries, duplicates, failed commands, signature mismatches, unsafe
+  permissions, and unreadable files fail closed.
+- Delimiters, whitespace, and Unicode are normal plist string content.

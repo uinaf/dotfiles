@@ -31,11 +31,11 @@ mise run verify:fast
 mise run verify
 ```
 
-`verify:fast` runs every deterministic check in parallel. The same graph runs
-in CI. `verify` also runs the local full-history secret scan.
-
-Live bootstrap checks inspect the active home directory. Run them only when
-the current machine should satisfy that profile.
+- `verify:fast` runs every deterministic check in parallel; CI runs the same
+  graph.
+- `verify` also runs the local full-history secret scan.
+- Live bootstrap checks inspect the active home directory. Run them only when the
+  current machine should satisfy that profile.
 
 ## Change the Owning Surface
 
@@ -53,7 +53,8 @@ before changing a contract. Keep one-machine preferences local or in a fork.
 
 ## Pull Requests
 
-Use Conventional Commits; commit types drive the tag-only release policy in
-[GitHub pipelines](docs/github-pipelines.md). Keep pull requests focused,
-include verification performed, and update the owning guide when a command,
-path, profile, or security boundary changes.
+- Use Conventional Commits. Commit types drive the tag-only release policy in
+  [GitHub pipelines](docs/github-pipelines.md).
+- Keep pull requests focused and include the verification performed.
+- Update the owning guide when a command, path, profile, or security boundary
+  changes.

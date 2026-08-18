@@ -74,6 +74,7 @@ mise run audit devbox --format json
 
 Use repo checks for ordinary PR work. Use live host checks only on a machine
 that should actually satisfy that profile or audit boundary.
+
 Bootstrap helpers:
 
 ```zsh
@@ -82,15 +83,16 @@ mise run agents:update
 mise run bootstrap:trust-agent-worktrees
 ```
 
-`agents:sync` installs the profile-selected skills, plugin marketplaces, and
-MCP servers described in [Agent setup](agents.md). `agents:update` also
-refreshes globally installed skills. Both run `./scripts/agents/plugins.ts` and
-`./scripts/agents/mcps.ts` after the skill sync.
-
-Workstation and devbox configs trust Codex and Claude generated worktree roots:
-`~/.codex/worktrees` and `~/.claude/worktrees`. The helper also refreshes trust
-for existing `mise.toml` and `.mise.toml` files near those roots, and is called
-by `scripts/bootstrap/install.sh`.
+- `agents:sync` installs the profile-selected skills, plugin marketplaces, and
+  MCP servers described in [Agent setup](agents.md).
+- `agents:update` also refreshes globally installed skills.
+- Both run `./scripts/agents/plugins.ts` and `./scripts/agents/mcps.ts` after the
+  skill sync.
+- Workstation and devbox configs trust Codex and Claude generated worktree roots:
+  `~/.codex/worktrees` and `~/.claude/worktrees`.
+- `bootstrap:trust-agent-worktrees` also refreshes trust for existing
+  `mise.toml` and `.mise.toml` files near those roots, and is called by
+  `scripts/bootstrap/install.sh`.
 
 ## Runtime Pins
 
@@ -103,26 +105,36 @@ When changing `chezmoi/private_dot_config/mise/config.toml.tmpl`:
 
 Avoid floating runtime versions such as `latest` in profile machine config.
 
-The personal-workstation/personal-devbox/workstation/devbox runtime group pins
-Ruby alongside its other development runtimes. Its Node entry enables Corepack
-and installs pnpm 11.22.0 as the default outside projects. A project's
-`packageManager` field remains the repository-owned version source. The Node
-postinstall pins npm itself to 12.0.2, while Playwright CLI is an exact `npm:`
-backend entry. Vite+ stays repository-local and is invoked through the owning
-package manager.
+The runtime group shared by `personal-workstation`, `personal-devbox`,
+`workstation`, and `devbox`:
 
-`scripts/bootstrap/install.sh` calls `mise install` once for every profile with
-a runtime group. Mise owns the Node postinstall that pins npm and the stable
-pnpm default.
-The assistant profile intentionally contains only Node. Additional runtimes
-belong to the workload that requires them.
-`scripts/verify/bootstrap.sh` checks that rendered mise tools converged and
-that their commands resolve from mise. Independent live-check groups run in
-parallel and print one success line each; pass `--verbose` to expose successful
-command output. Its `mise doctor` PATH-ordering probes run through a clean
-login/interactive zsh that does not inherit an already-activated caller mise
-session or PATH, so a healthy workstation is not rejected only because the
-verifier itself started inside mise. Login probes (`-lic`) still rebuild PATH
-through normal login startup; interactive-only probes (`-ic`) start from a
-minimal Homebrew/system seed and then apply interactive startup files, so they
-intentionally do not reproduce a parent login shell's ambient PATH.
+- pins Ruby alongside its other development runtimes
+- enables Corepack in its Node entry and installs pnpm 11.22.0 as the default
+  outside projects
+- pins npm itself to 12.0.2 through the Node postinstall
+- declares Playwright CLI as an exact `npm:` backend entry
+
+A project's `packageManager` field remains the repository-owned version source.
+Vite+ stays repository-local and is invoked through the owning package manager.
+
+Install and verification:
+
+- `scripts/bootstrap/install.sh` calls `mise install` once for every profile with
+  a runtime group. Mise owns the Node postinstall that pins npm and the stable
+  pnpm default.
+- The assistant profile contains only Node. Additional runtimes belong to the
+  workload that requires them.
+- `scripts/verify/bootstrap.sh` checks that rendered mise tools converged and
+  that their commands resolve from mise.
+- Independent live-check groups run in parallel and print one success line each.
+  Pass `--verbose` to expose successful command output.
+
+Its `mise doctor` PATH-ordering probes run through a clean login or interactive
+zsh that does not inherit an already-activated caller mise session or PATH, so a
+healthy workstation is not rejected only because the verifier itself started
+inside mise.
+
+| Probe | PATH source |
+| --- | --- |
+| Login (`-lic`) | Rebuilt through normal login startup |
+| Interactive-only (`-ic`) | Minimal Homebrew and system seed, then interactive startup files, so a parent login shell's ambient PATH is intentionally not reproduced |

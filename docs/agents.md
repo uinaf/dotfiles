@@ -21,11 +21,12 @@ Preview and apply rule changes with the normal dotfile commands:
 ./dotfiles apply workstation
 ```
 
-`~/AGENTS.md` is the private canonical file. Claude and Codex link directly to
-it. For developer profiles, apply backs up and removes the retired
-`~/.agents/AGENTS.md` while leaving `~/.agents/skills` intact. The dotfile
-wrapper also backs up conflicting files or broken links before chezmoi
-converges them.
+- `~/AGENTS.md` is the private canonical file; Claude and Codex link directly to
+  it.
+- For developer profiles, apply backs up and removes the retired
+  `~/.agents/AGENTS.md` while leaving `~/.agents/skills` intact.
+- The dotfile wrapper also backs up conflicting files or broken links before
+  chezmoi converges them.
 
 ### Private Rules
 
@@ -45,22 +46,24 @@ For example, an end fragment can add machine-specific routing:
 Add private instructions here.
 ```
 
-The start and end fragments own their heading structure. The built-in rules
-begin at `## General Guidelines`, so a start fragment can provide the document
-title and an end fragment can add sibling sections. Chezmoi reads each fragment
-literally, trims surrounding whitespace, joins non-empty layers with one blank
-line, and omits absent or blank files.
-
-Keep each file or its symlink target private to the local user, then preview and
-apply the selected profile. Symlinks are supported; their resolved targets must
-be regular files owned by the current user with no group or other permissions.
+- The start and end fragments own their heading structure.
+- The built-in rules begin at `## General Guidelines`, so a start fragment can
+  provide the document title and an end fragment can add sibling sections.
+- Chezmoi reads each fragment literally, trims surrounding whitespace, joins
+  non-empty layers with one blank line, and omits absent or blank files.
+- Keep each file or its symlink target private to the local user, then preview
+  and apply the selected profile.
+- Symlinks are supported. Their resolved targets must be regular files owned by
+  the current user with no group or other permissions.
 
 ## Rule Design
 
 The shared layer is one portable behavior contract, not a stack of prompts for
-individual models. Keep personal identity and private routing in the local
-fragments. Keep model selection, reasoning effort, and verbosity settings in
-the harness that owns them.
+individual models.
+
+- Keep personal identity and private routing in the local fragments.
+- Keep model selection, reasoning effort, and verbosity settings in the harness
+  that owns them.
 
 Use prompting pages to tune behavior and system or model cards to validate
 capability and risk boundaries when a model change exposes a measured gap:
@@ -98,30 +101,41 @@ mise run agents:sync
 mise run agents:update
 ```
 
-The direct entrypoint is `./scripts/agents/sync.ts`. It reads the secure stored
-profile marker, composes the profile's layer manifests, and installs those
-skills for available Codex and Claude Code CLIs. It does not
-pull Git or manage rule files.
+The direct entrypoint is `./scripts/agents/sync.ts`:
+
+- Reads the secure stored profile marker.
+- Composes the profile's layer manifests.
+- Installs those skills for available Codex and Claude Code CLIs.
+- Does not pull Git or manage rule files.
 
 The ignored `scripts/agents/skills.lock.json` records the last manifest applied
-by this checkout. Sync removes skills dropped from that lock while preserving
-global skills it never owned. Removing an owned skill also removes its links
-from every agent configured by the skills CLI.
+by this checkout:
 
-When the lock is missing, sync installs the current manifest and initializes
-ownership without removing anything. With no supported agent and no lock, it
-skips installation and ownership initialization.
+- Sync removes skills dropped from that lock while preserving global skills it
+  never owned.
+- Removing an owned skill also removes its links from every agent configured by
+  the skills CLI.
+- When the lock is missing, sync installs the current manifest and initializes
+  ownership without removing anything.
+- With no supported agent and no lock, sync skips installation and ownership
+  initialization.
 
-Pass `--update` to run `skills update -g` after manifest sync. That refreshes all
-global skills, including extras the lock never owned. Manifest failures skip the
-updater. An updater failure leaves the completed manifest sync in place.
+`--update` runs `skills update -g` after manifest sync:
 
-Shared first-party skills live in
-[`uinaf/agent-skills`](https://github.com/uinaf/agent-skills).
-Personal CLI-backed skills retain their owning repositories. Layer manifests are named for the profile axes they serve:
-`scripts/agents/skills/{developer,workstation,devbox,personal}.json`. A profile
-composes its axes (personal-workstation is developer + workstation + personal),
-and an identical entry selected by more than one axis installs once.
+- It refreshes all global skills, including extras the lock never owned.
+- Manifest failures skip the updater.
+- An updater failure leaves the completed manifest sync in place.
+
+Manifest layout:
+
+- Shared first-party skills live in
+  [`uinaf/agent-skills`](https://github.com/uinaf/agent-skills).
+- Personal CLI-backed skills retain their owning repositories.
+- Layer manifests are named for the profile axes they serve:
+  `scripts/agents/skills/{developer,workstation,devbox,personal}.json`.
+- A profile composes its axes; `personal-workstation` is developer plus
+  workstation plus personal.
+- An identical entry selected by more than one axis installs once.
 
 ## Plugin Sync
 
@@ -130,48 +144,57 @@ and an identical entry selected by more than one axis installs once.
 `scripts/agents/plugins/{developer,workstation,devbox,personal}.json`, keyed by
 the same profile marker and composed the same way.
 
-Each entry sets `marketplace` as `owner/repo` and `name` as the plugin. Optional
-`harnesses` narrows an entry to a subset of `claude`, `codex`, `cursor`, `grok`,
-and `opencode`; the default is all five. Optional `marketplaceId` overrides the
-registered marketplace name when it differs from the repository name.
+Each manifest entry uses these fields:
 
-Sync adds each marketplace once per harness, then installs with
-`claude plugin install` and `codex plugin add`. Both are idempotent, and
-`codex plugin add` is what records `enabled = true` in `~/.codex/config.toml`,
-so plugin sync never edits that file itself. Cursor exposes no non-interactive
-install, so sync adds the marketplace and prints a one-line notice to finish in
-`/plugins`. Grok installs each source repository directly with
-`grok plugin install <owner/repo> --trust`; re-installing an installed source
-fails, so sync consults `grok plugin list` first. A harness whose CLI is absent
-is skipped with a notice.
+| Field | Meaning |
+| --- | --- |
+| `marketplace` | Source repository as `owner/repo` |
+| `name` | Plugin name |
+| `harnesses` | Optional subset of `claude`, `codex`, `cursor`, `grok`, and `opencode`; the default is all five |
+| `marketplaceId` | Optional override when the registered marketplace name differs from the repository name |
 
-OpenCode has no compatible plugin format; its plugin API carries hooks and
-tools, not skills. Sync instead links each selected plugin's skill directories
-from the Claude Code marketplace checkout
-(`~/.claude/plugins/marketplaces/<marketplaceId>/skills/*`) into OpenCode's
-native skill discovery at `~/.config/opencode/skills/`. The links follow
-marketplace updates automatically, broken managed links are pruned, and a
-non-symlink entry at a managed name is reported instead of replaced. The Claude
-harness therefore syncs first; a missing checkout is a reported failure.
+Sync adds each marketplace once per harness, then installs it:
+
+| Harness | Install path |
+| --- | --- |
+| Claude | `claude plugin install`, idempotent |
+| Codex | `codex plugin add`, idempotent. It records `enabled = true` in `~/.codex/config.toml`, so plugin sync never edits that file itself |
+| Cursor | No non-interactive install exists, so sync adds the marketplace and prints a one-line notice to finish in `/plugins` |
+| Grok | `grok plugin install <owner/repo> --trust` per source repository. Re-installing an installed source fails, so sync consults `grok plugin list` first |
+
+A harness whose CLI is absent is skipped with a notice.
+
+OpenCode has no compatible plugin format: its plugin API carries hooks and
+tools, not skills. Sync links each selected plugin's skill directories instead.
+
+- Source: `~/.claude/plugins/marketplaces/<marketplaceId>/skills/*` in the
+  Claude Code marketplace checkout.
+- Target: OpenCode's native skill discovery at `~/.config/opencode/skills/`.
+- Links follow marketplace updates automatically.
+- Broken managed links are pruned.
+- A non-symlink entry at a managed name is reported instead of replaced.
+- The Claude harness therefore syncs first; a missing checkout is a reported
+  failure.
 
 ## MCP Sync
 
 `agents:sync` and `agents:update` finish with `./scripts/agents/mcps.ts`, which
 converges remote MCP servers across the same five harnesses. The layering
 matches skills and plugins:
-`scripts/agents/mcps/{developer,workstation,devbox,personal}.json`, keyed by the
-same profile marker and composed the same way. Each entry sets a `name` and an
-`https` `url`; optional `harnesses` narrows the entry.
 
-Grok and OpenCode `mcp add` upsert plain config, so sync re-adds every selected
-server. `claude mcp add` refuses an existing name, so sync converges through
-`claude mcp get`: a matching URL is a no-op and anything else is removed and
-re-added at user scope. `codex mcp add` upserts config but then probes the
-server and can start an interactive OAuth login, so sync gets first and skips a
-matching URL; an add whose config landed before the login step failed is
-reported as pending `codex mcp login`, not a failure. `cursor-agent` has no add
-subcommand, so sync merges `~/.cursor/mcp.json` directly, updating only the
-managed entries' `url` and preserving everything else in the file.
+- `scripts/agents/mcps/{developer,workstation,devbox,personal}.json`, keyed by
+  the same profile marker and composed the same way.
+- Each entry sets a `name` and an `https` `url`.
+- Optional `harnesses` narrows the entry.
+
+Convergence differs per harness:
+
+| Harness | Behavior |
+| --- | --- |
+| Grok, OpenCode | `mcp add` upserts plain config, so sync re-adds every selected server |
+| Claude | `claude mcp add` refuses an existing name, so sync converges through `claude mcp get`: a matching URL is a no-op, anything else is removed and re-added at user scope |
+| Codex | `codex mcp add` upserts config, then probes the server and can start an interactive OAuth login. Sync gets first and skips a matching URL. An add whose config landed before the login step failed is reported as pending `codex mcp login`, not a failure |
+| Cursor | `cursor-agent` has no add subcommand, so sync merges `~/.cursor/mcp.json` directly, updating only the managed entries' `url` and preserving everything else in the file |
 
 ## Verify
 
@@ -180,7 +203,8 @@ mise run verify:domain config
 mise run verify:domain agents
 ```
 
-Rule fixtures cover clean and repeated applies, local Markdown files and
-symlinks, permissions and ownership, workload isolation, explicit diffs, and
-conflicts. Skill fixtures cover install, update, conflict, removal, and
-ownership without touching rules or Git.
+- Rule fixtures cover clean and repeated applies, local Markdown files and
+  symlinks, permissions and ownership, workload isolation, explicit diffs, and
+  conflicts.
+- Skill fixtures cover install, update, conflict, removal, and ownership without
+  touching rules or Git.

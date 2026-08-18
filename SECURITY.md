@@ -16,10 +16,11 @@ long-lived credentials through the SOPS/age model in
 [Identity provisioning](docs/identities.md), and expose plaintext only at the
 intended consumer boundary.
 
-Keep service tokens and private identity material out of shell startup,
-launchd plists, supervisor configs, tracked dotenv files, and generated runtime
-env files. Private age identities stay owner-only; unattended
-workloads do not receive human secret-manager sessions.
+- Keep service tokens and private identity material out of shell startup,
+  launchd plists, supervisor configs, tracked dotenv files, and generated runtime
+  env files.
+- Private age identities stay owner-only.
+- Unattended workloads do not receive human secret-manager sessions.
 
 ## Audit
 
@@ -37,10 +38,11 @@ mise run audit workstation
 mise run audit devbox
 ```
 
-These checks are non-destructive and redact or summarize findings where the
-underlying tools allow it. Treat raw audit output as sensitive. See
-[Security audits](docs/security-audits.md) for scope, JSON output, and mSCP
-setup.
+- These checks are non-destructive and redact or summarize findings where the
+  underlying tools allow it.
+- Treat raw audit output as sensitive.
+- See [Security audits](docs/security-audits.md) for scope, JSON output, and mSCP
+  setup.
 
 ## Response
 
