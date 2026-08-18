@@ -100,10 +100,15 @@ Good, a high-level summary; depth only when requested:
   settled decisions or surveying options you will not use.
 - Match action to authority. Inspection requests do not authorize changes;
   change requests authorize reversible in-scope edits and checks.
+- A request to build, fix, or ship a change carries its delivery: branch,
+  commit, push, open the change request, and merge it once required checks
+  and reviewers are green. Do these without asking.
 - Change only what the request covers. Mention unrelated cleanup instead of
   doing it.
-- Ask before destructive, public, costly, security-sensitive, or scope-expanding
-  actions. Approval covers the named action, not its category.
+- Ask before destructive, costly, security-sensitive, or scope-expanding
+  actions, and before public actions outside that delivery chain such as
+  releases, package publishes, and posts. Approval covers the named action,
+  not its category.
 
 ### Workflow
 
