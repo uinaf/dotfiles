@@ -523,7 +523,7 @@ async function run(): Promise<void> {
         throw new Error(`${kind} credential helper failed: ${detail}`);
       }
     }
-    if (state.authRetired) {
+    if (mode === "check" && state.authRetired) {
       for (const [label, path] of [["Codex", codexAuth], ["Claude", claudeAuth], ["Cursor", cursorAuth]] as const) {
         if (existsSync(path)) throw new Error(`${label} saved login state remains after retirement`);
       }
@@ -536,14 +536,24 @@ async function run(): Promise<void> {
       return;
     }
 
-    if (state.authRetired) {
+    const returnedAuth = state.authRetired && (
+      existsSync(codexAuth) ||
+      existsSync(claudeAuth) ||
+      (Boolean(config.cursorAgentBin) && existsSync(cursorAuth)) ||
+      Boolean(state.grokAuthBackupPath && existsSync(state.grokAuthBackupPath))
+    );
+    if (state.authRetired && !returnedAuth) {
       process.stdout.write("coding vendor login state is already retired; gateway routing remains configured\n");
       return;
     }
 
-    runLogout(process.env.CODEX_BIN || "codex", ["logout"], { ...process.env, CODEX_HOME: codexHome }, "Codex");
-    runLogout("claude", ["auth", "logout"], process.env, "Claude");
-    if (config.cursorAgentBin) {
+    if (!state.authRetired || existsSync(codexAuth)) {
+      runLogout(process.env.CODEX_BIN || "codex", ["logout"], { ...process.env, CODEX_HOME: codexHome }, "Codex");
+    }
+    if (!state.authRetired || existsSync(claudeAuth)) {
+      runLogout("claude", ["auth", "logout"], process.env, "Claude");
+    }
+    if (config.cursorAgentBin && (!state.authRetired || existsSync(cursorAuth))) {
       runLogout(
         config.cursorAgentBin,
         ["logout"],
@@ -559,7 +569,9 @@ async function run(): Promise<void> {
       grokAuthExisted: false,
       grokAuthBackupPath: null,
     } satisfies ClientStateV6);
-    process.stdout.write(`retired saved Codex, Claude${config.cursorAgentBin ? ", Cursor" : ""}, and Grok vendor logins; gateway routing remains configured\n`);
+    process.stdout.write(state.authRetired
+      ? "retired returned coding vendor login state; gateway routing remains configured\n"
+      : `retired saved Codex, Claude${config.cursorAgentBin ? ", Cursor" : ""}, and Grok vendor logins; gateway routing remains configured\n`);
     return;
   }
 
