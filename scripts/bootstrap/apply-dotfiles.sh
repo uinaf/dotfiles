@@ -94,19 +94,58 @@ backup_path() {
   fi
 }
 
+replace_agent_path() {
+  local target="$1"
+  local expected_type="$2"
+  local expected_link
+
+  if [ ! -e "$target" ] && [ ! -L "$target" ]; then
+    return
+  fi
+
+  if [ "$expected_type" = "symlink" ] && [ -L "$target" ]; then
+    expected_link="$("${chezmoi_base[@]}" cat "$target")"
+    if [ "$(readlink "$target")" = "$expected_link" ]; then
+      return
+    fi
+  elif [ "$expected_type" = "file" ] && [ ! -L "$target" ] && "${chezmoi_base[@]}" cat "$target" | cmp -s - "$target"; then
+    return
+  fi
+
+  if [ "$dry_run" -eq 1 ]; then
+    printf 'would replace generated agent rules at %s\n' "$target"
+  else
+    rm -f -- "$target"
+    printf 'removed conflicting generated agent rules at %s\n' "$target"
+  fi
+}
+
 backup_preexisting_targets() {
   local target
 
-  backup_path "$HOME/.agents/AGENTS.md" remove
+  if dotfiles_profile_is_developer "$profile"; then
+    replace_agent_path "$HOME/.agents/AGENTS.md" remove
+  fi
 
   while IFS= read -r target; do
     [ -n "$target" ] || continue
-    backup_path "$target" file
+    if [ "$target" = "$HOME/AGENTS.md" ]; then
+      replace_agent_path "$target" file
+    else
+      backup_path "$target" file
+    fi
   done < <("${chezmoi_base[@]}" managed --include=files --path-style absolute)
 
   while IFS= read -r target; do
     [ -n "$target" ] || continue
-    backup_path "$target" symlink
+    case "$target" in
+      "$HOME/.claude/CLAUDE.md"|"$HOME/.codex/AGENTS.md")
+        replace_agent_path "$target" symlink
+        ;;
+      *)
+        backup_path "$target" symlink
+        ;;
+    esac
   done < <("${chezmoi_base[@]}" managed --include=symlinks --path-style absolute)
 }
 
