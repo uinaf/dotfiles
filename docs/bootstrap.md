@@ -450,6 +450,9 @@ can hang.
   profile layer declares (usually casks dropped from a Brewfile, which
   `brew bundle` never uninstalls). Run
   `./scripts/bootstrap/brew-bundle.sh --cleanup <profile>` to remove them.
+  Shared devbox prefixes compare and clean against the union of devbox,
+  personal-devbox, and assistant layers so one Unix user cannot remove another
+  active profile's packages.
 - If historical prefix-owner content is unreadable to another devbox identity,
   run `brew-devbox.sh --repair-shared-readability` as the prefix owner, then
   retry verification. The repair is additive and owner-scoped; investigate

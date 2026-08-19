@@ -39,6 +39,20 @@ fi
   printf 'arg=%s\n' "$@"
 } >>"$FAKE_BREW_LOG"
 
+if [ "${1:-}" = bundle ] && [ "${2:-}" = cleanup ]; then
+  shift 2
+  cleanup_file=""
+  while [ "$#" -gt 0 ]; do
+    if [ "$1" = --file ]; then
+      cleanup_file="$2"
+      break
+    fi
+    shift
+  done
+  [ -n "$cleanup_file" ] || exit 2
+  sed -n -E 's/^((brew|cask|tap) ".*)$/cleanup_entry=\1/p' "$cleanup_file" >>"$FAKE_BREW_LOG"
+fi
+
 if [ -n "${FAKE_BREW_OUTPUT_DIR:-}" ]; then
   mkdir "$FAKE_BREW_OUTPUT_DIR/directory"
   : >"$FAKE_BREW_OUTPUT_DIR/file"
@@ -277,8 +291,19 @@ cleanup_log="$tmp_dir/cleanup.log"
 run_brew_bundle "$cleanup_log" --home "$host_home" --cleanup devbox
 [ "$(grep -c '^arg=bundle$' "$cleanup_log")" -eq 4 ] \
   || fail "--cleanup did not install the 3 layers before cleaning"
+[ "$(grep -c '^profile=devbox$' "$cleanup_log")" -eq 3 ] \
+  || fail "--cleanup changed the selected profile for installation"
+[ "$(grep -c '^profile=personal-devbox$' "$cleanup_log")" -eq 1 ] \
+  || fail "--cleanup did not use the shared host contract"
 grep -Fq 'arg=cleanup' "$cleanup_log" || fail "--cleanup did not run brew bundle cleanup"
 grep -Fq 'arg=--force' "$cleanup_log" || fail "--cleanup did not force the removal"
+grep -Fqx 'cleanup_entry=brew "pi-coding-agent"' "$cleanup_log" \
+  || fail "shared cleanup omitted the personal-devbox layer"
+grep -Fqx 'cleanup_entry=brew "yt-dlp"' "$cleanup_log" \
+  || fail "shared cleanup omitted the assistant layer"
+if grep -Fqx 'cleanup_entry=cask "ghostty"' "$cleanup_log"; then
+  fail "shared cleanup included the workstation layer"
+fi
 if ls "$repo_root"/Brewfile.composed.* >/dev/null 2>&1; then
   fail "--cleanup left a composed Brewfile behind"
 fi
