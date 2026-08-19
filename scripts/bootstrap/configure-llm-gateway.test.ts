@@ -252,6 +252,18 @@ rm -f "$HOME/.claude/.credentials.json"
     assert.equal(retiredCheck.status, 0, retiredCheck.stderr);
     assert.match(retiredCheck.stdout, /auth-retired=true/);
 
+    writeFileSync(join(codexHome, "auth.json"), originalAuth, { mode: 0o600 });
+    writeFileSync(join(home, ".claude/.credentials.json"), originalClaudeAuth, { mode: 0o600 });
+    writeFileSync(join(home, ".cursor/auth.json"), originalCursorAuth, { mode: 0o600 });
+    const repeatedRetire = run("--retire-auth");
+    assert.equal(repeatedRetire.status, 0, repeatedRetire.stderr);
+    assert.match(repeatedRetire.stdout, /retired returned coding vendor login state/);
+    assert.equal(existsSync(join(codexHome, "auth.json")), false);
+    assert.equal(existsSync(join(home, ".claude/.credentials.json")), false);
+    assert.equal(existsSync(join(home, ".cursor/auth.json")), false);
+    const repeatedCheck = run("--check");
+    assert.equal(repeatedCheck.status, 0, repeatedCheck.stderr);
+
     const rollback = run("--rollback");
     assert.equal(rollback.status, 0, rollback.stderr);
     assert.equal(readFileSync(join(codexHome, "config.toml"), "utf8"), originalCodex);
