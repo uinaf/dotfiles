@@ -147,6 +147,18 @@ test("omits global rules for workload profiles", () => {
   }
 });
 
+test("preserves retired rules for workload profiles", () => {
+  const { home } = createFixture();
+  const retiredRules = join(home, ".agents/AGENTS.md");
+  mkdirSync(dirname(retiredRules), { recursive: true });
+  writeFileSync(retiredRules, "workload-owned fixture rules\n");
+
+  runWrapper(home, "assistant");
+
+  assert.equal(readFileSync(retiredRules, "utf8"), "workload-owned fixture rules\n");
+  assert.equal(readdirSync(join(home, ".agents")).some((name) => name.includes(".backup.")), false);
+});
+
 test("reads an optional private end layer from machine-local Markdown", () => {
   const { home } = createFixture();
   const privateEnd = join(home, ".config/dotfiles/agents.end.md");

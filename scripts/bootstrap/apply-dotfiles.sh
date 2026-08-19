@@ -123,7 +123,9 @@ replace_agent_path() {
 backup_preexisting_targets() {
   local target
 
-  replace_agent_path "$HOME/.agents/AGENTS.md" remove
+  if dotfiles_profile_is_developer "$profile"; then
+    replace_agent_path "$HOME/.agents/AGENTS.md" remove
+  fi
 
   while IFS= read -r target; do
     [ -n "$target" ] || continue
