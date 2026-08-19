@@ -59,7 +59,7 @@ mise run agents:update
 - `./scripts/agents/sync.ts` is the direct skill entrypoint.
 - `./scripts/agents/plugins.ts` applies plugin marketplaces.
 - See [Agent setup](../docs/agents.md) for the optional private rule layer, the
-  plugin manifests, and `--update` global skill refresh.
+  plugin manifests, and `--update` global skill and plugin refresh.
 
 ## Live Audits
 

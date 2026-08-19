@@ -70,8 +70,8 @@ description = "Sync selected global coding-agent skills, plugins, and MCP server
 run = ["./scripts/agents/sync.ts", "./scripts/agents/plugins.ts", "./scripts/agents/mcps.ts"]
 
 [tasks."agents:update"]
-description = "Update selected global coding-agent skills, then sync plugins and MCP servers"
-run = ["./scripts/agents/sync.ts --update", "./scripts/agents/plugins.ts", "./scripts/agents/mcps.ts"]
+description = "Update selected global coding-agent skills and plugins, then sync MCP servers"
+run = ["./scripts/agents/sync.ts --update", "./scripts/agents/plugins.ts --update", "./scripts/agents/mcps.ts"]
 
 [tasks."bootstrap:trust-agent-worktrees"]
 description = "Trust mise configs in generated agent worktrees"
