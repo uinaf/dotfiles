@@ -20,6 +20,11 @@ import {
 const script = resolve(dirname(fileURLToPath(import.meta.url)), "configure-llm-gateway.ts");
 const codexInstalled = spawnSync("codex", ["--version"], { stdio: "ignore" }).status === 0;
 
+function fixturePath(bin: string): string {
+  const ambient = (process.env.PATH || "").split(":").filter((entry) => entry && !entry.endsWith("/mise/shims"));
+  return [bin, ...ambient].join(":");
+}
+
 const validConfig = {
   version: 1 as const,
   secretFile: "/Users/example/vault/coding.sops.env",
@@ -160,7 +165,7 @@ rm -f "$HOME/.claude/.credentials.json"
       HOME: home,
       CODEX_HOME: codexHome,
       LLM_GATEWAY_CONFIG: gatewayConfig,
-      PATH: `${bin}:${process.env.PATH || ""}`,
+      PATH: fixturePath(bin),
     };
     const run = (...args: string[]) => spawnSync(script, args, { encoding: "utf8", env });
 
@@ -319,7 +324,7 @@ esac
       HOME: home,
       CODEX_HOME: codexHome,
       LLM_GATEWAY_CONFIG: gatewayConfig,
-      PATH: `${bin}:${process.env.PATH || ""}`,
+      PATH: fixturePath(bin),
     };
     const run = (...args: string[]) => spawnSync(script, args, { encoding: "utf8", env });
 
@@ -429,7 +434,7 @@ esac
       HOME: home,
       CODEX_HOME: codexHome,
       LLM_GATEWAY_CONFIG: gatewayConfig,
-      PATH: `${bin}:${process.env.PATH || ""}`,
+      PATH: fixturePath(bin),
     };
     const preMigrationCheck = spawnSync(script, ["--check"], { encoding: "utf8", env });
     assert.notEqual(preMigrationCheck.status, 0);

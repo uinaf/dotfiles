@@ -518,7 +518,10 @@ async function run(): Promise<void> {
     }
     for (const kind of config.cursorAgentBin ? ["cursor", "gateway"] : ["gateway"]) {
       const result = spawnSync(credentialTarget, [kind], { encoding: "utf8", env: { ...process.env, LLM_GATEWAY_CONFIG: configPath } });
-      if (result.status !== 0 || result.stdout.trim().length === 0) throw new Error(`${kind} credential helper failed`);
+      if (result.status !== 0 || result.stdout.trim().length === 0) {
+        const detail = result.stderr.trim() || `exit ${result.status ?? "unknown"} without output`;
+        throw new Error(`${kind} credential helper failed: ${detail}`);
+      }
     }
     if (state.authRetired) {
       for (const [label, path] of [["Codex", codexAuth], ["Claude", claudeAuth], ["Cursor", cursorAuth]] as const) {

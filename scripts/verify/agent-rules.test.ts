@@ -123,12 +123,13 @@ test("applies public rules and links without private output", () => {
   runChezmoi(home, config, "apply");
   const rules = assertManagedRules(home);
 
-  assert.match(rules, /^## General Guidelines/);
+  assert.match(rules, /^## General guidelines/);
   assert.doesNotMatch(rules, /private fixture rule/);
   assert.match(rules, /Extend the closest structured owner instead\s+of creating a parallel script/);
   assert.match(rules, /#### Design and implementation/);
-  assert.match(rules, /Use the repository's change-request template/);
-  assert.match(rules, /reply to fixed\s+findings with the commit hash\.\n$/);
+  assert.match(rules, /delivery steps allowed by applicable owner and repository policy/);
+  assert.match(rules, /When delivery uses a change request, use the repository's template/);
+  assert.match(rules, /Reply to fixed\s+findings with the commit hash\.\n$/);
   assert.equal(runChezmoi(home, config, "diff"), "");
   runChezmoi(home, config, "apply");
   assert.equal(runChezmoi(home, config, "diff"), "");
@@ -187,9 +188,9 @@ test("composes optional private Markdown around the shared rules", () => {
   runWrapper(home);
   const rules = assertManagedRules(home);
 
-  assert.match(rules, /^# Private fixture context\n\nLoad this first\.\n\n## General Guidelines/);
-  assert.ok(rules.indexOf("# Private fixture context") < rules.indexOf("## General Guidelines"));
-  assert.ok(rules.indexOf("## General Guidelines") < rules.indexOf("## Private fixture end"));
+  assert.match(rules, /^# Private fixture context\n\nLoad this first\.\n\n## General guidelines/);
+  assert.ok(rules.indexOf("# Private fixture context") < rules.indexOf("## General guidelines"));
+  assert.ok(rules.indexOf("## General guidelines") < rules.indexOf("## Private fixture end"));
   assert.match(rules, /## Private fixture end\n\nLoad this last\.\n$/);
 });
 
@@ -241,7 +242,7 @@ test("omits the private start layer for blank Markdown", () => {
 
   runWrapper(home);
 
-  assert.match(assertManagedRules(home), /^## General Guidelines/);
+  assert.match(assertManagedRules(home), /^## General guidelines/);
 });
 
 test("shows rule changes in diff and waits for an explicit apply", () => {
