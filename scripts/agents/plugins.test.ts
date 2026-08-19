@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import {
+  existsSync,
   lstatSync,
   mkdirSync,
   mkdtempSync,
@@ -344,6 +345,47 @@ test("plans only a marketplace add for Cursor and uses its URL form", () => {
     planHarness("cursor", plugins).map((planned) => `${planned.command} ${planned.args.join(" ")}`),
     ["cursor-agent plugin marketplace add github.com/fixture/shared-market"],
   );
+  assert.deepEqual(
+    planHarness("cursor", plugins, { update: true }).map(
+      (planned) => `${planned.command} ${planned.args.join(" ")}`,
+    ),
+    ["cursor-agent plugin marketplace add github.com/fixture/shared-market"],
+  );
+});
+
+test("plans Claude plugin updates and Codex marketplace upgrades only with --update", () => {
+  const { repoDir } = createFixture();
+  const plugins = readPlugins(manifestPath(repoDir, "developer"));
+
+  assert.deepEqual(
+    planHarness("claude", plugins, { update: true }).map(
+      (planned) => `${planned.command} ${planned.args.join(" ")}`,
+    ),
+    [
+      "claude plugin marketplace add fixture/shared-market",
+      "claude plugin install shared-plugin@shared-market",
+      "claude plugin install second-plugin@shared-market",
+      "claude plugin update shared-plugin@shared-market -y",
+      "claude plugin update second-plugin@shared-market -y",
+    ],
+  );
+  assert.deepEqual(
+    planHarness("codex", plugins, { update: true }).map(
+      (planned) => `${planned.command} ${planned.args.join(" ")}`,
+    ),
+    [
+      "codex plugin marketplace add fixture/shared-market",
+      "codex plugin marketplace upgrade shared-market",
+      "codex plugin add shared-plugin@shared-market",
+      "codex plugin add second-plugin@shared-market",
+    ],
+  );
+  assert.deepEqual(
+    planHarness("grok", plugins, { update: true }).map(
+      (planned) => `${planned.command} ${planned.args.join(" ")}`,
+    ),
+    ["grok plugin install fixture/shared-market --trust"],
+  );
 });
 
 test("plans nothing for a harness the entry does not target", () => {
@@ -407,6 +449,144 @@ test("skips a Grok source its plugin list already contains", () => {
   assert.equal(main([], runtime), 0);
   assert.deepEqual(harnessCalls(runtime, "grok"), ["plugin list"]);
   assert.match(runtime.stdout.value, /Grok: fixture\/shared-market is already installed/);
+});
+
+test("refreshes a stale installed plugin or source on --update", () => {
+  const { repoDir, home } = createFixture();
+  const grokList =
+    "  shared-abc123: shared-plugin [git: https://github.com/fixture/shared-market]\n";
+  const runtime = new FixtureRuntime(repoDir, home, {
+    outputs: new Map([["grok plugin list", grokList]]),
+  });
+
+  assert.equal(main(["--update"], runtime), 0);
+  assert.deepEqual(harnessCalls(runtime, "claude"), [
+    "plugin marketplace add fixture/shared-market",
+    "plugin install shared-plugin@shared-market",
+    "plugin install second-plugin@shared-market",
+    "plugin update shared-plugin@shared-market -y",
+    "plugin update second-plugin@shared-market -y",
+  ]);
+  assert.deepEqual(harnessCalls(runtime, "codex"), [
+    "plugin marketplace add fixture/shared-market",
+    "plugin marketplace upgrade shared-market",
+    "plugin add shared-plugin@shared-market",
+    "plugin add second-plugin@shared-market",
+  ]);
+  assert.deepEqual(harnessCalls(runtime, "grok"), ["plugin list", "plugin update shared-plugin"]);
+  assert.deepEqual(harnessCalls(runtime, "cursor-agent"), [
+    "plugin marketplace add github.com/fixture/shared-market",
+  ]);
+  assert.deepEqual(harnessCalls(runtime, "opencode"), []);
+  for (const skill of ["alpha", "beta"]) {
+    assert.equal(
+      readlinkSync(opencodeLink(home, skill)),
+      join(home, ".claude", "plugins", "marketplaces", "shared-market", "skills", skill),
+    );
+  }
+});
+
+test("keeps Cursor and OpenCode skill links after a Claude source refresh", () => {
+  const { repoDir, home } = createFixture();
+  writeManifest(repoDir, "developer", [
+    { marketplace: "fixture/shared-market", name: "shared-plugin", cursorMode: "skills" },
+  ]);
+  assert.equal(main([], new FixtureRuntime(repoDir, home)), 0);
+  const alpha = join(home, ".claude", "plugins", "marketplaces", "shared-market", "skills", "alpha");
+  assert.equal(readlinkSync(opencodeLink(home, "alpha")), alpha);
+  assert.equal(readlinkSync(cursorLink(home, "alpha")), alpha);
+
+  const runtime = new FixtureRuntime(repoDir, home);
+  assert.equal(main(["--update"], runtime), 0);
+  assert.ok(harnessCalls(runtime, "claude").includes("plugin update shared-plugin@shared-market -y"));
+  assert.deepEqual(harnessCalls(runtime, "cursor-agent"), []);
+  assert.equal(readlinkSync(opencodeLink(home, "alpha")), alpha);
+  assert.equal(readlinkSync(cursorLink(home, "alpha")), alpha);
+  assert.equal(existsSync(join(alpha, "SKILL.md")), true);
+});
+
+test("reports a Grok source that is installed but has no managed name to update", () => {
+  const { repoDir, home } = createFixture();
+  writePluginLock(repoDir, fixtureSharedPlugins);
+  const previous = JSON.parse(readFileSync(pluginLockPath(repoDir), "utf8"));
+  const runtime = new FixtureRuntime(repoDir, home, {
+    outputs: new Map([
+      [
+        "grok plugin list",
+        "  other-abc123: other-plugin [git: https://github.com/fixture/shared-market]\n",
+      ],
+    ]),
+  });
+
+  assert.equal(main(["--update"], runtime), 1);
+  assert.deepEqual(harnessCalls(runtime, "grok"), ["plugin list"]);
+  assert.match(runtime.stderr.value, /Grok: fixture\/shared-market could not be refreshed/);
+  assert.deepEqual(JSON.parse(readFileSync(pluginLockPath(repoDir), "utf8")), previous);
+});
+
+test("skips refresh commands after their marketplace add or plugin install fails", () => {
+  const { repoDir, home } = createFixture();
+  const runtime = new FixtureRuntime(repoDir, home, {
+    failures: new Map([
+      ["codex plugin marketplace add fixture/shared-market", { stdout: "", stderr: "name taken" }],
+      [
+        "claude plugin install shared-plugin@shared-market",
+        { stdout: "", stderr: "install failed" },
+      ],
+    ]),
+  });
+
+  assert.equal(main(["--update"], runtime), 1);
+  assert.deepEqual(harnessCalls(runtime, "codex"), [
+    "plugin marketplace add fixture/shared-market",
+    "plugin add shared-plugin@shared-market",
+    "plugin add second-plugin@shared-market",
+  ]);
+  assert.deepEqual(harnessCalls(runtime, "claude"), [
+    "plugin marketplace add fixture/shared-market",
+    "plugin install shared-plugin@shared-market",
+    "plugin install second-plugin@shared-market",
+    "plugin update second-plugin@shared-market -y",
+  ]);
+
+  const addFailed = new FixtureRuntime(repoDir, home, {
+    failures: new Map([
+      ["claude plugin marketplace add fixture/shared-market", { stdout: "", stderr: "name taken" }],
+    ]),
+  });
+  assert.equal(main(["--update"], addFailed), 1);
+  assert.deepEqual(harnessCalls(addFailed, "claude"), [
+    "plugin marketplace add fixture/shared-market",
+    "plugin install shared-plugin@shared-market",
+    "plugin install second-plugin@shared-market",
+  ]);
+});
+
+test("does not prune or advance ownership when a plugin refresh fails", () => {
+  const { repoDir, home } = createFixture();
+  const retired = { marketplace: "fixture/retired-market", name: "retired-plugin" };
+  const previous = { version: 1, plugins: [...fixtureSharedPlugins, retired].map(lockPlugin) };
+  const grokList =
+    "  shared-abc123: shared-plugin [git: https://github.com/fixture/shared-market]\n";
+
+  for (const [command, stderr] of [
+    ["claude plugin update shared-plugin@shared-market -y", "stale cache locked"],
+    ["codex plugin marketplace upgrade shared-market", "upgrade failed"],
+    ["grok plugin update shared-plugin", "update failed"],
+  ] as const) {
+    writePluginLock(repoDir, [...fixtureSharedPlugins, retired]);
+    const runtime = new FixtureRuntime(repoDir, home, {
+      outputs: new Map([["grok plugin list", grokList]]),
+      failures: new Map([[command, { stdout: "", stderr }]]),
+    });
+
+    assert.equal(main(["--update"], runtime), 1);
+    assert.equal(
+      harnessCalls(runtime, "claude").some((call) => call.includes("uninstall")),
+      false,
+    );
+    assert.deepEqual(JSON.parse(readFileSync(pluginLockPath(repoDir), "utf8")), previous);
+  }
 });
 
 test("fails OpenCode linking when the Claude checkout is missing", () => {
@@ -605,7 +785,7 @@ test("reports every failing command with a redacted diagnostic", () => {
   });
 
   assert.equal(main([], runtime), 1);
-  assert.match(runtime.stderr.value, /Plugin sync failed for 1 command:/);
+  assert.match(runtime.stderr.value, /Plugin sync failed for 1 failure:/);
   assert.match(runtime.stderr.value, /Claude Code: plugin marketplace add fixture\/shared-market \(exit 1\)/);
   assert.match(runtime.stderr.value, /token=\[REDACTED\]/);
   assert.doesNotMatch(runtime.stderr.value, /stderr-secret/);
@@ -651,13 +831,16 @@ test("refuses profiles without agent setup before touching a harness", () => {
 test("rejects unknown arguments and prints help without applying", () => {
   const { repoDir, home } = createFixture();
   const rejected = new FixtureRuntime(repoDir, home);
-  assert.equal(main(["--update"], rejected), 2);
-  assert.match(rejected.stderr.value, /Unknown argument: --update/);
+  assert.equal(main(["--unexpected"], rejected), 2);
+  assert.match(rejected.stderr.value, /Unknown argument: --unexpected/);
   assert.equal(rejected.calls.length, 0);
 
   const helped = new FixtureRuntime(repoDir, home);
   assert.equal(main(["--help"], helped), 0);
-  assert.match(helped.stdout.value, /Usage: \.\/scripts\/agents\/plugins\.ts \[--profile PROFILE\]/);
+  assert.match(
+    helped.stdout.value,
+    /Usage: \.\/scripts\/agents\/plugins\.ts \[--profile PROFILE\] \[--update\]/,
+  );
   assert.equal(helped.calls.length, 0);
 });
 
@@ -772,7 +955,7 @@ test("does not advance ownership when a managed removal fails", () => {
   assert.equal(main([], runtime), 1);
   assert.ok(harnessCalls(runtime, "claude").includes("plugin uninstall -y retired-plugin@retired-market"));
   assert.deepEqual(JSON.parse(readFileSync(pluginLockPath(repoDir), "utf8")), previous);
-  assert.match(runtime.stderr.value, /Plugin sync failed for 1 command:/);
+  assert.match(runtime.stderr.value, /Plugin sync failed for 1 failure:/);
 });
 
 test("prunes OpenCode links when every plugin leaves the selection", () => {
@@ -970,6 +1153,6 @@ test("the executable TypeScript entrypoint runs the CLI", () => {
   const result = spawnSync(scriptPath, ["unexpected"], { encoding: "utf8" });
 
   assert.equal(result.status, 2);
-  assert.match(result.stderr, /Usage: \.\/scripts\/agents\/plugins\.ts \[--profile PROFILE\]/);
+  assert.match(result.stderr, /Usage: \.\/scripts\/agents\/plugins\.ts \[--profile PROFILE\] \[--update\]/);
   assert.match(result.stderr, /Unknown argument: unexpected/);
 });

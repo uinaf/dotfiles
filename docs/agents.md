@@ -164,6 +164,16 @@ Sync adds each marketplace once per harness, then installs it:
 | Cursor | No non-interactive install exists, so sync adds the marketplace and prints a one-line notice to finish in `/plugins`. Managed Cursor workspaces can block third-party imports outright; a `cursorMode: "skills"` entry skips the marketplace and uses skill links instead |
 | Grok | `grok plugin install <owner/repo> --trust` per source repository. Re-installing an installed source fails, so sync consults `grok plugin list` first |
 
+`--update` (used by `agents:update`) keeps that install/convergence, then refreshes
+managed plugins where the harness has a non-interactive update:
+
+| Harness | Update path |
+| --- | --- |
+| Claude | `claude plugin update <name>@<marketplace> -y` after install, one selected plugin at a time |
+| Codex | `codex plugin marketplace upgrade <marketplaceId>` after add and before `plugin add` |
+| Grok | `grok plugin update <name>` for an already-installed source whose list names a managed plugin. An installed source with no matching name is reported as not refreshed instead of treated as current |
+| Cursor, OpenCode | no plugin update command; native skill links keep following the Claude marketplace checkout |
+
 A harness whose CLI is absent is skipped with a notice.
 
 The ignored `scripts/agents/plugins.lock.json` records the last plugin
