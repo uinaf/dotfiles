@@ -82,6 +82,46 @@ dotfiles_homebrew_compose_brewfile() {
   printf '%s\n' "$composed"
 }
 
+# Shared devbox Homebrew is host-wide, so drift and cleanup must preserve every
+# package owned by a profile that can inhabit that prefix. Required-package
+# checks remain scoped to the selected Unix user's profile.
+dotfiles_homebrew_compose_cleanup_brewfile() {
+  local repo_root="$1"
+  local profile="$2"
+  local composed
+  local file
+  local host_profile
+  local seen=":"
+
+  if ! dotfiles_profile_uses_shared_brew "$profile"; then
+    dotfiles_homebrew_compose_brewfile "$repo_root" "$profile"
+    return
+  fi
+
+  composed="$(mktemp "$repo_root/Brewfile.composed.XXXXXX")" || return 1
+  for host_profile in personal-devbox assistant; do
+    while IFS= read -r file; do
+      case "$seen" in
+        *":$file:"*) continue ;;
+      esac
+      cat "$repo_root/$file" >>"$composed" || {
+        rm -f "$composed"
+        return 1
+      }
+      seen="${seen}${file}:"
+    done < <(dotfiles_profile_brewfiles "$host_profile")
+  done
+  printf '%s\n' "$composed"
+}
+
+dotfiles_homebrew_cleanup_profile() {
+  if dotfiles_profile_uses_shared_brew "$1"; then
+    printf 'personal-devbox\n'
+  else
+    printf '%s\n' "$1"
+  fi
+}
+
 # Reports installed packages the profile's composed Brewfiles no longer
 # declare. `brew bundle cleanup` exits 1 for cache-only housekeeping too, so
 # package drift is read from its Would-uninstall/Would-untap sections instead
@@ -90,11 +130,13 @@ dotfiles_homebrew_bundle_drift() {
   local repo_root="$1"
   local profile="$2"
   local composed
+  local cleanup_profile
   local output
   local drift
 
-  composed="$(dotfiles_homebrew_compose_brewfile "$repo_root" "$profile")" || return 2
-  output="$(HOMEBREW_BUNDLE_DOTFILES_PROFILE="$profile" HOMEBREW_NO_AUTO_UPDATE=1 \
+  composed="$(dotfiles_homebrew_compose_cleanup_brewfile "$repo_root" "$profile")" || return 2
+  cleanup_profile="$(dotfiles_homebrew_cleanup_profile "$profile")" || return 2
+  output="$(HOMEBREW_BUNDLE_DOTFILES_PROFILE="$cleanup_profile" HOMEBREW_NO_AUTO_UPDATE=1 \
     brew bundle cleanup --file "$composed" 2>/dev/null || true)"
   rm -f "$composed"
 

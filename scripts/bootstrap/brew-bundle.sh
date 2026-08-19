@@ -141,13 +141,14 @@ for file in "${brewfiles[@]}"; do
 done
 
 if [ "$cleanup" -eq 1 ]; then
-  composed="$(dotfiles_homebrew_compose_brewfile "$repo_root" "$profile")" || exit 1
+  composed="$(dotfiles_homebrew_compose_cleanup_brewfile "$repo_root" "$profile")" || exit 1
+  cleanup_profile="$(dotfiles_homebrew_cleanup_profile "$profile")" || exit 1
   trap 'rm -f "$composed"' EXIT
-  printf '\n## brew bundle cleanup --force (composed %s layers)\n' "$profile"
+  printf '\n## brew bundle cleanup --force (composed %s host contract)\n' "$profile"
   if dotfiles_profile_uses_shared_brew "$profile"; then
-    HOMEBREW_BUNDLE_DOTFILES_PROFILE="$profile" \
+    HOMEBREW_BUNDLE_DOTFILES_PROFILE="$cleanup_profile" \
       "$repo_root/scripts/bootstrap/brew-devbox.sh" bundle cleanup --force --file "$composed"
   else
-    HOMEBREW_BUNDLE_DOTFILES_PROFILE="$profile" brew bundle cleanup --force --file "$composed"
+    HOMEBREW_BUNDLE_DOTFILES_PROFILE="$cleanup_profile" brew bundle cleanup --force --file "$composed"
   fi
 fi
