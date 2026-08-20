@@ -47,7 +47,6 @@ if workstation_enabled
   cask "zoom"
 
   # Agent tools
-  cask "codexbar"
   cask "grok-build"
   cask "uinaf/tap/slopwake"
 
