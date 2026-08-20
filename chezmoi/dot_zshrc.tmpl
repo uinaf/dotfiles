@@ -38,13 +38,8 @@ if [ -n "$SSH_CONNECTION$SSH_TTY" ] && [ -r "$HOME/.config/dotfiles/devbox.env" 
   fi
 fi
 
-{{ $profile := includeTemplate "profile" . | fromJson -}}
-{{ if $profile.capabilities.workstation -}}
-export EDITOR="zed --wait"
-export VISUAL="zed --wait"
-{{ else -}}
 export EDITOR="vim"
-{{ end -}}
+export VISUAL="vim"
 
 # SSH does not forward COLORTERM unless the server explicitly accepts it.
 # Keep truecolor TUIs consistent when using Ghostty or another truecolor term.

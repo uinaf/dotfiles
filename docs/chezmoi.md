@@ -11,7 +11,7 @@ Use chezmoi source attributes instead of literal target filenames:
 | Source | Target |
 | --- | --- |
 | `chezmoi/.chezmoidata/profiles.json` | Versioned template data for profile capabilities and composition |
-| `chezmoi/dot_zshrc.tmpl` | `~/.zshrc`; workstation profiles set `EDITOR`/`VISUAL` to `zed --wait` |
+| `chezmoi/dot_zshrc.tmpl` | `~/.zshrc`; all profiles set `EDITOR`/`VISUAL` to `vim` |
 | `chezmoi/dot_gitconfig.tmpl` | `~/.gitconfig` |
 | `chezmoi/private_dot_config/mise/config.toml.tmpl` | `~/.config/mise/config.toml` |
 | `chezmoi/private_dot_config/private_dotfiles/profile.tmpl` | `~/.config/dotfiles/profile` |
