@@ -284,7 +284,7 @@ for required in 'cask "codex"' 'cask "claude-code@latest"' 'cask "uinaf/tap/slop
     fi
   done
 done
-for required in 'brew "awscli"' 'brew "docker-credential-helper"' 'brew "xcodegen"' 'cask "android-commandlinetools"'; do
+for required in 'brew "awscli"' 'brew "docker-credential-helper"' 'brew "opencode"' 'brew "xcodegen"' 'cask "android-commandlinetools"'; do
   grep -Fqx "$required" "$repo_root/Brewfile.developer" \
     || fail "developer layer missed $required"
   for file in Brewfile.workstation Brewfile.personal Brewfile.devbox Brewfile.assistant; do
