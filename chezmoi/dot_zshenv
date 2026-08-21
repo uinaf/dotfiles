@@ -21,3 +21,10 @@ if [ -S "$op_ssh_agent_sock" ]; then
   export SSH_AUTH_SOCK="$op_ssh_agent_sock"
 fi
 unset op_ssh_agent_sock
+
+# Owner-only extras for this machine. Absent or non-regular files are ignored.
+zshenv_local="$HOME/.config/dotfiles/zshenv.local"
+if [ -f "$zshenv_local" ] && [ -r "$zshenv_local" ]; then
+  source "$zshenv_local"
+fi
+unset zshenv_local
