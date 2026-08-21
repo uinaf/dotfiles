@@ -49,7 +49,8 @@ mise run verify
   `scripts/verify/` and `scripts/audit/`.
 
 Read the matching guide from the [documentation map](README.md#documentation)
-before changing a contract. Keep one-machine preferences local or in a fork.
+before changing a contract. Keep one-machine preferences local, in
+`~/.config/dotfiles/zshenv.local`, or in a fork.
 
 ## Pull Requests
 
