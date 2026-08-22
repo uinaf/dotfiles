@@ -112,9 +112,14 @@ stat -f '%OLp %N' "$path"
 
 - Edit files under `chezmoi/`, not generated files in `$HOME`.
 - Keep `chezmoi.toml`, `~/.config/dotfiles/agents.start.md`,
-  `~/.config/dotfiles/agents.end.md`, local data
-  files, hostnames, identities, vault names, item names, tokens, private keys,
-  and generated env files out of Git.
+  `~/.config/dotfiles/agents.end.md`, `~/.config/dotfiles/zshenv.local`, local
+  data files, hostnames, identities, vault names, item names, tokens, private
+  keys, and generated env files out of Git.
+- `~/.zshenv` sources `~/.config/dotfiles/zshenv.local` when that path is a
+  readable regular file. Use it for machine-specific exports the shared
+  zshenv must not own. Keep the file owner-only (`0600`). Example: if
+  1Password's SSH agent is `SSH_AUTH_SOCK`, set `TELEPORT_ADD_KEYS_TO_AGENT=no`
+  there instead of changing the shared `zshenv`.
 - Prefer public-safe templates and local-only config over checked-in secret
   references.
 - Do not use `exact_` at `$HOME` scope.
