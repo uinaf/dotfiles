@@ -6,6 +6,8 @@ installer="$repo_root/scripts/bootstrap/install-devbox-service-daemons.sh"
 
 # shellcheck source=scripts/lib/launchd.sh
 . "$repo_root/scripts/lib/launchd.sh"
+# shellcheck source=scripts/lib/devbox-service-t3-code.sh
+. "$repo_root/scripts/lib/devbox-service-t3-code.sh"
 
 fail() {
   printf 'FAILED: %s\n' "$1" >&2
@@ -14,19 +16,22 @@ fail() {
 
 expected="$(printf '%s\n' \
   local.dotfiles.openclaw-gateway.example \
-  local.dotfiles.colima.example)"
+  local.dotfiles.colima.example \
+  local.dotfiles.t3-code.example)"
 actual="$(DOTFILES_LAUNCHD_NAMESPACE='' "$installer" --user example --print-labels)"
 [ "$actual" = "$expected" ] || fail "default LaunchDaemon labels are not vendor-neutral"
 
 custom_expected="$(printf '%s\n' \
   org.example.dotfiles.openclaw-gateway.example \
-  org.example.dotfiles.colima.example)"
+  org.example.dotfiles.colima.example \
+  org.example.dotfiles.t3-code.example)"
 custom="$("$installer" --user example --namespace org.example.dotfiles --print-labels)"
 [ "$custom" = "$custom_expected" ] || fail "custom LaunchDaemon namespace was not applied consistently"
 
 underscore_expected="$(printf '%s\n' \
   org.example_team.dotfiles.openclaw-gateway.example \
-  org.example_team.dotfiles.colima.example)"
+  org.example_team.dotfiles.colima.example \
+  org.example_team.dotfiles.t3-code.example)"
 custom_with_underscore="$("$installer" --user example --namespace org.example_team.dotfiles --print-labels)"
 [ "$custom_with_underscore" = "$underscore_expected" ] \
   || fail "an advertised underscore was not applied consistently"
@@ -101,6 +106,15 @@ if "$installer" --user example --colima --openclaw-wrapper /tmp/wrapper >/dev/nu
 fi
 if "$installer" --user example --openclaw --openclaw-port 99999999999999999999 >/dev/null 2>&1; then
   fail "oversized OpenClaw port was accepted"
+fi
+if "$installer" --user example --colima --t3-version 1.2.3 >/dev/null 2>&1; then
+  fail "T3 Code version was accepted without --t3-code"
+fi
+if ! dotfiles_validate_t3_version 0.0.34-nightly.20260823.1166; then
+  fail "valid T3 Code nightly version was rejected"
+fi
+if dotfiles_validate_t3_version 'latest; unsafe'; then
+  fail "unsafe T3 Code version was accepted"
 fi
 
 printf 'ok LaunchDaemon labels are vendor-neutral and configurable\n'

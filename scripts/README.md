@@ -46,6 +46,10 @@ implementation owners and are also used by repository tests.
 | Git and credential setup | [Identity provisioning](../docs/identities.md) |
 | Role boundaries | [User profiles](../docs/profiles.md) |
 
+Headless macOS coding services use
+`scripts/bootstrap/install-devbox-service-daemons.sh`; see
+[Devbox setup](../docs/devbox.md#system-services).
+
 ## Global Agent Setup
 
 ```zsh

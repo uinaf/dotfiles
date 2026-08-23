@@ -5,10 +5,13 @@ target_user=""
 install_openclaw=0
 allow_openclaw_restart=0
 install_colima=0
+install_t3_code=0
 openclaw_wrapper=""
 openclaw_port=18789
 openclaw_wrapper_set=0
 openclaw_port_set=0
+t3_version=""
+t3_working_directory=""
 check_only=0
 print_labels=0
 launchd_namespace="${DOTFILES_LAUNCHD_NAMESPACE:-}"
@@ -27,6 +30,8 @@ fail() {
 . "$repo_root/scripts/lib/devbox-service-openclaw.sh"
 # shellcheck source=scripts/lib/devbox-service-colima.sh
 . "$repo_root/scripts/lib/devbox-service-colima.sh"
+# shellcheck source=scripts/lib/devbox-service-t3-code.sh
+. "$repo_root/scripts/lib/devbox-service-t3-code.sh"
 
 usage() {
   cat <<'USAGE'
@@ -38,6 +43,7 @@ Services:
   --allow-openclaw-restart
                       Let the selected user restart only its exact system job.
   --colima           Run the user's colima-ensure script once at system boot.
+  --t3-code          Run a pinned T3 Code server at system boot.
 
 Options:
   --check            Verify the selected LaunchDaemons without changing them.
@@ -47,6 +53,10 @@ Options:
                       Executable process wrapper for OpenClaw runtime secrets.
   --openclaw-port PORT
                       Per-user gateway port; defaults to 18789.
+  --t3-version VERSION
+                      Exact npm T3 Code version; requires --t3-code.
+  --t3-working-directory PATH
+                      Server working directory; defaults to the user's home.
 
 The installer must run as root on macOS. It creates root-owned system
 LaunchDaemons that drop privileges to the selected user. Conflicting
@@ -81,6 +91,19 @@ while [ "$#" -gt 0 ]; do
       ;;
     --colima)
       install_colima=1
+      ;;
+    --t3-code)
+      install_t3_code=1
+      ;;
+    --t3-version)
+      [ "$#" -ge 2 ] || fail "--t3-version requires a value"
+      t3_version="$2"
+      shift
+      ;;
+    --t3-working-directory)
+      [ "$#" -ge 2 ] || fail "--t3-working-directory requires a value"
+      t3_working_directory="$2"
+      shift
       ;;
     --check)
       check_only=1
@@ -123,17 +146,26 @@ if [ "$print_labels" -eq 1 ]; then
   fi
   openclaw_label="$(dotfiles_launchd_label openclaw-gateway "$target_user" "$launchd_namespace")"
   colima_label="$(dotfiles_launchd_label colima "$target_user" "$launchd_namespace")"
-  printf '%s\n%s\n' "$openclaw_label" "$colima_label"
+  t3_label="$(dotfiles_launchd_label t3-code "$target_user" "$launchd_namespace")"
+  printf '%s\n%s\n%s\n' "$openclaw_label" "$colima_label" "$t3_label"
   exit 0
 fi
 
 [ "$(uname -s)" = Darwin ] || fail "this installer supports macOS only"
 [ "$install_openclaw" -eq 1 ] || [ "$allow_openclaw_restart" -eq 1 ] \
   || [ "$install_colima" -eq 1 ] \
+  || [ "$install_t3_code" -eq 1 ] \
   || fail "select at least one service"
 if [ "$install_openclaw" -ne 1 ] \
   && { [ "$openclaw_wrapper_set" -eq 1 ] || [ "$openclaw_port_set" -eq 1 ]; }; then
   fail "--openclaw-wrapper and --openclaw-port require --openclaw"
+fi
+if [ "$install_t3_code" -ne 1 ] \
+  && { [ -n "$t3_version" ] || [ -n "$t3_working_directory" ]; }; then
+  fail "--t3-version and --t3-working-directory require --t3-code"
+fi
+if [ "$install_t3_code" -eq 1 ] && [ -z "$t3_version" ]; then
+  fail "--t3-code requires --t3-version"
 fi
 case "$openclaw_port" in
   ''|*[!0-9]*) fail "OpenClaw port must be an integer" ;;
@@ -165,6 +197,8 @@ else
 fi
 openclaw_label="$(dotfiles_launchd_label openclaw-gateway "$target_user" "$launchd_namespace")"
 colima_label="$(dotfiles_launchd_label colima "$target_user" "$launchd_namespace")"
+t3_label="$(dotfiles_launchd_label t3-code "$target_user" "$launchd_namespace")"
+[ -n "$t3_working_directory" ] || t3_working_directory="$target_home"
 
 launch_daemon_dir="/Library/LaunchDaemons"
 sudoers_dir="/etc/sudoers.d"
@@ -177,6 +211,9 @@ colima_binary=""
 if [ "$install_colima" -eq 1 ] && needs_target_files; then
   prepare_colima_service
 fi
+if [ "$install_t3_code" -eq 1 ]; then
+  resolve_t3_code_service
+fi
 
 if [ "$check_only" -eq 1 ]; then
   if [ "$install_openclaw" -eq 1 ]; then
@@ -187,6 +224,9 @@ if [ "$check_only" -eq 1 ]; then
   fi
   if [ "$install_colima" -eq 1 ]; then
     check_colima
+  fi
+  if [ "$install_t3_code" -eq 1 ]; then
+    check_t3_code
   fi
   exit 0
 fi
@@ -203,6 +243,9 @@ trap 'rm -rf "$tmp_dir"' EXIT
 if [ "$install_openclaw" -eq 1 ]; then
   prepare_openclaw_service
 fi
+if [ "$install_t3_code" -eq 1 ]; then
+  prepare_t3_code_service
+fi
 persist_launchd_namespace
 
 if [ "$install_openclaw" -eq 1 ]; then
@@ -213,6 +256,9 @@ if [ "$allow_openclaw_restart" -eq 1 ]; then
 fi
 if [ "$install_colima" -eq 1 ]; then
   install_colima_service
+fi
+if [ "$install_t3_code" -eq 1 ]; then
+  install_t3_code_service
 fi
 
 printf 'devbox service daemon installation ok\n'

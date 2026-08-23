@@ -56,7 +56,7 @@ check_sops_identity() {
 
 check_launchd_daemons() {
   printf '\n## managed launchd daemons\n'
-  local plist label namespace namespace_file namespace_status found=0
+  local plist label namespace namespace_file namespace_status found=0 service
   case "$devbox_user" in
     ""|*[!A-Za-z0-9._-]*) fail "unsupported DEVBOX_USER: $devbox_user" ;;
   esac
@@ -71,17 +71,19 @@ check_launchd_daemons() {
     fail "invalid DOTFILES_LAUNCHD_NAMESPACE or stored namespace"
   fi
 
-  plist="/Library/LaunchDaemons/$namespace.colima.$devbox_user.plist"
-  if [ -e "$plist" ]; then
-    found=1
-    label="$(basename "$plist" .plist)"
-    [ "$(stat -f '%Su:%Sg:%Lp' "$plist")" = "root:wheel:644" ] \
-      || fail "$label plist must be root:wheel mode 0644"
-    launchctl print "system/$label" >/dev/null 2>&1 || fail "$label is not loaded"
-    printf 'ok %s loaded\n' "$label"
-  fi
+  for service in colima t3-code; do
+    plist="/Library/LaunchDaemons/$namespace.$service.$devbox_user.plist"
+    if [ -e "$plist" ]; then
+      found=1
+      label="$(basename "$plist" .plist)"
+      [ "$(stat -f '%Su:%Sg:%Lp' "$plist")" = "root:wheel:644" ] \
+        || fail "$label plist must be root:wheel mode 0644"
+      launchctl print "system/$label" >/dev/null 2>&1 || fail "$label is not loaded"
+      printf 'ok %s loaded\n' "$label"
+    fi
+  done
 
-  [ "$found" -eq 1 ] || printf 'ok no managed Colima system daemons on this machine\n'
+  [ "$found" -eq 1 ] || printf 'ok no managed developer system daemons on this machine\n'
 }
 
 case "${1:-}" in

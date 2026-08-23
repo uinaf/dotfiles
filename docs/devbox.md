@@ -238,9 +238,23 @@ sudo ./scripts/bootstrap/install-devbox-service-daemons.sh \
   --allow-openclaw-restart
 ```
 
+For a headless T3 Code server, pin the exact npm version and the workspace used
+for project and skill discovery:
+
+```zsh
+sudo ./scripts/bootstrap/install-devbox-service-daemons.sh \
+  --user example \
+  --t3-code \
+  --t3-version 0.0.34-nightly.20260823.1166 \
+  --t3-working-directory /Users/example/projects/example/workspace
+```
+
 - `--allow-openclaw-restart` grants that user passwordless restart of only its
   exact OpenClaw system job, not general launchctl or sudo access.
 - Use `--colima` only when that target user owns the service.
+- T3 Code versions are installed side by side under
+  `~/.local/share/t3-code/service/`; the plist pins the selected package and
+  the target user's resolved Node executable.
 - Use `--check` with the selected service flags for a non-mutating contract
   check.
 - System LaunchDaemons must be root-owned and mode `0644`.
