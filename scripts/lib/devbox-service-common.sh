@@ -104,15 +104,19 @@ create_plist() {
 bootout_if_loaded() {
   local domain="$1"
   local label="$2"
+  local attempt=1
 
   if ! launchctl print "$domain/$label" >/dev/null 2>&1; then
     return 0
   fi
   launchctl bootout "$domain/$label" >/dev/null \
     || fail "could not unload $domain/$label"
-  if launchctl print "$domain/$label" >/dev/null 2>&1; then
-    fail "$domain/$label remains loaded after bootout"
-  fi
+  while launchctl print "$domain/$label" >/dev/null 2>&1; do
+    [ "$attempt" -lt 50 ] \
+      || fail "$domain/$label remains loaded after bootout"
+    sleep 0.1
+    attempt=$((attempt + 1))
+  done
 }
 
 install_job() {
