@@ -141,7 +141,7 @@ export function parseGatewayConfig(contents: string): GatewayConfig {
   }
   if (value.credentials.opencode !== undefined &&
     (typeof value.credentials.opencode !== "string" || !/^[A-Za-z0-9_-]{20,}$/.test(value.credentials.opencode))) {
-    throw new Error("credentials.opencode must be a resolved OpenCode Zen key when configured");
+    throw new Error("credentials.opencode must be a resolved OpenCode API key when configured");
   }
   for (const field of ["cursorAgentBin", "grokBin"] as const) {
     if (value[field] !== undefined && (typeof value[field] !== "string" || value[field].length === 0 || !isAbsolute(value[field]))) {

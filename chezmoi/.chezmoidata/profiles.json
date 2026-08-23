@@ -33,7 +33,7 @@
           "install-gh-extensions",
           "configure-codex",
           "configure-llm-gateway",
-          "configure-opencode-zen",
+          "configure-opencode",
           "sync-agents"
         ]
       },
@@ -68,7 +68,7 @@
           "install-gh-extensions",
           "configure-codex",
           "configure-llm-gateway",
-          "configure-opencode-zen",
+          "configure-opencode",
           "sync-agents"
         ]
       },

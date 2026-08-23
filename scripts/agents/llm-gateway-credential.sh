@@ -12,7 +12,7 @@ fail() {
 case "$1" in
   cursor) field=CURSOR_API_KEY ;;
   gateway) field=CLIPROXYAPI_CLIENT_API_KEY ;;
-  opencode) field=OPENCODE_ZEN_API_KEY ;;
+  opencode) field=OPENCODE_API_KEY ;;
   *) fail "usage: llm-gateway-credential.sh cursor|gateway|opencode" ;;
 esac
 
@@ -31,8 +31,8 @@ case "$field" in
   CLIPROXYAPI_CLIENT_API_KEY)
     [[ "$value" =~ ^[A-Za-z0-9_-]{32,}$ ]] || fail "invalid gateway key format"
     ;;
-  OPENCODE_ZEN_API_KEY)
-    [[ "$value" =~ ^[A-Za-z0-9_-]{20,}$ ]] || fail "invalid OpenCode Zen key format"
+  OPENCODE_API_KEY)
+    [[ "$value" =~ ^[A-Za-z0-9_-]{20,}$ ]] || fail "invalid OpenCode API key format"
     ;;
 esac
 printf '%s\n' "$value"

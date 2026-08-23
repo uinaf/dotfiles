@@ -52,11 +52,11 @@
       "output": "Opt-in Codex and Claude gateway routing, Cursor API-key isolation, check, and exact rollback"
     },
     {
-      "id": "opencode-zen",
+      "id": "opencode",
       "domain": "config",
-      "command": ["node", "--test", "scripts/bootstrap/configure-opencode-zen.test.ts"],
-      "inputs": ["scripts/bootstrap/configure-opencode-zen.ts", "scripts/bootstrap/configure-opencode-zen.test.ts", "scripts/agents/llm-gateway-credential.sh", "scripts/bootstrap/install.sh", "chezmoi/.chezmoidata/profiles.json", "docs/devbox.md"],
-      "output": "OpenCode Zen native credential convergence and preservation"
+      "command": ["node", "--test", "scripts/bootstrap/configure-opencode.test.ts"],
+      "inputs": ["scripts/bootstrap/configure-opencode.ts", "scripts/bootstrap/configure-opencode.test.ts", "scripts/agents/llm-gateway-credential.sh", "scripts/bootstrap/install.sh", "chezmoi/.chezmoidata/profiles.json", "docs/devbox.md"],
+      "output": "OpenCode native credential convergence for both catalogs"
     },
     {
       "id": "agent-rules",

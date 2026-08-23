@@ -30,7 +30,7 @@ const validConfig = {
   credentials: {
     gateway: "0123456789abcdefghijklmnopqrstuvwxyz_ABCD",
     cursor: "crsr_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-",
-    opencode: "opencode_zen_test_key_1234567890",
+    opencode: "opencode_test_key_1234567890",
   },
   gatewayBaseUrl: "https://gateway.example/v1",
   cursorAgentBin: "/Users/example/.local/bin/agent",
@@ -189,12 +189,12 @@ rm -f "$HOME/.claude/.credentials.json"
     assert.equal(state.authRetired, false);
     assert.deepEqual(state.cursorCommands.map((command) => command.target), originalCursorTargets);
     assert.equal(statSync(join(home, ".local/libexec/dotfiles/cursor-acp-api-key-auth")).mode & 0o777, 0o700);
-    const zenCredential = spawnSync(join(home, ".local/libexec/dotfiles/llm-gateway-credential"), ["opencode"], {
+    const opencodeCredential = spawnSync(join(home, ".local/libexec/dotfiles/llm-gateway-credential"), ["opencode"], {
       encoding: "utf8",
       env,
     });
-    assert.equal(zenCredential.status, 0, zenCredential.stderr);
-    assert.equal(zenCredential.stdout.trim(), validConfig.credentials.opencode);
+    assert.equal(opencodeCredential.status, 0, opencodeCredential.stderr);
+    assert.equal(opencodeCredential.stdout.trim(), validConfig.credentials.opencode);
 
     const second = run();
     assert.equal(second.status, 0, second.stderr);

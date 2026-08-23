@@ -124,7 +124,7 @@ Create `~/.config/dotfiles/llm-gateway.json` with mode `0600`:
   "credentials": {
     "gateway": "<resolved gateway key>",
     "cursor": "<resolved Cursor key>",
-    "opencode": "<resolved OpenCode Zen key>"
+    "opencode": "<resolved OpenCode API key>"
   },
   "gatewayBaseUrl": "https://gateway.example/v1",
   "cursorAgentBin": "/Users/example/.local/share/cursor-agent/versions/2026.08.11-e8db854/cursor-agent",
@@ -133,7 +133,7 @@ Create `~/.config/dotfiles/llm-gateway.json` with mode `0600`:
 ```
 
 `credentials.gateway` is required. Configure `credentials.cursor` only with
-`cursorAgentBin`; `credentials.opencode` enables Zen provisioning. The values
+`cursorAgentBin`; `credentials.opencode` enables OpenCode provisioning. The values
 are already-resolved opaque strings: this repository does not know or require
 their source. Both `cursorAgentBin` and `grokBin` are optional. The configurator
 then:
@@ -146,8 +146,8 @@ then:
 ```bash
 ./scripts/bootstrap/configure-llm-gateway.ts
 ./scripts/bootstrap/configure-llm-gateway.ts --check
-./scripts/bootstrap/configure-opencode-zen.ts
-./scripts/bootstrap/configure-opencode-zen.ts --check
+./scripts/bootstrap/configure-opencode.ts
+./scripts/bootstrap/configure-opencode.ts --check
 ```
 
 - The first enrollment keeps any saved Codex login intact.
@@ -175,10 +175,11 @@ Retirement is intentionally separate from enrollment:
   again before direct use.
 - A complete developer-profile `install.sh` run preserves gateway routing and
   removes any legacy Codex login-method restriction.
-- Personal setup asks the installed credential helper for one opaque Zen key,
-  then writes it to OpenCode's native owner-only authentication file while
-  preserving credentials for other providers. The OpenCode configurator does
-  not know how or where the helper stores that key.
+- Personal setup asks the installed credential helper for one opaque OpenCode API key,
+  then writes it to both native owner-only auth slots (`opencode` and
+  `opencode-go`) while preserving credentials for other providers. Go still
+  requires its own OpenCode subscription. The configurator does not know how
+  or where the helper stores that key.
 
 Claude Code:
 
