@@ -21,13 +21,14 @@ import { fileURLToPath } from "node:url";
 import { type ConfigEdit, writeConfigEdits } from "./configure-codex.ts";
 
 type GatewayConfig = {
-  version: 2;
+  version: 3;
   credentials: {
-    gateway: string;
+    gatewai: string;
+    bifrost: string;
     cursor?: string;
-    opencode?: string;
   };
-  gatewayBaseUrl: string;
+  gatewaiBaseUrl: string;
+  bifrostBaseUrl: string;
   cursorAgentBin?: string;
   grokBin?: string;
 };
@@ -119,29 +120,32 @@ function ownerOnly(path: string): boolean {
 export function parseGatewayConfig(contents: string): GatewayConfig {
   const value: unknown = JSON.parse(contents);
   if (!isRecord(value)) throw new Error("gateway config must contain a JSON object");
-  const allowed = new Set(["version", "credentials", "gatewayBaseUrl", "cursorAgentBin", "grokBin"]);
+  const allowed = new Set(["version", "credentials", "gatewaiBaseUrl", "bifrostBaseUrl", "cursorAgentBin", "grokBin"]);
   if (Object.keys(value).some((key) => !allowed.has(key))) {
     throw new Error("gateway config contains an unknown field");
   }
-  if (value.version !== 2) throw new Error("gateway config version must be 2");
-  if (typeof value.gatewayBaseUrl !== "string" || value.gatewayBaseUrl.length === 0) {
-    throw new Error("gatewayBaseUrl must be a non-empty string");
+  if (value.version !== 3) throw new Error("gateway config version must be 3");
+  if (typeof value.gatewaiBaseUrl !== "string" || value.gatewaiBaseUrl.length === 0) {
+    throw new Error("gatewaiBaseUrl must be a non-empty string");
+  }
+  if (typeof value.bifrostBaseUrl !== "string" || value.bifrostBaseUrl.length === 0) {
+    throw new Error("bifrostBaseUrl must be a non-empty string");
   }
   if (!isRecord(value.credentials)) throw new Error("credentials must contain an object of resolved strings");
   const credentialKeys = Object.keys(value.credentials);
-  if (credentialKeys.some((key) => !["gateway", "cursor", "opencode"].includes(key))) {
+  if (credentialKeys.some((key) => !["gatewai", "bifrost", "cursor"].includes(key))) {
     throw new Error("credentials contains an unknown field");
   }
-  if (typeof value.credentials.gateway !== "string" || !/^[A-Za-z0-9_-]{32,}$/.test(value.credentials.gateway)) {
-    throw new Error("credentials.gateway must be a resolved gateway key");
+  if (typeof value.credentials.gatewai !== "string" || !/^[A-Za-z0-9_-]{32,}$/.test(value.credentials.gatewai)) {
+    throw new Error("credentials.gatewai must be a resolved Gatewai key");
+  }
+  if (typeof value.credentials.bifrost !== "string" ||
+    !/^sk-bf-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(value.credentials.bifrost)) {
+    throw new Error("credentials.bifrost must be a resolved Bifrost key");
   }
   if (value.credentials.cursor !== undefined &&
     (typeof value.credentials.cursor !== "string" || !/^crsr_[A-Za-z0-9_-]{64}$/.test(value.credentials.cursor))) {
     throw new Error("credentials.cursor must be a resolved Cursor key when configured");
-  }
-  if (value.credentials.opencode !== undefined &&
-    (typeof value.credentials.opencode !== "string" || !/^[A-Za-z0-9_-]{20,}$/.test(value.credentials.opencode))) {
-    throw new Error("credentials.opencode must be a resolved OpenCode API key when configured");
   }
   for (const field of ["cursorAgentBin", "grokBin"] as const) {
     if (value[field] !== undefined && (typeof value[field] !== "string" || value[field].length === 0 || !isAbsolute(value[field]))) {
@@ -151,9 +155,11 @@ export function parseGatewayConfig(contents: string): GatewayConfig {
   if ((value.cursorAgentBin === undefined) !== (value.credentials.cursor === undefined)) {
     throw new Error("cursorAgentBin and credentials.cursor must be configured together");
   }
-  const url = new URL(value.gatewayBaseUrl);
-  if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash || !url.pathname.endsWith("/v1")) {
-    throw new Error("gatewayBaseUrl must be an HTTPS /v1 URL without credentials, query, or fragment");
+  for (const field of ["gatewaiBaseUrl", "bifrostBaseUrl"] as const) {
+    const url = new URL(value[field]);
+    if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash || !url.pathname.endsWith("/v1")) {
+      throw new Error(`${field} must be an HTTPS /v1 URL without credentials, query, or fragment`);
+    }
   }
   return value as GatewayConfig;
 }
@@ -161,30 +167,40 @@ export function parseGatewayConfig(contents: string): GatewayConfig {
 export function gatewayEdits(config: GatewayConfig, credentialPath: string): ConfigEdit[] {
   return [
     { keyPath: "model", value: "gpt-5.6-sol", mergeStrategy: "upsert" },
-    { keyPath: "model_provider", value: "llm_gateway", mergeStrategy: "upsert" },
+    { keyPath: "model_provider", value: "gatewai", mergeStrategy: "upsert" },
     { keyPath: "features.apps", value: false, mergeStrategy: "upsert" },
     { keyPath: "mcp_servers.node_repl", value: null, mergeStrategy: "replace" },
     { keyPath: "mcp_servers.computer-use", value: null, mergeStrategy: "replace" },
     { keyPath: "notify", value: null, mergeStrategy: "replace" },
-    { keyPath: "model_providers.llm_gateway.name", value: "zebroid-gateway", mergeStrategy: "upsert" },
-    { keyPath: "model_providers.llm_gateway.base_url", value: config.gatewayBaseUrl, mergeStrategy: "upsert" },
-    { keyPath: "model_providers.llm_gateway.wire_api", value: "responses", mergeStrategy: "upsert" },
-    { keyPath: "model_providers.llm_gateway.requires_openai_auth", value: false, mergeStrategy: "upsert" },
-    { keyPath: "model_providers.llm_gateway.supports_websockets", value: false, mergeStrategy: "upsert" },
-    { keyPath: "model_providers.llm_gateway.auth.command", value: credentialPath, mergeStrategy: "upsert" },
-    { keyPath: "model_providers.llm_gateway.auth.args", value: ["gateway"], mergeStrategy: "upsert" },
-    { keyPath: "model_providers.llm_gateway.auth.timeout_ms", value: 5000, mergeStrategy: "upsert" },
-    { keyPath: "model_providers.llm_gateway.auth.refresh_interval_ms", value: 0, mergeStrategy: "upsert" },
+    { keyPath: "model_providers.llm_gateway", value: null, mergeStrategy: "replace" },
+    { keyPath: "model_providers.gatewai.name", value: "Gatewai", mergeStrategy: "upsert" },
+    { keyPath: "model_providers.gatewai.base_url", value: config.gatewaiBaseUrl, mergeStrategy: "upsert" },
+    { keyPath: "model_providers.gatewai.wire_api", value: "responses", mergeStrategy: "upsert" },
+    { keyPath: "model_providers.gatewai.requires_openai_auth", value: false, mergeStrategy: "upsert" },
+    { keyPath: "model_providers.gatewai.supports_websockets", value: false, mergeStrategy: "upsert" },
+    { keyPath: "model_providers.gatewai.auth.command", value: credentialPath, mergeStrategy: "upsert" },
+    { keyPath: "model_providers.gatewai.auth.args", value: ["gatewai"], mergeStrategy: "upsert" },
+    { keyPath: "model_providers.gatewai.auth.timeout_ms", value: 5000, mergeStrategy: "upsert" },
+    { keyPath: "model_providers.gatewai.auth.refresh_interval_ms", value: 0, mergeStrategy: "upsert" },
+    { keyPath: "model_providers.bifrost.name", value: "Bifrost", mergeStrategy: "upsert" },
+    { keyPath: "model_providers.bifrost.base_url", value: config.bifrostBaseUrl, mergeStrategy: "upsert" },
+    { keyPath: "model_providers.bifrost.wire_api", value: "responses", mergeStrategy: "upsert" },
+    { keyPath: "model_providers.bifrost.requires_openai_auth", value: false, mergeStrategy: "upsert" },
+    { keyPath: "model_providers.bifrost.supports_websockets", value: false, mergeStrategy: "upsert" },
+    { keyPath: "model_providers.bifrost.auth.command", value: credentialPath, mergeStrategy: "upsert" },
+    { keyPath: "model_providers.bifrost.auth.args", value: ["bifrost"], mergeStrategy: "upsert" },
+    { keyPath: "model_providers.bifrost.auth.timeout_ms", value: 5000, mergeStrategy: "upsert" },
+    { keyPath: "model_providers.bifrost.auth.refresh_interval_ms", value: 0, mergeStrategy: "upsert" },
   ];
 }
 
-export function claudeGatewayBaseUrl(gatewayBaseUrl: string): string {
-  const url = new URL(gatewayBaseUrl);
+export function claudeGatewayBaseUrl(gatewaiBaseUrl: string): string {
+  const url = new URL(gatewaiBaseUrl);
   url.pathname = url.pathname.slice(0, -3) || "/";
   return url.toString().replace(/\/$/, "");
 }
 
-export function claudeGatewaySettings(contents: string, gatewayBaseUrl: string, credentialPath: string): Record<string, unknown> {
+export function claudeGatewaySettings(contents: string, gatewaiBaseUrl: string, credentialPath: string): Record<string, unknown> {
   const value: unknown = contents.trim() === "" ? {} : JSON.parse(contents);
   if (!isRecord(value)) throw new Error("Claude settings must contain a JSON object");
   const currentEnv = value.env === undefined ? {} : value.env;
@@ -194,8 +210,8 @@ export function claudeGatewaySettings(contents: string, gatewayBaseUrl: string, 
   }
   return {
     ...value,
-    apiKeyHelper: `${credentialPath} gateway`,
-    env: { ...currentEnv, ANTHROPIC_BASE_URL: claudeGatewayBaseUrl(gatewayBaseUrl) },
+    apiKeyHelper: `${credentialPath} gatewai`,
+    env: { ...currentEnv, ANTHROPIC_BASE_URL: claudeGatewayBaseUrl(gatewaiBaseUrl) },
   };
 }
 
@@ -348,18 +364,18 @@ export function assertCursorAgentBinSafe(cursorAgentBin: string, managedPaths: r
 const grokGatewayBegin = "# BEGIN dotfiles LLM gateway";
 const grokGatewayEnd = "# END dotfiles LLM gateway";
 
-function grokGatewayBlock(gatewayBaseUrl: string, credentialPath: string): string {
+function grokGatewayBlock(gatewaiBaseUrl: string, credentialPath: string): string {
   return [
     grokGatewayBegin,
     "[models]",
     'default = "grok-4.6"',
     "",
     "[endpoints]",
-    `models_base_url = ${JSON.stringify(gatewayBaseUrl)}`,
+    `models_base_url = ${JSON.stringify(gatewaiBaseUrl)}`,
     "",
     "[auth]",
-    `auth_provider_command = ${JSON.stringify(`${credentialPath} gateway`)}`,
-    'auth_provider_label = "zebroid-gateway"',
+    `auth_provider_command = ${JSON.stringify(`${credentialPath} gatewai`)}`,
+    'auth_provider_label = "Gatewai"',
     "auth_token_ttl = 3600",
     "",
     '[model."grok-4.6"]',
@@ -368,7 +384,7 @@ function grokGatewayBlock(gatewayBaseUrl: string, credentialPath: string): strin
   ].join("\n");
 }
 
-export function grokGatewaySettings(contents: string, gatewayBaseUrl: string, credentialPath: string): string {
+export function grokGatewaySettings(contents: string, gatewaiBaseUrl: string, credentialPath: string): string {
   const managed = new RegExp(`${grokGatewayBegin.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[\\s\\S]*?${grokGatewayEnd.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\n?`, "g");
   const original = contents.replace(managed, "").trimEnd();
   for (const section of ["models", "endpoints", "auth", 'model."grok-4.6"']) {
@@ -377,7 +393,7 @@ export function grokGatewaySettings(contents: string, gatewayBaseUrl: string, cr
       throw new Error(`Grok config conflicts with gateway section: ${section}`);
     }
   }
-  return `${original}${original ? "\n\n" : ""}${grokGatewayBlock(gatewayBaseUrl, credentialPath)}\n`;
+  return `${original}${original ? "\n\n" : ""}${grokGatewayBlock(gatewaiBaseUrl, credentialPath)}\n`;
 }
 
 function validateLocalInputs(configPath: string): GatewayConfig {
@@ -493,7 +509,7 @@ async function run(): Promise<void> {
   if (config.cursorAgentBin) assertCursorAgentBinSafe(config.cursorAgentBin, managedCursorTargets);
   const desiredClaudeSettings = claudeGatewaySettings(
     existsSync(claudeSettings) ? readFileSync(claudeSettings, "utf8") : "",
-    config.gatewayBaseUrl,
+    config.gatewaiBaseUrl,
     credentialTarget,
   );
   if (mode === "check" || mode === "retire-auth") {
@@ -510,28 +526,30 @@ async function run(): Promise<void> {
       const originalGrokConfig = state.grokConfigExisted
         ? readFileSync(state.grokConfigBackupPath || "", "utf8")
         : "";
-      if (!existsSync(grokConfig) || readFileSync(grokConfig, "utf8") !== grokGatewaySettings(originalGrokConfig, config.gatewayBaseUrl, credentialTarget)) {
+      if (!existsSync(grokConfig) || readFileSync(grokConfig, "utf8") !== grokGatewaySettings(originalGrokConfig, config.gatewaiBaseUrl, credentialTarget)) {
         throw new Error("Grok gateway config drifted");
       }
       if (!existsSync(grokAuth) || !ownerOnly(grokAuth)) throw new Error("Grok gateway authentication is missing or not owner-only");
     }
     const contents = readFileSync(codexConfig, "utf8");
     for (const expected of [
-      'model_provider = "llm_gateway"',
-      config.gatewayBaseUrl,
+      'model_provider = "gatewai"',
+      config.gatewaiBaseUrl,
+      config.bifrostBaseUrl,
       credentialTarget,
-      '[model_providers.llm_gateway.auth]',
-      'args = ["gateway"]',
+      '[model_providers.gatewai.auth]',
+      'args = ["gatewai"]',
+      '[model_providers.bifrost.auth]',
+      'args = ["bifrost"]',
     ]) {
       if (!contents.includes(expected)) throw new Error("Codex gateway config drifted");
     }
     const claude = JSON.parse(readFileSync(claudeSettings, "utf8")) as { apiKeyHelper?: unknown; env?: Record<string, unknown> };
-    if (claude.apiKeyHelper !== `${credentialTarget} gateway` || claude.env?.ANTHROPIC_BASE_URL !== claudeGatewayBaseUrl(config.gatewayBaseUrl)) {
+    if (claude.apiKeyHelper !== `${credentialTarget} gatewai` || claude.env?.ANTHROPIC_BASE_URL !== claudeGatewayBaseUrl(config.gatewaiBaseUrl)) {
       throw new Error("Claude gateway settings drifted");
     }
-    const credentialKinds = ["gateway"];
+    const credentialKinds = ["gatewai", "bifrost"];
     if (config.cursorAgentBin) credentialKinds.push("cursor");
-    if (config.credentials.opencode) credentialKinds.push("opencode");
     for (const kind of credentialKinds) {
       const result = spawnSync(credentialTarget, [kind], { encoding: "utf8", env: { ...process.env, LLM_GATEWAY_CONFIG: configPath } });
       if (result.status !== 0 || result.stdout.trim().length === 0) {
@@ -548,7 +566,7 @@ async function run(): Promise<void> {
       }
     }
     if (mode === "check") {
-      process.stdout.write(`ok LLM gateway config, helpers, resolved credentials, Codex provider, Claude settings, Cursor=${Boolean(config.cursorAgentBin)}, Grok=${Boolean(config.grokBin)}, OpenCode=${Boolean(config.credentials.opencode)}, and auth-retired=${state.authRetired}\n`);
+      process.stdout.write(`ok Gatewai/Bifrost config, helpers, resolved credentials, Codex and Claude on Gatewai, Cursor=${Boolean(config.cursorAgentBin)}, Grok=${Boolean(config.grokBin)}, OpenCode=Bifrost, and auth-retired=${state.authRetired}\n`);
       return;
     }
 
@@ -671,7 +689,7 @@ async function run(): Promise<void> {
     const originalGrokConfig = state.grokConfigExisted
       ? readFileSync(state.grokConfigBackupPath || "", "utf8")
       : "";
-    atomicWriteText(grokConfig, grokGatewaySettings(originalGrokConfig, config.gatewayBaseUrl, credentialTarget), 0o600);
+    atomicWriteText(grokConfig, grokGatewaySettings(originalGrokConfig, config.gatewaiBaseUrl, credentialTarget), 0o600);
     const login = spawnSync(config.grokBin, ["login"], {
       encoding: "utf8",
       env: { ...withoutEnvironmentKey(process.env, "GROK_HOME"), HOME: home, LLM_GATEWAY_CONFIG: configPath },

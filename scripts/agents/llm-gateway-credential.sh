@@ -8,12 +8,12 @@ fail() {
   exit 1
 }
 
-[ "$#" -eq 1 ] || fail "usage: llm-gateway-credential.sh cursor|gateway|opencode"
+[ "$#" -eq 1 ] || fail "usage: llm-gateway-credential.sh bifrost|cursor|gatewai"
 case "$1" in
+  bifrost) field=BIFROST_API_KEY ;;
   cursor) field=CURSOR_API_KEY ;;
-  gateway) field=CLIPROXYAPI_CLIENT_API_KEY ;;
-  opencode) field=OPENCODE_API_KEY ;;
-  *) fail "usage: llm-gateway-credential.sh cursor|gateway|opencode" ;;
+  gatewai) field=CLIPROXYAPI_CLIENT_API_KEY ;;
+  *) fail "usage: llm-gateway-credential.sh bifrost|cursor|gatewai" ;;
 esac
 
 command -v jq >/dev/null 2>&1 || fail "missing jq"
@@ -25,14 +25,14 @@ config_mode="$(stat -f '%Lp' "$config_path" 2>/dev/null || stat -c '%a' "$config
 value="$(jq -er --arg kind "$1" '.credentials[$kind] | select(type == "string")' "$config_path")" \
   || fail "missing resolved $1 credential in gateway config"
 case "$field" in
+  BIFROST_API_KEY)
+    [[ "$value" =~ ^sk-bf-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]] || fail "invalid Bifrost key format"
+    ;;
   CURSOR_API_KEY)
     [[ "$value" =~ ^crsr_[A-Za-z0-9_-]{64}$ ]] || fail "invalid Cursor key format"
     ;;
   CLIPROXYAPI_CLIENT_API_KEY)
     [[ "$value" =~ ^[A-Za-z0-9_-]{32,}$ ]] || fail "invalid gateway key format"
-    ;;
-  OPENCODE_API_KEY)
-    [[ "$value" =~ ^[A-Za-z0-9_-]{20,}$ ]] || fail "invalid OpenCode API key format"
     ;;
 esac
 printf '%s\n' "$value"

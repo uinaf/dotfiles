@@ -15,10 +15,14 @@ test("configures and checks OpenCode without replacing other providers", () => {
   const auth = join(home, ".local/share/opencode/auth.json");
   mkdirSync(bin, { recursive: true });
   mkdirSync(join(home, ".local/share/opencode"), { recursive: true });
-  writeFileSync(auth, `${JSON.stringify({ anthropic: { type: "api", key: "kept" } })}\n`, { mode: 0o644 });
+  writeFileSync(auth, `${JSON.stringify({
+    anthropic: { type: "api", key: "kept" },
+    opencode: { type: "api", key: "retired" },
+    "opencode-go": { type: "api", key: "retired" },
+  })}\n`, { mode: 0o644 });
   writeFileSync(helper, `#!/bin/sh
-[ "$1" = opencode ] || exit 2
-printf 'opencode_test_key_1234567890\\n'
+[ "$1" = bifrost ] || exit 2
+printf 'sk-bf-11111111-1111-4111-8111-111111111111\\n'
 `, { mode: 0o700 });
   chmodSync(helper, 0o700);
 
@@ -28,12 +32,13 @@ printf 'opencode_test_key_1234567890\\n'
 
   const result = JSON.parse(readFileSync(auth, "utf8"));
   assert.deepEqual(result.anthropic, { type: "api", key: "kept" });
-  assert.deepEqual(result.opencode, { type: "api", key: "opencode_test_key_1234567890" });
-  assert.deepEqual(result["opencode-go"], { type: "api", key: "opencode_test_key_1234567890" });
+  assert.deepEqual(result.bifrost, { type: "api", key: "sk-bf-11111111-1111-4111-8111-111111111111" });
+  assert.equal("opencode" in result, false);
+  assert.equal("opencode-go" in result, false);
   assert.equal(statSync(auth).mode & 0o777, 0o600);
 });
 
-test("check fails when the Go catalog slot is missing", () => {
+test("check fails when Bifrost is missing and retired slots remain", () => {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-opencode-"));
   const home = join(root, "home");
   const bin = join(root, "bin");
@@ -43,12 +48,12 @@ test("check fails when the Go catalog slot is missing", () => {
   mkdirSync(join(home, ".local/share/opencode"), { recursive: true });
   writeFileSync(
     auth,
-    `${JSON.stringify({ opencode: { type: "api", key: "opencode_test_key_1234567890" } })}\n`,
+    `${JSON.stringify({ opencode: { type: "api", key: "retired" } })}\n`,
     { mode: 0o600 },
   );
   writeFileSync(helper, `#!/bin/sh
-[ "$1" = opencode ] || exit 2
-printf 'opencode_test_key_1234567890\\n'
+[ "$1" = bifrost ] || exit 2
+printf 'sk-bf-11111111-1111-4111-8111-111111111111\\n'
 `, { mode: 0o700 });
   chmodSync(helper, 0o700);
 
@@ -56,6 +61,6 @@ printf 'opencode_test_key_1234567890\\n'
   assert.throws(
     () => execFileSync(script, ["--check"], { env, encoding: "utf8" }),
     (error: NodeJS.ErrnoException & { stderr?: string }) =>
-      /OpenCode authentication drifted/.test(`${error.message}\n${error.stderr ?? ""}`),
+      /OpenCode Bifrost authentication drifted/.test(`${error.message}\n${error.stderr ?? ""}`),
   );
 });

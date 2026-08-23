@@ -120,23 +120,26 @@ Create `~/.config/dotfiles/llm-gateway.json` with mode `0600`:
 
 ```json
 {
-  "version": 2,
+  "version": 3,
   "credentials": {
-    "gateway": "<resolved gateway key>",
-    "cursor": "<resolved Cursor key>",
-    "opencode": "<resolved OpenCode API key>"
+    "gatewai": "<resolved Gatewai key>",
+    "bifrost": "<resolved Bifrost key>",
+    "cursor": "<resolved Cursor key>"
   },
-  "gatewayBaseUrl": "https://gateway.example/v1",
+  "gatewaiBaseUrl": "https://gatewai.example/v1",
+  "bifrostBaseUrl": "https://bifrost.example/v1",
   "cursorAgentBin": "/Users/example/.local/share/cursor-agent/versions/2026.08.11-e8db854/cursor-agent",
   "grokBin": "/opt/homebrew/bin/grok"
 }
 ```
 
-`credentials.gateway` is required. Configure `credentials.cursor` only with
-`cursorAgentBin`; `credentials.opencode` enables OpenCode provisioning. The values
-are already-resolved opaque strings: this repository does not know or require
-their source. Both `cursorAgentBin` and `grokBin` are optional. The configurator
-then:
+`credentials.gatewai` and `credentials.bifrost` are required. Configure
+`credentials.cursor` only with `cursorAgentBin`. The values are already-resolved
+opaque strings: this repository does not know or require their source. Both
+`cursorAgentBin` and `grokBin` are optional. The configurators route Codex,
+Claude, and Grok through Gatewai, Cursor through its own API, and OpenCode
+through Bifrost. Pi and other clients can call the installed credential helper
+with `bifrost`. The configurator then:
 
 - installs owner-only process helpers
 - backs up the current Codex and Claude settings once
@@ -175,11 +178,10 @@ Retirement is intentionally separate from enrollment:
   again before direct use.
 - A complete developer-profile `install.sh` run preserves gateway routing and
   removes any legacy Codex login-method restriction.
-- Personal setup asks the installed credential helper for one opaque OpenCode API key,
-  then writes it to both native owner-only auth slots (`opencode` and
-  `opencode-go`) while preserving credentials for other providers. Go still
-  requires its own OpenCode subscription. The configurator does not know how
-  or where the helper stores that key.
+- Personal setup asks the installed credential helper for the device-scoped
+  Bifrost key, writes it to OpenCode's owner-only `bifrost` auth slot, removes
+  the retired direct `opencode` and `opencode-go` slots, and preserves unrelated
+  providers.
 
 Claude Code:
 
@@ -219,7 +221,7 @@ Launcher behavior:
 
 Grok Build:
 
-- When `grokBin` is configured, the normal `grok` command uses the gateway's
+- When `grokBin` is configured, the normal `grok` command uses Gatewai's
   OpenAI-compatible model catalog and the command-backed gateway bearer. The
   configurator backs up `~/.grok/config.toml` and `~/.grok/auth.json` before
   selecting the gateway, preserves unrelated Grok settings, and never calls

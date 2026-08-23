@@ -26,13 +26,14 @@ function fixturePath(bin: string): string {
 }
 
 const validConfig = {
-  version: 2 as const,
+  version: 3 as const,
   credentials: {
-    gateway: "0123456789abcdefghijklmnopqrstuvwxyz_ABCD",
+    gatewai: "0123456789abcdefghijklmnopqrstuvwxyz_ABCD",
+    bifrost: "sk-bf-11111111-1111-4111-8111-111111111111",
     cursor: "crsr_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-",
-    opencode: "opencode_test_key_1234567890",
   },
-  gatewayBaseUrl: "https://gateway.example/v1",
+  gatewaiBaseUrl: "https://gatewai.example/v1",
+  bifrostBaseUrl: "https://bifrost.example/v1",
   cursorAgentBin: "/Users/example/.local/bin/agent",
 };
 
@@ -43,7 +44,7 @@ test("gateway config is strict and provider edits use command-backed Responses a
     /unknown field/,
   );
   assert.throws(
-    () => parseGatewayConfig(JSON.stringify({ ...validConfig, gatewayBaseUrl: "http://gateway.example/v1" })),
+    () => parseGatewayConfig(JSON.stringify({ ...validConfig, gatewaiBaseUrl: "http://gatewai.example/v1" })),
     /HTTPS \/v1 URL/,
   );
 
@@ -51,23 +52,23 @@ test("gateway config is strict and provider edits use command-backed Responses a
   assert.equal(edits.some((edit) => edit.keyPath === "forced_login_method"), false);
   assert.ok(edits.some((edit) => edit.keyPath === "features.apps" && edit.value === false));
   assert.ok(edits.some((edit) => edit.keyPath === "mcp_servers.node_repl" && edit.value === null));
-  assert.ok(edits.some((edit) => edit.keyPath === "model_providers.llm_gateway.name" && edit.value === "zebroid-gateway"));
-  assert.ok(edits.some((edit) => edit.keyPath === "model_providers.llm_gateway.wire_api" && edit.value === "responses"));
-  assert.ok(edits.some((edit) => edit.keyPath === "model_providers.llm_gateway.auth.command"));
-  assert.ok(edits.some((edit) => edit.keyPath === "model_providers.llm_gateway.auth.args" && Array.isArray(edit.value) && edit.value[0] === "gateway"));
+  assert.ok(edits.some((edit) => edit.keyPath === "model_providers.gatewai.name" && edit.value === "Gatewai"));
+  assert.ok(edits.some((edit) => edit.keyPath === "model_providers.bifrost.name" && edit.value === "Bifrost"));
+  assert.ok(edits.some((edit) => edit.keyPath === "model_providers.gatewai.auth.args" && Array.isArray(edit.value) && edit.value[0] === "gatewai"));
+  assert.ok(edits.some((edit) => edit.keyPath === "model_providers.bifrost.auth.args" && Array.isArray(edit.value) && edit.value[0] === "bifrost"));
   assert.equal(edits.some((edit) => edit.keyPath.includes("env_key") || edit.keyPath.includes("bearer_token")), false);
 
-  assert.equal(claudeGatewayBaseUrl("https://gateway.example/v1"), "https://gateway.example");
+  assert.equal(claudeGatewayBaseUrl("https://gatewai.example/v1"), "https://gatewai.example");
   assert.deepEqual(
-    claudeGatewaySettings('{"theme":"dark","env":{"KEEP":"yes"}}', validConfig.gatewayBaseUrl, "/Users/example/.local/libexec/dotfiles/llm-gateway-credential"),
+    claudeGatewaySettings('{"theme":"dark","env":{"KEEP":"yes"}}', validConfig.gatewaiBaseUrl, "/Users/example/.local/libexec/dotfiles/llm-gateway-credential"),
     {
       theme: "dark",
-      apiKeyHelper: "/Users/example/.local/libexec/dotfiles/llm-gateway-credential gateway",
-      env: { KEEP: "yes", ANTHROPIC_BASE_URL: "https://gateway.example" },
+      apiKeyHelper: "/Users/example/.local/libexec/dotfiles/llm-gateway-credential gatewai",
+      env: { KEEP: "yes", ANTHROPIC_BASE_URL: "https://gatewai.example" },
     },
   );
   assert.throws(
-    () => claudeGatewaySettings('{"env":{"ANTHROPIC_API_KEY":"conflict"}}', validConfig.gatewayBaseUrl, "/helper"),
+    () => claudeGatewaySettings('{"env":{"ANTHROPIC_API_KEY":"conflict"}}', validConfig.gatewaiBaseUrl, "/helper"),
     /conflicts with the gateway/,
   );
 
@@ -77,20 +78,22 @@ test("gateway config is strict and provider edits use command-backed Responses a
   );
 
   assert.deepEqual(parseGatewayConfig(JSON.stringify({
-    version: 2,
-    credentials: { gateway: validConfig.credentials.gateway },
-    gatewayBaseUrl: validConfig.gatewayBaseUrl,
+    version: 3,
+    credentials: { gatewai: validConfig.credentials.gatewai, bifrost: validConfig.credentials.bifrost },
+    gatewaiBaseUrl: validConfig.gatewaiBaseUrl,
+    bifrostBaseUrl: validConfig.bifrostBaseUrl,
     grokBin: "/opt/homebrew/bin/grok",
   })), {
-    version: 2,
-    credentials: { gateway: validConfig.credentials.gateway },
-    gatewayBaseUrl: validConfig.gatewayBaseUrl,
+    version: 3,
+    credentials: { gatewai: validConfig.credentials.gatewai, bifrost: validConfig.credentials.bifrost },
+    gatewaiBaseUrl: validConfig.gatewaiBaseUrl,
+    bifrostBaseUrl: validConfig.bifrostBaseUrl,
     grokBin: "/opt/homebrew/bin/grok",
   });
-  assert.match(grokGatewaySettings("[ui]\ntheme = \"dark\"\n", validConfig.gatewayBaseUrl, "/helper"), /models_base_url = "https:\/\/gateway\.example\/v1"/);
-  assert.match(grokGatewaySettings("", validConfig.gatewayBaseUrl, "/helper"), /auth_provider_command = "\/helper gateway"/);
+  assert.match(grokGatewaySettings("[ui]\ntheme = \"dark\"\n", validConfig.gatewaiBaseUrl, "/helper"), /models_base_url = "https:\/\/gatewai\.example\/v1"/);
+  assert.match(grokGatewaySettings("", validConfig.gatewaiBaseUrl, "/helper"), /auth_provider_command = "\/helper gatewai"/);
   assert.throws(
-    () => grokGatewaySettings('[auth]\nauth_provider_command = "/other"\n', validConfig.gatewayBaseUrl, "/helper"),
+    () => grokGatewaySettings('[auth]\nauth_provider_command = "/other"\n', validConfig.gatewaiBaseUrl, "/helper"),
     /conflicts with gateway section: auth/,
   );
 });
@@ -166,7 +169,8 @@ rm -f "$HOME/.claude/.credentials.json"
     assert.equal(readFileSync(join(codexHome, "auth.json"), "utf8"), originalAuth);
     assert.equal(statSync(join(codexHome, "config.toml")).mode & 0o777, 0o600);
     const appliedCodex = readFileSync(join(codexHome, "config.toml"), "utf8");
-    assert.match(appliedCodex, /model_provider = "llm_gateway"/);
+    assert.match(appliedCodex, /model_provider = "gatewai"/);
+    assert.match(appliedCodex, /\[model_providers\.bifrost\]/);
     assert.match(appliedCodex, /forced_login_method = "chatgpt"/);
     const appliedClaude = JSON.parse(readFileSync(claudeSettingsPath, "utf8")) as {
       apiKeyHelper: string;
@@ -174,8 +178,8 @@ rm -f "$HOME/.claude/.credentials.json"
       permissions: Record<string, string>;
       theme: string;
     };
-    assert.equal(appliedClaude.apiKeyHelper, `${join(home, ".local/libexec/dotfiles/llm-gateway-credential")} gateway`);
-    assert.equal(appliedClaude.env.ANTHROPIC_BASE_URL, "https://gateway.example");
+    assert.equal(appliedClaude.apiKeyHelper, `${join(home, ".local/libexec/dotfiles/llm-gateway-credential")} gatewai`);
+    assert.equal(appliedClaude.env.ANTHROPIC_BASE_URL, "https://gatewai.example");
     assert.equal(appliedClaude.env.KEEP, "yes");
     assert.equal(appliedClaude.permissions.defaultMode, "auto");
     assert.equal(appliedClaude.theme, "dark");
@@ -189,12 +193,12 @@ rm -f "$HOME/.claude/.credentials.json"
     assert.equal(state.authRetired, false);
     assert.deepEqual(state.cursorCommands.map((command) => command.target), originalCursorTargets);
     assert.equal(statSync(join(home, ".local/libexec/dotfiles/cursor-acp-api-key-auth")).mode & 0o777, 0o700);
-    const opencodeCredential = spawnSync(join(home, ".local/libexec/dotfiles/llm-gateway-credential"), ["opencode"], {
+    const bifrostCredential = spawnSync(join(home, ".local/libexec/dotfiles/llm-gateway-credential"), ["bifrost"], {
       encoding: "utf8",
       env,
     });
-    assert.equal(opencodeCredential.status, 0, opencodeCredential.stderr);
-    assert.equal(opencodeCredential.stdout.trim(), validConfig.credentials.opencode);
+    assert.equal(bifrostCredential.status, 0, bifrostCredential.stderr);
+    assert.equal(bifrostCredential.stdout.trim(), validConfig.credentials.bifrost);
 
     const second = run();
     assert.equal(second.status, 0, second.stderr);
@@ -305,9 +309,10 @@ test("gateway-only payload configures canonical Grok and retirement discards its
     writeFileSync(grokConfig, originalGrokConfig, { mode: 0o600 });
     writeFileSync(grokLogin, originalGrokLogin, { mode: 0o600 });
     writeFileSync(gatewayConfig, `${JSON.stringify({
-      version: 2,
-      credentials: { gateway: validConfig.credentials.gateway },
-      gatewayBaseUrl: "https://gateway.example/v1",
+      version: 3,
+      credentials: { gatewai: validConfig.credentials.gatewai, bifrost: validConfig.credentials.bifrost },
+      gatewaiBaseUrl: "https://gatewai.example/v1",
+      bifrostBaseUrl: "https://bifrost.example/v1",
       grokBin,
     })}\n`, { mode: 0o600 });
     writeFileSync(grokBin, `#!/usr/bin/env bash

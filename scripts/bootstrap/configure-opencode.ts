@@ -17,7 +17,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-const providers = ["opencode", "opencode-go"] as const;
+const retiredProviders = ["opencode", "opencode-go"] as const;
 
 function ownerOnly(path: string): boolean {
   return (lstatSync(path).mode & 0o077) === 0;
@@ -27,16 +27,17 @@ function isMatchingApi(entry: unknown, key: string): boolean {
   return isRecord(entry) && entry.type === "api" && entry.key === key;
 }
 
-function readOpenCodeKey(helper: string): string {
+function readBifrostKey(helper: string): string {
   if (!existsSync(helper) || lstatSync(helper).isSymbolicLink() || !lstatSync(helper).isFile()) {
     throw new Error(`credential helper must be a regular file: ${helper}`);
   }
   if ((lstatSync(helper).mode & 0o111) === 0) throw new Error("credential helper must be executable");
-  const result = spawnSync(helper, ["opencode"], { encoding: "utf8", maxBuffer: 1024 * 1024 });
-  if (result.status !== 0) throw new Error("OpenCode credential helper failed");
+  const result = spawnSync(helper, ["bifrost"], { encoding: "utf8", maxBuffer: 1024 * 1024 });
+  if (result.status !== 0) throw new Error("Bifrost credential helper failed");
   const key = result.stdout.trim();
-  if (typeof key !== "string" || !/^[A-Za-z0-9_-]{20,}$/.test(key)) {
-    throw new Error("credential helper returned an invalid OpenCode API key");
+  if (typeof key !== "string" ||
+    !/^sk-bf-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(key)) {
+    throw new Error("credential helper returned an invalid Bifrost key");
   }
   return key;
 }
@@ -73,20 +74,21 @@ function run(): void {
     process.env.OPENCODE_CREDENTIAL_HELPER || join(home, ".local/libexec/dotfiles/llm-gateway-credential"),
   );
   const authPath = resolve(process.env.OPENCODE_AUTH_PATH || join(home, ".local/share/opencode/auth.json"));
-  const key = readOpenCodeKey(helper);
+  const key = readBifrostKey(helper);
   const auth = readAuth(authPath);
   const credential = { type: "api", key };
 
   if (check) {
-    if (!ownerOnly(authPath) || providers.some((provider) => !isMatchingApi(auth[provider], key))) {
-      throw new Error("OpenCode authentication drifted");
+    if (!ownerOnly(authPath) || !isMatchingApi(auth.bifrost, key) || retiredProviders.some((provider) => provider in auth)) {
+      throw new Error("OpenCode Bifrost authentication drifted");
     }
-    process.stdout.write("ok OpenCode credential matches the resolved local credential\n");
+    process.stdout.write("ok OpenCode uses the resolved Bifrost credential\n");
     return;
   }
 
-  atomicWriteJson(authPath, { ...auth, opencode: credential, "opencode-go": credential });
-  process.stdout.write("configured OpenCode authentication\n");
+  for (const provider of retiredProviders) delete auth[provider];
+  atomicWriteJson(authPath, { ...auth, bifrost: credential });
+  process.stdout.write("configured OpenCode Bifrost authentication\n");
 }
 
 try {
