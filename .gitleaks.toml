@@ -1,0 +1,7 @@
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Synthetic OpenCode Zen credential used by the configurator test"
+regexTarget = "secret"
+regexes = ['''^zen_test_key_1234567890$''']

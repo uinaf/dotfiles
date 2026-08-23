@@ -77,6 +77,8 @@ Local Gitleaks severity policy lives in
 
 - The `generic-api-key` rule is `low` because it is heuristic and commonly
   matches shell assignment history.
+- `.gitleaks.toml` extends the default rules and may allow only exact synthetic
+  fixture values; never allowlist a path, commit, provider rule, or real key.
 - Findings verified by TruffleHog still fail independently.
 - JSON summaries include finding totals grouped by Gitleaks rule and severity.
 - The policy changes the audit outcome, not the scanner output or the sanitized

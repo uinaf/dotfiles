@@ -26,8 +26,12 @@ function fixturePath(bin: string): string {
 }
 
 const validConfig = {
-  version: 1 as const,
-  secretFile: "/Users/example/vault/coding.sops.env",
+  version: 2 as const,
+  credentials: {
+    gateway: "0123456789abcdefghijklmnopqrstuvwxyz_ABCD",
+    cursor: "crsr_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-",
+    opencode: "opencode_zen_test_key_1234567890",
+  },
   gatewayBaseUrl: "https://gateway.example/v1",
   cursorAgentBin: "/Users/example/.local/bin/agent",
 };
@@ -73,13 +77,13 @@ test("gateway config is strict and provider edits use command-backed Responses a
   );
 
   assert.deepEqual(parseGatewayConfig(JSON.stringify({
-    version: 1,
-    secretFile: validConfig.secretFile,
+    version: 2,
+    credentials: { gateway: validConfig.credentials.gateway },
     gatewayBaseUrl: validConfig.gatewayBaseUrl,
     grokBin: "/opt/homebrew/bin/grok",
   })), {
-    version: 1,
-    secretFile: validConfig.secretFile,
+    version: 2,
+    credentials: { gateway: validConfig.credentials.gateway },
     gatewayBaseUrl: validConfig.gatewayBaseUrl,
     grokBin: "/opt/homebrew/bin/grok",
   });
@@ -99,7 +103,6 @@ test("apply preserves login state, explicit retirement clears it, and rollback r
   const configDir = join(home, ".config/dotfiles");
   const gatewayConfig = join(configDir, "llm-gateway.json");
   const claudeSettingsPath = join(home, ".claude/settings.json");
-  const secretFile = join(root, "coding.sops.env");
   const cursorBin = join(home, ".local/share/cursor-agent/versions/test/cursor-agent");
   const cursorCommands = [join(home, ".local/bin/cursor-agent"), join(home, ".local/bin/agent")];
   const originalCursorTargets = ["../share/cursor-agent/versions/test/cursor-agent", "../share/cursor-agent/versions/test/cursor-agent"];
@@ -108,9 +111,6 @@ test("apply preserves login state, explicit retirement clears it, and rollback r
   const originalClaudeAuth = '{"oauth":"saved-login-state"}\n';
   const originalCursorAuth = '{"accessToken":"saved-login-state"}\n';
   const originalClaudeSettings = '{"permissions":{"defaultMode":"auto"},"env":{"KEEP":"yes"},"theme":"dark"}\n';
-  const cursorKey = "crsr_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-";
-  const gatewayKey = "0123456789abcdefghijklmnopqrstuvwxyz_ABCD";
-
   try {
     mkdirSync(codexHome, { recursive: true });
     mkdirSync(configDir, { recursive: true });
@@ -123,9 +123,8 @@ test("apply preserves login state, explicit retirement clears it, and rollback r
     writeFileSync(join(codexHome, "auth.json"), originalAuth, { mode: 0o600 });
     writeFileSync(join(home, ".claude/.credentials.json"), originalClaudeAuth, { mode: 0o600 });
     writeFileSync(join(home, ".cursor/auth.json"), originalCursorAuth, { mode: 0o600 });
-    writeFileSync(secretFile, "encrypted fixture\n", { mode: 0o600 });
     writeFileSync(claudeSettingsPath, originalClaudeSettings, { mode: 0o600 });
-    writeFileSync(gatewayConfig, `${JSON.stringify({ ...validConfig, secretFile, cursorAgentBin: cursorBin })}\n`, { mode: 0o600 });
+    writeFileSync(gatewayConfig, `${JSON.stringify({ ...validConfig, cursorAgentBin: cursorBin })}\n`, { mode: 0o600 });
     writeFileSync(cursorBin, `#!/usr/bin/env bash
 case "\${1:-}" in
   models) exit 0 ;;
@@ -147,13 +146,6 @@ case "\${1:-}" in
 esac
 `, { mode: 0o700 });
     for (const [index, command] of cursorCommands.entries()) symlinkSync(originalCursorTargets[index], command);
-    writeFileSync(join(bin, "sops"), `#!/usr/bin/env bash
-case "\${1:-}" in
-  filestatus) printf '{"encrypted":true}\\n' ;;
-  decrypt) printf '{"CURSOR_API_KEY":"${cursorKey}","CLIPROXYAPI_CLIENT_API_KEY":"${gatewayKey}"}\\n' ;;
-  *) exit 2 ;;
-esac
-`, { mode: 0o700 });
     writeFileSync(join(bin, "claude"), `#!/usr/bin/env bash
 set -euo pipefail
 [ "\${1:-}" = auth ] && [ "\${2:-}" = logout ] || exit 2
@@ -197,6 +189,12 @@ rm -f "$HOME/.claude/.credentials.json"
     assert.equal(state.authRetired, false);
     assert.deepEqual(state.cursorCommands.map((command) => command.target), originalCursorTargets);
     assert.equal(statSync(join(home, ".local/libexec/dotfiles/cursor-acp-api-key-auth")).mode & 0o777, 0o700);
+    const zenCredential = spawnSync(join(home, ".local/libexec/dotfiles/llm-gateway-credential"), ["opencode"], {
+      encoding: "utf8",
+      env,
+    });
+    assert.equal(zenCredential.status, 0, zenCredential.stderr);
+    assert.equal(zenCredential.stdout.trim(), validConfig.credentials.opencode);
 
     const second = run();
     assert.equal(second.status, 0, second.stderr);
@@ -292,7 +290,6 @@ test("gateway-only payload configures canonical Grok and retirement discards its
   const configDir = join(home, ".config/dotfiles");
   const gatewayConfig = join(configDir, "llm-gateway.json");
   const claudeSettingsPath = join(home, ".claude/settings.json");
-  const secretFile = join(root, "coding.sops.env");
   const grokBin = join(bin, "grok-vendor");
   const grokConfig = join(home, ".grok/config.toml");
   const grokLogin = join(home, ".grok/auth.json");
@@ -307,10 +304,9 @@ test("gateway-only payload configures canonical Grok and retirement discards its
     writeFileSync(claudeSettingsPath, originalClaude, { mode: 0o600 });
     writeFileSync(grokConfig, originalGrokConfig, { mode: 0o600 });
     writeFileSync(grokLogin, originalGrokLogin, { mode: 0o600 });
-    writeFileSync(secretFile, "encrypted fixture\n", { mode: 0o600 });
     writeFileSync(gatewayConfig, `${JSON.stringify({
-      version: 1,
-      secretFile,
+      version: 2,
+      credentials: { gateway: validConfig.credentials.gateway },
       gatewayBaseUrl: "https://gateway.example/v1",
       grokBin,
     })}\n`, { mode: 0o600 });
@@ -321,13 +317,6 @@ if [ "\${1:-}" = login ]; then
   exit 0
 fi
 printf "%s\\n" "$*"
-`, { mode: 0o700 });
-    writeFileSync(join(bin, "sops"), `#!/usr/bin/env bash
-case "\${1:-}" in
-  filestatus) printf '{"encrypted":true}\\n' ;;
-  decrypt) printf '{"CLIPROXYAPI_CLIENT_API_KEY":"0123456789abcdefghijklmnopqrstuvwxyz_ABCD"}\\n' ;;
-  *) exit 2 ;;
-esac
 `, { mode: 0o700 });
     writeFileSync(join(bin, "claude"), '#!/usr/bin/env bash\n[ "${1:-}" = auth ] && [ "${2:-}" = logout ]\n', { mode: 0o700 });
 
@@ -404,7 +393,6 @@ test("deployed llm-client version 2 state migrates to the Claude-capable llm-gat
   const codexHome = join(home, ".codex");
   const claudeSettingsPath = join(home, ".claude/settings.json");
   const gatewayConfig = join(configDir, "llm-gateway.json");
-  const secretFile = join(root, "coding.sops.env");
   const cursorBin = join(home, ".local/share/cursor-agent/versions/test/cursor-agent");
   const cursorCommands = [join(home, ".local/bin/cursor-agent"), join(home, ".local/bin/agent")];
   const originalCursorTarget = "/vendor/cursor-agent";
@@ -422,8 +410,7 @@ test("deployed llm-client version 2 state migrates to the Claude-capable llm-gat
     writeFileSync(join(codexHome, "config.toml"), currentCodex, { mode: 0o600 });
     writeFileSync(legacyBackup, originalCodex, { mode: 0o600 });
     writeFileSync(claudeSettingsPath, originalClaude, { mode: 0o600 });
-    writeFileSync(secretFile, "encrypted fixture\n", { mode: 0o600 });
-    writeFileSync(gatewayConfig, `${JSON.stringify({ ...validConfig, secretFile, cursorAgentBin: cursorBin })}\n`, { mode: 0o600 });
+    writeFileSync(gatewayConfig, `${JSON.stringify({ ...validConfig, cursorAgentBin: cursorBin })}\n`, { mode: 0o600 });
     writeFileSync(cursorBin, '#!/usr/bin/env bash\n[ "${1:-}" = models ] || exit 2\n', { mode: 0o700 });
     for (const command of cursorCommands) writeFileSync(command, "legacy wrapper\n", { mode: 0o700 });
     writeFileSync(legacyCredential, "legacy helper\n", { mode: 0o700 });
@@ -433,13 +420,6 @@ test("deployed llm-client version 2 state migrates to the Claude-capable llm-gat
       codexBackupPath: legacyBackup,
       cursorCommands: cursorCommands.map((path) => ({ path, target: originalCursorTarget })),
     }, null, 2)}\n`, { mode: 0o600 });
-    writeFileSync(join(bin, "sops"), `#!/usr/bin/env bash
-case "\${1:-}" in
-  filestatus) printf '{"encrypted":true}\\n' ;;
-  decrypt) printf '{"CURSOR_API_KEY":"crsr_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-","CLIPROXYAPI_CLIENT_API_KEY":"0123456789abcdefghijklmnopqrstuvwxyz_ABCD"}\\n' ;;
-  *) exit 2 ;;
-esac
-`, { mode: 0o700 });
 
     const env = {
       ...process.env,

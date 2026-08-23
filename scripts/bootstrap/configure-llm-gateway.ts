@@ -21,8 +21,12 @@ import { fileURLToPath } from "node:url";
 import { type ConfigEdit, writeConfigEdits } from "./configure-codex.ts";
 
 type GatewayConfig = {
-  version: 1;
-  secretFile: string;
+  version: 2;
+  credentials: {
+    gateway: string;
+    cursor?: string;
+    opencode?: string;
+  };
   gatewayBaseUrl: string;
   cursorAgentBin?: string;
   grokBin?: string;
@@ -115,21 +119,37 @@ function ownerOnly(path: string): boolean {
 export function parseGatewayConfig(contents: string): GatewayConfig {
   const value: unknown = JSON.parse(contents);
   if (!isRecord(value)) throw new Error("gateway config must contain a JSON object");
-  const allowed = new Set(["version", "secretFile", "gatewayBaseUrl", "cursorAgentBin", "grokBin"]);
+  const allowed = new Set(["version", "credentials", "gatewayBaseUrl", "cursorAgentBin", "grokBin"]);
   if (Object.keys(value).some((key) => !allowed.has(key))) {
     throw new Error("gateway config contains an unknown field");
   }
-  if (value.version !== 1) throw new Error("gateway config version must be 1");
-  for (const field of ["secretFile", "gatewayBaseUrl"] as const) {
-    if (typeof value[field] !== "string" || value[field].length === 0) throw new Error(`${field} must be a non-empty string`);
+  if (value.version !== 2) throw new Error("gateway config version must be 2");
+  if (typeof value.gatewayBaseUrl !== "string" || value.gatewayBaseUrl.length === 0) {
+    throw new Error("gatewayBaseUrl must be a non-empty string");
+  }
+  if (!isRecord(value.credentials)) throw new Error("credentials must contain an object of resolved strings");
+  const credentialKeys = Object.keys(value.credentials);
+  if (credentialKeys.some((key) => !["gateway", "cursor", "opencode"].includes(key))) {
+    throw new Error("credentials contains an unknown field");
+  }
+  if (typeof value.credentials.gateway !== "string" || !/^[A-Za-z0-9_-]{32,}$/.test(value.credentials.gateway)) {
+    throw new Error("credentials.gateway must be a resolved gateway key");
+  }
+  if (value.credentials.cursor !== undefined &&
+    (typeof value.credentials.cursor !== "string" || !/^crsr_[A-Za-z0-9_-]{64}$/.test(value.credentials.cursor))) {
+    throw new Error("credentials.cursor must be a resolved Cursor key when configured");
+  }
+  if (value.credentials.opencode !== undefined &&
+    (typeof value.credentials.opencode !== "string" || !/^[A-Za-z0-9_-]{20,}$/.test(value.credentials.opencode))) {
+    throw new Error("credentials.opencode must be a resolved OpenCode Zen key when configured");
   }
   for (const field of ["cursorAgentBin", "grokBin"] as const) {
     if (value[field] !== undefined && (typeof value[field] !== "string" || value[field].length === 0 || !isAbsolute(value[field]))) {
       throw new Error(`${field} must be an absolute path when configured`);
     }
   }
-  if (!isAbsolute(value.secretFile)) {
-    throw new Error("secretFile must be an absolute path");
+  if ((value.cursorAgentBin === undefined) !== (value.credentials.cursor === undefined)) {
+    throw new Error("cursorAgentBin and credentials.cursor must be configured together");
   }
   const url = new URL(value.gatewayBaseUrl);
   if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash || !url.pathname.endsWith("/v1")) {
@@ -366,18 +386,11 @@ function validateLocalInputs(configPath: string): GatewayConfig {
   }
   if (!ownerOnly(configPath)) throw new Error("gateway config must not be accessible by group or other users");
   const config = parseGatewayConfig(readFileSync(configPath, "utf8"));
-  if (!existsSync(config.secretFile) || lstatSync(config.secretFile).isSymbolicLink() || !lstatSync(config.secretFile).isFile()) {
-    throw new Error("secretFile must be a regular SOPS payload");
-  }
   if (config.cursorAgentBin && (!existsSync(config.cursorAgentBin) || (statSync(config.cursorAgentBin).mode & 0o111) === 0)) {
     throw new Error("cursorAgentBin must be executable");
   }
   if (config.grokBin && (!existsSync(config.grokBin) || (statSync(config.grokBin).mode & 0o111) === 0)) {
     throw new Error("grokBin must be executable");
-  }
-  const status = spawnSync("sops", ["filestatus", config.secretFile], { encoding: "utf8" });
-  if (status.status !== 0 || !/"encrypted"\s*:\s*true/.test(status.stdout)) {
-    throw new Error("secretFile is not encrypted SOPS data");
   }
   return config;
 }
@@ -516,7 +529,10 @@ async function run(): Promise<void> {
     if (claude.apiKeyHelper !== `${credentialTarget} gateway` || claude.env?.ANTHROPIC_BASE_URL !== claudeGatewayBaseUrl(config.gatewayBaseUrl)) {
       throw new Error("Claude gateway settings drifted");
     }
-    for (const kind of config.cursorAgentBin ? ["cursor", "gateway"] : ["gateway"]) {
+    const credentialKinds = ["gateway"];
+    if (config.cursorAgentBin) credentialKinds.push("cursor");
+    if (config.credentials.opencode) credentialKinds.push("opencode");
+    for (const kind of credentialKinds) {
       const result = spawnSync(credentialTarget, [kind], { encoding: "utf8", env: { ...process.env, LLM_GATEWAY_CONFIG: configPath } });
       if (result.status !== 0 || result.stdout.trim().length === 0) {
         const detail = result.stderr.trim() || `exit ${result.status ?? "unknown"} without output`;
@@ -532,7 +548,7 @@ async function run(): Promise<void> {
       }
     }
     if (mode === "check") {
-      process.stdout.write(`ok LLM gateway config, helpers, ciphertext, Codex provider, Claude settings, Cursor=${Boolean(config.cursorAgentBin)}, Grok=${Boolean(config.grokBin)}, and auth-retired=${state.authRetired}\n`);
+      process.stdout.write(`ok LLM gateway config, helpers, resolved credentials, Codex provider, Claude settings, Cursor=${Boolean(config.cursorAgentBin)}, Grok=${Boolean(config.grokBin)}, OpenCode=${Boolean(config.credentials.opencode)}, and auth-retired=${state.authRetired}\n`);
       return;
     }
 

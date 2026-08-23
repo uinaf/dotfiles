@@ -11,25 +11,18 @@ test("configures and checks OpenCode Zen without replacing other providers", () 
   const root = mkdtempSync(join(tmpdir(), "dotfiles-opencode-zen-"));
   const home = join(root, "home");
   const bin = join(root, "bin");
-  const payload = join(root, "identity.sops.json");
-  const config = join(home, ".config/dotfiles/llm-gateway.json");
+  const helper = join(bin, "credential-helper");
   const auth = join(home, ".local/share/opencode/auth.json");
   mkdirSync(bin, { recursive: true });
-  mkdirSync(join(home, ".config/dotfiles"), { recursive: true });
   mkdirSync(join(home, ".local/share/opencode"), { recursive: true });
-  writeFileSync(payload, "ciphertext\n");
-  writeFileSync(config, `${JSON.stringify({ secretFile: payload })}\n`, { mode: 0o600 });
   writeFileSync(auth, `${JSON.stringify({ anthropic: { type: "api", key: "kept" } })}\n`, { mode: 0o644 });
-  writeFileSync(join(bin, "sops"), `#!/bin/sh
-if [ "$1" = filestatus ]; then
-  printf '{"encrypted":true}\\n'
-else
-  printf '{"OPENCODE_ZEN_API_KEY":"zen_test_key_1234567890"}\\n'
-fi
+  writeFileSync(helper, `#!/bin/sh
+[ "$1" = opencode ] || exit 2
+printf 'zen_test_key_1234567890\\n'
 `, { mode: 0o700 });
-  chmodSync(join(bin, "sops"), 0o700);
+  chmodSync(helper, 0o700);
 
-  const env = { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH ?? ""}` };
+  const env = { ...process.env, HOME: home, OPENCODE_ZEN_CREDENTIAL_HELPER: helper };
   execFileSync(script, { env });
   execFileSync(script, ["--check"], { env });
 

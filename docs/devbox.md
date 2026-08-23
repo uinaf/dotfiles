@@ -113,23 +113,30 @@ gateway and run Cursor Agent with an identity-owned API key.
 - Personal setup retires saved vendor sessions automatically and idempotently.
 - It does not change the assistant profile.
 - It stores no secrets in shell startup, Codex configuration, or Claude
-  settings.
+  settings. Resolved credentials live only in the owner-only local gateway
+  configuration and client-native owner-only stores.
 
 Create `~/.config/dotfiles/llm-gateway.json` with mode `0600`:
 
 ```json
 {
-  "version": 1,
-  "secretFile": "/Users/example/projects/example/vault/secrets/identity/example-coding.sops.env",
+  "version": 2,
+  "credentials": {
+    "gateway": "<resolved gateway key>",
+    "cursor": "<resolved Cursor key>",
+    "opencode": "<resolved OpenCode Zen key>"
+  },
   "gatewayBaseUrl": "https://gateway.example/v1",
   "cursorAgentBin": "/Users/example/.local/share/cursor-agent/versions/2026.08.11-e8db854/cursor-agent",
   "grokBin": "/opt/homebrew/bin/grok"
 }
 ```
 
-The SOPS payload must provide `CLIPROXYAPI_CLIENT_API_KEY` and
-`OPENCODE_ZEN_API_KEY`. Add `CURSOR_API_KEY` only when `cursorAgentBin` is configured. Both
-`cursorAgentBin` and `grokBin` are optional. The configurator then:
+`credentials.gateway` is required. Configure `credentials.cursor` only with
+`cursorAgentBin`; `credentials.opencode` enables Zen provisioning. The values
+are already-resolved opaque strings: this repository does not know or require
+their source. Both `cursorAgentBin` and `grokBin` are optional. The configurator
+then:
 
 - installs owner-only process helpers
 - backs up the current Codex and Claude settings once
@@ -161,16 +168,17 @@ login-method restriction:
 
 Retirement is intentionally separate from enrollment:
 
-- It is idempotent and keeps the gateway configuration and encrypted credential
-  payload in place.
+- It is idempotent and keeps the owner-only gateway configuration in place.
 - It does not touch GitHub, SSH, OpenClaw, or connector credentials.
 - Rollback after retirement restores the pre-gateway client configuration but
   cannot restore deleted login credentials. Authenticate each coding client
   again before direct use.
 - A complete developer-profile `install.sh` run preserves gateway routing and
   removes any legacy Codex login-method restriction.
-- Personal setup writes the Zen credential to OpenCode's native owner-only
-  authentication file while preserving credentials for other providers.
+- Personal setup asks the installed credential helper for one opaque Zen key,
+  then writes it to OpenCode's native owner-only authentication file while
+  preserving credentials for other providers. The OpenCode configurator does
+  not know how or where the helper stores that key.
 
 Claude Code:
 

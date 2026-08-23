@@ -55,8 +55,8 @@
       "id": "opencode-zen",
       "domain": "config",
       "command": ["node", "--test", "scripts/bootstrap/configure-opencode-zen.test.ts"],
-      "inputs": ["scripts/bootstrap/configure-opencode-zen.ts", "scripts/bootstrap/configure-opencode-zen.test.ts", "scripts/bootstrap/install.sh", "chezmoi/.chezmoidata/profiles.json", "docs/devbox.md"],
-      "output": "SOPS-backed OpenCode Zen credential convergence and preservation"
+      "inputs": ["scripts/bootstrap/configure-opencode-zen.ts", "scripts/bootstrap/configure-opencode-zen.test.ts", "scripts/agents/llm-gateway-credential.sh", "scripts/bootstrap/install.sh", "chezmoi/.chezmoidata/profiles.json", "docs/devbox.md"],
+      "output": "OpenCode Zen native credential convergence and preservation"
     },
     {
       "id": "agent-rules",

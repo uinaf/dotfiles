@@ -11,11 +11,7 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { dirname, isAbsolute, join, resolve } from "node:path";
-
-type LocalConfig = {
-  secretFile: string;
-};
+import { dirname, join, resolve } from "node:path";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -25,43 +21,16 @@ function ownerOnly(path: string): boolean {
   return (lstatSync(path).mode & 0o077) === 0;
 }
 
-function readLocalConfig(path: string): LocalConfig {
-  if (!existsSync(path) || lstatSync(path).isSymbolicLink() || !lstatSync(path).isFile()) {
-    throw new Error(`LLM gateway config must be a regular file: ${path}`);
+function readZenKey(helper: string): string {
+  if (!existsSync(helper) || lstatSync(helper).isSymbolicLink() || !lstatSync(helper).isFile()) {
+    throw new Error(`credential helper must be a regular file: ${helper}`);
   }
-  if (!ownerOnly(path)) throw new Error("LLM gateway config must not be accessible by group or other users");
-
-  const value: unknown = JSON.parse(readFileSync(path, "utf8"));
-  if (!isRecord(value) || typeof value.secretFile !== "string" || !isAbsolute(value.secretFile)) {
-    throw new Error("LLM gateway config must contain an absolute secretFile path");
-  }
-  if (!existsSync(value.secretFile) || lstatSync(value.secretFile).isSymbolicLink() || !lstatSync(value.secretFile).isFile()) {
-    throw new Error("secretFile must be a regular SOPS payload");
-  }
-  return { secretFile: value.secretFile };
-}
-
-function readZenKey(secretFile: string): string {
-  const status = spawnSync("sops", ["filestatus", secretFile], { encoding: "utf8" });
-  if (status.status !== 0 || !/"encrypted"\s*:\s*true/.test(status.stdout)) {
-    throw new Error("secretFile is not encrypted SOPS data");
-  }
-
-  const decrypted = spawnSync("sops", ["decrypt", "--output-type", "json", secretFile], {
-    encoding: "utf8",
-    maxBuffer: 1024 * 1024,
-  });
-  if (decrypted.status !== 0) throw new Error("could not decrypt the OpenCode Zen credential");
-
-  let payload: unknown;
-  try {
-    payload = JSON.parse(decrypted.stdout);
-  } catch {
-    throw new Error("SOPS payload is not valid JSON");
-  }
-  const key = isRecord(payload) ? payload.OPENCODE_ZEN_API_KEY : undefined;
+  if ((lstatSync(helper).mode & 0o111) === 0) throw new Error("credential helper must be executable");
+  const result = spawnSync(helper, ["opencode"], { encoding: "utf8", maxBuffer: 1024 * 1024 });
+  if (result.status !== 0) throw new Error("OpenCode Zen credential helper failed");
+  const key = result.stdout.trim();
   if (typeof key !== "string" || !/^[A-Za-z0-9_-]{20,}$/.test(key)) {
-    throw new Error("SOPS payload has an invalid OPENCODE_ZEN_API_KEY");
+    throw new Error("credential helper returned an invalid OpenCode Zen API key");
   }
   return key;
 }
@@ -94,10 +63,11 @@ function run(): void {
   if (args.length > (check ? 1 : 0)) throw new Error("usage: configure-opencode-zen.ts [--check]");
 
   const home = resolve(process.env.HOME || "");
-  const configPath = resolve(process.env.LLM_GATEWAY_CONFIG || join(home, ".config/dotfiles/llm-gateway.json"));
+  const helper = resolve(
+    process.env.OPENCODE_ZEN_CREDENTIAL_HELPER || join(home, ".local/libexec/dotfiles/llm-gateway-credential"),
+  );
   const authPath = resolve(process.env.OPENCODE_AUTH_PATH || join(home, ".local/share/opencode/auth.json"));
-  const config = readLocalConfig(configPath);
-  const key = readZenKey(config.secretFile);
+  const key = readZenKey(helper);
   const auth = readAuth(authPath);
   const current = auth.opencode;
 
@@ -105,7 +75,7 @@ function run(): void {
     if (!isRecord(current) || current.type !== "api" || current.key !== key || !ownerOnly(authPath)) {
       throw new Error("OpenCode Zen authentication drifted");
     }
-    process.stdout.write("ok OpenCode Zen credential matches the encrypted identity payload\n");
+    process.stdout.write("ok OpenCode Zen credential matches the resolved local credential\n");
     return;
   }
 
