@@ -49,6 +49,8 @@ implementation owners and are also used by repository tests.
 Headless macOS coding services use
 `scripts/bootstrap/install-devbox-service-daemons.sh`; see
 [Devbox setup](../docs/devbox.md#system-services).
+Use `scripts/bootstrap/sync-devbox-t3-server.ts` on a workstation to converge
+one explicit remote T3 Code server to the workstation's nightly version.
 
 ## Global Agent Setup
 

@@ -253,6 +253,21 @@ sudo ./scripts/bootstrap/install-devbox-service-daemons.sh \
   --t3-working-directory /Users/example/projects/example/workspace
 ```
 
+After updating T3 Code Nightly on a workstation, sync its exact version to a
+devbox with the portable workstation-side command:
+
+```zsh
+./scripts/bootstrap/sync-devbox-t3-server.ts \
+  --host example@example-devbox \
+  --workspace /Users/example/projects/example/workspace
+```
+
+Pass `--version t3@<exact-nightly-version>` to override workstation app
+detection. The remote dotfiles checkout defaults to the `dotfiles` sibling of
+the workspace; `--remote-dotfiles` overrides it. The command requires an
+explicit SSH user and host; it never discovers or fans out to machines
+implicitly.
+
 - `--allow-openclaw-restart` grants that user passwordless restart of only its
   exact OpenClaw system job, not general launchctl or sudo access.
 - Use `--colima` only when that target user owns the service.

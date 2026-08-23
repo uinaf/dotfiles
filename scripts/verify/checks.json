@@ -143,6 +143,13 @@
       "output": "Launchd service labels"
     },
     {
+      "id": "t3-devbox-sync",
+      "domain": "services",
+      "command": ["node", "--test", "scripts/bootstrap/sync-devbox-t3-server.test.ts"],
+      "inputs": ["scripts/bootstrap/sync-devbox-t3-server.ts", "scripts/bootstrap/sync-devbox-t3-server.test.ts", "scripts/bootstrap/install-devbox-service-daemons.sh", "scripts/lib/devbox-service-t3-code.sh"],
+      "output": "Explicit T3 Code devbox target, version parsing, and remote argument isolation"
+    },
+    {
       "id": "audit-adapters",
       "domain": "audit",
       "command": ["node", "--test", "scripts/audit/adapters.test.ts"],
