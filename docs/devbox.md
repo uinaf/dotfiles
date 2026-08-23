@@ -127,8 +127,8 @@ Create `~/.config/dotfiles/llm-gateway.json` with mode `0600`:
 }
 ```
 
-The SOPS payload must provide `CLIPROXYAPI_CLIENT_API_KEY`. Add
-`CURSOR_API_KEY` only when `cursorAgentBin` is configured. Both
+The SOPS payload must provide `CLIPROXYAPI_CLIENT_API_KEY` and
+`OPENCODE_ZEN_API_KEY`. Add `CURSOR_API_KEY` only when `cursorAgentBin` is configured. Both
 `cursorAgentBin` and `grokBin` are optional. The configurator then:
 
 - installs owner-only process helpers
@@ -139,6 +139,8 @@ The SOPS payload must provide `CLIPROXYAPI_CLIENT_API_KEY`. Add
 ```bash
 ./scripts/bootstrap/configure-llm-gateway.ts
 ./scripts/bootstrap/configure-llm-gateway.ts --check
+./scripts/bootstrap/configure-opencode-zen.ts
+./scripts/bootstrap/configure-opencode-zen.ts --check
 ```
 
 - The first enrollment keeps any saved Codex login intact.
@@ -167,6 +169,8 @@ Retirement is intentionally separate from enrollment:
   again before direct use.
 - A complete developer-profile `install.sh` run preserves gateway routing and
   removes any legacy Codex login-method restriction.
+- Personal setup writes the Zen credential to OpenCode's native owner-only
+  authentication file while preserving credentials for other providers.
 
 Claude Code:
 

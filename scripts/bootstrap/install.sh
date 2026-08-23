@@ -89,6 +89,10 @@ run_step() {
       "$repo_root/scripts/bootstrap/configure-llm-gateway.ts"
       "$repo_root/scripts/bootstrap/configure-llm-gateway.ts" --retire-auth
       ;;
+    configure-opencode-zen)
+      "$repo_root/scripts/bootstrap/configure-opencode-zen.ts"
+      "$repo_root/scripts/bootstrap/configure-opencode-zen.ts" --check
+      ;;
     sync-agents)
       "$repo_root/scripts/agents/sync.ts" --profile "$profile"
       "$repo_root/scripts/agents/plugins.ts" --profile "$profile"

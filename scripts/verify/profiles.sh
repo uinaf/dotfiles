@@ -379,9 +379,14 @@ printf '%s\n' "$personal_devbox_steps" | grep -Fqx configure-llm-gateway \
 personal_workstation_steps="$("$repo_root/scripts/bootstrap/install.sh" --print-steps --profile personal-workstation)"
 printf '%s\n' "$personal_workstation_steps" | grep -Fqx configure-llm-gateway \
   || fail "personal workstation install missed configure-llm-gateway"
+printf '%s\n' "$personal_devbox_steps" | grep -Fqx configure-opencode-zen \
+  || fail "personal devbox install missed configure-opencode-zen"
+printf '%s\n' "$personal_workstation_steps" | grep -Fqx configure-opencode-zen \
+  || fail "personal workstation install missed configure-opencode-zen"
 for personal_steps in "$personal_devbox_steps" "$personal_workstation_steps"; do
-  assert_eq 1 "$(comm -13 <(printf '%s\n' "$developer_steps" | sort) <(printf '%s\n' "$personal_steps" | sort) | grep -Fxc configure-llm-gateway)" \
-    "personal install adds only the gateway convergence step"
+  assert_eq "$(printf 'configure-llm-gateway\nconfigure-opencode-zen')" \
+    "$(comm -13 <(printf '%s\n' "$developer_steps" | sort) <(printf '%s\n' "$personal_steps" | sort))" \
+    "personal install adds only personal credential convergence steps"
 done
 
 install_fixture="$tmp_root/install-fixture"
@@ -392,7 +397,7 @@ mkdir -p "$install_fixture/scripts/agents" "$install_fixture/scripts/bootstrap" 
 cp "$repo_root/scripts/bootstrap/install.sh" "$install_fixture/scripts/bootstrap/install.sh"
 cp "$repo_root/scripts/lib/profile.sh" "$install_fixture/scripts/lib/profile.sh"
 cp "$repo_root/chezmoi/.chezmoidata/profiles.json" "$install_fixture/chezmoi/.chezmoidata/profiles.json"
-for helper in apply-dotfiles.sh install-gh-app-auth.sh install-cursor-agent.sh trust-agent-worktrees.sh install-gh-extensions.sh configure-codex.ts configure-llm-gateway.ts; do
+for helper in apply-dotfiles.sh install-gh-app-auth.sh install-cursor-agent.sh trust-agent-worktrees.sh install-gh-extensions.sh configure-codex.ts configure-llm-gateway.ts configure-opencode-zen.ts; do
 cat > "$install_fixture/scripts/bootstrap/$helper" <<'EOF'
 #!/usr/bin/env bash
 printf '%s' "$(basename "$0")" >> "${DOTFILES_INSTALL_LOG:?}"
@@ -468,6 +473,8 @@ install-gh-extensions.sh
 configure-codex.ts
 configure-llm-gateway.ts
 configure-llm-gateway.ts --retire-auth
+configure-opencode-zen.ts
+configure-opencode-zen.ts --check
 sync.ts --profile personal-workstation
 plugins.ts --profile personal-workstation
 mcps.ts --profile personal-workstation
