@@ -50,7 +50,9 @@ Headless macOS coding services use
 `scripts/bootstrap/install-devbox-service-daemons.sh`; see
 [Devbox setup](../docs/devbox.md#system-services).
 Use `scripts/bootstrap/sync-devbox-t3-server.ts` on a workstation to converge
-one explicit remote T3 Code server to the workstation's nightly version.
+one explicit remote T3 Code server to the workstation's nightly version. The
+command streams the installer sources and uses the remote user's home as the
+server working directory.
 
 ## Global Agent Setup
 

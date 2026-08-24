@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
+import {spawnSync} from "node:child_process";
 import test from "node:test";
 
 import {
+  createSyncBundle,
   parseArguments,
   parseT3NightlyVersion,
   shellQuote,
@@ -19,36 +21,34 @@ test("parses an explicit portable devbox target", () => {
     parseArguments([
       "--host",
       "example@example-devbox",
-      "--workspace",
-      "/Users/example/projects/example/workspace",
       "--version",
       "t3@0.0.34-nightly.20260823.1166",
     ]),
     {
       host: "example@example-devbox",
-      remoteDotfilesDirectory: "",
       version: "0.0.34-nightly.20260823.1166",
-      workspaceDirectory: "/Users/example/projects/example/workspace",
     },
   );
 });
 
-test("rejects implicit hosts, relative paths, and mutable versions", () => {
+test("rejects implicit hosts, removed path options, and mutable versions", () => {
   assert.throws(
-    () => parseArguments(["--host", "example-devbox", "--workspace", "/tmp/workspace"]),
+    () => parseArguments(["--host", "example-devbox"]),
     /explicit user@host/,
   );
   assert.throws(
-    () => parseArguments(["--host", "user@host", "--workspace", "workspace"]),
-    /absolute remote path/,
+    () => parseArguments(["--host", "user@host", "--workspace", "/tmp/workspace"]),
+    /unknown argument: --workspace/,
+  );
+  assert.throws(
+    () => parseArguments(["--host", "user@host", "--remote-dotfiles", "/tmp/dotfiles"]),
+    /unknown argument: --remote-dotfiles/,
   );
   assert.throws(
     () =>
       parseArguments([
         "--host",
         "user@host",
-        "--workspace",
-        "/tmp/workspace",
         "--version",
         "t3@nightly",
       ]),
@@ -59,4 +59,19 @@ test("rejects implicit hosts, relative paths, and mutable versions", () => {
 test("quotes remote arguments without shell interpolation", () => {
   assert.equal(shellQuote("plain"), "'plain'");
   assert.equal(shellQuote("path with ' quote"), "'path with '\\'' quote'");
+});
+
+test("bundles the portable remote installer sources", () => {
+  const bundle = createSyncBundle();
+  const result = spawnSync("tar", ["-tf", "-"], {
+    encoding: "utf8",
+    input: bundle,
+  });
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(
+    result.stdout,
+    /^scripts\/bootstrap\/install-devbox-service-daemons\.sh$/m,
+  );
+  assert.match(result.stdout, /^scripts\/lib\/devbox-service-t3-code\.sh$/m);
+  assert.match(result.stdout, /^scripts\/secrets\/sops-devbox-sudo\.sh$/m);
 });

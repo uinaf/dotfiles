@@ -269,15 +269,14 @@ devbox with the portable workstation-side command:
 
 ```zsh
 ./scripts/bootstrap/sync-devbox-t3-server.ts \
-  --host example@example-devbox \
-  --workspace /Users/example/projects/example/workspace
+  --host example@example-devbox
 ```
 
 Pass `--version t3@<exact-nightly-version>` to override workstation app
-detection. The remote dotfiles checkout defaults to the `dotfiles` sibling of
-the workspace; `--remote-dotfiles` overrides it. The command requires an
-explicit SSH user and host; it never discovers or fans out to machines
-implicitly.
+detection. The command sends the tracked installer sources through SSH, uses
+the remote user's home as the server working directory, and leaves no remote
+bundle behind. It requires an explicit SSH user and host; it never discovers or
+fans out to machines implicitly.
 
 - `--allow-openclaw-restart` grants that user passwordless restart of only its
   exact OpenClaw system job, not general launchctl or sudo access.
