@@ -117,9 +117,11 @@ stat -f '%OLp %N' "$path"
   keys, and generated env files out of Git.
 - `~/.zshenv` sources `~/.config/dotfiles/zshenv.local` when that path is a
   readable regular file. Use it for machine-specific exports the shared
-  zshenv must not own. Keep the file owner-only (`0600`). Example: if
-  1Password's SSH agent is `SSH_AUTH_SOCK`, set `TELEPORT_ADD_KEYS_TO_AGENT=no`
-  there instead of changing the shared `zshenv`.
+  zshenv must not own. Chezmoi ignores this path; create it manually and keep
+  it owner-only (`0600`); symlinks are ignored. Example: if 1Password's SSH
+  agent is `SSH_AUTH_SOCK`, set `TELEPORT_ADD_KEYS_TO_AGENT=no` there instead
+  of changing the shared `zshenv`. Keep service tokens and secret values out
+  of shell startup.
 - Prefer public-safe templates and local-only config over checked-in secret
   references.
 - Do not use `exact_` at `$HOME` scope.

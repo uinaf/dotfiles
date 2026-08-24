@@ -209,8 +209,8 @@
       "id": "zshenv-overlay",
       "domain": "config",
       "command": ["scripts/verify/zshenv.sh"],
-      "inputs": ["chezmoi/dot_zshenv", "scripts/verify/zshenv.sh"],
-      "output": "Managed zshenv sources an optional owner overlay"
+      "inputs": [".gitignore", "chezmoi/**", "scripts/verify/zshenv.sh"],
+      "output": "Managed zshenv sources an optional machine-local overlay"
     },
     {
       "id": "pre-push",

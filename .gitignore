@@ -12,4 +12,5 @@ chezmoi.toml
 **/.config/dotfiles/agents.start.md
 **/.config/dotfiles/agents.end.md
 **/.config/dotfiles/zshenv.local
+/chezmoi/*dot_config/*dotfiles/*zshenv.local*
 Brewfile.composed.*
