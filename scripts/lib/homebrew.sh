@@ -42,17 +42,17 @@ dotfiles_homebrew_repair_shared_readability() {
   prefix="$(brew --prefix)" || return 1
   current_uid="$(id -u)"
 
-  find "$prefix" -xdev -type d -user "$current_uid" \
+  find "$prefix" -xdev -type d -uid "$current_uid" \
     \( ! -perm -0050 -o -perm -0020 \) \
     -exec chmod g+rX,g-w {} + || return 1
-  find "$prefix" -xdev -type f -user "$current_uid" \
+  find "$prefix" -xdev -type f -uid "$current_uid" \
     \( ! -perm -0040 -o -perm -0020 \) \
     -exec chmod g+r,g-w {} + || return 1
-  find "$prefix" -xdev -type f -user "$current_uid" -perm -0100 ! -perm -0010 \
+  find "$prefix" -xdev -type f -uid "$current_uid" -perm -0100 ! -perm -0010 \
     -exec chmod g+x {} + || return 1
 
   if [ "$(uname -s)" = Darwin ]; then
-    find "$prefix" -xdev -type l -user "$current_uid" \
+    find "$prefix" -xdev -type l -uid "$current_uid" \
       \( ! -perm -0050 -o -perm -0020 \) \
       -exec chmod -h g+rX,g-w {} + || return 1
   fi

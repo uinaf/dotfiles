@@ -6,6 +6,8 @@ wrapper="$repo_root/scripts/bootstrap/brew-devbox.sh"
 tmp_dir="$(mktemp -d)"
 trap 'rm -rf "$tmp_dir"' EXIT
 mkdir -p "$tmp_dir/bin"
+real_find="$(command -v find)"
+export FAKE_REAL_FIND="$real_find"
 
 fail() {
   printf 'FAILED: %s\n' "$1" >&2
@@ -78,6 +80,25 @@ fi
 exit "${FAKE_BREW_EXIT:-0}"
 EOF
 chmod 755 "$tmp_dir/bin/brew"
+
+cat >"$tmp_dir/bin/find" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [ -n "${FAKE_FIND_FOREIGN_PATH:-}" ]; then
+  previous=""
+  for argument in "$@"; do
+    if [ "$previous" = "!" ] && [ "$argument" = "-uid" ]; then
+      printf '%s\n' "$FAKE_FIND_FOREIGN_PATH"
+      exit 0
+    fi
+    previous="$argument"
+  done
+fi
+
+exec "$FAKE_REAL_FIND" "$@"
+EOF
+chmod 755 "$tmp_dir/bin/find"
 fake_prefix="$tmp_dir/prefix"
 mkdir "$fake_prefix"
 
@@ -132,9 +153,12 @@ expected="$(printf 'umask=0027\nno_auto_update=%s\narg=upgrade\narg=lima\narg=us
   "${HOMEBREW_NO_AUTO_UPDATE:-}")"
 actual="$(cat "$direct_log")"
 [ "$actual" = "$expected" ] || fail "wrapper changed arguments or did not set umask 0027"
-[ "$(file_mode "$tmp_dir/output/directory")" = 750 ] || fail "wrapper created a group-writable directory"
-[ "$(file_mode "$tmp_dir/output/file")" = 640 ] || fail "wrapper created a group-writable file"
-[ "$(file_mode "$tmp_dir/output/executable")" = 751 ] || fail "wrapper changed executable access unexpectedly"
+[ "$(file_mode "$tmp_dir/output/directory")" = 750 ] \
+  || fail "wrapper created an unexpected directory mode; expected 750"
+[ "$(file_mode "$tmp_dir/output/file")" = 640 ] \
+  || fail "wrapper created an unexpected file mode; expected 640"
+[ "$(file_mode "$tmp_dir/output/executable")" = 751 ] \
+  || fail "wrapper created an unexpected executable mode; expected 751"
 
 mkdir "$fake_prefix/restrictive"
 PATH="$tmp_dir/bin:$PATH" \
@@ -143,14 +167,14 @@ PATH="$tmp_dir/bin:$PATH" \
   FAKE_BREW_RESTRICTIVE_DIR="$fake_prefix/restrictive" \
   "$wrapper" install restrictive
 [ "$(file_mode "$fake_prefix/restrictive/directory")" = 750 ] \
-  || fail "wrapper left an owner-only directory unreadable"
+  || fail "wrapper repaired a directory to an unexpected mode; expected 750"
 [ "$(file_mode "$fake_prefix/restrictive/file")" = 640 ] \
-  || fail "wrapper left an owner-only file unreadable"
+  || fail "wrapper repaired a file to an unexpected mode; expected 640"
 [ "$(file_mode "$fake_prefix/restrictive/executable")" = 750 ] \
-  || fail "wrapper left an owner-only executable unusable"
+  || fail "wrapper repaired an executable to an unexpected mode; expected 750"
 if [ "$(uname -s)" = Darwin ]; then
   [ "$(file_mode "$fake_prefix/restrictive/link")" = 750 ] \
-    || fail "wrapper left an owner-only symlink unreadable"
+    || fail "wrapper repaired a symlink to an unexpected mode; expected 750"
 fi
 
 chmod 770 "$fake_prefix/restrictive/directory"
@@ -159,7 +183,43 @@ PATH="$tmp_dir/bin:$PATH" \
   FAKE_BREW_PREFIX="$fake_prefix" \
   "$wrapper" --repair-shared-readability
 [ "$(file_mode "$fake_prefix/restrictive/directory")" = 750 ] \
-  || fail "explicit repair left a group-writable directory"
+  || fail "explicit repair set an unexpected directory mode; expected 750"
+
+refusal_log="$tmp_dir/refusal.log"
+: >"$refusal_log"
+mkdir "$fake_prefix/group-writable"
+chmod 770 "$fake_prefix/group-writable"
+set +e
+group_writable_output="$(
+  PATH="$tmp_dir/bin:$PATH" \
+    FAKE_BREW_LOG="$refusal_log" \
+    FAKE_BREW_PREFIX="$fake_prefix" \
+    "$wrapper" upgrade group-writable 2>&1
+)"
+group_writable_status=$?
+set -e
+[ "$group_writable_status" -eq 1 ] \
+  || fail "group-writable prefix mutation returned $group_writable_status instead of 1"
+printf '%s\n' "$group_writable_output" | grep -Fq 'Homebrew prefix contains group-writable content' \
+  || fail "group-writable prefix failure was not actionable"
+[ ! -s "$refusal_log" ] || fail "group-writable prefix invoked brew"
+chmod 750 "$fake_prefix/group-writable"
+
+set +e
+foreign_owner_output="$(
+  PATH="$tmp_dir/bin:$PATH" \
+    FAKE_BREW_LOG="$refusal_log" \
+    FAKE_BREW_PREFIX="$fake_prefix" \
+    FAKE_FIND_FOREIGN_PATH="$fake_prefix/foreign-owner" \
+    "$wrapper" upgrade foreign-owner 2>&1
+)"
+foreign_owner_status=$?
+set -e
+[ "$foreign_owner_status" -eq 1 ] \
+  || fail "foreign-owned prefix mutation returned $foreign_owner_status instead of 1"
+printf '%s\n' "$foreign_owner_output" | grep -Fq 'Homebrew prefix contains content not owned by uid' \
+  || fail "foreign-owned prefix failure was not actionable"
+[ ! -s "$refusal_log" ] || fail "foreign-owned prefix invoked brew"
 
 set +e
 (
@@ -176,7 +236,7 @@ status=$?
 set -e
 [ "$status" -eq 37 ] || fail "wrapper returned $status instead of the brew exit status"
 [ "$(file_mode "$fake_prefix/failure-output/directory")" = 750 ] \
-  || fail "failed Homebrew mutation skipped readability repair"
+  || fail "failed Homebrew mutation repaired a directory to an unexpected mode; expected 750"
 
 set +e
 owner_output="$(

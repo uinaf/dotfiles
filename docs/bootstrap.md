@@ -57,11 +57,11 @@ brew install git gh
 gh auth login
 ```
 
-On a shared devbox, scope the group-safe umask directly because the repo
+On a shared devbox, scope the owner-only umask directly because the repo
 wrapper is not available until after this first clone:
 
 ```zsh
-(umask 0002; brew install git gh)
+(umask 0027; brew install git gh)
 gh auth login
 ```
 
