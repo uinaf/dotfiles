@@ -371,6 +371,10 @@ grep -Fqx 'cleanup_entry=brew "pi-coding-agent"' "$cleanup_log" \
   || fail "shared cleanup omitted the personal-devbox layer"
 grep -Fqx 'cleanup_entry=brew "yt-dlp"' "$cleanup_log" \
   || fail "shared cleanup omitted the assistant layer"
+while IFS= read -r tap; do
+  grep -Fqx "arg=$tap" "$cleanup_log" \
+    || fail "shared cleanup did not trust an assistant tap"
+done < <(awk -F'"' '$1 == "tap " { print $2 }' "$repo_root/Brewfile.assistant")
 if grep -Fqx 'cleanup_entry=cask "ghostty"' "$cleanup_log"; then
   fail "shared cleanup included the workstation layer"
 fi

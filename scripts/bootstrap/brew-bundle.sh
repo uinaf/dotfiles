@@ -144,6 +144,7 @@ if [ "$cleanup" -eq 1 ]; then
   composed="$(dotfiles_homebrew_compose_cleanup_brewfile "$repo_root" "$profile")" || exit 1
   cleanup_profile="$(dotfiles_homebrew_cleanup_profile "$profile")" || exit 1
   trap 'rm -f "$composed"' EXIT
+  dotfiles_homebrew_trust_taps "$repo_root" "${composed#"$repo_root"/}"
   printf '\n## brew bundle cleanup --force (composed %s host contract)\n' "$profile"
   if dotfiles_profile_uses_shared_brew "$profile"; then
     HOMEBREW_BUNDLE_DOTFILES_PROFILE="$cleanup_profile" \
