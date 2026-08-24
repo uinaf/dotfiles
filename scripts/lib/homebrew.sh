@@ -42,16 +42,47 @@ dotfiles_homebrew_repair_shared_readability() {
   prefix="$(brew --prefix)" || return 1
   current_uid="$(id -u)"
 
-  find "$prefix" -xdev -type d -user "$current_uid" ! -perm -0050 \
-    -exec chmod g+rX {} + || return 1
-  find "$prefix" -xdev -type f -user "$current_uid" ! -perm -0040 \
-    -exec chmod g+r {} + || return 1
-  find "$prefix" -xdev -type f -user "$current_uid" -perm -0100 ! -perm -0010 \
+  find "$prefix" -xdev -type d -uid "$current_uid" \
+    \( ! -perm -0050 -o -perm -0020 \) \
+    -exec chmod g+rX,g-w {} + || return 1
+  find "$prefix" -xdev -type f -uid "$current_uid" \
+    \( ! -perm -0040 -o -perm -0020 \) \
+    -exec chmod g+r,g-w {} + || return 1
+  find "$prefix" -xdev -type f -uid "$current_uid" -perm -0100 ! -perm -0010 \
     -exec chmod g+x {} + || return 1
 
   if [ "$(uname -s)" = Darwin ]; then
-    find "$prefix" -xdev -type l -user "$current_uid" ! -perm -0050 \
-      -exec chmod -h g+rX {} + || return 1
+    find "$prefix" -xdev -type l -uid "$current_uid" \
+      \( ! -perm -0050 -o -perm -0020 \) \
+      -exec chmod -h g+rX,g-w {} + || return 1
+  fi
+}
+
+dotfiles_homebrew_verify_prefix_permissions() {
+  local prefix
+  local owner_uid
+  local foreign_path
+  local writable_path
+
+  prefix="$(brew --prefix)" || return 1
+  [ -d "$prefix" ] || {
+    printf 'Homebrew prefix does not exist: %s\n' "$prefix" >&2
+    return 1
+  }
+  owner_uid="$(dotfiles_homebrew_path_uid "$prefix")" || return 1
+
+  foreign_path="$(find "$prefix" -xdev ! -uid "$owner_uid" -print -quit)" || return 1
+  if [ -n "$foreign_path" ]; then
+    printf 'Homebrew prefix contains content not owned by uid %s: %s\n' \
+      "$owner_uid" "$foreign_path" >&2
+    return 1
+  fi
+
+  writable_path="$(find "$prefix" -xdev ! -type l -perm -0020 -print -quit)" || return 1
+  if [ -n "$writable_path" ]; then
+    printf 'Homebrew prefix contains group-writable content: %s\n' \
+      "$writable_path" >&2
+    return 1
   fi
 }
 

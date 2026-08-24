@@ -413,11 +413,26 @@ check_brew_bundle() {
 }
 
 check_devbox_homebrew() {
+  local prefix
+  local prefix_owner_uid
+
   if ! dotfiles_profile_is_devbox "$profile"; then
     return
   fi
 
+  section "Homebrew prefix permissions"
+  dotfiles_homebrew_verify_prefix_permissions \
+    || fail "Homebrew prefix ownership or permissions drifted"
+  printf 'ok prefix-owner writes and group read-only access\n'
+
   section "Homebrew doctor"
+  prefix="$(brew --prefix)" || fail "cannot resolve the Homebrew prefix"
+  prefix_owner_uid="$(dotfiles_homebrew_path_uid "$prefix")" \
+    || fail "cannot read the Homebrew prefix owner"
+  if [ "$prefix_owner_uid" != "$(id -u)" ]; then
+    printf 'ok skipped write-oriented checks for a read-only Homebrew consumer\n'
+    return
+  fi
   HOMEBREW_NO_AUTO_UPDATE=1 brew doctor || fail "Homebrew is not healthy for this devbox identity"
 }
 

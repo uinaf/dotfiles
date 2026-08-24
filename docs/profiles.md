@@ -27,6 +27,9 @@ host and they are not a security boundary by themselves.
   administrator.
 - Applying a per-user profile must not imply that the user owns or may mutate
   every host-wide dependency.
+- Shared devbox Homebrew is owner-write and consumer-read-only. Devbox shells
+  disable implicit Homebrew auto-update, and bootstrap verification rejects
+  foreign-owned or group-writable prefix content.
 - The role is stored in `~/.config/dotfiles/profile`. Per-user verification
   checks that the selected role matches this marker.
 - Shared software visibility is not isolation. Enforce isolation with Unix

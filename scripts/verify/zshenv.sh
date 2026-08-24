@@ -47,6 +47,25 @@ run_zshenv '
     print -u2 "FAILED: missing overlay leaked DOTFILES_ZSHENV_LOCAL"
     exit 1
   }
+  [[ -z ${HOMEBREW_NO_AUTO_UPDATE+x} ]] || {
+    print -u2 "FAILED: non-devbox shell disabled Homebrew auto-update"
+    exit 1
+  }
+'
+
+: >"$test_home/.config/dotfiles/devbox.env"
+chmod 600 "$test_home/.config/dotfiles/devbox.env"
+
+# shellcheck disable=SC2016 # zsh evaluates the assertion body
+run_zshenv '
+  [[ "$AGENT_CLI_CREDENTIAL_STORE" == file ]] || {
+    print -u2 "FAILED: devbox shell omitted the agent credential store"
+    exit 1
+  }
+  [[ "$HOMEBREW_NO_AUTO_UPDATE" == 1 ]] || {
+    print -u2 "FAILED: devbox shell allowed Homebrew auto-update"
+    exit 1
+  }
 '
 
 printf 'export DOTFILES_ZSHENV_LOCAL=from-local\nexport LANG=overlay-wins\n' \

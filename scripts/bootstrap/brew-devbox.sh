@@ -19,12 +19,14 @@ if [ "${1:-}" = "--repair-shared-readability" ]; then
     exit 2
   fi
   dotfiles_homebrew_repair_shared_readability
+  dotfiles_homebrew_verify_prefix_permissions
   exit 0
 fi
 
-# Preserve shared-writer modes where Homebrew honors umask, then restore the
-# minimum group readability required by other identities using this prefix.
-umask 0002
+# Keep the prefix writable only by its owner while preserving group read and
+# traverse access for the other identities that consume its installed tools.
+dotfiles_homebrew_verify_prefix_permissions
+umask 0027
 set +e
 brew "$@"
 brew_status=$?
@@ -32,6 +34,9 @@ set -e
 
 repair_status=0
 dotfiles_homebrew_repair_shared_readability || repair_status=$?
+if [ "$repair_status" -eq 0 ]; then
+  dotfiles_homebrew_verify_prefix_permissions || repair_status=$?
+fi
 
 if [ "$brew_status" -ne 0 ]; then
   exit "$brew_status"
