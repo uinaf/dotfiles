@@ -220,6 +220,13 @@
       "output": "Managed zsh login PATH and prompt behavior"
     },
     {
+      "id": "zshenv-overlay",
+      "domain": "config",
+      "command": ["scripts/verify/zshenv.sh"],
+      "inputs": [".gitignore", "chezmoi/**", "scripts/verify/zshenv.sh"],
+      "output": "Managed zshenv sources an optional machine-local overlay"
+    },
+    {
       "id": "pre-push",
       "domain": "git",
       "command": ["node", "--test", "scripts/verify/pre-push.test.ts"],
