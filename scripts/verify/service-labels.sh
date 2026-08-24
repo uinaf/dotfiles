@@ -117,4 +117,20 @@ if dotfiles_validate_t3_version 'latest; unsafe'; then
   fail "unsafe T3 Code version was accepted"
 fi
 
+t3_node_binary="$(command -v node)"
+allowed_install_scripts="$(
+  printf '%s\n' '{"allowScripts":[{"name":"msgpackr-extract"},{"name":"node-pty"}]}' \
+    | t3_parse_pending_install_scripts
+)"
+[ "$allowed_install_scripts" = "$(printf '%s\n' msgpackr-extract node-pty)" ] \
+  || fail "approved T3 Code install scripts were not parsed"
+if printf '%s\n' '{"allowScripts":[{"name":"unexpected-native-addon"}]}' \
+  | t3_parse_pending_install_scripts >/dev/null 2>&1; then
+  fail "unexpected T3 Code install scripts were accepted"
+fi
+if printf '%s\n' '{"allowScripts":{}}' \
+  | t3_parse_pending_install_scripts >/dev/null 2>&1; then
+  fail "invalid npm install-script output was accepted"
+fi
+
 printf 'ok LaunchDaemon labels are vendor-neutral and configurable\n'

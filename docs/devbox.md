@@ -284,6 +284,9 @@ fans out to machines implicitly.
 - T3 Code versions are installed side by side under
   `~/.local/share/t3-code/service/`; the plist pins the selected package and
   the target user's resolved Node executable.
+- On npm 12 or newer, T3 dependencies install with lifecycle scripts disabled.
+  The installer version-pins and rebuilds only `msgpackr-extract` and
+  `node-pty`; any additional install-script dependency fails the update.
 - Use `--check` with the selected service flags for a non-mutating contract
   check.
 - System LaunchDaemons must be root-owned and mode `0644`.

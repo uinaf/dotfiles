@@ -8,7 +8,9 @@ t3_service_dir="${t3_service_dir:-}"
 t3_entrypoint="${t3_entrypoint:-}"
 t3_node_binary="${t3_node_binary:-}"
 t3_npm_binary="${t3_npm_binary:-}"
+t3_npm_major="${t3_npm_major:-0}"
 t3_plist="${t3_plist:-}"
+t3_approved_install_scripts=(msgpackr-extract node-pty)
 target_group="${target_group:-}"
 target_home="${target_home:-}"
 target_user="${target_user:-}"
@@ -46,11 +48,82 @@ resolve_t3_code_service() {
 
   t3_node_binary="$resolved_node"
   t3_npm_binary="$npm_command"
+  local npm_version
+  npm_version="$(run_as_target "$t3_npm_binary" --version)"
+  t3_npm_major="${npm_version%%.*}"
+  case "$t3_npm_major" in
+    ''|*[!0-9]*) fail "unsupported npm version: $npm_version" ;;
+  esac
   t3_service_dir="$target_home/.local/share/t3-code/service/$t3_version"
   t3_entrypoint="$t3_service_dir/node_modules/t3/dist/bin.mjs"
 }
 
+t3_parse_pending_install_scripts() {
+  # shellcheck disable=SC2016
+  "$t3_node_binary" -e '
+    const fs = require("node:fs");
+    const value = JSON.parse(fs.readFileSync(0, "utf8"));
+    if (!Array.isArray(value.allowScripts)) {
+      throw new Error("npm returned an invalid allowScripts list");
+    }
+    const approved = new Set(process.argv.slice(1));
+    const names = [...new Set(value.allowScripts.map((entry) => entry?.name))];
+    if (names.some((name) => typeof name !== "string" || name.length === 0)) {
+      throw new Error("npm returned an invalid install-script package name");
+    }
+    const unexpected = names.filter((name) => !approved.has(name));
+    if (unexpected.length > 0) {
+      throw new Error(`unexpected T3 install scripts: ${unexpected.join(", ")}`);
+    }
+    process.stdout.write(names.join("\n"));
+  ' "${t3_approved_install_scripts[@]}"
+}
+
+prepare_t3_code_install_scripts() {
+  [ "$t3_npm_major" -ge 12 ] || return 0
+
+  local pending_json
+  local pending_names
+  pending_json="$(
+    run_as_target "$t3_npm_binary" install-scripts ls \
+      --prefix "$t3_service_dir" \
+      --json
+  )" || fail "could not inspect T3 Code install scripts"
+  pending_names="$(
+    printf '%s\n' "$pending_json" | t3_parse_pending_install_scripts
+  )" || fail "T3 Code has unapproved install scripts"
+
+  if [ -n "$pending_names" ]; then
+    local approval_args=()
+    while IFS= read -r package_name; do
+      [ -z "$package_name" ] || approval_args+=("$package_name")
+    done <<< "$pending_names"
+    run_as_target "$t3_npm_binary" install-scripts approve \
+      "${approval_args[@]}" \
+      --prefix "$t3_service_dir"
+  fi
+
+  run_as_target "$t3_npm_binary" rebuild \
+    "${t3_approved_install_scripts[@]}" \
+    --prefix "$t3_service_dir" \
+    --strict-allow-scripts \
+    --no-audit \
+    --no-fund
+
+  pending_json="$(
+    run_as_target "$t3_npm_binary" install-scripts ls \
+      --prefix "$t3_service_dir" \
+      --json
+  )" || fail "could not verify T3 Code install scripts"
+  pending_names="$(
+    printf '%s\n' "$pending_json" | t3_parse_pending_install_scripts
+  )" || fail "T3 Code has unapproved install scripts"
+  [ -z "$pending_names" ] \
+    || fail "T3 Code install scripts remain blocked: $pending_names"
+}
+
 prepare_t3_code_service() {
+  local install_args
   local stored_version
 
   run_as_target install -d -m 0755 "$t3_service_dir"
@@ -60,14 +133,21 @@ prepare_t3_code_service() {
       "$t3_service_dir/package.json"
   )"
   if [ "$stored_version" != "$t3_version" ] || [ ! -f "$t3_entrypoint" ]; then
-    run_as_target "$t3_npm_binary" install \
-      --prefix "$t3_service_dir" \
-      --save-exact \
-      --no-audit \
-      --no-fund \
-      "t3@$t3_version"
+    install_args=(
+      install
+      --prefix "$t3_service_dir"
+      --save-exact
+      --no-audit
+      --no-fund
+    )
+    if [ "$t3_npm_major" -ge 12 ]; then
+      install_args+=(--ignore-scripts)
+    fi
+    install_args+=("t3@$t3_version")
+    run_as_target "$t3_npm_binary" "${install_args[@]}"
   fi
   [ -f "$t3_entrypoint" ] || fail "T3 Code package has no server entrypoint"
+  prepare_t3_code_install_scripts
 
   t3_plist="$tmp_dir/$t3_label.plist"
   create_plist \
