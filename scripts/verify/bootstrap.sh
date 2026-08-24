@@ -417,6 +417,11 @@ check_devbox_homebrew() {
     return
   fi
 
+  section "Homebrew prefix permissions"
+  dotfiles_homebrew_verify_prefix_permissions \
+    || fail "Homebrew prefix ownership or permissions drifted"
+  printf 'ok prefix-owner writes and group read-only access\n'
+
   section "Homebrew doctor"
   HOMEBREW_NO_AUTO_UPDATE=1 brew doctor || fail "Homebrew is not healthy for this devbox identity"
 }

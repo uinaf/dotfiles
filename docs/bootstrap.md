@@ -288,11 +288,13 @@ Run every other Homebrew mutation on a shared devbox through the repo wrapper:
 Wrapper contract:
 
 - Requires the current Unix user to own the Homebrew prefix.
-- Scopes a group-safe umask to the Homebrew child process. The caller's shell
-  umask is unchanged.
-- Restores group read and traverse permissions on prefix-owner-owned content,
-  including macOS symlinks, after every attempted mutation, while preserving
-  Homebrew's exit status.
+- Scopes an owner-write, group-read umask to the Homebrew child process. The
+  caller's shell umask is unchanged.
+- Restores group read and traverse permissions while removing group write from
+  prefix-owner-owned content, including macOS symlinks, after every attempted
+  mutation and preserves Homebrew's exit status.
+- Refuses mutations when any prefix content has another owner or remains group
+  writable. Devbox shells also disable implicit Homebrew auto-update.
 - Never changes content owned by another Unix identity.
 - The devbox bundle command uses the wrapper internally.
 
@@ -453,10 +455,10 @@ can hang.
   Shared devbox prefixes compare and clean against the union of devbox,
   personal-devbox, and assistant layers so one Unix user cannot remove another
   active profile's packages.
-- If historical prefix-owner content is unreadable to another devbox identity,
-  run `brew-devbox.sh --repair-shared-readability` as the prefix owner, then
-  retry verification. The repair is additive and owner-scoped; investigate
-  files owned by another identity separately.
+- If historical prefix-owner content has incorrect group permissions, run
+  `brew-devbox.sh --repair-shared-readability` as the prefix owner, then retry
+  verification. The repair is owner-scoped; reassign content owned by another
+  identity to the prefix owner through the host's approved administrator path.
 - If `chezmoi` is missing, rerun `./scripts/bootstrap/brew-bundle.sh` for the
   correct profile before `./dotfiles apply <profile>`.
 - If Git reports dubious ownership under `/opt/homebrew`, rerun

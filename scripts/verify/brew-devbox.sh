@@ -128,13 +128,13 @@ mkdir "$tmp_dir/output"
     "$wrapper" upgrade lima usage
 )
 
-expected="$(printf 'umask=0002\nno_auto_update=%s\narg=upgrade\narg=lima\narg=usage\n' \
+expected="$(printf 'umask=0027\nno_auto_update=%s\narg=upgrade\narg=lima\narg=usage\n' \
   "${HOMEBREW_NO_AUTO_UPDATE:-}")"
 actual="$(cat "$direct_log")"
-[ "$actual" = "$expected" ] || fail "wrapper changed arguments or did not set umask 0002"
-[ "$(file_mode "$tmp_dir/output/directory")" = 775 ] || fail "wrapper created a non-shared directory"
-[ "$(file_mode "$tmp_dir/output/file")" = 664 ] || fail "wrapper created a non-shared file"
-[ "$(file_mode "$tmp_dir/output/executable")" = 775 ] || fail "wrapper created a non-shared executable"
+[ "$actual" = "$expected" ] || fail "wrapper changed arguments or did not set umask 0027"
+[ "$(file_mode "$tmp_dir/output/directory")" = 750 ] || fail "wrapper created a group-writable directory"
+[ "$(file_mode "$tmp_dir/output/file")" = 640 ] || fail "wrapper created a group-writable file"
+[ "$(file_mode "$tmp_dir/output/executable")" = 751 ] || fail "wrapper changed executable access unexpectedly"
 
 mkdir "$fake_prefix/restrictive"
 PATH="$tmp_dir/bin:$PATH" \
@@ -153,13 +153,13 @@ if [ "$(uname -s)" = Darwin ]; then
     || fail "wrapper left an owner-only symlink unreadable"
 fi
 
-chmod 700 "$fake_prefix/restrictive/directory"
+chmod 770 "$fake_prefix/restrictive/directory"
 PATH="$tmp_dir/bin:$PATH" \
   FAKE_BREW_LOG="$direct_log" \
   FAKE_BREW_PREFIX="$fake_prefix" \
   "$wrapper" --repair-shared-readability
 [ "$(file_mode "$fake_prefix/restrictive/directory")" = 750 ] \
-  || fail "explicit readability repair left an owner-only directory unreadable"
+  || fail "explicit repair left a group-writable directory"
 
 set +e
 (
@@ -197,7 +197,7 @@ bundle_log="$tmp_dir/bundle.log"
 : >"$bundle_log"
 run_brew_bundle "$bundle_log" devbox
 
-[ "$(grep -c '^umask=0002$' "$bundle_log")" -eq 3 ] || fail "devbox bundle bypassed the shared umask"
+[ "$(grep -c '^umask=0027$' "$bundle_log")" -eq 3 ] || fail "devbox bundle bypassed the owner-only umask"
 [ "$(grep -c '^profile=devbox$' "$bundle_log")" -eq 3 ] || fail "devbox bundle omitted its profile environment"
 [ "$(grep -c '^arg=bundle$' "$bundle_log")" -eq 3 ] || fail "devbox bundle did not run all profile layers"
 grep -Fqx "arg=$repo_root/Brewfile" "$bundle_log" || fail "shared Brewfile was not bundled"
@@ -231,7 +231,7 @@ done
 assistant_log="$tmp_dir/assistant.log"
 : >"$assistant_log"
 run_brew_bundle "$assistant_log" assistant
-[ "$(grep -c '^umask=0002$' "$assistant_log")" -eq 2 ] || fail "assistant bundle bypassed the shared umask"
+[ "$(grep -c '^umask=0027$' "$assistant_log")" -eq 2 ] || fail "assistant bundle bypassed the owner-only umask"
 [ "$(grep -c '^profile=assistant$' "$assistant_log")" -eq 2 ] || fail "assistant bundle omitted its profile environment"
 [ "$(grep -c '^arg=bundle$' "$assistant_log")" -eq 2 ] || fail "assistant bundle did not run base and assistant layers"
 grep -Fqx "arg=$repo_root/Brewfile" "$assistant_log" || fail "assistant bundle missed the base Brewfile"
@@ -243,7 +243,7 @@ fi
 shared_log="$tmp_dir/shared.log"
 : >"$shared_log"
 run_brew_bundle "$shared_log" --shared-only devbox
-[ "$(grep -c '^umask=0002$' "$shared_log")" -eq 1 ] || fail "devbox shared-only bundle bypassed the shared umask"
+[ "$(grep -c '^umask=0027$' "$shared_log")" -eq 1 ] || fail "devbox shared-only bundle bypassed the owner-only umask"
 [ "$(grep -c '^profile=devbox$' "$shared_log")" -eq 1 ] || fail "shared-only bundle omitted its profile environment"
 [ "$(grep -c '^arg=bundle$' "$shared_log")" -eq 1 ] || fail "devbox shared-only bundle did not run exactly once"
 grep -Fqx "arg=$repo_root/Brewfile" "$shared_log" || fail "devbox shared-only bundle missed the shared Brewfile"
