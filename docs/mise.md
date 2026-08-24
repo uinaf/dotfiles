@@ -109,7 +109,7 @@ The runtime group shared by `personal-workstation`, `personal-devbox`,
 `workstation`, and `devbox`:
 
 - pins Ruby alongside its other development runtimes
-- enables Corepack in its Node entry and installs pnpm 11.22.0 as the default
+- enables Corepack in its Node entry and installs pnpm 11.23.0 as the default
   outside projects
 - pins npm itself to 12.0.2 through the Node postinstall
 - declares Playwright CLI as an exact `npm:` backend entry
