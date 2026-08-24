@@ -283,6 +283,16 @@ run_brew_bundle "$personal_devbox_log" personal-devbox
   || fail "personal devbox bundle skipped a profile layer"
 [ "$(grep -c '^profile=personal-devbox$' "$personal_devbox_log")" -eq 4 ] \
   || fail "personal devbox bundle omitted its profile environment"
+expected_tap_count=0
+for file in Brewfile.developer Brewfile.personal; do
+  while IFS= read -r tap; do
+    grep -Fqx "arg=$tap" "$personal_devbox_log" \
+      || fail "personal devbox bundle did not trust a declared tap"
+    expected_tap_count=$((expected_tap_count + 1))
+  done < <(awk -F'"' '$1 == "tap " { print $2 }' "$repo_root/$file")
+done
+[ "$(grep -c '^arg=--tap$' "$personal_devbox_log")" -eq "$expected_tap_count" ] \
+  || fail "personal devbox bundle did not trust every declared tap explicitly"
 for file in Brewfile Brewfile.developer Brewfile.devbox Brewfile.personal; do
   grep -Fqx "arg=$repo_root/$file" "$personal_devbox_log" \
     || fail "personal devbox bundle skipped $file"

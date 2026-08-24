@@ -195,7 +195,7 @@ dotfiles_homebrew_trust_taps() {
   for file in "$@"; do
     while IFS= read -r tap; do
       [ -n "$tap" ] || continue
-      brew trust "$tap" >/dev/null || {
+      brew trust --tap "$tap" >/dev/null || {
         printf 'failed to trust tap %s; a managed Homebrew that refuses trust must supply its entries through the external-homebrew contract\n' "$tap" >&2
         return 1
       }
