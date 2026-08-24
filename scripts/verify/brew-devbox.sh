@@ -285,6 +285,8 @@ run_brew_bundle "$personal_devbox_log" personal-devbox
   || fail "personal devbox bundle omitted its profile environment"
 expected_tap_count=0
 for file in Brewfile.developer Brewfile.personal; do
+  awk '$1 == "tap" && $0 !~ /, trusted: true$/ { exit 1 }' "$repo_root/$file" \
+    || fail "$file contains a tap without explicit Bundle trust"
   while IFS= read -r tap; do
     grep -Fqx "arg=$tap" "$personal_devbox_log" \
       || fail "personal devbox bundle did not trust a declared tap"
@@ -358,6 +360,8 @@ run_brew_bundle "$tmp_dir/isolated-ambient.log" --home "$host_home" devbox
 
 cleanup_log="$tmp_dir/cleanup.log"
 : >"$cleanup_log"
+awk '$1 == "tap" && $0 !~ /, trusted: true$/ { exit 1 }' "$repo_root/Brewfile.assistant" \
+  || fail "Brewfile.assistant contains a tap without explicit Bundle trust"
 run_brew_bundle "$cleanup_log" --home "$host_home" --cleanup devbox
 [ "$(grep -c '^arg=bundle$' "$cleanup_log")" -eq 4 ] \
   || fail "--cleanup did not install the 3 layers before cleaning"

@@ -1,8 +1,8 @@
 # Shared development layer for personal-workstation, personal-devbox, workstation, and devbox users.
 
 # Taps
-tap "teamookla/speedtest"
-tap "uinaf/tap"
+tap "teamookla/speedtest", trusted: true
+tap "uinaf/tap", trusted: true
 
 # Coding agents
 cask "codex"

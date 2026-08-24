@@ -309,12 +309,12 @@ for required in 'brew "asc"' 'brew "uinaf/tap/attach"' 'brew "openclaw/tap/crabb
     fi
   done
 done
-grep -Fqx 'tap "putdotio/tap"' "$repo_root/Brewfile.personal" \
+grep -Fqx 'tap "putdotio/tap", trusted: true' "$repo_root/Brewfile.personal" \
   || fail "personal layer missed putdotio/tap"
-grep -Fqx 'tap "uinaf/tap"' "$repo_root/Brewfile.developer" \
+grep -Fqx 'tap "uinaf/tap", trusted: true' "$repo_root/Brewfile.developer" \
     || fail "developer layer missed the shared uinaf/tap"
 for file in Brewfile.workstation Brewfile.personal Brewfile.devbox; do
-  if grep -Fqx 'tap "uinaf/tap"' "$repo_root/$file"; then
+  if grep -Eq '^tap "uinaf/tap"' "$repo_root/$file"; then
     fail "$file duplicates the shared developer uinaf/tap"
   fi
 done

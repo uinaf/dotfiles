@@ -2,8 +2,8 @@
 # Workload repositories own frameworks and supervision packages.
 
 # Taps
-tap "openclaw/tap"
-tap "steipete/tap"
+tap "openclaw/tap", trusted: true
+tap "steipete/tap", trusted: true
 
 # Document, media, and automation helpers
 brew "yt-dlp"
