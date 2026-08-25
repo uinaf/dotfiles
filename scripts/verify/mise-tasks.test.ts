@@ -35,6 +35,8 @@ const publicTasks = [
   "bootstrap:trust-agent-worktrees",
   "dotfiles:apply",
   "dotfiles:diff",
+  "maintenance:check",
+  "maintenance:verify",
   "verify",
   "verify:bootstrap",
   "verify:devbox-services",

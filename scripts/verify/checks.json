@@ -150,6 +150,13 @@
       "output": "Host-only T3 Code target, version parsing, and remote source bundle"
     },
     {
+      "id": "maintenance-check",
+      "domain": "services",
+      "command": ["node", "--test", "scripts/maintenance/check.test.ts"],
+      "inputs": ["scripts/maintenance/check.ts", "scripts/maintenance/check.test.ts", "scripts/profiles/model.ts", "mise.toml"],
+      "output": "Concurrent typed maintenance inventory and backlog parsing"
+    },
+    {
       "id": "audit-adapters",
       "domain": "audit",
       "command": ["node", "--test", "scripts/audit/adapters.test.ts"],

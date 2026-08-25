@@ -47,6 +47,14 @@ flag "--format <format>" help="Output format" default="text" {
 '''
 run = 'node ./scripts/audit/run.ts "$usage_scope" "$usage_format"'
 
+[tasks."maintenance:check"]
+description = "Collect one read-only local identity maintenance snapshot as JSON"
+run = "node ./scripts/maintenance/check.ts"
+
+[tasks."maintenance:verify"]
+description = "Collect a maintenance snapshot with full bootstrap verification"
+run = "node ./scripts/maintenance/check.ts --verify"
+
 [tasks."dotfiles:apply"]
 description = "Apply the repo-local chezmoi source state"
 usage = '''

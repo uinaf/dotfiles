@@ -245,14 +245,17 @@ Keep the private key owner-only and outside this repository.
 Verify:
 
 ```zsh
+mise run maintenance:check
 ./dotfiles check "$profile"
 mise run audit host
 mise run audit workstation
 ```
 
-The live check runs independent groups concurrently and prints a concise
-summary. Run `./scripts/verify/bootstrap.sh --profile "$profile" --verbose`
-when successful command output is needed for diagnosis.
+`maintenance:check` emits one read-only JSON snapshot and runs independent
+inventory probes concurrently. After maintenance, use `mise run
+maintenance:verify` to add the full bootstrap gate. Run
+`./scripts/verify/bootstrap.sh --profile "$profile" --verbose` only when
+successful command output is needed for diagnosis.
 
 ## Devbox Mac
 
@@ -345,6 +348,7 @@ let each workspace own its narrow SOPS consumers.
 Verify each devbox user:
 
 ```zsh
+mise run maintenance:check
 ./dotfiles check "$profile"
 mise run audit host
 ./scripts/verify/devbox-services.sh
