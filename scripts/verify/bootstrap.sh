@@ -94,6 +94,7 @@ developer_cli_checks=(
   "uv --version"
   "gh auth status"
   "gh stack --help"
+  "glab --version"
   "bun --version"
   "java -version"
   "codex --version"
