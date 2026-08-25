@@ -38,8 +38,11 @@ jobs:
       - name: Install verification tools
         run: brew install actionlint chezmoi mise shellcheck
 
+      - name: Install repository dependencies
+        run: corepack pnpm install --frozen-lockfile
+
       - name: Verify repository
-        run: ./scripts/verify/repo.sh --skip-security
+        run: ./scripts/verify/run.ts --skip-security
 
   release:
     name: GitHub Release

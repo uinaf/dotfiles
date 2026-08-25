@@ -20,7 +20,7 @@ printf '%s' '${label}' >> "\${DOTFILES_TEST_LOG:?}"
 printf ' %q' "$@" >> "\${DOTFILES_TEST_LOG:?}"
 printf '\\n' >> "\${DOTFILES_TEST_LOG:?}"
 if [ "\${DOTFILES_TEST_EXIT:-0}" -ne 0 ]; then exit "\${DOTFILES_TEST_EXIT}"; fi
-if [ '${label}' = install.sh ] && [ "\${1:-}" = --print-steps ]; then printf 'apply-dotfiles\\ninstall-runtimes\\n'; fi
+if [ '${label}' = install.ts ] && [ "\${1:-}" = --print-steps ]; then printf 'apply-dotfiles\\ninstall-runtimes\\n'; fi
 `);
   chmodSync(path, 0o755);
 }
@@ -29,25 +29,27 @@ test("operator command validates and delegates every profile", () => {
   const fixture = mkdtempSync(join(tmpdir(), "dotfiles-command-"));
   const home = join(fixture, "home");
   const log = join(fixture, "commands.log");
-  const command = join(fixture, "repo/dotfiles");
-  const run = (args: string[], exit = 0) => spawnSync(command, args, {
+  const command = join(repoRoot, "scripts/dotfiles.ts");
+  const run = (args: string[], exit = 0) => spawnSync(process.execPath, [command, ...args], {
     encoding: "utf8",
-    env: { ...process.env, DOTFILES_TEST_EXIT: String(exit), DOTFILES_TEST_LOG: log, HOME: home },
+    env: {
+      ...process.env,
+      DOTFILES_OPERATOR_REPO_ROOT: join(fixture, "repo"),
+      DOTFILES_TEST_EXIT: String(exit),
+      DOTFILES_TEST_LOG: log,
+      HOME: home,
+    },
   });
 
   try {
     mkdirSync(join(fixture, "repo/scripts/bootstrap"), { recursive: true });
     mkdirSync(join(fixture, "repo/scripts/verify"), { recursive: true });
-    mkdirSync(join(fixture, "repo/scripts/lib"), { recursive: true });
     mkdirSync(join(fixture, "repo/chezmoi/.chezmoidata"), { recursive: true });
     mkdirSync(home);
-    cpSync(join(repoRoot, "dotfiles"), command);
-    chmodSync(command, 0o755);
-    cpSync(join(repoRoot, "scripts/lib/profile.sh"), join(fixture, "repo/scripts/lib/profile.sh"));
     cpSync(modelPath, join(fixture, "repo/chezmoi/.chezmoidata/profiles.json"));
-    writeDelegate(join(fixture, "repo/scripts/bootstrap/install.sh"), "install.sh");
-    writeDelegate(join(fixture, "repo/scripts/bootstrap/apply-dotfiles.sh"), "apply-dotfiles.sh");
-    writeDelegate(join(fixture, "repo/scripts/verify/bootstrap.sh"), "verify-bootstrap.sh");
+    writeDelegate(join(fixture, "repo/scripts/bootstrap/install.ts"), "install.ts");
+    writeDelegate(join(fixture, "repo/scripts/bootstrap/apply-dotfiles.ts"), "apply-dotfiles.ts");
+    writeDelegate(join(fixture, "repo/scripts/verify/bootstrap.ts"), "verify-bootstrap.ts");
 
     for (const profile of profiles) {
       writeFileSync(log, "");
@@ -57,26 +59,26 @@ test("operator command validates and delegates every profile", () => {
       assert.match(diff.stderr, /Homebrew packages, identities, secrets, or host-wide settings/);
       assert.equal(
         readFileSync(log, "utf8"),
-        `install.sh --print-steps --profile ${profile}\napply-dotfiles.sh --profile ${profile} --dry-run --verbose\n`,
+        `install.ts --print-steps --profile ${profile}\napply-dotfiles.ts --profile ${profile} --dry-run --verbose\n`,
       );
 
       writeFileSync(log, "");
       const apply = run(["apply", profile]);
       assert.equal(apply.status, 0, apply.stderr);
       assert.match(apply.stderr, /Homebrew packages, identities, secrets, or host-wide settings/);
-      assert.equal(readFileSync(log, "utf8"), `install.sh --profile ${profile}\n`);
+      assert.equal(readFileSync(log, "utf8"), `install.ts --profile ${profile}\n`);
       const secondApply = run(["apply", profile]);
       assert.equal(secondApply.status, 0, secondApply.stderr);
       assert.equal(
         readFileSync(log, "utf8"),
-        `install.sh --profile ${profile}\ninstall.sh --profile ${profile}\n`,
+        `install.ts --profile ${profile}\ninstall.ts --profile ${profile}\n`,
       );
 
       writeFileSync(log, "");
       const check = run(["check", profile]);
       assert.equal(check.status, 0, check.stderr);
       assert.match(check.stderr, /Homebrew packages, identities, secrets, or host-wide settings/);
-      assert.equal(readFileSync(log, "utf8"), `verify-bootstrap.sh --profile ${profile}\n`);
+      assert.equal(readFileSync(log, "utf8"), `verify-bootstrap.ts --profile ${profile}\n`);
     }
 
     writeFileSync(log, "");
@@ -86,7 +88,7 @@ test("operator command validates and delegates every profile", () => {
     assert.equal(readFileSync(log, "utf8"), "");
     const failed = run(["apply", "workstation"], 29);
     assert.equal(failed.status, 29);
-    assert.match(failed.stderr, /scripts\/bootstrap\/install\.sh failed/);
+    assert.match(failed.stderr, /scripts\/bootstrap\/install\.ts failed/);
     assert.match(failed.stderr, /rerun \.\/dotfiles apply workstation/);
   } finally {
     rmSync(fixture, { recursive: true, force: true });

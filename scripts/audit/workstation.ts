@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 
 import { pathToFileURL } from "node:url";
+import { Effect } from "effect";
 
+import { runMain } from "../lib/program.ts";
 import { type AuditFormat, type AuditPolicy, runPolicy } from "./engine.ts";
 
 const homeDotfiles = { kind: "home-dotfiles", exclude: [".CFUserTextEncoding", ".DS_Store", ".localized", ".npmrc"] } as const;
@@ -48,4 +50,8 @@ function main(args: string[]): number {
   return runWorkstation(args[0] === "--json" ? "json" : "text");
 }
 
-if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) process.exitCode = main(process.argv.slice(2));
+if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
+  runMain(Effect.try({ try: () => main(process.argv.slice(2)), catch: (error) => error }).pipe(
+    Effect.tap((status) => Effect.sync(() => { process.exitCode = status; })), Effect.asVoid,
+  ));
+}

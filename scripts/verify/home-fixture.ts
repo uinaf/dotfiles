@@ -1,11 +1,13 @@
 #!/usr/bin/env node
 
 import assert from "node:assert/strict";
+import { Console, Effect } from "effect";
 import { spawn } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { runMain } from "../lib/program.ts";
 
 import { readProfileModel } from "../profiles/model.ts";
 
@@ -90,11 +92,7 @@ export async function verifyProfiles(): Promise<void> {
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
-  try {
-    await verifyProfiles();
-    process.stdout.write("ok all profiles apply in disposable homes\n");
-  } catch (error) {
-    process.stderr.write(`FAILED: ${error instanceof Error ? error.message : String(error)}\n`);
-    process.exit(1);
-  }
+  runMain(Effect.tryPromise({ try: verifyProfiles, catch: (error) => error }).pipe(
+    Effect.tap(() => Console.log("ok all profiles apply in disposable homes")),
+  ));
 }

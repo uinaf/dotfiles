@@ -1,0 +1,143 @@
+#!/usr/bin/env node
+
+import { NodeServices } from "@effect/platform-node";
+import { Console, Effect, FileSystem } from "effect";
+import { join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { CommandRunner } from "../lib/command.ts";
+import { bundleDrift, configureExternalCapabilities, profileBrewfiles, runHomebrewRaw, verifyPrefixPermissions } from "../lib/homebrew.ts";
+import { fail, runMain } from "../lib/program.ts";
+import { checkMiseDoctor, runCleanZsh } from "../lib/shell-probe.ts";
+import { resolveProfile } from "../profiles/current.ts";
+import { readProfileModelEffect, requireProfile } from "../profiles/model.ts";
+
+const repoRoot = resolve(fileURLToPath(new URL("../..", import.meta.url)));
+const usage = "Usage:\n  scripts/verify/bootstrap.ts [--profile PROFILE] [--desktop] [--verbose]";
+
+const program = Effect.gen(function*() {
+  const argv = [...process.argv.slice(2)];
+  let requested: string | undefined;
+  let desktop = false;
+  let verbose = false;
+  while (argv.length > 0) {
+    const argument = argv.shift()!;
+    if (argument === "--profile") {
+      if (requested || argv.length === 0) return yield* fail(usage, 2);
+      requested = argv.shift();
+    } else if (argument === "--desktop") desktop = true;
+    else if (argument === "--verbose") verbose = true;
+    else if (argument === "-h" || argument === "--help") { yield* Console.log(usage); return; }
+    else if (argument.startsWith("-") || requested) return yield* fail(usage, 2);
+    else requested = argument;
+  }
+  const profile = yield* resolveProfile(requested).pipe(Effect.mapError(() => new Error(usage)));
+  const model = yield* readProfileModelEffect(join(repoRoot, "chezmoi/.chezmoidata/profiles.json"));
+  const config = requireProfile(model, profile);
+  if (desktop && !config.capabilities.devbox) return yield* fail("--desktop requires a devbox profile", 2);
+  const fs = yield* FileSystem.FileSystem;
+  const runner = yield* CommandRunner;
+  const home = process.env.HOME || "";
+  const shell = Effect.fn("bootstrapShellCheck")(function*(command: string, flags: "-lic" | "-ic" = "-lic") {
+    const result = yield* runCleanZsh(flags, command);
+    if (result.status !== 0) return yield* fail(command);
+    return result.stdout.trim();
+  });
+  const command = Effect.fn("bootstrapCommandCheck")(function*(binary: string, args: readonly string[] = []) {
+    const result = yield* runner.run(binary, args, { output: "capture" });
+    if (result.status !== 0) return yield* fail(`${binary} ${args.join(" ")}`);
+    return result.stdout.trim();
+  });
+  const shellChecks = (checks: readonly string[]) => Effect.forEach(checks, (check) => shell(check), { concurrency: "unbounded", discard: true });
+  const commonTools = shellChecks(["age --version", "brew --version", "chezmoi --version", "gh --version", "git --version", "mise --version", "sops --version"]);
+  const environment = Effect.gen(function*() {
+    yield* checkMiseDoctor("login interactive", "-lic");
+    yield* checkMiseDoctor("interactive", "-ic");
+    if (config.capabilities.developer) {
+      const trust = yield* runner.run(process.execPath, [join(repoRoot, "scripts/bootstrap/trust-agent-worktrees.ts"), "--check"]);
+      if (trust.status !== 0) return yield* fail("trusted agent worktrees");
+      const truecolor = yield* runner.run("/usr/bin/env", ["TERM=xterm-ghostty", "/bin/zsh", "-ic", '[[ "$COLORTERM" = truecolor ]]']);
+      if (truecolor.status !== 0) return yield* fail("interactive zsh does not set COLORTERM=truecolor for Ghostty SSH sessions");
+    }
+    if (config.capabilities.devbox) {
+      const prompt = yield* runner.run("/usr/bin/env", [`SSH_CONNECTION=${process.env.SSH_CONNECTION || "127.0.0.1 1 127.0.0.1 22"}`, "/bin/zsh", "-ic", '[[ "$PROMPT" == *"%n@%m"* ]]']);
+      if (prompt.status !== 0) return yield* fail("remote SSH shells do not show user@host in PROMPT");
+    }
+    if (config.capabilities.workstation) {
+      const ghostty = yield* fs.readFileString(join(home, "Library/Application Support/com.mitchellh.ghostty/config"));
+      if (!ghostty.split(/\r?\n/).includes("shell-integration-features = ssh-env,ssh-terminfo")) return yield* fail("Ghostty SSH integration is not configured");
+    }
+  });
+  const runtime = Effect.gen(function*() {
+    if (config.runtimeGroup === "none") return;
+    if (yield* shell("mise ls --current --missing --no-header")) return yield* fail("mise still reports missing configured tools");
+    yield* shell("node --version");
+    const nodePath = yield* shell("mise which node");
+    const nodeRoot = yield* shell("mise where node");
+    if (!nodePath.startsWith(`${nodeRoot}/`)) return yield* fail("Node is not owned by mise");
+    if (!config.capabilities.developer) return;
+    yield* shellChecks(["pnpm --version", "npm --version", "playwright-cli --version", "ruby --version"]);
+    if ((yield* shell("command -v vp >/dev/null 2>&1; printf %s $?")) === "0") return yield* fail("vp is available globally; Vite+ must resolve from each repository");
+    if ((yield* shell("npm config get prefix")) !== nodeRoot) return yield* fail("npm prefix is outside mise Node");
+    if ((yield* shell("npm root --global")) !== `${nodeRoot}/lib/node_modules`) return yield* fail("npm global root is outside mise Node");
+    if ((yield* shell("npm exec --yes -- node -p process.execPath")) !== `${nodeRoot}/bin/node`) return yield* fail("npm exec child Node is outside mise Node");
+  });
+  const developerTools = Effect.gen(function*() {
+    if (!config.capabilities.developer) return;
+    yield* shellChecks(["python --version", "uv --version", "gh auth status", "gh stack --help", "glab --version", "bun --version", "java -version", "codex --version", "claude --version", "cursor-agent --version", "slopguard version", "slopmachine version"]);
+    const androidHome = yield* shell('printf %s "$ANDROID_HOME"');
+    if (!androidHome || !(yield* fs.exists(androidHome))) return yield* fail("ANDROID_HOME is missing");
+    for (const [name, path] of [["adb", "platform-tools/adb"], ["emulator", "emulator/emulator"], ["sdkmanager", "cmdline-tools/latest/bin/sdkmanager"]]) {
+      if ((yield* shell(`command -v ${name}`)) !== join(androidHome, path)) return yield* fail(`${name} does not resolve from ANDROID_HOME`);
+    }
+  });
+  const profileTools = Effect.gen(function*() {
+    if (config.capabilities.personal) yield* shellChecks(["asc --version", "attach --help", "crabbox --version", "gitcrawl --version", "mole --version", "pi --version"]);
+    if (config.capabilities.workstation) yield* shell("op --version");
+    if (config.capabilities.personal && config.capabilities.workstation) yield* shellChecks(["grok --version", "tailscale status --peers=false"]);
+    if (config.capabilities.devbox) yield* shellChecks(["tmux -V", "xcodes version", "tailscale status --peers=false"]);
+    if (config.capabilities.githubAppAuth) yield* shellChecks(["GH_NO_EXTENSION_UPDATE_NOTIFIER=1 gh app-auth exec --help", "qpdf --version", "qrencode --version"]);
+  });
+  const homebrew = Effect.gen(function*() {
+    const external = yield* configureExternalCapabilities(repoRoot, model, profile);
+    for (const file of profileBrewfiles(model, profile)) {
+      const result = yield* runHomebrewRaw("brew", ["bundle", "check", "--file", join(repoRoot, file)], { env: { ...external, HOMEBREW_BUNDLE_DOTFILES_PROFILE: profile, HOMEBREW_NO_AUTO_UPDATE: "1" } });
+      if (result.status !== 0) return yield* fail(`missing Homebrew dependencies from ${file}`);
+    }
+    const drift = yield* bundleDrift(repoRoot, model, profile);
+    if (drift.trim()) return yield* fail(`installed Homebrew packages drift from the profile manifests:\n${drift}`);
+    if (config.capabilities.devbox) yield* verifyPrefixPermissions();
+  });
+  const configuration = Effect.gen(function*() {
+    if ((yield* fs.exists(join(home, ".tool-versions"))) || (yield* fs.readLink(join(home, ".tool-versions")).pipe(Effect.option))._tag === "Some") return yield* fail("legacy ~/.tool-versions exists");
+    const paths = [join(home, ".config/dotfiles/profile"), join(home, ".config/mise/config.toml"), join(home, ".gitconfig")];
+    if (config.capabilities.developer) paths.push(join(home, ".config/git/allowed_signers"), join(home, ".codex/config.toml"), join(home, ".gitconfig.local"), join(home, ".ssh/config"));
+    if (config.capabilities.workstation) paths.push(join(home, "Library/Application Support/com.mitchellh.ghostty/config"));
+    for (const path of paths) if (!(yield* fs.exists(path))) return yield* fail(`missing ${path}`);
+    if ((yield* resolveProfile(undefined)) !== profile) return yield* fail(`installed profile does not match ${profile}`);
+    if (config.capabilities.requiresSopsIdentity) yield* command(process.execPath, [join(repoRoot, "scripts/secrets/configure-sops-age-identity.ts"), "--check"]);
+    if (config.capabilities.developer) {
+      const codex = yield* fs.readFileString(join(home, ".codex/config.toml"));
+      if (/^forced_login_method\s*=/m.test(codex.split(/^\s*\[/m)[0] || "")) return yield* fail("Codex forced_login_method must be absent");
+    }
+  });
+  const host = Effect.gen(function*() {
+    if (config.capabilities.developer) yield* command(process.execPath, [join(repoRoot, "scripts/bootstrap/configure-spotlight.ts"), "--check"]);
+    if (desktop) yield* command(process.execPath, [join(repoRoot, "scripts/bootstrap/configure-desktop.ts"), "--check"]);
+  });
+  const workload = Effect.gen(function*() {
+    if (config.capabilities.workload) yield* command(process.execPath, [join(repoRoot, "scripts/verify/workload-git-boundary.ts"), "--profile", profile]);
+  });
+  const groups: readonly [string, Effect.Effect<void, unknown, CommandRunner | FileSystem.FileSystem>][] = [
+    ["environment", environment], ["runtime", runtime], ["common-tools", commonTools], ["homebrew", homebrew],
+    ["configuration", configuration], ["developer-tools", developerTools], ["profile-tools", profileTools], ["host", host], ["workload", workload],
+  ];
+  const started = Date.now();
+  yield* Effect.forEach(groups, ([name, effect]) => effect.pipe(
+    Effect.tap(() => Console.log(`ok ${name}`)),
+    Effect.tapError((error) => Console.error(`FAILED: ${name}: ${error instanceof Error ? error.message : String(error)}`)),
+  ), { concurrency: "unbounded", discard: true });
+  if (verbose) yield* Console.log("all live probes completed");
+  yield* Console.log(`bootstrap verification ok (${profile}, ${Math.floor((Date.now() - started) / 1000)}s)`);
+}).pipe(Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer));
+
+runMain(program);

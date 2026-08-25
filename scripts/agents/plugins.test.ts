@@ -74,7 +74,7 @@ class FixtureRuntime implements Runtime {
   run(command: string, args: readonly string[]): { status: number; stdout: string; stderr: string } {
     this.calls.push({ command, args });
 
-    if (command.endsWith("/resolve-profile.sh")) {
+    if (command.endsWith("/resolve-profile.ts")) {
       const expectedFlag = args.indexOf("--expected");
       const expected = expectedFlag >= 0 ? args[expectedFlag + 1] : undefined;
       if (expected !== undefined && expected !== this.profile) {

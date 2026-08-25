@@ -6,6 +6,7 @@ import {
   createSyncBundle,
   parseArguments,
   parseT3NightlyVersion,
+  remoteUpdate,
   shellQuote,
 } from "./sync-devbox-t3-server.ts";
 
@@ -61,6 +62,11 @@ test("quotes remote arguments without shell interpolation", () => {
   assert.equal(shellQuote("path with ' quote"), "'path with '\\'' quote'");
 });
 
+test("installs bundled dependencies through Corepack", () => {
+  assert.match(remoteUpdate, /^corepack pnpm install --frozen-lockfile --prod$/m);
+  assert.doesNotMatch(remoteUpdate, /^pnpm install/m);
+});
+
 test("bundles the portable remote installer sources", () => {
   const bundle = createSyncBundle();
   const result = spawnSync("tar", ["-tf", "-"], {
@@ -70,8 +76,8 @@ test("bundles the portable remote installer sources", () => {
   assert.equal(result.status, 0, result.stderr);
   assert.match(
     result.stdout,
-    /^scripts\/bootstrap\/install-devbox-service-daemons\.sh$/m,
+    /^scripts\/bootstrap\/install-devbox-service-daemons\.ts$/m,
   );
-  assert.match(result.stdout, /^scripts\/lib\/devbox-service-t3-code\.sh$/m);
-  assert.match(result.stdout, /^scripts\/secrets\/sops-devbox-sudo\.sh$/m);
+  assert.match(result.stdout, /^scripts\/lib\/launchd\.ts$/m);
+  assert.match(result.stdout, /^scripts\/secrets\/sops-devbox-sudo\.ts$/m);
 });

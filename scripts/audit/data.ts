@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 
 import { closeSync, existsSync, openSync, readFileSync, readSync, realpathSync, statSync } from "node:fs";
+import { Effect } from "effect";
 import { isAbsolute, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { runMain } from "../lib/program.ts";
 
 type Finding = Record<string, unknown>;
 type RuleCounts = Record<string, number>;
@@ -178,10 +180,5 @@ function main(args: string[]): void {
 }
 
 if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) {
-  try {
-    main(process.argv.slice(2));
-  } catch (error) {
-    process.stderr.write(`FAILED: ${error instanceof Error ? error.message : String(error)}\n`);
-    process.exitCode = 1;
-  }
+  runMain(Effect.try({ try: () => main(process.argv.slice(2)), catch: (error) => error }));
 }

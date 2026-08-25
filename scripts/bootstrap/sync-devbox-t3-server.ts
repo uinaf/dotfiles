@@ -1,24 +1,26 @@
 #!/usr/bin/env node
 
 import {execFileSync, spawnSync} from "node:child_process";
+import { Effect } from "effect";
 import {existsSync} from "node:fs";
 import {dirname, resolve} from "node:path";
 import {fileURLToPath} from "node:url";
+import { runMain } from "../lib/program.ts";
 
 const NIGHTLY_APP_PLIST =
   "/Applications/T3 Code (Nightly).app/Contents/Info.plist";
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const SYNC_BUNDLE_PATHS = [
-  "scripts/bootstrap/install-devbox-service-daemons.sh",
-  "scripts/lib/config-paths.sh",
-  "scripts/lib/devbox-service-colima.sh",
-  "scripts/lib/devbox-service-common.sh",
-  "scripts/lib/devbox-service-openclaw.sh",
-  "scripts/lib/devbox-service-t3-code.sh",
-  "scripts/lib/launchd.sh",
+  "package.json",
+  "pnpm-lock.yaml",
+  "pnpm-workspace.yaml",
+  "tsconfig.json",
+  "scripts/bootstrap/install-devbox-service-daemons.ts",
+  "scripts/lib/command.ts",
+  "scripts/lib/launchd.ts",
+  "scripts/lib/program.ts",
   "scripts/lib/sudo-age-askpass.sh",
-  "scripts/lib/sudo-age.sh",
-  "scripts/secrets/sops-devbox-sudo.sh",
+  "scripts/secrets/sops-devbox-sudo.ts",
 ] as const;
 
 export type SyncOptions = {
@@ -85,7 +87,7 @@ export function shellQuote(value: string): string {
   return `'${value.replaceAll("'", `'\\''`)}'`;
 }
 
-const remoteUpdate = String.raw`set -euo pipefail
+export const remoteUpdate = String.raw`set -euo pipefail
 version="$1"
 bundle_dir="$(mktemp -d -t dotfiles-t3-sync)"
 cleanup() {
@@ -99,14 +101,15 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 tar -xf - -C "$bundle_dir"
 cd "$bundle_dir"
+corepack pnpm install --frozen-lockfile --prod
 
-./scripts/secrets/sops-devbox-sudo.sh -- \
-  ./scripts/bootstrap/install-devbox-service-daemons.sh \
+node ./scripts/secrets/sops-devbox-sudo.ts -- \
+  node ./scripts/bootstrap/install-devbox-service-daemons.ts \
   --user "$(id -un)" \
   --t3-code \
   --t3-version "$version"
 
-./scripts/bootstrap/install-devbox-service-daemons.sh \
+node ./scripts/bootstrap/install-devbox-service-daemons.ts \
   --user "$(id -un)" \
   --t3-code \
   --t3-version "$version" \
@@ -188,12 +191,5 @@ function main(): void {
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  try {
-    main();
-  } catch (error) {
-    process.stderr.write(
-      `FAILED: ${error instanceof Error ? error.message : String(error)}\n`,
-    );
-    process.exitCode = 1;
-  }
+  runMain(Effect.sync(main));
 }

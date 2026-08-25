@@ -6,7 +6,7 @@ depends = ["verify:fast", "verify:history"]
 
 [tasks."verify:fast"]
 description = "Run every deterministic repository check"
-run = "./scripts/verify/repo.sh --skip-security"
+run = "./scripts/verify/run.ts --skip-security"
 
 [tasks."verify:history"]
 description = "Scan the full Git history for secrets"
@@ -20,7 +20,7 @@ arg "<domain>" help="Verification domain" {
   choices "agents" "audit" "config" "git" "identity" "profiles" "security" "services" "static"
 }
 '''
-run = './scripts/verify/repo.sh --domain "$usage_domain"'
+run = './scripts/verify/run.ts --domain "$usage_domain"'
 
 [tasks."verify:bootstrap"]
 description = "Verify one live profile"
@@ -29,11 +29,11 @@ arg "<profile>" help="Profile to verify" {
   choices "personal-workstation" "personal-devbox" "workstation" "devbox" "assistant"
 }
 '''
-run = './scripts/verify/bootstrap.sh --profile "$usage_profile"'
+run = './scripts/verify/bootstrap.ts --profile "$usage_profile"'
 
 [tasks."verify:devbox-services"]
 description = "Verify live devbox services"
-run = "./scripts/verify/devbox-services.sh"
+run = "./scripts/verify/devbox-services.ts"
 
 [tasks.audit]
 description = "Run one repository or live-host audit"
@@ -62,7 +62,7 @@ arg "<profile>" help="Profile to apply" {
   choices "personal-workstation" "personal-devbox" "workstation" "devbox" "assistant"
 }
 '''
-run = './scripts/bootstrap/apply-dotfiles.sh --profile "$usage_profile"'
+run = './scripts/bootstrap/apply-dotfiles.ts --profile "$usage_profile"'
 
 [tasks."dotfiles:diff"]
 description = "Preview the repo-local chezmoi source state"
@@ -71,7 +71,7 @@ arg "<profile>" help="Profile to preview" {
   choices "personal-workstation" "personal-devbox" "workstation" "devbox" "assistant"
 }
 '''
-run = './scripts/bootstrap/apply-dotfiles.sh --profile "$usage_profile" --dry-run --verbose'
+run = './scripts/bootstrap/apply-dotfiles.ts --profile "$usage_profile" --dry-run --verbose'
 
 [tasks."agents:sync"]
 description = "Sync selected global coding-agent skills, plugins, and MCP servers"
@@ -83,4 +83,4 @@ run = ["./scripts/agents/sync.ts --update", "./scripts/agents/plugins.ts --updat
 
 [tasks."bootstrap:trust-agent-worktrees"]
 description = "Trust mise configs in generated agent worktrees"
-run = "./scripts/bootstrap/trust-agent-worktrees.sh"
+run = "./scripts/bootstrap/trust-agent-worktrees.ts"

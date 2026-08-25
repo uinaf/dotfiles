@@ -18,7 +18,7 @@ Cursor:
 
 - Cursor Agent CLI is required for `personal-workstation`, `personal-devbox`,
   `workstation`, and `devbox`, and is installed by
-  `./scripts/bootstrap/install.sh`.
+  `./scripts/bootstrap/install.ts`.
 - Cursor desktop belongs to the workstation Homebrew layer.
 - Devbox shells use Cursor's owner-local file credential store because SSH
   sessions cannot depend on an unlocked macOS login keychain.
@@ -94,7 +94,7 @@ cd ~/projects/dotfiles
 Archive checkouts are disposable:
 
 - Reading docs and running the first public bootstrap scripts is supported.
-  `scripts/bootstrap/install.sh` can install files from an archive checkout.
+  `scripts/bootstrap/install.ts` can install files from an archive checkout.
 - After Homebrew, `git`, and `gh` are installed, replace the archive with a real
   clone so updates, diffs, hooks, and contribution checks work normally:
 
@@ -119,7 +119,7 @@ Install Homebrew dependencies:
 
 ```zsh
 profile=workstation # use personal-workstation for the personal layers
-./scripts/bootstrap/brew-bundle.sh "$profile"
+./scripts/bootstrap/brew-bundle.ts "$profile"
 ```
 
 The script trusts each third-party tap declared in the selected Brewfiles
@@ -134,7 +134,7 @@ On `personal-workstation` only, remove bundled Mac App Store apps this setup
 does not use:
 
 ```zsh
-./scripts/app-store/personal.sh
+./scripts/app-store/personal.ts
 ```
 
 This uses `mas`, which discovers installed apps through Spotlight, and may ask
@@ -160,7 +160,7 @@ Fonts and terminal:
   unavailable. See
   [Ghostty SSH integration](https://ghostty.org/docs/features/ssh).
 
-`./scripts/bootstrap/install.sh` uses Codex's config API to update selected
+`./scripts/bootstrap/install.ts` uses Codex's config API to update selected
 defaults in `~/.codex/config.toml`:
 
 - Removes the legacy `forced_login_method` setting so each identity can use its
@@ -207,10 +207,10 @@ mise trust
 ./dotfiles diff "$profile"
 ./dotfiles apply "$profile"
 # Optional for workstation/personal-workstation; required for secret-consuming profiles:
-# ./scripts/secrets/configure-sops-age-identity.sh
-./scripts/bootstrap/configure-git.sh --profile "$profile"
-./scripts/bootstrap/configure-power.sh --profile "$profile"
-./scripts/bootstrap/configure-spotlight.sh
+# ./scripts/secrets/configure-sops-age-identity.ts
+./scripts/bootstrap/configure-git.ts --profile "$profile"
+./scripts/bootstrap/configure-power.ts --profile "$profile"
+./scripts/bootstrap/configure-spotlight.ts
 ```
 
 What each step does:
@@ -226,14 +226,14 @@ What each step does:
   plugged in. Battery settings stay under macOS defaults so laptops still sleep
   normally when unplugged. It prompts for sudo; `./dotfiles apply` remains a
   user-level convergence step.
-- `configure-spotlight.sh` is the same host-wide baseline for workstation and
+- `configure-spotlight.ts` is the same host-wide baseline for workstation and
   devbox Macs: it disables indexing on mounted volumes without deleting existing
   index data.
 
 Chrome vertical tabs are a local browser preference. Quit Chrome first, then:
 
 ```zsh
-./scripts/bootstrap/configure-chrome.sh
+./scripts/bootstrap/configure-chrome.ts
 ```
 
 ### Git Identity
@@ -254,7 +254,7 @@ mise run audit workstation
 `maintenance:check` emits one read-only JSON snapshot and runs independent
 inventory probes concurrently. After maintenance, use `mise run
 maintenance:verify` to add the full bootstrap gate. Run
-`./scripts/verify/bootstrap.sh --profile "$profile" --verbose` only when
+`./scripts/verify/bootstrap.ts --profile "$profile" --verbose` only when
 successful command output is needed for diagnosis.
 
 ## Devbox Mac
@@ -266,8 +266,8 @@ The human owner profile may opt into the compact desktop baseline. It is not
 part of the shared agent-user bootstrap:
 
 ```zsh
-./scripts/bootstrap/configure-desktop.sh
-./scripts/verify/bootstrap.sh --profile devbox --desktop
+./scripts/bootstrap/configure-desktop.ts
+./scripts/verify/bootstrap.ts --profile devbox --desktop
 ```
 
 This keeps the built-in black system wallpaper, hidden desktop icons and
@@ -278,14 +278,14 @@ Install shared plus devbox Homebrew dependencies:
 
 ```zsh
 profile=devbox # use personal-devbox for headless personal tools and skills
-./scripts/bootstrap/brew-bundle.sh "$profile"
+./scripts/bootstrap/brew-bundle.ts "$profile"
 ```
 
 Run every other Homebrew mutation on a shared devbox through the repo wrapper:
 
 ```zsh
-./scripts/bootstrap/brew-devbox.sh upgrade
-./scripts/bootstrap/brew-devbox.sh upgrade --cask
+./scripts/bootstrap/brew-devbox.ts upgrade
+./scripts/bootstrap/brew-devbox.ts upgrade --cask
 ```
 
 Wrapper contract:
@@ -311,9 +311,9 @@ Apply dotfiles:
 mise trust
 ./dotfiles diff "$profile"
 ./dotfiles apply "$profile"
-./scripts/secrets/configure-sops-age-identity.sh
-./scripts/bootstrap/configure-power.sh --profile "$profile"
-./scripts/bootstrap/configure-spotlight.sh
+./scripts/secrets/configure-sops-age-identity.ts
+./scripts/bootstrap/configure-power.ts --profile "$profile"
+./scripts/bootstrap/configure-spotlight.ts
 ```
 
 What each step does:
@@ -323,7 +323,7 @@ What each step does:
   npm and Playwright CLI versions. Vite+ stays repository-local.
 - The power step keeps plugged-in devboxes awake for agents, remote access, and
   always-on dashboards. It leaves battery settings untouched and prompts for
-  sudo instead of hiding system changes inside `install.sh`.
+  sudo instead of hiding system changes inside `install.ts`.
 - The Spotlight step is the same host-wide baseline used by workstation Macs.
 
 Configure local Git identity from explicit values. Do not invent these for the
@@ -334,7 +334,7 @@ GUI SSH agents:
 GIT_USER_NAME='Devbox Name' \
 GIT_USER_EMAIL='devbox@example.com' \
 GIT_SIGNING_KEY="$HOME/.ssh/devbox-key" \
-  ./scripts/bootstrap/configure-git.sh --profile "$profile" --non-interactive
+  ./scripts/bootstrap/configure-git.ts --profile "$profile" --non-interactive
 ```
 
 See [Developer Git and SSH](identities.md#developer-git-and-ssh) for key
@@ -351,7 +351,7 @@ Verify each devbox user:
 mise run maintenance:check
 ./dotfiles check "$profile"
 mise run audit host
-./scripts/verify/devbox-services.sh
+./scripts/verify/devbox-services.ts
 mise run audit devbox
 ```
 
@@ -361,7 +361,7 @@ An assistant is a minimal unattended Unix identity, not a coding devbox. On a
 shared Mac, an authorized host administrator installs the Homebrew layers once:
 
 ```zsh
-./scripts/bootstrap/brew-bundle.sh assistant
+./scripts/bootstrap/brew-bundle.ts assistant
 ```
 
 Run the user-local setup as the assistant identity:
@@ -372,11 +372,11 @@ cd ~/.local/src/dotfiles
 mise trust
 ./dotfiles diff assistant
 ./dotfiles apply assistant
-./scripts/secrets/configure-sops-age-identity.sh
+./scripts/secrets/configure-sops-age-identity.ts
 GIT_USER_NAME='Workload Name' \
 GIT_USER_EMAIL='APP_BOT_NOREPLY_EMAIL' \
-  ./scripts/bootstrap/configure-git.sh --profile assistant --non-interactive
-./scripts/bootstrap/configure-assistant-github-app.sh \
+  ./scripts/bootstrap/configure-git.ts --profile assistant --non-interactive
+./scripts/bootstrap/configure-assistant-github-app.ts \
   --name example-app \
   --app-id APP_ID \
   --installation-id INSTALLATION_ID \
@@ -392,7 +392,7 @@ GIT_USER_EMAIL='APP_BOT_NOREPLY_EMAIL' \
   service definitions.
 - Bootstrap verification checks the managed Git base, `gh-app-auth` dispatch,
   and workload identity.
-- `./scripts/verify/assistant-git-boundary.sh` is the standalone workload
+- `./scripts/verify/assistant-git-boundary.ts` is the standalone workload
   boundary check.
 
 When an assistant runs OpenClaw as a system LaunchDaemon, install the explicit
@@ -409,14 +409,14 @@ Pull the repo and rerun the relevant profile:
 cd ~/projects/dotfiles
 git pull --ff-only
 profile=workstation # use personal-workstation for the personal layers
-./scripts/bootstrap/brew-bundle.sh "$profile"
+./scripts/bootstrap/brew-bundle.ts "$profile"
 mise trust
 ./dotfiles diff "$profile"
 ./dotfiles apply "$profile"
 # Optional for workstation/personal-workstation; required for personal-devbox/devbox/assistant:
-./scripts/secrets/configure-sops-age-identity.sh
-./scripts/bootstrap/configure-power.sh --profile "$profile"
-./scripts/bootstrap/configure-spotlight.sh
+./scripts/secrets/configure-sops-age-identity.ts
+./scripts/bootstrap/configure-power.ts --profile "$profile"
+./scripts/bootstrap/configure-spotlight.ts
 ./dotfiles check "$profile"
 ```
 
@@ -437,38 +437,38 @@ They do not belong in Git.
 Helpers live under `scripts/tizen/`:
 
 ```zsh
-./scripts/tizen/install.sh
-./scripts/tizen/pack.sh
-./scripts/tizen/restore.sh
-./scripts/tizen/restore-from-1password.sh
+./scripts/tizen/install.ts
+./scripts/tizen/pack.ts
+./scripts/tizen/restore.ts
+./scripts/tizen/restore-from-1password.ts
 ```
 
-`scripts/tizen/install.sh` verifies `tizen`, `sdb`, and
+`scripts/tizen/install.ts` verifies `tizen`, `sdb`, and
 `package-manager-cli show-info`. It skips package catalog listing by default;
 use `--show-pkgs` only when needed because Samsung's extension catalog download
 can hang.
 
 ## Troubleshooting
 
-- If `brew bundle check` fails, run the matching `brew-bundle.sh` profile and
+- If `brew bundle check` fails, run the matching `brew-bundle.ts` profile and
   retry verification.
 - If the `brew bundle drift` verification fails, packages are installed that no
   profile layer declares (usually casks dropped from a Brewfile, which
   `brew bundle` never uninstalls). Run
-  `./scripts/bootstrap/brew-bundle.sh --cleanup <profile>` to remove them.
+  `./scripts/bootstrap/brew-bundle.ts --cleanup <profile>` to remove them.
   Shared devbox prefixes compare and clean against the union of devbox,
   personal-devbox, and assistant layers so one Unix user cannot remove another
   active profile's packages.
 - If historical prefix-owner content has incorrect group permissions, run
-  `brew-devbox.sh --repair-shared-readability` as the prefix owner, then retry
+  `brew-devbox.ts --repair-shared-readability` as the prefix owner, then retry
   verification. The repair is owner-scoped; reassign content owned by another
   identity to the prefix owner through the host's approved administrator path.
-- If `chezmoi` is missing, rerun `./scripts/bootstrap/brew-bundle.sh` for the
+- If `chezmoi` is missing, rerun `./scripts/bootstrap/brew-bundle.ts` for the
   correct profile before `./dotfiles apply <profile>`.
 - If Git reports dubious ownership under `/opt/homebrew`, rerun
-  `configure-git.sh` for the correct profile.
+  `configure-git.ts` for the correct profile.
 - If `git@github.com` fails on a devbox profile but the key is present, rerun
-  `configure-git.sh --profile devbox --non-interactive` (or use
+  `configure-git.ts --profile devbox --non-interactive` (or use
   `personal-devbox`) with
   `GIT_SIGNING_KEY` or `GIT_SSH_IDENTITY_FILE` pointing at the owner-only local
   private key file.
@@ -479,6 +479,6 @@ can hang.
   developer Homebrew layer before rerunning `./dotfiles apply <profile>`.
 - If macOS Gatekeeper blocks an embedded Cursor Agent `.node` module, remove a
   Homebrew `cursor-cli` cask installation and run
-  `./scripts/bootstrap/install-cursor-agent.sh`. The repo intentionally uses
+  `./scripts/bootstrap/install-cursor-agent.ts`. The repo intentionally uses
   Cursor's official per-user installer instead of recursively removing
   quarantine attributes from a Homebrew cask.

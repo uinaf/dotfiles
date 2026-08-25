@@ -62,7 +62,7 @@ GIT_USER_NAME='Developer Name' \
 GIT_USER_EMAIL='developer@example.com' \
 GIT_SIGNING_KEY="$HOME/.ssh/developer_ed25519" \
 GIT_SSH_IDENTITY_FILE="$HOME/.ssh/developer_ed25519" \
-  ./scripts/bootstrap/configure-git.sh --profile "$profile" --non-interactive
+  ./scripts/bootstrap/configure-git.ts --profile "$profile" --non-interactive
 ```
 
 - `GIT_SSH_IDENTITY_FILE` may point to a different local key.
@@ -85,8 +85,8 @@ may use the scoped GitHub App flow below.
 ```sh
 GIT_USER_NAME='Workload Name' \
 GIT_USER_EMAIL='workload@example.invalid' \
-  ./scripts/bootstrap/configure-git.sh --profile assistant --non-interactive
-./scripts/verify/workload-git-boundary.sh --profile assistant
+  ./scripts/bootstrap/configure-git.ts --profile assistant --non-interactive
+./scripts/verify/workload-git-boundary.ts --profile assistant
 ```
 
 ## SOPS Age Identity
@@ -106,7 +106,7 @@ Install the selected profile's Homebrew layers, then provision the identity
 when the deployment will decrypt secrets:
 
 ```sh
-./scripts/secrets/configure-sops-age-identity.sh
+./scripts/secrets/configure-sops-age-identity.ts
 ```
 
 The command is idempotent:
@@ -128,13 +128,13 @@ explicit owner-only path is required. Check an existing identity without
 creating or repairing it:
 
 ```sh
-./scripts/secrets/configure-sops-age-identity.sh --check
+./scripts/secrets/configure-sops-age-identity.ts --check
 ```
 
 Print only the safe public recipient for a registry or SOPS policy:
 
 ```sh
-./scripts/secrets/configure-sops-age-identity.sh --print-recipient
+./scripts/secrets/configure-sops-age-identity.ts --print-recipient
 ```
 
 Provisioning is complete only after the private identity has a verified human
@@ -165,7 +165,7 @@ The key directory must be mode `0700` and the PEM must be owner-only. Configure
 the App from explicit operator-supplied IDs and exact repository patterns:
 
 ```sh
-./scripts/bootstrap/configure-assistant-github-app.sh \
+./scripts/bootstrap/configure-assistant-github-app.ts \
   --name example-app \
   --app-id APP_ID \
   --installation-id INSTALLATION_ID \
@@ -178,7 +178,7 @@ useful before the first private clone; after cloning, check the real Git path:
 
 ```sh
 git clone https://github.com/example/workspace.git ~/projects/example/workspace
-./scripts/bootstrap/configure-assistant-github-app.sh --check \
+./scripts/bootstrap/configure-assistant-github-app.ts --check \
   --name example-app \
   --app-id APP_ID \
   --installation-id INSTALLATION_ID \
@@ -232,7 +232,7 @@ Before using a new general SOPS age identity for live ciphertext:
 3. Restore that general SOPS age identity attachment to an owner-only temporary
    path and run `age-keygen -y /path/to/restored-keys.txt`.
 4. Confirm the restored general age recipient exactly matches
-   `configure-sops-age-identity.sh --print-recipient`.
+   `configure-sops-age-identity.ts --print-recipient`.
 5. Validate each other applicable attachment against its own live source or
    derive and compare its public identity without exposing the private value.
 6. Remove the temporary restored copies.

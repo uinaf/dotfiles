@@ -12,7 +12,7 @@ brew install git gh
 gh auth login
 gh repo clone uinaf/dotfiles ~/projects/dotfiles
 cd ~/projects/dotfiles
-./scripts/bootstrap/brew-bundle.sh workstation
+./scripts/bootstrap/brew-bundle.ts workstation
 mise trust
 mise install
 mise run verify:domain static

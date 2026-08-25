@@ -1,11 +1,18 @@
 #!/usr/bin/env node
 
 import { spawn } from "node:child_process";
+import { Console, Effect, Schema } from "effect";
 import { chmodSync, mkdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import readline from "node:readline";
+import { runMain } from "../lib/program.ts";
 
 type RpcMessage = { id?: number; result?: unknown; error?: { message?: string } };
+const RpcMessage = Schema.Struct({
+  id: Schema.optional(Schema.Number),
+  result: Schema.optional(Schema.Unknown),
+  error: Schema.optional(Schema.Struct({ message: Schema.optional(Schema.String) })),
+});
 type Scalar = boolean | null | number | string | readonly string[];
 export type ConfigEdit = { keyPath: string; value: Scalar; mergeStrategy: "replace" | "upsert" };
 
@@ -54,7 +61,7 @@ export async function writeConfigEdits(edits: readonly ConfigEdit[]): Promise<st
     lines.on("line", (line) => {
       let message: RpcMessage;
       try {
-        message = JSON.parse(line) as RpcMessage;
+        message = Schema.decodeUnknownSync(RpcMessage)(JSON.parse(line));
       } catch {
         fail(new Error("Codex app-server returned invalid JSON"));
         return;
@@ -85,11 +92,8 @@ export async function configure(): Promise<string> {
 }
 
 if (import.meta.main) {
-  try {
-    const configPath = await configure();
-    process.stdout.write(`configured Codex defaults in ${configPath}\n`);
-  } catch (error) {
-    process.stderr.write(`FAILED: ${error instanceof Error ? error.message : String(error)}\n`);
-    process.exitCode = 1;
-  }
+  runMain(Effect.tryPromise({ try: configure, catch: (error) => error }).pipe(
+    Effect.tap((configPath) => Console.log(`configured Codex defaults in ${configPath}`)),
+    Effect.asVoid,
+  ));
 }

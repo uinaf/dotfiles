@@ -27,7 +27,7 @@ intended consumer boundary.
 Run the repository gate before submitting security-sensitive changes:
 
 ```zsh
-./scripts/verify/repo.sh
+./scripts/verify/run.ts
 ```
 
 Use the matching live audit only on the intended machine or Unix user:

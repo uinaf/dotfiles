@@ -3,6 +3,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import type { ProfileConfig } from "../profiles/model.ts";
 import { collectMaintenanceSnapshot, parseBrewBacklog, type CommandRunner, type MaintenanceContext } from "./check.ts";
 
 const profileConfig = {
@@ -17,10 +18,10 @@ const profileConfig = {
     githubAppAuth: false,
   },
   brewfiles: ["Brewfile"],
-  runtimeGroup: "developer" as const,
-  skillLayers: ["developer" as const],
-  installSteps: ["apply-dotfiles", "install-runtimes"],
-};
+  runtimeGroup: "developer",
+  skillLayers: ["developer"],
+  installSteps: ["apply-dotfiles", "install-runtimes", "install-repository-dependencies"],
+} as const satisfies ProfileConfig;
 
 function context(): MaintenanceContext {
   return {
@@ -67,7 +68,7 @@ test("maintenance probes run concurrently and summarize package drift", async ()
     if (command === "tailscale" && args[0] === "status") return result(JSON.stringify({ BackendState: "Running", MagicDNSSuffix: "fixture.ts.net", Self: { Online: true }, Peer: {} }));
     if (command === "mise" || (command === "npm" && args[0] === "outdated")) return result("{}");
     if (command === "git") return result("");
-    if (command.endsWith("bootstrap.sh")) return result("bootstrap verification ok\n");
+    if (args.some((argument) => argument.endsWith("bootstrap.ts"))) return result("bootstrap verification ok\n");
     return result("1.0.0\n");
   };
   const snapshot = await collectMaintenanceSnapshot({ ...context(), profileConfig: { ...profileConfig, skillLayers: [] } }, runner);

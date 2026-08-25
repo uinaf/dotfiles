@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 
 import { spawnSync } from "node:child_process";
+import { Console, Effect } from "effect";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { runMain } from "../lib/program.ts";
 
 type Update = {
   localRef: string;
@@ -128,18 +130,14 @@ export function verifyOutgoingCommits(input: string, remoteName: string, remoteL
   return commits.size;
 }
 
-function main(): void {
-  const remoteName = process.argv[2] ?? "";
-  const remoteLocation = process.argv[3] ?? "";
-  try {
-    const count = verifyOutgoingCommits(readFileSync(0, "utf8"), remoteName, remoteLocation);
-    process.stdout.write(`ok outgoing commit hygiene (${count} commit${count === 1 ? "" : "s"})\n`);
-  } catch (error) {
-    process.stderr.write(`FAILED: ${error instanceof Error ? error.message : String(error)}\n`);
-    process.exit(1);
-  }
-}
-
 if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
-  main();
+  const program = Effect.gen(function*() {
+    const input = yield* Effect.try({ try: () => readFileSync(0, "utf8"), catch: (error) => error });
+    const count = yield* Effect.try({
+      try: () => verifyOutgoingCommits(input, process.argv[2] ?? "", process.argv[3] ?? ""),
+      catch: (error) => error,
+    });
+    yield* Console.log(`ok outgoing commit hygiene (${count} commit${count === 1 ? "" : "s"})`);
+  });
+  runMain(program);
 }

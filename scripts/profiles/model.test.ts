@@ -56,8 +56,8 @@ test("canonical model covers every profile and renders through chezmoi", () => {
   assert.deepEqual(Object.keys(model.profiles).sort(), profileNames);
   for (const profile of profileNames) {
     const result = renderProfile(profile);
-    assert.equal(result.status, 0, result.stderr);
-    assert.deepEqual(JSON.parse(result.stdout), model.profiles[profile]);
+    assert.equal(result.status, 0, String(result.stderr));
+    assert.deepEqual(JSON.parse(String(result.stdout)), model.profiles[profile]);
   }
 });
 
@@ -66,16 +66,16 @@ test("TypeScript rejects malformed, unsupported, missing, and wrong-type data", 
 
   const unsupported = rawModel();
   unsupported.profileModel.version = 2;
-  assert.throws(() => parseProfileModel(JSON.stringify(unsupported)), /version 1/);
+  assert.throws(() => parseProfileModel(JSON.stringify(unsupported)), /Expected 1/);
 
   const missing = rawModel();
   const capabilities = missing.profileModel.profiles.workstation.capabilities as Record<string, unknown>;
   delete capabilities.developer;
-  assert.throws(() => parseProfileModel(JSON.stringify(missing)), /capabilities have an invalid shape/);
+  assert.throws(() => parseProfileModel(JSON.stringify(missing)), /Missing key/);
 
   const wrongType = rawModel();
   (wrongType.profileModel.profiles.workstation.capabilities as Record<string, unknown>).developer = "yes";
-  assert.throws(() => parseProfileModel(JSON.stringify(wrongType)), /must be boolean/);
+  assert.throws(() => parseProfileModel(JSON.stringify(wrongType)), /Expected boolean/);
 
   const missingRuntimeStep = rawModel();
   missingRuntimeStep.profileModel.profiles.assistant.installSteps = ["apply-dotfiles", "install-gh-app-auth"];
@@ -117,38 +117,6 @@ test("Brewfile gates GUI casks on the workstation capability", () => {
     const workstationCasks = listCasks("personal-workstation");
     assert.equal(workstationCasks.includes("slopwake"), true);
     assert.equal(workstationCasks.includes("cleanshot"), true);
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
-});
-
-test("shell queries typed values and rejects invalid boundaries", () => {
-  const root = mkdtempSync(join(tmpdir(), "dotfiles-profile-shell-"));
-  const fixturePath = join(root, "chezmoi/.chezmoidata/profiles.json");
-  const profileLibrary = join(root, "scripts/lib/profile.sh");
-  const run = (command: string) => spawnSync("bash", ["-c", `. "$1"; ${command}`, "profile-model", profileLibrary], {
-    encoding: "utf8",
-    env: process.env,
-  });
-  try {
-    mkdirSync(dirname(fixturePath), { recursive: true });
-    mkdirSync(dirname(profileLibrary), { recursive: true });
-    writeFileSync(profileLibrary, readFileSync(join(repoRoot, "scripts/lib/profile.sh")));
-    writeFileSync(fixturePath, readFileSync(modelPath));
-    let result = run("dotfiles_profile_brewfiles personal-devbox");
-    assert.equal(result.status, 0, result.stderr);
-    assert.equal(result.stdout, "Brewfile\nBrewfile.developer\nBrewfile.devbox\nBrewfile.personal\n");
-    assert.equal(run("dotfiles_normalize_profile workstation.capabilities").status, 2);
-
-    const unsupported = rawModel();
-    unsupported.profileModel.version = 2;
-    writeFileSync(fixturePath, JSON.stringify(unsupported));
-    assert.equal(run("dotfiles_normalize_profile workstation").status, 2);
-
-    const wrongType = rawModel();
-    (wrongType.profileModel.profiles.workstation.capabilities as Record<string, unknown>).developer = "yes";
-    writeFileSync(fixturePath, JSON.stringify(wrongType));
-    assert.equal(run("dotfiles_profile_is_developer workstation").status, 2);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

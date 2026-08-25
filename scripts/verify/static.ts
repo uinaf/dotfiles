@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 
-import { spawnSync } from "node:child_process";
-import { existsSync, lstatSync, readFileSync, readdirSync, readlinkSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { NodeServices } from "@effect/platform-node";
+import { Console, Effect, FileSystem } from "effect";
+import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { CommandRunner } from "../lib/command.ts";
+import { CliFailure, fail, runMain } from "../lib/program.ts";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const agentlessSigner = resolve(
@@ -16,76 +18,63 @@ const ghosttyConfig = resolve(
 );
 const blackWallpaper = resolve(repoRoot, "scripts/bootstrap/assets/black-wallpaper.plist");
 
-function fail(message: string): never {
-  process.stderr.write(`FAILED: ${message}\n`);
-  process.exit(1);
-}
-
-function filesBelow(root: string, accept: (path: string) => boolean): string[] {
-  if (!existsSync(root)) {
-    return [];
+const runRequired = Effect.fn("runRequired")(function*(command: string, args: readonly string[], label: string) {
+  const runner = yield* CommandRunner;
+  const result = yield* runner.run(command, args, { cwd: repoRoot, env: { NO_COLOR: "1" } });
+  if (result.status === 0) {
+    return;
   }
-  const files: string[] = [];
-  for (const entry of readdirSync(root, { withFileTypes: true })) {
-    const path = join(root, entry.name);
-    if (entry.isDirectory()) {
-      files.push(...filesBelow(path, accept));
-    } else if (entry.isFile() && accept(path)) {
-      files.push(path);
-    }
-  }
-  return files;
-}
-
-function run(command: string, args: string[], label: string): void {
-  const result = spawnSync(command, args, {
-    cwd: repoRoot,
-    encoding: "utf8",
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-  if (result.error) {
-    fail(`${label}: ${result.error.message}`);
-  }
-  if (result.status !== 0) {
+  yield* Effect.sync(() => {
     process.stderr.write(result.stdout);
     process.stderr.write(result.stderr);
-    fail(`${label} exited ${result.status ?? 1}`);
+  });
+  return yield* fail(`${label} exited ${result.status}`);
+});
+
+const program = Effect.gen(function*() {
+  const fs = yield* FileSystem.FileSystem;
+  const scriptsRoot = resolve(repoRoot, "scripts");
+  const shellFiles = [
+    resolve(repoRoot, "dotfiles"),
+    ...(yield* fs.glob("**/*.sh", { root: scriptsRoot })).map((path) => resolve(scriptsRoot, path)),
+    agentlessSigner,
+  ];
+  yield* Effect.forEach(
+    shellFiles,
+    (path) => runRequired("bash", ["-n", path], `shell syntax: ${path}`),
+    { concurrency: "unbounded" },
+  );
+  yield* runRequired("shellcheck", shellFiles, "ShellCheck");
+
+  if (yield* fs.exists(resolve(repoRoot, ".github/workflows"))) {
+    yield* runRequired("actionlint", [], "Actionlint");
   }
-}
+  yield* runRequired("git", ["diff", "--check"], "working-tree diff hygiene");
+  yield* runRequired("git", ["diff", "--cached", "--check"], "index diff hygiene");
+  yield* runRequired("plutil", ["-lint", blackWallpaper], "desktop wallpaper plist");
 
-const shellFiles = [
-  resolve(repoRoot, "dotfiles"),
-  ...filesBelow(resolve(repoRoot, "scripts"), (path) => path.endsWith(".sh")),
-  agentlessSigner,
-];
-run("bash", ["-n", ...shellFiles], "shell syntax");
-run("shellcheck", shellFiles, "ShellCheck");
+  const ghosttyLines = yield* fs.readFileString(ghosttyConfig).pipe(
+    Effect.map((contents) => contents.split(/\r?\n/)),
+    Effect.mapError((error) => new CliFailure({ exitCode: 1, message: `cannot read managed Ghostty config: ${error}` })),
+  );
+  if (!ghosttyLines.includes("shell-integration-features = ssh-env,ssh-terminfo")) {
+    return yield* fail("managed Ghostty config does not enable SSH environment and terminfo integration");
+  }
 
-if (existsSync(resolve(repoRoot, ".github/workflows"))) {
-  run("actionlint", [], "Actionlint");
-}
+  const agentsPath = resolve(repoRoot, "AGENTS.md");
+  const claudePath = resolve(repoRoot, "CLAUDE.md");
+  if (!(yield* fs.exists(agentsPath))) {
+    return yield* fail("missing AGENTS.md");
+  }
+  const claudeTarget = yield* fs.readLink(claudePath).pipe(Effect.option);
+  if (claudeTarget._tag === "None" || claudeTarget.value !== "AGENTS.md") {
+    return yield* fail("CLAUDE.md must be a symlink to AGENTS.md");
+  }
 
-run("git", ["diff", "--check"], "working-tree diff hygiene");
-run("git", ["diff", "--cached", "--check"], "index diff hygiene");
-run("plutil", ["-lint", blackWallpaper], "desktop wallpaper plist");
+  yield* Console.log("ok static repository checks");
+}).pipe(
+  Effect.provide(CommandRunner.layer),
+  Effect.provide(NodeServices.layer),
+);
 
-let ghosttyLines: string[];
-try {
-  ghosttyLines = readFileSync(ghosttyConfig, "utf8").split(/\r?\n/);
-} catch (error) {
-  fail(`cannot read managed Ghostty config: ${error instanceof Error ? error.message : String(error)}`);
-}
-if (!ghosttyLines.includes("shell-integration-features = ssh-env,ssh-terminfo")) {
-  fail("managed Ghostty config does not enable SSH environment and terminfo integration");
-}
-
-const agentsPath = resolve(repoRoot, "AGENTS.md");
-const claudePath = resolve(repoRoot, "CLAUDE.md");
-if (!existsSync(agentsPath)) {
-  fail("missing AGENTS.md");
-}
-if (!existsSync(claudePath) || !lstatSync(claudePath).isSymbolicLink() || readlinkSync(claudePath) !== "AGENTS.md") {
-  fail("CLAUDE.md must be a symlink to AGENTS.md");
-}
-
-process.stdout.write("ok static repository checks\n");
+runMain(program);

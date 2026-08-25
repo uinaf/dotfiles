@@ -24,7 +24,7 @@ mise run verify
 Install the focused commit-hygiene hook with:
 
 ```zsh
-./scripts/verify/install-pre-push-hook.sh
+./scripts/verify/install-pre-push-hook.ts
 ```
 
 - The hook reads the ref updates supplied by Git and checks only outgoing commit

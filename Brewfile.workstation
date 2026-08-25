@@ -1,5 +1,5 @@
 # Portable human-workstation Homebrew layer.
-# Run through brew-bundle.sh so base and developer layers install first.
+# Run through brew-bundle.ts so base and developer layers install first.
 
 # Human desktop
 cask "ghostty"

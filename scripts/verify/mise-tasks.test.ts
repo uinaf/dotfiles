@@ -2,7 +2,7 @@
 
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { chmodSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { delimiter, dirname, join, resolve } from "node:path";
 import test from "node:test";
@@ -83,23 +83,6 @@ test("empty mise config environment values use the default path", () => {
     globalMiseConfigDirectory({ MISE_CONFIG_DIR: "", XDG_CONFIG_HOME: "" }),
     join(homedir(), ".config/mise"),
   );
-});
-
-test("repository verification reports a missing Node runtime", () => {
-  const bin = mkdtempSync(join(tmpdir(), "dotfiles-repo-runner-bin-"));
-  try {
-    symlinkSync("/usr/bin/dirname", join(bin, "dirname"));
-    symlinkSync("/usr/bin/false", join(bin, "node"));
-    const result = spawnSync("/bin/bash", [join(repoRoot, "scripts/verify/repo.sh"), "--skip-security"], {
-      cwd: repoRoot,
-      encoding: "utf8",
-      env: { ...process.env, PATH: bin },
-    });
-    assert.equal(result.status, 1);
-    assert.match(result.stderr, /missing node; run mise install before repository verification/);
-  } finally {
-    rmSync(bin, { force: true, recursive: true });
-  }
 });
 
 test("task arguments fail before live commands run", () => {
