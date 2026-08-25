@@ -87,7 +87,7 @@ export function shellQuote(value: string): string {
   return `'${value.replaceAll("'", `'\\''`)}'`;
 }
 
-const remoteUpdate = String.raw`set -euo pipefail
+export const remoteUpdate = String.raw`set -euo pipefail
 version="$1"
 bundle_dir="$(mktemp -d -t dotfiles-t3-sync)"
 cleanup() {
@@ -101,7 +101,7 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 tar -xf - -C "$bundle_dir"
 cd "$bundle_dir"
-pnpm install --frozen-lockfile --prod
+corepack pnpm install --frozen-lockfile --prod
 
 node ./scripts/secrets/sops-devbox-sudo.ts -- \
   node ./scripts/bootstrap/install-devbox-service-daemons.ts \

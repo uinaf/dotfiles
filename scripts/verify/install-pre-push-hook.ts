@@ -19,6 +19,10 @@ if [ -z "$node_binary" ] || [ ! -x "$node_binary" ] \\
   printf 'FAILED: missing node; run mise install in %s before pushing\\n' "$repo_root" >&2
   exit 1
 fi
+if ! (cd "$repo_root" && "$node_binary" -e 'import("effect")') >/dev/null 2>&1; then
+  printf 'FAILED: missing repository dependencies; run corepack pnpm install --frozen-lockfile in %s before pushing\\n' "$repo_root" >&2
+  exit 1
+fi
 exec "$node_binary" "$repo_root/scripts/verify/pre-push.ts" "$@"
 `;
 

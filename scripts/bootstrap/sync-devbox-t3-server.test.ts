@@ -6,6 +6,7 @@ import {
   createSyncBundle,
   parseArguments,
   parseT3NightlyVersion,
+  remoteUpdate,
   shellQuote,
 } from "./sync-devbox-t3-server.ts";
 
@@ -59,6 +60,11 @@ test("rejects implicit hosts, removed path options, and mutable versions", () =>
 test("quotes remote arguments without shell interpolation", () => {
   assert.equal(shellQuote("plain"), "'plain'");
   assert.equal(shellQuote("path with ' quote"), "'path with '\\'' quote'");
+});
+
+test("installs bundled dependencies through Corepack", () => {
+  assert.match(remoteUpdate, /^corepack pnpm install --frozen-lockfile --prod$/m);
+  assert.doesNotMatch(remoteUpdate, /^pnpm install/m);
 });
 
 test("bundles the portable remote installer sources", () => {

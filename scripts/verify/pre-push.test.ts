@@ -107,6 +107,40 @@ test("installed hook reports a missing Node runtime", () => {
   }
 });
 
+test("installed hook reports missing repository dependencies", () => {
+  const root = mkdtempSync(join(tmpdir(), "pre-push-installer-dependencies-"));
+  try {
+    const repo = init(root);
+    const verifyDir = join(repo.path, "scripts/verify");
+    const bin = join(root, "bin");
+    mkdirSync(verifyDir, { recursive: true });
+    mkdirSync(bin);
+    writeFileSync(join(verifyDir, "pre-push.ts"), "");
+    symlinkSync("/usr/bin/git", join(bin, "git"));
+    symlinkSync(process.execPath, join(bin, "node"));
+
+    const install = spawnSync(process.execPath, [installer], {
+      cwd: repo.path,
+      encoding: "utf8",
+      env: { ...process.env, DOTFILES_PRE_PUSH_REPO_ROOT: repo.path },
+    });
+    assert.equal(install.status, 0, install.stderr);
+
+    const result = spawnSync("/bin/bash", [join(repo.path, ".git/hooks/pre-push"), "origin", "fixture"], {
+      cwd: repo.path,
+      encoding: "utf8",
+      env: { ...process.env, PATH: bin },
+    });
+    assert.equal(result.status, 1);
+    assert.match(
+      result.stderr,
+      /missing repository dependencies; run corepack pnpm install --frozen-lockfile .* before pushing/,
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("existing, new, and multiple ref updates inspect only outgoing commits", () => {
   const root = mkdtempSync(join(tmpdir(), "pre-push-updates-"));
   try {
