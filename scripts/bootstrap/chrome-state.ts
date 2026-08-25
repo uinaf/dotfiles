@@ -1,8 +1,11 @@
 #!/usr/bin/env node
 
 import { chmodSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { NodeServices } from "@effect/platform-node";
+import { Effect, FileSystem, Option, Schema } from "effect";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { CliFailure, runMain } from "../lib/program.ts";
 
 type Mode = "enable" | "disable";
 
@@ -53,21 +56,42 @@ export function updateChromeState(path: string, mode: Mode, flagName: string, fl
   }
 }
 
-function main(args: string[]): void {
-  const [path, mode, flagName, flagValue] = args;
-  if (args.length !== 4 || (mode !== "enable" && mode !== "disable")) {
-    process.stderr.write("Usage: scripts/bootstrap/chrome-state.ts PATH <enable|disable> FLAG VALUE\n");
-    process.exitCode = 2;
-    return;
+const Arguments = Schema.Tuple([Schema.NonEmptyString, Schema.Literals(["enable", "disable"]), Schema.NonEmptyString, Schema.NonEmptyString]);
+
+const updateChromeStateEffect = Effect.fn("updateChromeState")(function*(path: string, mode: Mode, flagName: string, flagValue: string) {
+  const fs = yield* FileSystem.FileSystem;
+  const source = yield* fs.readFileString(path).pipe(Effect.option);
+  let data: Record<string, unknown> = {};
+  if (Option.isSome(source)) {
+    data = yield* Effect.try({ try: () => object(JSON.parse(source.value), `${path} contents`), catch: (error) => error });
   }
-  updateChromeState(path, mode, flagName, flagValue);
-}
+  const browser = data.browser === undefined ? {} : object(data.browser, '"browser"');
+  const current = browser.enabled_labs_experiments ?? [];
+  if (!Array.isArray(current)) return yield* Effect.fail(new Error('"browser.enabled_labs_experiments" must be a JSON array'));
+  const prefix = `${flagName}@`;
+  const experiments = current.filter((item) => typeof item !== "string" || (item !== flagName && !item.startsWith(prefix)));
+  if (mode === "enable") experiments.push(flagValue);
+  browser.enabled_labs_experiments = experiments;
+  data.browser = browser;
+  const directory = dirname(path);
+  yield* fs.makeDirectory(directory, { recursive: true });
+  const info = yield* fs.stat(path).pipe(Effect.option);
+  const fileMode = Option.isSome(info) ? info.value.mode & 0o7777 : 0o600;
+  yield* Effect.scoped(Effect.gen(function*() {
+    const temporaryDirectory = yield* fs.makeTempDirectoryScoped({ directory, prefix: ".chrome-state." });
+    const temporaryPath = join(temporaryDirectory, "Local State");
+    yield* fs.writeFileString(temporaryPath, `${JSON.stringify(data)}\n`, { mode: fileMode });
+    yield* fs.chmod(temporaryPath, fileMode);
+    yield* fs.rename(temporaryPath, path);
+  }));
+});
 
 if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) {
-  try {
-    main(process.argv.slice(2));
-  } catch (error) {
-    process.stderr.write(`FAILED: ${error instanceof Error ? error.message : String(error)}\n`);
-    process.exitCode = 1;
-  }
+  const program = Effect.gen(function*() {
+    const [path, mode, flagName, flagValue] = yield* Schema.decodeUnknownEffect(Arguments)(process.argv.slice(2)).pipe(
+      Effect.mapError(() => new CliFailure({ exitCode: 2, message: "Usage: scripts/bootstrap/chrome-state.ts PATH <enable|disable> FLAG VALUE" })),
+    );
+    yield* updateChromeStateEffect(path, mode, flagName, flagValue);
+  }).pipe(Effect.provide(NodeServices.layer));
+  runMain(program);
 }

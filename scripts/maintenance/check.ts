@@ -1,10 +1,12 @@
 #!/usr/bin/env node
 
 import { spawn, spawnSync } from "node:child_process";
+import { Effect } from "effect";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { homedir, hostname } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { runMain } from "../lib/program.ts";
 
 import { sanitizeDiagnostic } from "../agents/runtime.ts";
 import { type ProfileConfig, readProfileModel, requireProfile } from "../profiles/model.ts";
@@ -250,10 +252,10 @@ function buildProbes(context: MaintenanceContext): Probe[] {
     }));
   }
   if (context.profileConfig.capabilities.sharedHomebrew) {
-    probes.push(probe("devbox_services", join(context.repoRoot, "scripts/verify/devbox-services.sh"), [], summaryLine, { timeoutMs: 30_000 }));
+    probes.push(probe("devbox_services", process.execPath, [join(context.repoRoot, "scripts/verify/devbox-services.ts")], summaryLine, { timeoutMs: 30_000 }));
   }
   if (context.verify) {
-    probes.push(probe("bootstrap", join(context.repoRoot, "scripts/verify/bootstrap.sh"), ["--profile", context.profile], summaryLine, { timeoutMs: 60_000 }));
+    probes.push(probe("bootstrap", process.execPath, [join(context.repoRoot, "scripts/verify/bootstrap.ts"), "--profile", context.profile], summaryLine, { timeoutMs: 60_000 }));
   }
 
   const checkout = checkoutPath(context);
@@ -392,5 +394,8 @@ async function main(): Promise<number> {
 }
 
 if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
-  process.exitCode = await main();
+  runMain(Effect.tryPromise({ try: main, catch: (error) => error }).pipe(
+    Effect.tap((status) => Effect.sync(() => { process.exitCode = status; })),
+    Effect.asVoid,
+  ));
 }

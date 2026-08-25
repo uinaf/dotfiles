@@ -7,14 +7,14 @@ creates tag-only GitHub Releases.
 
 | Workflow | Trigger | Contract |
 | --- | --- | --- |
-| Verify | Push to `main`, pull request, manual dispatch | Run every deterministic domain in parallel through `./scripts/verify/repo.sh --skip-security` on macOS. Successful pushes to `main` continue to release evaluation. |
+| Verify | Push to `main`, pull request, manual dispatch | Run every deterministic domain in parallel through `./scripts/verify/run.ts --skip-security` on macOS. Successful pushes to `main` continue to release evaluation. |
 | Secret scanning | Push to `main`, pull request, weekly schedule, manual dispatch | Run Gitleaks and TruffleHog with full Git history. |
 
 CI does not use path filters. The secret workflow stays separate and fails
 closed against full Git history. The full local equivalent is:
 
 ```zsh
-./scripts/verify/repo.sh
+./scripts/verify/run.ts
 ```
 
 ## Releases

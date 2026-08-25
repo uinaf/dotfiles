@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { spawnSync } from "node:child_process";
+import { Effect } from "effect";
 import {
   chmodSync,
   copyFileSync,
@@ -18,6 +19,7 @@ import {
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { runMain } from "../lib/program.ts";
 import { type ConfigEdit, writeConfigEdits } from "./configure-codex.ts";
 
 type GatewayConfig = {
@@ -98,6 +100,22 @@ type ClientStateV6 = {
 
 type ClientState = ClientStateV1 | ClientStateV2 | ClientStateV3 | ClientStateV4 | ClientStateV5 | ClientStateV6;
 
+function stateHasCursorCommands(state: ClientState): state is Exclude<ClientState, ClientStateV1> {
+  return state.version !== 1;
+}
+
+function stateHasClaude(state: ClientState): state is ClientStateV3 | ClientStateV4 | ClientStateV5 | ClientStateV6 {
+  return state.version === 3 || state.version === 4 || state.version === 5 || state.version === 6;
+}
+
+function stateHasAuthRetired(state: ClientState): state is ClientStateV4 | ClientStateV5 | ClientStateV6 {
+  return state.version === 4 || state.version === 5 || state.version === 6;
+}
+
+function stateHasGrok(state: ClientState): state is ClientStateV5 | ClientStateV6 {
+  return state.version === 5 || state.version === 6;
+}
+
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const sourceCredential = join(repoRoot, "scripts/agents/llm-gateway-credential.sh");
 const sourceCursor = join(repoRoot, "scripts/agents/cursor-agent-api.sh");
@@ -156,7 +174,9 @@ export function parseGatewayConfig(contents: string): GatewayConfig {
     throw new Error("cursorAgentBin and credentials.cursor must be configured together");
   }
   for (const field of ["gatewaiBaseUrl", "bifrostBaseUrl"] as const) {
-    const url = new URL(value[field]);
+    const fieldValue = value[field];
+    if (typeof fieldValue !== "string") throw new Error(`${field} must be a non-empty string`);
+    const url = new URL(fieldValue);
     if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash || !url.pathname.endsWith("/v1")) {
       throw new Error(`${field} must be an HTTPS /v1 URL without credentials, query, or fragment`);
     }
@@ -456,14 +476,14 @@ async function run(): Promise<void> {
       return;
     }
     const state = readState(rollbackStatePath);
-    if (state.version >= 2) assertStateCursorCommands(state, cursorCommandTargets, state.cursorCommands.length > 0);
+    if (stateHasCursorCommands(state)) assertStateCursorCommands(state, cursorCommandTargets, state.cursorCommands.length > 0);
     if (state.codexConfigExisted) {
       if (!state.codexBackupPath || !existsSync(state.codexBackupPath)) throw new Error("Codex rollback backup is missing");
       atomicCopy(state.codexBackupPath, codexConfig, 0o600);
     } else {
       rmSync(codexConfig, { force: true });
     }
-    if (state.version >= 3) {
+    if (stateHasClaude(state)) {
       if (state.claudeSettingsExisted) {
         if (!state.claudeBackupPath || !existsSync(state.claudeBackupPath)) throw new Error("Claude rollback backup is missing");
         atomicCopy(state.claudeBackupPath, claudeSettings, 0o600);
@@ -475,7 +495,7 @@ async function run(): Promise<void> {
     rmSync(cursorAcpAuthTarget, { force: true });
     rmSync(legacyCredentialTarget, { force: true });
     rmSync(cursorApiTarget, { force: true });
-    if (state.version >= 2 && state.cursorCommands.length > 0) restoreCursorCommands(state.cursorCommands);
+    if (stateHasCursorCommands(state) && state.cursorCommands.length > 0) restoreCursorCommands(state.cursorCommands);
     if (state.version === 5 && state.grokEnabled) {
       rmSync(legacyGrokTarget, { force: true });
       rmSync(legacyGrokHome, { recursive: true, force: true });
@@ -495,11 +515,11 @@ async function run(): Promise<void> {
       }
     }
     if (state.codexBackupPath) rmSync(state.codexBackupPath, { force: true });
-    if (state.version >= 3 && state.claudeBackupPath) rmSync(state.claudeBackupPath, { force: true });
+    if (stateHasClaude(state) && state.claudeBackupPath) rmSync(state.claudeBackupPath, { force: true });
     if (state.version === 6 && state.grokConfigBackupPath) rmSync(state.grokConfigBackupPath, { force: true });
     if (state.version === 6 && state.grokAuthBackupPath) rmSync(state.grokAuthBackupPath, { force: true });
     rmSync(rollbackStatePath, { force: true });
-    process.stdout.write(state.version >= 4 && state.authRetired
+    process.stdout.write(stateHasAuthRetired(state) && state.authRetired
       ? "rolled back LLM gateway; coding login state was retired and requires reauthentication\n"
       : "rolled back LLM gateway; saved Codex, Claude, and Grok login state remains available\n");
     return;
@@ -643,13 +663,13 @@ async function run(): Promise<void> {
   } else {
     const state = readState(statePath);
     const cursorCommands = state.version === 1 ? (config.cursorAgentBin ? captureCursorCommands(cursorCommandTargets) : []) : state.cursorCommands;
-    if (state.version >= 2) assertStateCursorCommands(state, cursorCommandTargets, Boolean(config.cursorAgentBin));
-    if (state.version >= 5 && state.grokEnabled !== Boolean(config.grokBin)) {
+    if (stateHasCursorCommands(state)) assertStateCursorCommands(state, cursorCommandTargets, Boolean(config.cursorAgentBin));
+    if (stateHasGrok(state) && state.grokEnabled !== Boolean(config.grokBin)) {
       throw new Error("Grok enrollment changed; roll back before changing the client set");
     }
     if (state.version < 6) {
-      const claudeExisted = state.version >= 3 ? state.claudeSettingsExisted : existsSync(claudeSettings);
-      const claudeBackup = state.version >= 3 ? state.claudeBackupPath : (claudeExisted ? claudeBackupPath : null);
+      const claudeExisted = stateHasClaude(state) ? state.claudeSettingsExisted : existsSync(claudeSettings);
+      const claudeBackup = stateHasClaude(state) ? state.claudeBackupPath : (claudeExisted ? claudeBackupPath : null);
       if (state.version < 3 && claudeExisted) {
         if (existsSync(claudeBackupPath)) throw new Error(`refusing to overwrite existing backup: ${claudeBackupPath}`);
         atomicCopy(claudeSettings, claudeBackupPath, 0o600);
@@ -668,7 +688,7 @@ async function run(): Promise<void> {
         cursorCommands,
         claudeSettingsExisted: claudeExisted,
         claudeBackupPath: claudeBackup,
-        authRetired: state.version >= 4 ? state.authRetired : false,
+        authRetired: stateHasAuthRetired(state) ? state.authRetired : false,
         grokEnabled: Boolean(config.grokBin),
         grokConfigExisted: grokConfigState.existed,
         grokConfigBackupPath: grokConfigState.backupPath,
@@ -706,14 +726,9 @@ async function run(): Promise<void> {
   atomicWriteJson(claudeSettings, desiredClaudeSettings);
   rmSync(legacyCredentialTarget, { force: true });
   const finalState = readState(statePath);
-  process.stdout.write(`configured Codex and Claude gateway routing${config.cursorAgentBin ? " plus canonical Cursor API-key commands" : ""}${config.grokBin ? " plus canonical Grok gateway routing" : ""}; ${finalState.version >= 4 && finalState.authRetired ? "vendor logins remain retired" : "vendor login backups remain available"}\n`);
+  process.stdout.write(`configured Codex and Claude gateway routing${config.cursorAgentBin ? " plus canonical Cursor API-key commands" : ""}${config.grokBin ? " plus canonical Grok gateway routing" : ""}; ${stateHasAuthRetired(finalState) && finalState.authRetired ? "vendor logins remain retired" : "vendor login backups remain available"}\n`);
 }
 
 if (import.meta.main) {
-  try {
-    await run();
-  } catch (error) {
-    process.stderr.write(`FAILED: ${error instanceof Error ? error.message : String(error)}\n`);
-    process.exitCode = 1;
-  }
+  runMain(Effect.tryPromise({ try: run, catch: (error) => error }));
 }

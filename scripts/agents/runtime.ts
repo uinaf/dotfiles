@@ -118,7 +118,7 @@ export function resolveProfileName(
   expectedProfile: string | undefined,
 ): string {
   const args = expectedProfile === undefined ? [] : ["--expected", expectedProfile];
-  const result = runtime.run(join(scriptDir, "resolve-profile.sh"), args, {
+  const result = runtime.run(join(scriptDir, "resolve-profile.ts"), args, {
     stdout: "capture",
     stderr: "capture",
   });

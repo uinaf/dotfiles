@@ -87,7 +87,7 @@ function runChezmoi(
 }
 
 function runWrapperResult(home: string, profile = "workstation") {
-  return spawnSync(join(repoRoot, "scripts/bootstrap/apply-dotfiles.sh"), ["--profile", profile], {
+  return spawnSync(join(repoRoot, "scripts/bootstrap/apply-dotfiles.ts"), ["--profile", profile], {
     encoding: "utf8",
     env: {
       ...process.env,

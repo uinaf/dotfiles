@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 
 import { existsSync, readFileSync } from "node:fs";
+import { Effect } from "effect";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
+import { runMain } from "../lib/program.ts";
 import { type AuditFormat, type AuditPolicy, readSettingsFile, runPolicy } from "./engine.ts";
 import { readProfileModel, requireProfile } from "../profiles/model.ts";
 
@@ -101,4 +103,8 @@ function main(args: string[]): number {
   return runDevbox(format, config);
 }
 
-if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) process.exitCode = main(process.argv.slice(2));
+if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
+  runMain(Effect.try({ try: () => main(process.argv.slice(2)), catch: (error) => error }).pipe(
+    Effect.tap((status) => Effect.sync(() => { process.exitCode = status; })), Effect.asVoid,
+  ));
+}

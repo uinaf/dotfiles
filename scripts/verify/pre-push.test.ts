@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { copyFileSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import test from "node:test";
@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 
 const verifyDir = dirname(fileURLToPath(import.meta.url));
 const hook = resolve(verifyDir, "pre-push.ts");
-const installer = resolve(verifyDir, "install-pre-push-hook.sh");
+const installer = resolve(verifyDir, "install-pre-push-hook.ts");
 
 type Repository = {
   path: string;
@@ -84,15 +84,14 @@ test("installed hook reports a missing Node runtime", () => {
     const bin = join(root, "bin");
     mkdirSync(verifyDir, { recursive: true });
     mkdirSync(bin);
-    copyFileSync(installer, join(verifyDir, "install-pre-push-hook.sh"));
-    copyFileSync(hook, join(verifyDir, "pre-push.ts"));
+    writeFileSync(join(verifyDir, "pre-push.ts"), "");
     symlinkSync("/usr/bin/git", join(bin, "git"));
     symlinkSync("/usr/bin/false", join(bin, "node"));
 
-    const install = spawnSync("/bin/bash", [join(verifyDir, "install-pre-push-hook.sh")], {
+    const install = spawnSync(process.execPath, [installer], {
       cwd: repo.path,
       encoding: "utf8",
-      env: process.env,
+      env: { ...process.env, DOTFILES_PRE_PUSH_REPO_ROOT: repo.path },
     });
     assert.equal(install.status, 0, install.stderr);
 
@@ -121,7 +120,7 @@ test("existing, new, and multiple ref updates inspect only outgoing commits", ()
     input = `refs/heads/topic ${bad} refs/heads/topic ${repo.zeroOid}\n`;
     const badResult = invoke(repo, input);
     assert.equal(badResult.status, 1);
-    assert.match(badResult.stderr, /trailing whitespace/);
+    assert.match(String(badResult.stderr), /trailing whitespace/);
 
     input = [
       `refs/heads/main ${clean} refs/heads/main ${base}`,
@@ -152,9 +151,9 @@ test("missing required objects fail with an actionable diagnostic", () => {
     const local = commit(repo, "clean\n");
     const missing = "f".repeat(repo.oidLength);
     const localMissing = `refs/heads/main ${missing} refs/heads/main ${repo.zeroOid}\n`;
-    assert.match(invoke(repo, localMissing).stderr, /missing local object/);
+    assert.match(String(invoke(repo, localMissing).stderr), /missing local object/);
     const remoteMissing = `refs/heads/main ${local} refs/heads/main ${missing}\n`;
-    assert.match(invoke(repo, remoteMissing).stderr, /missing remote commit/);
+    assert.match(String(invoke(repo, remoteMissing).stderr), /missing remote commit/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

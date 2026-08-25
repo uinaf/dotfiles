@@ -11,7 +11,9 @@ import {
 } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { Effect } from "effect";
 
+import { runMain } from "../lib/program.ts";
 import { readProfileModel, requireProfile, type SkillLayer } from "../profiles/model.ts";
 import {
   createRuntime,
@@ -492,5 +494,5 @@ export function main(args: readonly string[], runtime: Runtime = createRuntime()
 
 const entrypoint = process.argv[1];
 if (entrypoint !== undefined && resolve(entrypoint) === fileURLToPath(import.meta.url)) {
-  process.exitCode = main(process.argv.slice(2));
+  runMain(Effect.sync(() => { process.exitCode = main(process.argv.slice(2)); }));
 }

@@ -2,6 +2,7 @@ tizen-migration-*.tar.gz
 *.tar.gz
 *.tgz
 .DS_Store
+node_modules/
 .zcompdump*
 home/.codex/
 scripts/agents/skills.lock.json

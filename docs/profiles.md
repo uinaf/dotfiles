@@ -47,7 +47,7 @@ it directly:
 | --- | --- |
 | Chezmoi | as template data |
 | TypeScript | strict parser in `scripts/profiles/model.ts` |
-| Shell | typed `plutil` boundary in `scripts/lib/profile.sh` |
+| TypeScript | Effect Schema boundary in `scripts/profiles/model.ts` |
 
 Each consumer rejects unsupported versions, unknown profiles, missing fields,
 and wrong value types.
@@ -125,11 +125,11 @@ SSH, GitHub App, recovery, and deployment lifecycle.
 Run Homebrew changes from the authorized host administrator:
 
 ```zsh
-./scripts/bootstrap/brew-bundle.sh personal-workstation
-./scripts/bootstrap/brew-bundle.sh personal-devbox
-./scripts/bootstrap/brew-bundle.sh workstation
-./scripts/bootstrap/brew-bundle.sh devbox
-./scripts/bootstrap/brew-bundle.sh assistant
+./scripts/bootstrap/brew-bundle.ts personal-workstation
+./scripts/bootstrap/brew-bundle.ts personal-devbox
+./scripts/bootstrap/brew-bundle.ts workstation
+./scripts/bootstrap/brew-bundle.ts devbox
+./scripts/bootstrap/brew-bundle.ts assistant
 ```
 
 Then run the per-user setup as the target Unix user:
@@ -140,7 +140,7 @@ mise trust
 ./dotfiles diff "$profile"
 ./dotfiles apply "$profile"
 # Optional until this machine decrypts vault or other SOPS material:
-# ./scripts/secrets/configure-sops-age-identity.sh
+# ./scripts/secrets/configure-sops-age-identity.ts
 ./dotfiles check "$profile"
 ```
 
@@ -153,14 +153,14 @@ mise trust
 Configure the appropriate human or workload Git identity separately:
 
 ```zsh
-./scripts/bootstrap/configure-git.sh --profile workstation
-./scripts/bootstrap/configure-git.sh --profile personal-workstation
-./scripts/bootstrap/configure-git.sh --profile personal-devbox
-./scripts/bootstrap/configure-git.sh --profile devbox
+./scripts/bootstrap/configure-git.ts --profile workstation
+./scripts/bootstrap/configure-git.ts --profile personal-workstation
+./scripts/bootstrap/configure-git.ts --profile personal-devbox
+./scripts/bootstrap/configure-git.ts --profile devbox
 GIT_USER_NAME='Workload Name' \
 GIT_USER_EMAIL='APP_BOT_NOREPLY_EMAIL' \
-  ./scripts/bootstrap/configure-git.sh --profile assistant --non-interactive
-./scripts/bootstrap/configure-assistant-github-app.sh \
+  ./scripts/bootstrap/configure-git.ts --profile assistant --non-interactive
+./scripts/bootstrap/configure-assistant-github-app.ts \
   --name example-app \
   --app-id APP_ID \
   --installation-id INSTALLATION_ID \
@@ -213,7 +213,7 @@ names a selected-profile entry and either a command or app-bundle validator:
 | `command` | Absolute executable path owned by the current user or root, not writable by group or other users. Runs up to three literal arguments. Use it when a safe version or health probe can prove that endpoint policy permits execution |
 | `bundle` | Absolute nonsymlinked app bundle, exact bundle identifier, exact signing team, and a valid strict code signature |
 
-Enforcement in `brew-bundle.sh` and bootstrap verification:
+Enforcement in `brew-bundle.ts` and bootstrap verification:
 
 - Ambient Homebrew Bundle skip variables are rejected.
 - macOS `plutil` lints the file and enforces root, version, record, field, and

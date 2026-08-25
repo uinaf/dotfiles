@@ -46,9 +46,9 @@ Local only:
 Provision or verify the age identity:
 
 ```bash
-./scripts/secrets/configure-sops-age-identity.sh
-./scripts/secrets/configure-sops-age-identity.sh --check
-./scripts/secrets/configure-sops-age-identity.sh --print-recipient
+./scripts/secrets/configure-sops-age-identity.ts
+./scripts/secrets/configure-sops-age-identity.ts --check
+./scripts/secrets/configure-sops-age-identity.ts --print-recipient
 ```
 
 Use `SOPS_AGE_KEY_FILE` only when the deployment intentionally uses a
@@ -71,8 +71,8 @@ Run a fixed command directly or allow a child process to make its own narrow
 sudo calls:
 
 ```bash
-./scripts/secrets/sops-devbox-sudo.sh -- /bin/launchctl kickstart -k system/example.service
-./scripts/secrets/sops-devbox-sudo.sh --nested -- ./scripts/service/restart.sh
+node scripts/secrets/sops-devbox-sudo.ts -- /bin/launchctl kickstart -k system/example.service
+node scripts/secrets/sops-devbox-sudo.ts --nested -- ./scripts/service/restart.sh
 ```
 
 The password exists only in the askpass process. Keep the sudoers allowlist as
@@ -87,7 +87,7 @@ command itself must stay unprivileged.
 - Git author metadata is not an authorization mechanism. HTTPS push and GitHub
   API operations use the short-lived App token.
 - Devbox Git repositories normally use SSH remotes for human identities.
-- `configure-git.sh --profile devbox` (or `personal-devbox`) writes a
+- `configure-git.ts --profile devbox` (or `personal-devbox`) writes a
   `Host github.com` override in `~/.ssh/github.config` when the signing key is a
   local path.
 
@@ -176,7 +176,7 @@ Retirement is intentionally separate from enrollment:
 - Rollback after retirement restores the pre-gateway client configuration but
   cannot restore deleted login credentials. Authenticate each coding client
   again before direct use.
-- A complete developer-profile `install.sh` run preserves gateway routing and
+- A complete developer-profile `install.ts` run preserves gateway routing and
   removes any legacy Codex login-method restriction.
 - Personal setup asks the installed credential helper for the device-scoped
   Bifrost key, writes it to OpenCode's owner-only `bifrost` auth slot, removes
@@ -245,7 +245,7 @@ For an OpenClaw workload, pass its user-owned executable wrapper and unique
 gateway port:
 
 ```zsh
-sudo ./scripts/bootstrap/install-devbox-service-daemons.sh \
+sudo node ./scripts/bootstrap/install-devbox-service-daemons.ts \
   --user example \
   --openclaw \
   --openclaw-wrapper /Users/example/.local/bin/openclaw-wrapper \
@@ -257,7 +257,7 @@ For a headless T3 Code server, pin the exact npm version and the workspace used
 for project and skill discovery:
 
 ```zsh
-sudo ./scripts/bootstrap/install-devbox-service-daemons.sh \
+sudo node ./scripts/bootstrap/install-devbox-service-daemons.ts \
   --user example \
   --t3-code \
   --t3-version 0.0.34-nightly.20260823.1166 \
@@ -301,7 +301,7 @@ Run each check as the intended Unix identity:
 
 ```bash
 ./dotfiles check devbox
-./scripts/verify/devbox-services.sh
+./scripts/verify/devbox-services.ts
 mise run audit devbox --format json
 ```
 
@@ -312,7 +312,7 @@ are unchanged.
 | Gate | Checks |
 | --- | --- |
 | `./dotfiles check <profile>` | Selected profile packages and shared config |
-| `./scripts/verify/devbox-services.sh` | Age identity, local config, and launchd boundary |
+| `./scripts/verify/devbox-services.ts` | Age identity, local config, and launchd boundary |
 | `mise run audit devbox` | Stale secret-looking files, Git and GitHub identity, SSH permissions, project privacy, Tailscale health, and local service state |
 
 Treat prose audit output as sensitive because scanners may include matched

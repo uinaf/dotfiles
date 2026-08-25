@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 
 import assert from "node:assert/strict";
+import { Console, Effect } from "effect";
 import { spawn } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { runMain } from "../lib/program.ts";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -189,10 +191,6 @@ async function main(): Promise<void> {
   }
 }
 
-try {
-  await main();
-  process.stdout.write("ok Claude user settings preserve unrelated state\n");
-} catch (error) {
-  process.stderr.write(`FAILED: ${error instanceof Error ? error.message : String(error)}\n`);
-  process.exit(1);
-}
+runMain(Effect.tryPromise({ try: main, catch: (error) => error }).pipe(
+  Effect.tap(() => Console.log("ok Claude user settings preserve unrelated state")),
+));

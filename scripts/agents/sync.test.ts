@@ -77,7 +77,7 @@ class FixtureRuntime implements Runtime {
   run(command: string, args: readonly string[]): { status: number; stdout: string; stderr: string } {
     this.calls.push({ command, args });
 
-    if (command.endsWith("/resolve-profile.sh")) {
+    if (command.endsWith("/resolve-profile.ts")) {
       const expectedFlag = args.indexOf("--expected");
       const expected = expectedFlag >= 0 ? args[expectedFlag + 1] : undefined;
       if (expected !== undefined && expected !== this.profile) {
@@ -325,7 +325,7 @@ test("refuses profiles without agent setup before managing skills", () => {
   assert.equal(main([], runtime), 1);
   assert.match(runtime.stderr.value, /Profile resolution failed/);
   assert.equal(runtime.calls.length, 1);
-  assert.ok(runtime.calls[0]?.command.endsWith("/resolve-profile.sh"));
+  assert.ok(runtime.calls[0]?.command.endsWith("/resolve-profile.ts"));
 });
 
 test("initializes a missing ownership lock without removing unowned skills", () => {
@@ -586,29 +586,6 @@ test("skill manifests hold valid, non-legacy skill entries", () => {
     );
     sourceByName.set(skill.name, skill.source);
   }
-});
-
-test("shell reads the canonical profile model", () => {
-  const result = spawnSync(
-    "bash",
-    [
-      "-c",
-      '. "$1/scripts/lib/profile.sh"; dotfiles_profiles; printf "%s\\n" --developers--; for profile in $(dotfiles_profiles); do if dotfiles_profile_is_developer "$profile"; then printf "%s\\n" "$profile"; elif [ "$?" -eq 2 ]; then exit 9; fi; done',
-      "profile-contract",
-      repoRoot,
-    ],
-    { encoding: "utf8" },
-  );
-  assert.equal(result.status, 0, result.stderr);
-  const [profilesOutput, developersOutput] = result.stdout.split("--developers--\n");
-  assert.deepEqual(profilesOutput?.trim().split("\n").sort(), Object.keys(profileModel.profiles).sort());
-  assert.deepEqual(
-    developersOutput?.trim().split("\n").sort(),
-    Object.entries(profileModel.profiles)
-      .filter(([, profile]) => profile.capabilities.developer)
-      .map(([profile]) => profile)
-      .sort(),
-  );
 });
 
 test("the executable TypeScript entrypoint runs the CLI", () => {

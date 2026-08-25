@@ -22,6 +22,16 @@ machine setup in the repository and private machine state outside it.
 `CLAUDE.md` is a symlink to this file. Keep `AGENTS.md` as the only authored
 repository guide.
 
+## Learning More About Effect
+
+This repository uses the Effect TypeScript library.
+
+Before writing any Effect code, first read `node_modules/effect/AGENTS.md`
+**completely**, and follow the links in the file when required.
+
+If you need to learn more about particular Effect APIs and concepts that the
+guide doesn't cover, search through the source code in `node_modules/effect/src`.
+
 ## Hard Boundaries
 
 - Never commit secrets, tokens, private keys, certificates, machine-local
@@ -65,12 +75,12 @@ mise run verify               # complete graph plus secret scans
 Run live checks only on a machine that should satisfy the selected profile:
 
 ```zsh
-./scripts/verify/bootstrap.sh --profile workstation
-./scripts/verify/bootstrap.sh --profile personal-workstation
-./scripts/verify/bootstrap.sh --profile personal-devbox
-./scripts/verify/bootstrap.sh --profile devbox
-./scripts/verify/bootstrap.sh --profile assistant
-./scripts/verify/devbox-services.sh
+./scripts/verify/bootstrap.ts --profile workstation
+./scripts/verify/bootstrap.ts --profile personal-workstation
+./scripts/verify/bootstrap.ts --profile personal-devbox
+./scripts/verify/bootstrap.ts --profile devbox
+./scripts/verify/bootstrap.ts --profile assistant
+./scripts/verify/devbox-services.ts
 mise run audit workstation
 mise run audit devbox
 ```

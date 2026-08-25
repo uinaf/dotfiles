@@ -2,7 +2,7 @@
 
 This repo uses chezmoi for public-safe dotfile source state. Chezmoi owns files
 under `chezmoi/` and applies them to `$HOME` through
-`scripts/bootstrap/apply-dotfiles.sh`.
+`scripts/bootstrap/apply-dotfiles.ts`.
 
 ## Source Layout
 
@@ -85,7 +85,7 @@ mise run dotfiles:diff workstation
 mise run dotfiles:apply workstation
 ```
 
-`./dotfiles apply` delegates to `scripts/bootstrap/install.sh`, which applies
+`./dotfiles apply` delegates to `scripts/bootstrap/install.ts`, which applies
 the same source before running the remaining profile install steps.
 
 For normal edits:
@@ -142,7 +142,7 @@ chezmoi scripts unless there is a concrete idempotency reason.
 
 ## Wrapper Expectations
 
-Keep `scripts/bootstrap/apply-dotfiles.sh` non-interactive and preserve:
+Keep `scripts/bootstrap/apply-dotfiles.ts` non-interactive and preserve:
 
 - `--dry-run` and `--verbose`.
 - Backups for pre-existing local files before `--force apply`.

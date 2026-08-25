@@ -1,136 +1,107 @@
+import { Effect, FileSystem, Schema } from "effect";
 import { readFileSync } from "node:fs";
 
-const capabilityNames = [
-  "developer",
-  "workload",
-  "sharedHomebrew",
-  "requiresSopsIdentity",
-  "devbox",
-  "workstation",
-  "personal",
-  "githubAppAuth",
-] as const;
-const profileFields = ["capabilities", "brewfiles", "runtimeGroup", "skillLayers", "installSteps"];
-const runtimeGroups = new Set(["developer", "assistant", "none"]);
-const skillLayers = new Set(["developer", "workstation", "devbox", "personal"]);
+const Capabilities = Schema.Struct({
+  developer: Schema.Boolean,
+  workload: Schema.Boolean,
+  sharedHomebrew: Schema.Boolean,
+  requiresSopsIdentity: Schema.Boolean,
+  devbox: Schema.Boolean,
+  workstation: Schema.Boolean,
+  personal: Schema.Boolean,
+  githubAppAuth: Schema.Boolean,
+});
 
-export type SkillLayer = "developer" | "workstation" | "devbox" | "personal";
+const SkillLayer = Schema.Literals(["developer", "workstation", "devbox", "personal"]);
+const ProfileConfig = Schema.Struct({
+  capabilities: Capabilities,
+  brewfiles: Schema.NonEmptyArray(Schema.NonEmptyString),
+  runtimeGroup: Schema.Literals(["developer", "assistant", "none"]),
+  skillLayers: Schema.Array(SkillLayer),
+  installSteps: Schema.NonEmptyArray(Schema.NonEmptyString),
+});
+const ProfileModel = Schema.Struct({
+  version: Schema.Literal(1),
+  profiles: Schema.Record(Schema.String, ProfileConfig),
+});
+const ProfileDocument = Schema.Struct({ profileModel: ProfileModel });
 
-export type ProfileConfig = {
-  capabilities: Record<string, boolean>;
-  brewfiles: string[];
-  runtimeGroup: "developer" | "assistant" | "none";
-  skillLayers: SkillLayer[];
-  installSteps: string[];
-};
+export type SkillLayer = typeof SkillLayer.Type;
+export type ProfileConfig = typeof ProfileConfig.Type;
+export type ProfileModel = typeof ProfileModel.Type;
 
-export type ProfileModel = {
-  version: 1;
-  profiles: Record<string, ProfileConfig>;
-};
+export class ProfileModelError extends Schema.TaggedError<ProfileModelError>()("ProfileModelError", {
+  message: Schema.String,
+}) {}
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+function hasUniqueValues(values: readonly string[]): boolean {
+  return new Set(values).size === values.length;
 }
 
-function hasExactKeys(value: Record<string, unknown>, keys: readonly string[]): boolean {
-  const actual = Object.keys(value).sort();
-  const expected = [...keys].sort();
-  return actual.length === expected.length && actual.every((key, index) => key === expected[index]);
-}
-
-function isRuntimeGroup(value: string): value is ProfileConfig["runtimeGroup"] {
-  return runtimeGroups.has(value);
-}
-
-function isSkillLayer(value: string): value is ProfileConfig["skillLayers"][number] {
-  return skillLayers.has(value);
-}
-
-function readStrings(value: unknown, label: string, allowEmpty = false): string[] {
-  if (
-    !Array.isArray(value) ||
-    (!allowEmpty && value.length === 0) ||
-    !value.every((item) => typeof item === "string" && item.length > 0) ||
-    new Set(value).size !== value.length
-  ) {
-    throw new Error(`${label} must be a ${allowEmpty ? "unique" : "non-empty unique"} string array`);
+const validateProfile = Effect.fn("validateProfile")(function*(name: string, profile: ProfileConfig) {
+  if (!/^[a-z][a-z-]*$/.test(name)) {
+    return yield* new ProfileModelError({ message: `profile name ${name} is invalid` });
   }
-  return value;
-}
-
-function readProfile(name: string, value: unknown): ProfileConfig {
-  if (!isRecord(value) || !hasExactKeys(value, profileFields)) {
-    throw new Error(`profile ${name} has an invalid shape`);
-  }
-  if (!isRecord(value.capabilities) || !hasExactKeys(value.capabilities, capabilityNames)) {
-    throw new Error(`profile ${name} capabilities have an invalid shape`);
-  }
-  const capabilities: Record<string, boolean> = {};
-  for (const capability of capabilityNames) {
-    const capabilityValue = value.capabilities[capability];
-    if (typeof capabilityValue !== "boolean") {
-      throw new Error(`profile ${name} capability ${capability} must be boolean`);
+  for (const [field, values] of [
+    ["brewfiles", profile.brewfiles],
+    ["skillLayers", profile.skillLayers],
+    ["installSteps", profile.installSteps],
+  ] as const) {
+    if (!hasUniqueValues(values)) {
+      return yield* new ProfileModelError({ message: `profile ${name} ${field} must contain unique values` });
     }
-    capabilities[capability] = capabilityValue;
   }
+  if (profile.brewfiles[0] !== "Brewfile" || profile.installSteps[0] !== "apply-dotfiles") {
+    return yield* new ProfileModelError({ message: `profile ${name} must start with the shared Brewfile and apply-dotfiles step` });
+  }
+  if (profile.installSteps.includes("install-runtimes") !== (profile.runtimeGroup !== "none")) {
+    return yield* new ProfileModelError({ message: `profile ${name} runtime group and install steps disagree` });
+  }
+  if (profile.installSteps.includes("install-repository-dependencies") !== (profile.runtimeGroup !== "none")) {
+    return yield* new ProfileModelError({ message: `profile ${name} runtime group and repository dependency steps disagree` });
+  }
+  if (profile.installSteps.indexOf("install-repository-dependencies") !== profile.installSteps.indexOf("install-runtimes") + 1) {
+    return yield* new ProfileModelError({ message: `profile ${name} must install repository dependencies after runtimes` });
+  }
+  if (
+    profile.capabilities.developer !== (profile.runtimeGroup === "developer") ||
+    profile.capabilities.developer !== (profile.skillLayers.length > 0)
+  ) {
+    return yield* new ProfileModelError({ message: `profile ${name} developer capability, runtime group, and skill layers disagree` });
+  }
+});
 
-  const brewfiles = readStrings(value.brewfiles, `profile ${name} brewfiles`);
-  const layers = readStrings(value.skillLayers, `profile ${name} skillLayers`, true);
-  const installSteps = readStrings(value.installSteps, `profile ${name} installSteps`);
-  if (typeof value.runtimeGroup !== "string" || !isRuntimeGroup(value.runtimeGroup)) {
-    throw new Error(`profile ${name} runtimeGroup is invalid`);
+export const parseProfileModelEffect = Effect.fn("parseProfileModel")(function*(contents: string) {
+  const parsed = yield* Effect.try({
+    try: () => JSON.parse(contents) as unknown,
+    catch: (error) => new ProfileModelError({
+      message: `profile model is not valid JSON: ${error instanceof Error ? error.message : String(error)}`,
+    }),
+  });
+  const document = yield* Schema.decodeUnknownEffect(ProfileDocument, {
+    errors: "all",
+    onExcessProperty: "error",
+  })(parsed).pipe(
+    Effect.mapError((error) => new ProfileModelError({ message: `profile model has an invalid shape: ${error.message}` })),
+  );
+  const entries = Object.entries(document.profileModel.profiles);
+  if (entries.length === 0) {
+    return yield* new ProfileModelError({ message: "profile model must contain at least one profile" });
   }
-  if (!layers.every(isSkillLayer)) {
-    throw new Error(`profile ${name} skillLayers contains an unknown layer`);
-  }
-  if (brewfiles[0] !== "Brewfile" || installSteps[0] !== "apply-dotfiles") {
-    throw new Error(`profile ${name} must start with the shared Brewfile and apply-dotfiles step`);
-  }
-  if (installSteps.includes("install-runtimes") !== (value.runtimeGroup !== "none")) {
-    throw new Error(`profile ${name} runtime group and install steps disagree`);
-  }
+  yield* Effect.forEach(entries, ([name, profile]) => validateProfile(name, profile));
+  return document.profileModel;
+});
 
-  if (capabilities.developer !== (value.runtimeGroup === "developer") || capabilities.developer !== (layers.length > 0)) {
-    throw new Error(`profile ${name} developer capability, runtime group, and skill layers disagree`);
-  }
-
-  return {
-    capabilities,
-    brewfiles,
-    runtimeGroup: value.runtimeGroup,
-    skillLayers: layers,
-    installSteps,
-  };
-}
+export const readProfileModelEffect = Effect.fn("readProfileModel")(function*(path: string) {
+  const fs = yield* FileSystem.FileSystem;
+  const contents = yield* fs.readFileString(path).pipe(
+    Effect.mapError((error) => new ProfileModelError({ message: `cannot read profile model ${path}: ${error}` })),
+  );
+  return yield* parseProfileModelEffect(contents);
+});
 
 export function parseProfileModel(contents: string): ProfileModel {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(contents);
-  } catch (error) {
-    throw new Error(`profile model is not valid JSON: ${error instanceof Error ? error.message : String(error)}`);
-  }
-  if (!isRecord(parsed) || !hasExactKeys(parsed, ["profileModel"]) || !isRecord(parsed.profileModel)) {
-    throw new Error("profile model root has an invalid shape");
-  }
-  const model = parsed.profileModel;
-  if (!hasExactKeys(model, ["version", "profiles"]) || model.version !== 1 || !isRecord(model.profiles)) {
-    throw new Error("profile model must contain version 1 and a profiles object");
-  }
-
-  const profiles = Object.fromEntries(
-    Object.entries(model.profiles).map(([name, value]) => {
-      if (!/^[a-z][a-z-]*$/.test(name)) {
-        throw new Error(`profile name ${name} is invalid`);
-      }
-      return [name, readProfile(name, value)];
-    }),
-  );
-  if (Object.keys(profiles).length === 0) {
-    throw new Error("profile model must contain at least one profile");
-  }
-  return { version: 1, profiles };
+  return Effect.runSync(parseProfileModelEffect(contents));
 }
 
 export function readProfileModel(path: string): ProfileModel {

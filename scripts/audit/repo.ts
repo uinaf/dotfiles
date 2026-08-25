@@ -1,11 +1,13 @@
 #!/usr/bin/env node
 
 import { constants, existsSync, statSync } from "node:fs";
+import { Effect } from "effect";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 
+import { runMain } from "../lib/program.ts";
 import { AuditReport, type AuditDependencies, type AuditFormat, canAccess, type CommandResult, type CommandRunner, runCommand } from "./report.ts";
 
 const defaultRepoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -176,4 +178,8 @@ function main(args: readonly string[]): number {
   }
 }
 
-if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) process.exitCode = main(process.argv.slice(2));
+if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
+  runMain(Effect.try({ try: () => main(process.argv.slice(2)), catch: (error) => error }).pipe(
+    Effect.tap((status) => Effect.sync(() => { process.exitCode = status; })), Effect.asVoid,
+  ));
+}

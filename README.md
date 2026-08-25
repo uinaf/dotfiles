@@ -29,15 +29,15 @@ mkdir -p ~/projects
 gh repo clone uinaf/dotfiles ~/projects/dotfiles
 cd ~/projects/dotfiles
 
-./scripts/bootstrap/brew-bundle.sh workstation
+./scripts/bootstrap/brew-bundle.ts workstation
 mise trust
 ./dotfiles diff workstation
 ./dotfiles apply workstation
 # Optional until this machine decrypts vault or other SOPS material:
-# ./scripts/secrets/configure-sops-age-identity.sh
-./scripts/bootstrap/configure-git.sh --profile workstation
-./scripts/bootstrap/configure-power.sh --profile workstation
-./scripts/bootstrap/configure-spotlight.sh
+# ./scripts/secrets/configure-sops-age-identity.ts
+./scripts/bootstrap/configure-git.ts --profile workstation
+./scripts/bootstrap/configure-power.ts --profile workstation
+./scripts/bootstrap/configure-spotlight.ts
 ./dotfiles check workstation
 ```
 

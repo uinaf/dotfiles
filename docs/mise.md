@@ -92,7 +92,7 @@ mise run bootstrap:trust-agent-worktrees
   `~/.codex/worktrees` and `~/.claude/worktrees`.
 - `bootstrap:trust-agent-worktrees` also refreshes trust for existing
   `mise.toml` and `.mise.toml` files near those roots, and is called by
-  `scripts/bootstrap/install.sh`.
+  `scripts/bootstrap/install.ts`.
 
 ## Runtime Pins
 
@@ -119,12 +119,13 @@ Vite+ stays repository-local and is invoked through the owning package manager.
 
 Install and verification:
 
-- `scripts/bootstrap/install.sh` calls `mise install` once for every profile with
-  a runtime group. Mise owns the Node postinstall that pins npm and the stable
-  pnpm default.
+- `scripts/bootstrap/install.ts` calls `mise install` once for every profile with
+  a runtime group, then installs the repository's locked Effect dependencies
+  through that runtime. Mise owns the Node postinstall that pins npm and the
+  stable pnpm default.
 - The assistant profile contains only Node. Additional runtimes belong to the
   workload that requires them.
-- `scripts/verify/bootstrap.sh` checks that rendered mise tools converged and
+- `scripts/verify/bootstrap.ts` checks that rendered mise tools converged and
   that their commands resolve from mise.
 - Independent live-check groups run in parallel and print one success line each.
   Pass `--verbose` to expose successful command output.

@@ -12,13 +12,20 @@
       "id": "mise-tasks",
       "domain": "static",
       "command": ["node", "--test", "scripts/verify/mise-tasks.test.ts"],
-      "inputs": ["mise.toml", "scripts/audit/run.ts", "scripts/verify/repo.sh", "scripts/verify/mise-tasks.test.ts"],
+      "inputs": ["mise.toml", "scripts/audit/run.ts", "scripts/verify/run.ts", "scripts/lib/program.ts", "scripts/verify/mise-tasks.test.ts"],
       "output": "Validated task graph, typed arguments, routing, and failure propagation"
+    },
+    {
+      "id": "typecheck",
+      "domain": "static",
+      "command": ["pnpm", "typecheck"],
+      "inputs": ["package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", "tsconfig.json", "scripts/**/*.ts"],
+      "output": "Strict TypeScript and Effect service contracts"
     },
     {
       "id": "vendor-neutral",
       "domain": "static",
-      "command": ["scripts/verify/vendor-neutral.sh"],
+      "command": ["scripts/verify/vendor-neutral.ts"],
       "inputs": ["scripts/**", "chezmoi/**", "docs/**"],
       "output": "Portable public interfaces"
     },
@@ -48,105 +55,105 @@
       "id": "llm-gateway",
       "domain": "config",
       "command": ["node", "--test", "scripts/bootstrap/configure-llm-gateway.test.ts"],
-      "inputs": ["scripts/bootstrap/configure-codex.ts", "scripts/bootstrap/configure-llm-gateway.ts", "scripts/bootstrap/configure-llm-gateway.test.ts", "scripts/bootstrap/install-cursor-agent.sh", "scripts/agents/llm-gateway-credential.sh", "scripts/agents/cursor-agent-api.sh", "scripts/agents/cursor-acp-api-key-auth.py", "chezmoi/dot_zshrc.tmpl", "docs/devbox.md"],
+      "inputs": ["scripts/bootstrap/configure-codex.ts", "scripts/bootstrap/configure-llm-gateway.ts", "scripts/bootstrap/configure-llm-gateway.test.ts", "scripts/bootstrap/install-cursor-agent.ts", "scripts/agents/llm-gateway-credential.sh", "scripts/agents/cursor-agent-api.sh", "scripts/agents/cursor-acp-api-key-auth.py", "chezmoi/dot_zshrc.tmpl", "docs/devbox.md"],
       "output": "Opt-in Codex and Claude gateway routing, Cursor API-key isolation, check, and exact rollback"
     },
     {
       "id": "opencode",
       "domain": "config",
       "command": ["node", "--test", "scripts/bootstrap/configure-opencode.test.ts"],
-      "inputs": ["scripts/bootstrap/configure-opencode.ts", "scripts/bootstrap/configure-opencode.test.ts", "scripts/agents/llm-gateway-credential.sh", "scripts/bootstrap/install.sh", "chezmoi/.chezmoidata/profiles.json", "docs/devbox.md"],
+      "inputs": ["scripts/bootstrap/configure-opencode.ts", "scripts/bootstrap/configure-opencode.test.ts", "scripts/agents/llm-gateway-credential.sh", "scripts/bootstrap/install.ts", "chezmoi/.chezmoidata/profiles.json", "docs/devbox.md"],
       "output": "OpenCode native credential convergence for both catalogs"
     },
     {
       "id": "agent-rules",
       "domain": "agents",
       "command": ["node", "--test", "scripts/verify/agent-rules.test.ts"],
-      "inputs": ["chezmoi/private_AGENTS.md.tmpl", "chezmoi/private_dot_claude/symlink_CLAUDE.md", "chezmoi/private_dot_codex/**", "chezmoi/.chezmoiignore.tmpl", "chezmoi/.chezmoiremove.tmpl", "chezmoi/.chezmoidata/profiles.json", "chezmoi/.chezmoitemplates/profile", "scripts/bootstrap/apply-dotfiles.sh", "scripts/verify/agent-rules.test.ts"],
+      "inputs": ["chezmoi/private_AGENTS.md.tmpl", "chezmoi/private_dot_claude/symlink_CLAUDE.md", "chezmoi/private_dot_codex/**", "chezmoi/.chezmoiignore.tmpl", "chezmoi/.chezmoiremove.tmpl", "chezmoi/.chezmoidata/profiles.json", "chezmoi/.chezmoitemplates/profile", "scripts/bootstrap/apply-dotfiles.ts", "scripts/verify/agent-rules.test.ts"],
       "output": "Global agent rules, local Markdown and symlinks, permissions, links, conflicts, and explicit apply behavior"
     },
     {
       "id": "profiles",
       "domain": "profiles",
-      "command": ["scripts/verify/profiles.sh"],
-      "inputs": ["Brewfile*", "dotfiles", "chezmoi/**", "scripts/bootstrap/**", "scripts/lib/profile.sh"],
+      "command": ["scripts/verify/profiles.ts"],
+      "inputs": ["Brewfile*", "dotfiles", "chezmoi/**", "scripts/bootstrap/**", "scripts/profiles/**", "scripts/lib/homebrew.ts"],
       "output": "Profile package, install, and managed-path contracts"
     },
     {
       "id": "operator-command",
       "domain": "profiles",
       "command": ["node", "--test", "scripts/verify/dotfiles.test.ts"],
-      "inputs": ["dotfiles", "chezmoi/.chezmoidata/profiles.json", "scripts/lib/profile.sh", "scripts/verify/dotfiles.test.ts"],
+      "inputs": ["dotfiles", "scripts/dotfiles.ts", "scripts/bootstrap/install.ts", "scripts/bootstrap/apply-dotfiles.ts", "scripts/lib/command.ts", "scripts/lib/program.ts", "scripts/profiles/model.ts", "chezmoi/.chezmoidata/profiles.json", "scripts/verify/dotfiles.test.ts"],
       "output": "Validated operator routing for every profile"
     },
     {
       "id": "profile-model",
       "domain": "profiles",
       "command": ["node", "--test", "scripts/profiles/model.test.ts"],
-      "inputs": ["Brewfile.personal", "chezmoi/.chezmoidata/profiles.json", "chezmoi/.chezmoitemplates/profile", "scripts/profiles/**", "scripts/lib/profile.sh"],
+      "inputs": ["Brewfile.personal", "chezmoi/.chezmoidata/profiles.json", "chezmoi/.chezmoitemplates/profile", "scripts/profiles/**"],
       "output": "Strict profile model parsing and chezmoi consumption"
     },
     {
       "id": "brew-devbox",
       "domain": "profiles",
-      "command": ["scripts/verify/brew-devbox.sh"],
-      "inputs": ["chezmoi/.chezmoidata/profiles.json", "scripts/bootstrap/brew-bundle.sh", "scripts/bootstrap/brew-devbox.sh", "scripts/lib/homebrew.sh", "scripts/lib/profile.sh"],
+      "command": ["scripts/verify/brew-devbox.ts"],
+      "inputs": ["chezmoi/.chezmoidata/profiles.json", "scripts/bootstrap/brew-bundle.ts", "scripts/bootstrap/brew-devbox.ts", "scripts/lib/homebrew.ts", "scripts/profiles/model.ts"],
       "output": "Devbox Homebrew behavior"
     },
     {
       "id": "external-homebrew",
       "domain": "profiles",
-      "command": ["scripts/verify/external-homebrew.sh"],
-      "inputs": ["chezmoi/.chezmoidata/profiles.json", "scripts/lib/homebrew.sh", "scripts/lib/profile.sh", "scripts/bootstrap/brew-bundle.sh"],
+      "command": ["scripts/verify/external-homebrew.ts"],
+      "inputs": ["chezmoi/.chezmoidata/profiles.json", "scripts/lib/homebrew.ts", "scripts/profiles/model.ts", "scripts/bootstrap/brew-bundle.ts"],
       "output": "External Homebrew capability boundary"
     },
     {
       "id": "chrome-state",
       "domain": "profiles",
       "command": ["node", "--test", "scripts/bootstrap/chrome-state.test.ts"],
-      "inputs": ["scripts/bootstrap/configure-chrome.sh", "scripts/bootstrap/chrome-state.ts", "scripts/bootstrap/chrome-state.test.ts"],
+      "inputs": ["scripts/bootstrap/configure-chrome.ts", "scripts/bootstrap/chrome-state.ts", "scripts/bootstrap/chrome-state.test.ts"],
       "output": "Atomic Chrome Local State updates and malformed-input preservation"
     },
     {
       "id": "mise-path",
       "domain": "profiles",
-      "command": ["scripts/verify/mise-path-isolation.sh"],
-      "inputs": ["chezmoi/private_dot_config/mise/**", "chezmoi/.chezmoidata/profiles.json", "chezmoi/.chezmoitemplates/profile", "scripts/lib/shell-probe.sh"],
+      "command": ["scripts/verify/mise-path-isolation.ts"],
+      "inputs": ["chezmoi/private_dot_config/mise/**", "chezmoi/.chezmoidata/profiles.json", "chezmoi/.chezmoitemplates/profile", "scripts/lib/shell-probe.ts"],
       "output": "Mise runtime path isolation"
     },
     {
       "id": "sops-age",
       "domain": "identity",
-      "command": ["scripts/verify/sops-age-identity.sh"],
-      "inputs": ["scripts/secrets/configure-sops-age-identity.sh", "scripts/lib/sudo-age.sh"],
+      "command": ["scripts/verify/sops-age-identity.ts"],
+      "inputs": ["scripts/secrets/configure-sops-age-identity.ts", "scripts/lib/command.ts", "scripts/lib/program.ts"],
       "output": "SOPS age identity boundary"
     },
     {
       "id": "sops-sudo",
       "domain": "identity",
-      "command": ["scripts/verify/sops-devbox-sudo.sh"],
-      "inputs": ["scripts/secrets/sops-devbox-sudo.sh", "scripts/lib/sudo-age*.sh"],
+      "command": ["scripts/verify/sops-devbox-sudo.ts"],
+      "inputs": ["scripts/secrets/sops-devbox-sudo.ts", "scripts/lib/command.ts", "scripts/lib/program.ts", "scripts/lib/sudo-age-askpass.sh"],
       "output": "SOPS-backed sudo boundary"
     },
     {
       "id": "git-bootstrap",
       "domain": "identity",
-      "command": ["scripts/verify/configure-git.sh"],
-      "inputs": ["scripts/bootstrap/configure-git.sh", "scripts/lib/profile.sh", "chezmoi/.chezmoidata/profiles.json", "chezmoi/.chezmoitemplates/profile", "chezmoi/dot_gitconfig.tmpl", "chezmoi/private_dot_config/git/**"],
+      "command": ["scripts/verify/configure-git.ts"],
+      "inputs": ["scripts/bootstrap/configure-git.ts", "scripts/profiles/**", "scripts/lib/command.ts", "scripts/lib/program.ts", "chezmoi/.chezmoidata/profiles.json", "chezmoi/.chezmoitemplates/profile", "chezmoi/dot_gitconfig.tmpl", "chezmoi/private_dot_config/git/**"],
       "output": "Git identity and signing behavior"
     },
     {
       "id": "service-labels",
       "domain": "services",
-      "command": ["scripts/verify/service-labels.sh"],
-      "inputs": ["scripts/bootstrap/install-devbox-service-daemons.sh", "scripts/lib/devbox-service-*.sh", "scripts/lib/launchd.sh"],
+      "command": ["scripts/verify/service-labels.ts"],
+      "inputs": ["scripts/bootstrap/install-devbox-service-daemons.ts", "scripts/lib/launchd.ts", "scripts/lib/command.ts", "scripts/lib/program.ts"],
       "output": "Launchd service labels"
     },
     {
       "id": "t3-devbox-sync",
       "domain": "services",
       "command": ["node", "--test", "scripts/bootstrap/sync-devbox-t3-server.test.ts"],
-      "inputs": ["scripts/bootstrap/sync-devbox-t3-server.ts", "scripts/bootstrap/sync-devbox-t3-server.test.ts", "scripts/bootstrap/install-devbox-service-daemons.sh", "scripts/lib/devbox-service-t3-code.sh"],
+      "inputs": ["scripts/bootstrap/sync-devbox-t3-server.ts", "scripts/bootstrap/sync-devbox-t3-server.test.ts", "scripts/bootstrap/install-devbox-service-daemons.ts", "scripts/lib/launchd.ts"],
       "output": "Host-only T3 Code target, version parsing, and remote source bundle"
     },
     {
@@ -201,43 +208,43 @@
     {
       "id": "gh-extensions",
       "domain": "agents",
-      "command": ["scripts/verify/gh-extensions.sh"],
-      "inputs": ["scripts/bootstrap/install-gh-extensions.sh"],
+      "command": ["scripts/verify/gh-extensions.ts"],
+      "inputs": ["scripts/bootstrap/install-gh-extensions.ts", "scripts/verify/gh-extensions.ts", "scripts/lib/command.ts"],
       "output": "GitHub CLI extension installation"
     },
     {
       "id": "gh-app-auth",
       "domain": "agents",
-      "command": ["scripts/verify/gh-app-auth.sh"],
-      "inputs": ["scripts/bootstrap/install-gh-app-auth.sh"],
+      "command": ["scripts/verify/gh-app-auth.ts"],
+      "inputs": ["scripts/bootstrap/install-gh-app-auth.ts"],
       "output": "GitHub App authentication helper"
     },
     {
       "id": "assistant-gh-app",
       "domain": "agents",
-      "command": ["scripts/verify/configure-assistant-github-app.sh"],
-      "inputs": ["scripts/bootstrap/configure-assistant-github-app.sh"],
+      "command": ["scripts/verify/configure-assistant-github-app.ts"],
+      "inputs": ["scripts/bootstrap/configure-assistant-github-app.ts"],
       "output": "Assistant GitHub App configuration"
     },
     {
       "id": "zsh-prompt",
       "domain": "config",
-      "command": ["scripts/verify/zsh-prompt.sh"],
+      "command": ["scripts/verify/zsh-prompt.ts"],
       "inputs": ["chezmoi/dot_zprofile", "chezmoi/dot_zshrc.tmpl"],
       "output": "Managed zsh login PATH and prompt behavior"
     },
     {
       "id": "zshenv-overlay",
       "domain": "config",
-      "command": ["scripts/verify/zshenv.sh"],
-      "inputs": [".gitignore", "chezmoi/**", "scripts/verify/zshenv.sh"],
+      "command": ["scripts/verify/zshenv.ts"],
+      "inputs": [".gitignore", "chezmoi/**", "scripts/verify/zshenv.ts"],
       "output": "Managed zshenv sources an optional machine-local overlay"
     },
     {
       "id": "pre-push",
       "domain": "git",
       "command": ["node", "--test", "scripts/verify/pre-push.test.ts"],
-      "inputs": ["scripts/verify/pre-push.ts", "scripts/verify/pre-push.test.ts", "scripts/verify/install-pre-push-hook.sh"],
+      "inputs": ["scripts/verify/pre-push.ts", "scripts/verify/pre-push.test.ts", "scripts/verify/install-pre-push-hook.ts"],
       "output": "Outgoing commit hygiene across Git ref update shapes"
     },
     {
