@@ -18,7 +18,7 @@
     {
       "id": "typecheck",
       "domain": "static",
-      "command": ["pnpm", "typecheck"],
+      "command": ["corepack", "pnpm", "typecheck"],
       "inputs": ["package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", "tsconfig.json", "scripts/**/*.ts"],
       "output": "Strict TypeScript and Effect service contracts"
     },
