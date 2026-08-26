@@ -134,33 +134,58 @@ const readRequiredFile = Effect.fn("readRequiredAgentRuleFile")(function*(path: 
   );
 });
 
-const writeSnapshot = Effect.fn("writeAgentRuleSnapshot")(function*(path: string, contents: string) {
+const readCachedRules = Effect.fn("readCachedAgentRules")(function*(path: string) {
   const fs = yield* FileSystem.FileSystem;
+  if (!(yield* fs.exists(path))) return Option.none<string>();
+  const contents = yield* fs.readFileString(path).pipe(
+    Effect.mapError(() => new RuleConfigurationFailure({ message: `cannot read agent rule cache: ${path}` })),
+  );
+  return Option.some(contents);
+});
+
+const validateCachedRules = Effect.fn("validateCachedAgentRules")(function*(path: string, contents: string) {
+  yield* composeRuleSources([{ source: path, contents }]);
+});
+
+const writeCache = Effect.fn("writeAgentRuleCache")(function*(path: string, contents: string) {
+  const fs = yield* FileSystem.FileSystem;
+  yield* fs.makeDirectory(dirname(path), { recursive: true, mode: 0o700 }).pipe(
+    Effect.mapError(() => new RuleRefreshUnavailable({ message: "cannot create the machine-local agent rule cache" })),
+  );
   return yield* Effect.scoped(Effect.gen(function*() {
     const directory = yield* fs.makeTempDirectoryScoped({
       directory: dirname(path),
       prefix: ".agent-rules.",
     });
     const temporaryPath = join(directory, "agent-rules.md");
-    yield* fs.writeFileString(temporaryPath, contents, { mode: 0o644 });
+    yield* fs.writeFileString(temporaryPath, contents, { mode: 0o600 });
     yield* fs.rename(temporaryPath, path);
   })).pipe(
-    Effect.mapError(() => new RuleRefreshUnavailable({ message: "cannot update the vendored agent rule snapshot" })),
+    Effect.mapError(() => new RuleRefreshUnavailable({ message: "cannot update the machine-local agent rule cache" })),
   );
 });
 
 export const refreshAgentRules = Effect.fn("refreshAgentRules")(function*(
   repoRoot: string,
+  cachePath: string,
   options: { readonly offline?: boolean; readonly runtime?: RuleRuntime } = {},
 ) {
   const configPath = join(repoRoot, "scripts/agents/rules.json");
-  const snapshotPath = join(repoRoot, "chezmoi/agent-rules.md");
   const config = yield* readRequiredFile(configPath, "agent rule source config").pipe(
     Effect.flatMap(parseRuleSourceConfig),
   );
-  const existing = yield* readRequiredFile(snapshotPath, "vendored agent rule snapshot");
-  yield* composeRuleSources([{ source: snapshotPath, contents: existing }]);
-  if (options.offline) return "offline" as const;
+  const existing = yield* readCachedRules(cachePath);
+  const useCache = Effect.fn("useCachedAgentRules")(function*(error?: RuleRefreshUnavailable) {
+    if (Option.isNone(existing)) {
+      return yield* new RuleRefreshUnavailable({
+        message: `${error ? `${error.message}; ` : ""}agent rule cache is unavailable: ${cachePath}`,
+      });
+    }
+    yield* validateCachedRules(cachePath, existing.value);
+    if (error) yield* Console.warn(`${error.message}; using the machine-local cache`);
+    return "offline" as const;
+  });
+  if (options.offline) return yield* useCache();
 
   const runtime = options.runtime ?? liveRuleRuntime;
   const fetched = yield* Effect.forEach(config.sources, (source) =>
@@ -168,7 +193,7 @@ export const refreshAgentRules = Effect.fn("refreshAgentRules")(function*(
   ).pipe(
     Effect.map(Option.some),
     Effect.catchTag("RuleRefreshUnavailable", (error) =>
-      Console.warn(`${error.message}; using the vendored snapshot`).pipe(Effect.as(Option.none()))),
+      useCache(error).pipe(Effect.as(Option.none()))),
   );
   if (Option.isNone(fetched)) return "offline" as const;
 
@@ -176,15 +201,15 @@ export const refreshAgentRules = Effect.fn("refreshAgentRules")(function*(
   const scanned = yield* runtime.scan(contents).pipe(
     Effect.as(true),
     Effect.catchTag("RuleRefreshUnavailable", (error) =>
-      Console.warn(`${error.message}; using the vendored snapshot`).pipe(Effect.as(false))),
+      useCache(error).pipe(Effect.as(false))),
   );
   if (!scanned) return "offline" as const;
-  if (contents === existing) return "current" as const;
+  if (Option.isSome(existing) && contents === existing.value) return "current" as const;
 
-  const written = yield* writeSnapshot(snapshotPath, contents).pipe(
+  const written = yield* writeCache(cachePath, contents).pipe(
     Effect.as(true),
     Effect.catchTag("RuleRefreshUnavailable", (error) =>
-      Console.warn(`${error.message}; using the vendored snapshot`).pipe(Effect.as(false))),
+      useCache(error).pipe(Effect.as(false))),
   );
   return written ? "updated" as const : "offline" as const;
 });

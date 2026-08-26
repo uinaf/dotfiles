@@ -6,14 +6,14 @@ neither.
 
 ## Global Rules
 
-Configured remote sources own the shared layer. Chezmoi keeps its reviewed
-snapshot and owns the agent entrypoints:
+Configured remote sources own the shared layer. Dotfiles fetches them into
+machine-local state, and Chezmoi owns the agent entrypoints:
 
 | Source | Role or target |
 | --- | --- |
 | `scripts/agents/rules.json` | Ordered HTTPS sources for the shared layer |
-| `chezmoi/agent-rules.md` | Vendored shared snapshot for review and offline apply |
-| `chezmoi/private_AGENTS.md.tmpl` | Composes the snapshot and private fragments into `~/AGENTS.md` |
+| `${XDG_STATE_HOME:-~/.local/state}/dotfiles/agent-rules.md` | Ignored machine-local cache for offline use |
+| `chezmoi/private_AGENTS.md.tmpl` | Composes the cache and private fragments into `~/AGENTS.md` |
 | `chezmoi/private_dot_claude/symlink_CLAUDE.md` | `~/.claude/CLAUDE.md` |
 | `chezmoi/private_dot_codex/symlink_AGENTS.md` | `~/.codex/AGENTS.md` |
 
@@ -24,18 +24,17 @@ Preview and apply rule changes with the normal dotfile commands:
 ./dotfiles apply workstation
 ```
 
-A non-dry-run developer apply refreshes the vendored snapshot before Chezmoi
-renders it. The refresh fetches every configured source in order and adopts the
-combined result only when:
+A developer preview or apply fetches every configured source in order before
+Chezmoi renders it. The refresh updates the machine-local cache only when:
 
 - Every source is non-empty and has no frontmatter.
 - The combined document starts at `## General guidelines`.
 - `gitleaks` reports no possible secrets.
 
-An unavailable source or secret scanner leaves the existing snapshot in place
-and prints one warning. Invalid fetched content fails the apply without changing
-the snapshot. `./dotfiles diff` never fetches or writes the snapshot. Set
-`DOTFILES_AGENT_RULES_OFFLINE=1` to force a non-dry-run apply to use the snapshot.
+An unavailable source or secret scanner leaves an existing cache in place and
+prints one warning. The first run fails when no valid cache can cover an
+unavailable refresh. Invalid fetched content fails without changing the cache.
+Set `DOTFILES_AGENT_RULES_OFFLINE=1` to skip fetching and require the cache.
 
 - `~/AGENTS.md` is the private canonical target; Claude and Codex link directly to
   it.
@@ -293,9 +292,9 @@ mise run verify:domain agents
 ```
 
 - Rule-source fixtures cover strict config, ordered composition, rejected
-  content, atomic snapshot updates, and offline fallback.
+  content, atomic machine-local cache updates, and offline fallback.
 - Rule-composition fixtures cover clean and repeated applies, local Markdown
-  files and symlinks, literal snapshot content, permissions and ownership,
+  files and symlinks, literal cache content, permissions and ownership,
   workload isolation, explicit diffs, and conflicts.
 - Skill fixtures cover install, update, conflict, removal, and ownership without
   touching rules or Git.

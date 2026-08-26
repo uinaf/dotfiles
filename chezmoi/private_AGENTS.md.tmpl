@@ -1,4 +1,4 @@
-{{- $sharedRulesPath := joinPath .chezmoi.sourceDir "agent-rules.md" -}}
+{{- $sharedRulesPath := .agentRulesPath -}}
 {{- $sharedRules := trim (include $sharedRulesPath) -}}
 {{- if eq $sharedRules "" -}}
 {{- fail (printf "%s must not be empty" $sharedRulesPath) -}}

@@ -3,7 +3,6 @@ import { spawnSync } from "node:child_process";
 import {
   appendFileSync,
   chmodSync,
-  cpSync,
   lstatSync,
   mkdirSync,
   mkdtempSync,
@@ -22,6 +21,7 @@ import { fileURLToPath } from "node:url";
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const sourceDir = join(repoRoot, "chezmoi");
 const temporaryDirectories: string[] = [];
+const sharedFixtureRules = "## General guidelines\n\nFixture shared rule.\n\n### Delivery\n\nShared fixture delivery rule.\n";
 
 afterEach(() => {
   for (const path of temporaryDirectories.splice(0)) {
@@ -29,13 +29,19 @@ afterEach(() => {
   }
 });
 
+function agentRulesCache(home: string): string {
+  return join(home, ".local/state/dotfiles/agent-rules.md");
+}
+
 function createFixture(): { config: string; home: string; root: string } {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-agents-local-"));
   temporaryDirectories.push(root);
   const home = join(root, "home");
   const config = join(root, "chezmoi.toml");
   mkdirSync(home, { recursive: true });
+  mkdirSync(dirname(agentRulesCache(home)), { recursive: true });
   writeFileSync(config, "");
+  writeFileSync(agentRulesCache(home), sharedFixtureRules, { mode: 0o600 });
   return { config, home, root };
 }
 
@@ -54,7 +60,7 @@ function runChezmoiResult(
     "--destination",
     home,
     "--override-data",
-    JSON.stringify({ dotfilesProfile: profile }),
+    JSON.stringify({ agentRulesPath: agentRulesCache(home), dotfilesProfile: profile }),
   ];
   if (command === "apply") {
     args.push("--force");
@@ -126,11 +132,9 @@ test("applies public rules and links without private output", () => {
 
   assert.match(rules, /^## General guidelines/);
   assert.doesNotMatch(rules, /private fixture rule/);
-  assert.match(rules, /Extend the closest structured owner instead\s+of creating a parallel script/);
-  assert.match(rules, /#### Design and implementation/);
-  assert.match(rules, /delivery steps allowed by applicable owner and repository policy/);
-  assert.match(rules, /When delivery uses a change request, use the repository's template/);
-  assert.match(rules, /Reply to fixed\s+findings with the commit hash\.\n$/);
+  assert.match(rules, /Fixture shared rule/);
+  assert.match(rules, /### Delivery/);
+  assert.match(rules, /Shared fixture delivery rule\.\n$/);
   assert.equal(runChezmoi(home, config, "diff"), "");
   runChezmoi(home, config, "apply");
   assert.equal(runChezmoi(home, config, "diff"), "");
@@ -172,7 +176,7 @@ test("reads an optional private end layer from machine-local Markdown", () => {
 
   assert.match(
     assertManagedRules(home),
-    /hash\.\n\n## Private fixture rule\n\nKeep this fixture local\.\n$/,
+    /Shared fixture delivery rule\.\n\n## Private fixture rule\n\nKeep this fixture local\.\n$/,
   );
 });
 
@@ -219,7 +223,7 @@ test("omits the private end layer for blank Markdown", () => {
 
   runWrapper(home);
 
-  assert.match(assertManagedRules(home), /hash\.\n$/);
+  assert.match(assertManagedRules(home), /Shared fixture delivery rule\.\n$/);
 });
 
 test("ignores the retired agents.local.md path", () => {
@@ -247,20 +251,28 @@ test("omits the private start layer for blank Markdown", () => {
 });
 
 test("shows rule changes in diff and waits for an explicit apply", () => {
-  const { config, home, root } = createFixture();
-  const source = join(root, "source");
-  cpSync(sourceDir, source, { recursive: true });
-  runChezmoi(home, config, "apply", source);
+  const { config, home } = createFixture();
+  runChezmoi(home, config, "apply");
   const rulesPath = join(home, "AGENTS.md");
   const before = readFileSync(rulesPath, "utf8");
 
-  appendFileSync(join(source, "agent-rules.md"), "\nFixture public rule changed: `{{ .chezmoi.homeDir }}`.\n");
+  appendFileSync(agentRulesCache(home), "\nFixture public rule changed: `{{ .chezmoi.homeDir }}`.\n");
 
-  assert.match(runChezmoi(home, config, "diff", source), /Fixture public rule changed/);
+  assert.match(runChezmoi(home, config, "diff"), /Fixture public rule changed/);
   assert.equal(readFileSync(rulesPath, "utf8"), before);
-  runChezmoi(home, config, "apply", source);
+  runChezmoi(home, config, "apply");
   assert.match(readFileSync(rulesPath, "utf8"), /Fixture public rule changed: `\{\{ \.chezmoi\.homeDir \}\}`/);
-  assert.equal(runChezmoi(home, config, "diff", source), "");
+  assert.equal(runChezmoi(home, config, "diff"), "");
+});
+
+test("requires fetched machine-local rules instead of a repository copy", () => {
+  const { config, home } = createFixture();
+  rmSync(agentRulesCache(home));
+
+  const result = runChezmoiResult(home, config, "apply");
+
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /agent-rules\.md/);
 });
 
 test("replaces a conflicting rule file without a backup", () => {

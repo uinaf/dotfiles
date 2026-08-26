@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import { Console, Effect } from "effect";
 import { spawn } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -27,13 +27,16 @@ export function runApply(profile: string, fixtureRoot: string): Promise<void> {
   };
   mkdirSync(paths.home, { recursive: true });
   mkdirSync(paths.temp, { recursive: true });
+  const agentRulesPath = join(paths.state, "dotfiles/agent-rules.md");
+  mkdirSync(dirname(agentRulesPath), { recursive: true });
+  writeFileSync(agentRulesPath, "## General guidelines\n\nFixture shared rule.\n", { mode: 0o600 });
 
   for (const path of Object.values(paths)) {
     assert.ok(resolve(path).startsWith(`${resolve(fixtureRoot)}/`));
   }
 
   return new Promise((finish, reject) => {
-    const data = JSON.stringify({ dotfilesProfile: profile });
+    const data = JSON.stringify({ agentRulesPath, dotfilesProfile: profile });
     const child = spawn("chezmoi", [
       "--source",
       sourceDir,

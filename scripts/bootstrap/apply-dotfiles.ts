@@ -14,6 +14,7 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const sourceDir = join(repoRoot, "chezmoi");
 const home = process.env.HOME || "";
 const configDir = join(home, ".config/dotfiles");
+const agentRulesPath = join(process.env.XDG_STATE_HOME || join(home, ".local/state"), "dotfiles/agent-rules.md");
 const usage = `Usage:
   scripts/bootstrap/apply-dotfiles.ts [--profile PROFILE] [--dry-run] [--verbose]
 
@@ -219,16 +220,21 @@ const program = Effect.gen(function*() {
     return yield* fail(`canonical config path must be a directory: ${configDir}`);
   }
   const context: ChezmoiContext = {
-    baseArgs: ["--source", sourceDir, "--destination", home, "--override-data", JSON.stringify({ dotfilesProfile: profile })],
+    baseArgs: [
+      "--source",
+      sourceDir,
+      "--destination",
+      home,
+      "--override-data",
+      JSON.stringify({ agentRulesPath, dotfilesProfile: profile }),
+    ],
     dryRun: args.dryRun,
   };
   if (profileConfig.capabilities.developer) {
     yield* validateLocalAgentRules();
-    if (!args.dryRun) {
-      yield* refreshAgentRules(repoRoot, {
-        offline: process.env.DOTFILES_AGENT_RULES_OFFLINE === "1",
-      });
-    }
+    yield* refreshAgentRules(repoRoot, agentRulesPath, {
+      offline: process.env.DOTFILES_AGENT_RULES_OFFLINE === "1",
+    });
   }
   yield* backupPreexistingTargets(context, profileConfig.capabilities.developer);
   const applyArgs = [...context.baseArgs, "--force", "apply"];
