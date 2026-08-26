@@ -103,7 +103,14 @@ export function runRepoAudit(options: RepoAuditOptions, dependencies: AuditDepen
   report.section("repository secret scan");
   scannerResult(
     report,
-    command("gitleaks", ["detect", "--source", repoRoot, "--redact", "--verbose"], output),
+    command("gitleaks", [
+      "detect",
+      "--source",
+      repoRoot,
+      "--log-opts=--branches --remotes --tags",
+      "--redact",
+      "--verbose",
+    ], output),
     "gitleaks found no leaks",
     "gitleaks reported possible leaks",
     "gitleaks is not installed",
