@@ -23,7 +23,7 @@ export const managedEdits = [
   { keyPath: "service_tier", value: "default", mergeStrategy: "upsert" },
   { keyPath: "features.fast_mode", value: false, mergeStrategy: "upsert" },
   { keyPath: "features.goals", value: true, mergeStrategy: "upsert" },
-  { keyPath: "features.memories", value: true, mergeStrategy: "upsert" },
+  { keyPath: "features.memories", value: false, mergeStrategy: "upsert" },
 ] satisfies ConfigEdit[];
 
 export async function writeConfigEdits(edits: readonly ConfigEdit[]): Promise<string> {

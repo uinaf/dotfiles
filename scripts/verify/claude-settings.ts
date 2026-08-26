@@ -12,6 +12,7 @@ import { fileURLToPath } from "node:url";
 import { runApply } from "./home-fixture.ts";
 
 type Settings = Record<string, unknown> & {
+  autoMemoryEnabled?: boolean;
   env?: Record<string, unknown>;
   permissions?: Record<string, unknown>;
 };
@@ -113,9 +114,11 @@ function renderFixture(fixture: Fixture, root: string): Promise<void> {
           },
           {
             ...expected,
+            autoMemoryEnabled: false,
             permissions: { ...expected.permissions, [managedMode]: undefined },
           },
         );
+        assert.equal(actual.autoMemoryEnabled, false);
         assert.equal(actual.permissions?.[managedMode], "auto");
         finish();
       } catch (failure) {
@@ -131,6 +134,7 @@ async function verifyMissingFile(root: string): Promise<void> {
   await runApply("workstation", fixtureRoot);
   const path = settingsPath(fixtureRoot);
   const written = JSON.parse(readFileSync(path, "utf8")) as Settings;
+  assert.equal(written.autoMemoryEnabled, false);
   assert.equal(written.permissions?.[managedMode], "auto");
   assert.equal(Number(statSync(path, { bigint: true }).mode & 0o777n), 0o600);
 }
@@ -150,6 +154,7 @@ async function verifyModeAndIdempotence(root: string): Promise<void> {
   await runApply("workstation", fixtureRoot);
   const firstContents = readFileSync(path, "utf8");
   const firstMtime = statSync(path, { bigint: true }).mtimeNs;
+  assert.equal((JSON.parse(firstContents) as Settings).autoMemoryEnabled, false);
   assert.equal((JSON.parse(firstContents) as Settings).permissions?.[managedMode], "auto");
   assert.equal(Number(statSync(path, { bigint: true }).mode & 0o777n), 0o600);
   await runApply("workstation", fixtureRoot);

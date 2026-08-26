@@ -3,4 +3,4 @@
 {{- if ne (trim .chezmoi.stdin) "" -}}
 {{- $settings = fromJson .chezmoi.stdin -}}
 {{- end -}}
-{{ $settings | setValueAtPath "permissions.defaultMode" "auto" | toPrettyJson }}
+{{ $settings | setValueAtPath "permissions.defaultMode" "auto" | setValueAtPath "autoMemoryEnabled" false | toPrettyJson }}

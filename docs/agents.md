@@ -23,6 +23,8 @@ Preview and apply rule changes with the normal dotfile commands:
 
 - `~/AGENTS.md` is the private canonical file; Claude and Codex link directly to
   it.
+- Managed user settings disable Claude Code and Codex native auto-memory. Keep
+  durable rules in `~/AGENTS.md` or the owning repository instead.
 - For developer profiles, apply removes the retired `~/.agents/AGENTS.md` while
   leaving `~/.agents/skills` intact.
 - The three generated rule paths above and the retired path are replaced

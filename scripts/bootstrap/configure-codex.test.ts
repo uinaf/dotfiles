@@ -25,7 +25,7 @@ test("Codex defaults are one typed atomic edit batch", () => {
     { keyPath: "service_tier", value: "default", mergeStrategy: "upsert" },
     { keyPath: "features.fast_mode", value: false, mergeStrategy: "upsert" },
     { keyPath: "features.goals", value: true, mergeStrategy: "upsert" },
-    { keyPath: "features.memories", value: true, mergeStrategy: "upsert" },
+    { keyPath: "features.memories", value: false, mergeStrategy: "upsert" },
   ]);
 });
 
@@ -48,7 +48,7 @@ test("installed Codex removes forced login, preserves unrelated config, and is i
     for (const expected of [
       'model = "gpt-5.6-sol"',
       'model_reasoning_effort = "high"', 'service_tier = "default"',
-      "fast_mode = false", "goals = true", "memories = true",
+      "fast_mode = false", "goals = true", "memories = false",
     ]) assert.ok(contents.includes(expected), `missing ${expected}`);
     assert.equal(statSync(config).mode & 0o777, 0o600);
 
