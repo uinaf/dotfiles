@@ -159,9 +159,9 @@
     {
       "id": "maintenance-check",
       "domain": "services",
-      "command": ["node", "--test", "scripts/maintenance/check.test.ts"],
-      "inputs": ["scripts/maintenance/check.ts", "scripts/maintenance/check.test.ts", "scripts/profiles/model.ts", "mise.toml"],
-      "output": "Concurrent typed maintenance inventory and backlog parsing"
+      "command": ["node", "--test", "scripts/maintenance/check.test.ts", "scripts/maintenance/macos-updates.test.ts"],
+      "inputs": ["scripts/maintenance/check.ts", "scripts/maintenance/check.test.ts", "scripts/maintenance/macos-updates.ts", "scripts/maintenance/macos-updates.test.ts", "scripts/profiles/model.ts", "mise.toml"],
+      "output": "Concurrent typed maintenance inventory, freshness, and update applicability"
     },
     {
       "id": "audit-adapters",
