@@ -1,4 +1,5 @@
 {{ $profile := includeTemplate "profile" . | fromJson }}
+agent-rules.md
 .config/dotfiles/zshenv.local
 {{ if not $profile.capabilities.workstation }}
 .config/zed

@@ -4,6 +4,7 @@ import { NodeServices } from "@effect/platform-node";
 import { Console, DateTime, Effect, FileSystem, Option, Schema } from "effect";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { refreshAgentRules } from "../agents/rules.ts";
 import { CommandRunner } from "../lib/command.ts";
 import { CliFailure, fail, runMain } from "../lib/program.ts";
 import { resolveProfile } from "../profiles/current.ts";
@@ -221,7 +222,14 @@ const program = Effect.gen(function*() {
     baseArgs: ["--source", sourceDir, "--destination", home, "--override-data", JSON.stringify({ dotfilesProfile: profile })],
     dryRun: args.dryRun,
   };
-  if (profileConfig.capabilities.developer) yield* validateLocalAgentRules();
+  if (profileConfig.capabilities.developer) {
+    yield* validateLocalAgentRules();
+    if (!args.dryRun) {
+      yield* refreshAgentRules(repoRoot, {
+        offline: process.env.DOTFILES_AGENT_RULES_OFFLINE === "1",
+      });
+    }
+  }
   yield* backupPreexistingTargets(context, profileConfig.capabilities.developer);
   const applyArgs = [...context.baseArgs, "--force", "apply"];
   if (args.dryRun) applyArgs.push("--dry-run");
