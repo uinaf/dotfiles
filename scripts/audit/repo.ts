@@ -107,7 +107,7 @@ export function runRepoAudit(options: RepoAuditOptions, dependencies: AuditDepen
       "detect",
       "--source",
       repoRoot,
-      "--log-opts=--branches --remotes --tags",
+      "--log-opts=HEAD --branches --remotes --tags",
       "--redact",
       "--verbose",
     ], output),

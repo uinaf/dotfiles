@@ -4,7 +4,8 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { Effect, FileSystem } from "effect";
+import { Effect, Fiber, FileSystem } from "effect";
+import { TestClock } from "effect/testing";
 import { CommandRunner } from "../lib/command.ts";
 import {
   composeRuleSources,
@@ -12,6 +13,7 @@ import {
   refreshAgentRules,
   RuleContentFailure,
   RuleRefreshUnavailable,
+  liveRuleRuntime,
   type RuleRuntime,
 } from "./rules.ts";
 
@@ -31,6 +33,17 @@ function run<A>(effect: Effect.Effect<A, unknown, FileSystem.FileSystem | Comman
     Effect.provide(CommandRunner.layer),
     Effect.provide(NodeServices.layer),
   ));
+}
+
+async function captureWarnings<A>(action: (warnings: string[]) => Promise<A>): Promise<A> {
+  const warnings: string[] = [];
+  const originalWarn = console.warn;
+  console.warn = (...values: unknown[]) => { warnings.push(values.map(String).join(" ")); };
+  try {
+    return await action(warnings);
+  } finally {
+    console.warn = originalWarn;
+  }
 }
 
 test("parses a strict ordered HTTPS source config", async () => {
@@ -114,6 +127,60 @@ test("keeps the snapshot when refresh or secret validation is unavailable", asyn
     } finally {
       rmSync(root, { force: true, recursive: true });
     }
+  }
+});
+
+test("includes HTTP failures in the vendored-snapshot warning", async () => {
+  const root = createFixture();
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => new Response("", { status: 503 });
+  try {
+    await captureWarnings(async (warnings) => {
+      assert.equal(await run(refreshAgentRules(root, { runtime: liveRuleRuntime })), "offline");
+      assert.deepEqual(warnings, [
+        "cannot fetch agent rule source: https://rules.example.test/shared.md: HTTP 503; using the vendored snapshot",
+      ]);
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test("includes timeout failures in the vendored-snapshot warning", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (_input, init) => new Promise((_resolve, reject) => {
+    init?.signal?.addEventListener("abort", () => reject(new Error("aborted")), { once: true });
+  });
+  let timeoutError: RuleRefreshUnavailable;
+  try {
+    timeoutError = await Effect.runPromise(
+      Effect.gen(function*() {
+        const fiber = yield* Effect.forkChild(
+          liveRuleRuntime.fetch("https://rules.example.test/shared.md").pipe(Effect.flip),
+        );
+        yield* TestClock.adjust("10 seconds");
+        return yield* Fiber.join(fiber);
+      }).pipe(Effect.provide(TestClock.layer())),
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  const root = createFixture();
+  const runtime: RuleRuntime = {
+    fetch: () => Effect.fail(timeoutError),
+    scan: () => Effect.succeed(undefined),
+  };
+  try {
+    await captureWarnings(async (warnings) => {
+      assert.equal(await run(refreshAgentRules(root, { runtime })), "offline");
+      assert.deepEqual(warnings, [
+        "cannot fetch agent rule source: https://rules.example.test/shared.md: timed out after 10 seconds; using the vendored snapshot",
+      ]);
+    });
+  } finally {
+    rmSync(root, { force: true, recursive: true });
   }
 });
 
