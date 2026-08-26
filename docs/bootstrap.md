@@ -266,9 +266,11 @@ Apple GDMF responses are cached for 24 hours under
 Stale, malformed, incompatible, or unavailable sources stay visible in the
 snapshot; cached applicability is never labeled live.
 
-The routine path runs `softwareupdate --list` only when upstream is newer,
-cached applicability is non-empty or invalid, or fresh applicability cannot
-otherwise be established. Request an unconditional live scan with:
+The routine path runs `softwareupdate --list` when upstream is newer, cached
+applicability is non-empty or invalid, fresh applicability cannot otherwise be
+established, or the last successful live scan is at least 24 hours old. The
+successful live-scan timestamp is stored beside the GDMF cache. Request an
+unconditional live scan with:
 
 ```zsh
 node ./scripts/maintenance/check.ts --fresh
