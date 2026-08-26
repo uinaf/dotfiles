@@ -251,9 +251,33 @@ mise run audit host
 mise run audit workstation
 ```
 
-`maintenance:check` emits one read-only JSON snapshot and runs independent
-inventory probes concurrently. After maintenance, use `mise run
-maintenance:verify` to add the full bootstrap gate. Run
+`maintenance:check` emits a versioned, read-only JSON snapshot and runs
+independent inventory probes concurrently. Its macOS update inventory reports:
+
+- installed macOS version and build plus the installed Safari version;
+- Apple GDMF and advisory SOFA release baselines with source and freshness;
+- the device's cached applicable backlog from `softwareupdate --list
+  --no-scan`, labeled `cached_previous_scan`;
+- whether a live scan ran, why it ran, and whether applicability is current,
+  unknown, or has updates available.
+
+Apple GDMF responses are cached for 24 hours under
+`~/.cache/dotfiles/macos-updates/`. SOFA requests send an explicit User-Agent.
+Stale, malformed, incompatible, or unavailable sources stay visible in the
+snapshot; cached applicability is never labeled live.
+
+The routine path runs `softwareupdate --list` only when upstream is newer,
+cached applicability is non-empty or invalid, or fresh applicability cannot
+otherwise be established. Request an unconditional live scan with:
+
+```zsh
+node ./scripts/maintenance/check.ts --fresh
+```
+
+After maintenance, use `mise run maintenance:verify`; it runs the live scan and
+adds the full bootstrap gate. A live scan has no timeout because the macOS
+client does not document daemon-side cancellation. The inventory never runs
+`softwareupdate --background`, downloads, or installs updates. Run
 `./scripts/verify/bootstrap.ts --profile "$profile" --verbose` only when
 successful command output is needed for diagnosis.
 

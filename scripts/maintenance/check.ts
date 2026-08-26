@@ -10,20 +10,16 @@ import { runMain } from "../lib/program.ts";
 
 import { sanitizeDiagnostic } from "../agents/runtime.ts";
 import { type ProfileConfig, readProfileModel, requireProfile } from "../profiles/model.ts";
+import {
+  collectMacOSUpdateInventory,
+  defaultMacOSUpdateIO,
+  type CommandRunner,
+  type MacOSUpdateIO,
+  type MacOSUpdateInventory,
+  type RawCommandResult,
+} from "./macos-updates.ts";
 
-export type RawCommandResult = {
-  status: number;
-  stdout: string;
-  stderr: string;
-  error?: Error;
-  timedOut?: boolean;
-};
-
-export type CommandRunner = (
-  command: string,
-  args: readonly string[],
-  options: { cwd: string; env: NodeJS.ProcessEnv; timeoutMs: number },
-) => Promise<RawCommandResult>;
+export type { CommandRunner, RawCommandResult } from "./macos-updates.ts";
 
 type ProbeStatus = "ok" | "failed" | "timed_out" | "unavailable";
 
@@ -57,6 +53,7 @@ export type MaintenanceContext = {
   profileConfig: ProfileConfig;
   repoRoot: string;
   user: string;
+  fresh: boolean;
   verify: boolean;
 };
 
@@ -113,16 +110,6 @@ export function parseBrewBacklog(contents: string): BrewBacklog {
 
 function firstLine(result: RawCommandResult): string {
   return `${result.stdout}\n${result.stderr}`.split(/\r?\n/).map((line) => line.trim()).find(Boolean) ?? "";
-}
-
-function parseSoftwareUpdate(result: RawCommandResult) {
-  const output = `${result.stdout}\n${result.stderr}`.trim();
-  const lines = output.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-  return {
-    available: !/No new software available/i.test(output),
-    restart_required: lines.some((line) => /restart/i.test(line)),
-    items: lines.filter((line) => /^\* Label:|^Label:|^Title:/i.test(line)),
-  };
 }
 
 function parseDisk(result: RawCommandResult) {
@@ -238,9 +225,6 @@ function buildProbes(context: MaintenanceContext): Probe[] {
       probe("tailscale_version", "tailscale", ["version"], firstLine),
     );
   }
-  if (hostOwner && context.platform === "darwin") {
-    probes.push(probe("software_update", "softwareupdate", ["-l"], parseSoftwareUpdate, { timeoutMs: 30_000 }));
-  }
   if (context.ownsHomebrew) {
     const brewEnv = { ...context.env, HOMEBREW_NO_AUTO_UPDATE: "1" };
     probes.push(probe("brew_outdated_greedy", "brew", ["outdated", "--greedy", "--json=v2"], (result) => parseBrewBacklog(result.stdout), { env: brewEnv }));
@@ -308,15 +292,41 @@ function backlogCount(probes: Record<string, ProbeResult>): number {
   return count;
 }
 
-export async function collectMaintenanceSnapshot(context: MaintenanceContext, runner: CommandRunner = runProcess) {
-  const entries = await Promise.all(buildProbes(context).map(async (spec) => [spec.id, await runProbe(spec, context, runner)] as const));
+export async function collectMaintenanceSnapshot(
+  context: MaintenanceContext,
+  runner: CommandRunner = runProcess,
+  macosUpdateIO: MacOSUpdateIO = defaultMacOSUpdateIO,
+) {
+  const hostOwner = context.ownsHomebrew || context.profileConfig.capabilities.workstation;
+  const inventory = hostOwner && context.platform === "darwin"
+    ? collectMacOSUpdateInventory({
+        cwd: context.cwd,
+        env: context.env,
+        fresh: context.fresh || context.verify,
+        home: context.home,
+      }, runner, macosUpdateIO)
+    : undefined;
+  const [entries, macosUpdates] = await Promise.all([
+    Promise.all(buildProbes(context).map(async (spec) => [spec.id, await runProbe(spec, context, runner)] as const)),
+    inventory,
+  ]);
   const probes = Object.fromEntries(entries);
+  if (macosUpdates) {
+    probes.software_update = {
+      status: macosUpdates.applicability.status === "unknown" ? "failed" : "ok",
+      required: true,
+      duration_ms: macosUpdates.duration_ms,
+      value: macosUpdates,
+      ...(macosUpdates.applicability.status === "unknown" ? { error: "macOS update applicability could not be established" } : {}),
+    };
+  }
   const backlog_count = backlogCount(probes);
   const required_failures = Object.values(probes).filter((result) => result.required && result.status !== "ok").length;
-  const software = probes.software_update?.value;
-  const software_update_available = isRecord(software) && software.available === true;
+  const software = macosUpdates as MacOSUpdateInventory | undefined;
+  const software_update_status = software?.applicability.status ?? "not_applicable";
+  const software_update_available = software?.applicability.status === "updates_available";
   return {
-    schema_version: 1,
+    schema_version: 2,
     collected_at: new Date().toISOString(),
     identity: { host: context.hostname, user: context.user, profile: context.profile },
     capabilities: context.profileConfig.capabilities,
@@ -326,29 +336,33 @@ export async function collectMaintenanceSnapshot(context: MaintenanceContext, ru
       status: required_failures > 0 ? "incomplete" : backlog_count > 0 || software_update_available ? "attention" : "clean",
       backlog_count,
       required_failures,
+      software_update_status,
       software_update_available,
     },
     probes,
   };
 }
 
-export function runProcess(command: string, args: readonly string[], options: { cwd: string; env: NodeJS.ProcessEnv; timeoutMs: number }): Promise<RawCommandResult> {
+export function runProcess(command: string, args: readonly string[], options: { cwd: string; env: NodeJS.ProcessEnv; timeoutMs: number | null }): Promise<RawCommandResult> {
   return new Promise((finish) => {
     const child = spawn(command, [...args], { cwd: options.cwd, env: options.env, stdio: ["ignore", "pipe", "pipe"] });
     const stdout: Buffer[] = [];
     const stderr: Buffer[] = [];
     let settled = false;
     let timedOut = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     const complete = (result: RawCommandResult) => {
       if (settled) return;
       settled = true;
-      clearTimeout(timer);
+      if (timer) clearTimeout(timer);
       finish(result);
     };
-    const timer = setTimeout(() => {
-      timedOut = true;
-      child.kill("SIGTERM");
-    }, options.timeoutMs);
+    if (options.timeoutMs !== null) {
+      timer = setTimeout(() => {
+        timedOut = true;
+        child.kill("SIGTERM");
+      }, options.timeoutMs);
+    }
     child.stdout.on("data", (chunk: Buffer) => stdout.push(chunk));
     child.stderr.on("data", (chunk: Buffer) => stderr.push(chunk));
     child.on("error", (error) => complete({ status: 127, stdout: Buffer.concat(stdout).toString(), stderr: Buffer.concat(stderr).toString(), error, timedOut }));
@@ -368,8 +382,8 @@ function ownsHomebrew(env: NodeJS.ProcessEnv): boolean {
 
 async function main(): Promise<number> {
   const args = process.argv.slice(2);
-  if (args.length > 1 || (args[0] !== undefined && args[0] !== "--verify")) {
-    process.stderr.write("Usage: scripts/maintenance/check.ts [--verify]\n");
+  if (args.some((argument) => argument !== "--fresh" && argument !== "--verify") || new Set(args).size !== args.length) {
+    process.stderr.write("Usage: scripts/maintenance/check.ts [--fresh] [--verify]\n");
     return 2;
   }
   const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -387,7 +401,8 @@ async function main(): Promise<number> {
     profileConfig: requireProfile(model, profile),
     repoRoot,
     user: process.env.USER || "unknown",
-    verify: args[0] === "--verify",
+    fresh: args.includes("--fresh"),
+    verify: args.includes("--verify"),
   });
   process.stdout.write(`${JSON.stringify(snapshot)}\n`);
   return 0;
