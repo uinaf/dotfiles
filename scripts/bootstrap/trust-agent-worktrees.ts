@@ -13,6 +13,26 @@ Trusts existing mise config files near the roots of Codex and Claude generated
 worktrees. With --check, verifies that any discovered config files are already
 trusted.`;
 
+const configNames = ["mise.toml", ".mise.toml"] as const;
+
+export const discoverMiseConfigs = Effect.fn("discoverMiseConfigs")(function*(roots: ReadonlyArray<string>) {
+  const fs = yield* FileSystem.FileSystem;
+  const configs: string[] = [];
+  for (const root of roots) {
+    if (!(yield* fs.exists(root))) {
+      continue;
+    }
+    for (let depth = 1; depth <= 3; depth += 1) {
+      const prefix = "*/".repeat(depth - 1);
+      for (const name of configNames) {
+        const matches = yield* fs.glob(`${prefix}${name}`, { root });
+        configs.push(...matches.map((path) => resolve(root, path)));
+      }
+    }
+  }
+  return [...new Set(configs)].sort();
+});
+
 const program = Effect.gen(function*() {
   let mode: "check" | "trust" = "trust";
   for (const argument of process.argv.slice(2)) {
@@ -37,21 +57,7 @@ const program = Effect.gen(function*() {
     join(process.env.CODEX_HOME || join(home, ".codex"), "worktrees"),
     join(process.env.CLAUDE_HOME || join(home, ".claude"), "worktrees"),
   ];
-  const configs: string[] = [];
-  for (const root of roots) {
-    if (!(yield* fs.exists(root))) {
-      continue;
-    }
-    for (const pattern of ["**/mise.toml", "**/.mise.toml"]) {
-      const matches = yield* fs.glob(pattern, { root });
-      configs.push(
-        ...matches
-          .filter((path) => path.split("/").length <= 3)
-          .map((path) => resolve(root, path)),
-      );
-    }
-  }
-  const paths = [...new Set(configs)].sort();
+  const paths = yield* discoverMiseConfigs(roots);
 
   if (mode === "check") {
     yield* Console.log("\n## agent worktree mise trust");
@@ -90,4 +96,6 @@ const program = Effect.gen(function*() {
   Effect.provide(NodeServices.layer),
 );
 
-runMain(program);
+if (import.meta.main) {
+  runMain(program);
+}

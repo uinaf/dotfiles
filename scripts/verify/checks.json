@@ -73,6 +73,13 @@
       "output": "Global agent rules, local Markdown and symlinks, permissions, links, conflicts, and explicit apply behavior"
     },
     {
+      "id": "agent-worktree-trust",
+      "domain": "agents",
+      "command": ["node", "--test", "scripts/bootstrap/trust-agent-worktrees.test.ts"],
+      "inputs": ["scripts/bootstrap/trust-agent-worktrees.ts", "scripts/bootstrap/trust-agent-worktrees.test.ts", "scripts/lib/command.ts", "scripts/lib/program.ts"],
+      "output": "Bounded generated-worktree mise config discovery and trust"
+    },
+    {
       "id": "profiles",
       "domain": "profiles",
       "command": ["scripts/verify/profiles.ts"],
