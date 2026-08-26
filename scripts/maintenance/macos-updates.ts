@@ -84,6 +84,7 @@ type ApplicabilityResult = {
   items: string[];
   error?: string;
   failure_kind?: FailureKind;
+  cache_error?: string;
 };
 
 export type MacOSUpdateInventory = {
@@ -101,7 +102,11 @@ export type MacOSUpdateInventory = {
     selected_safari?: ReleaseBaseline;
   };
   cached_applicability: ApplicabilityResult;
-  live_scan: ApplicabilityResult & { reasons: string[] };
+  live_scan: ApplicabilityResult & {
+    reasons: string[];
+    last_success_at?: string;
+    last_success_age_seconds?: number;
+  };
   applicability: {
     status: "current" | "unknown" | "updates_available";
     basis: "cached_and_upstream" | "live" | "unknown";
@@ -109,6 +114,7 @@ export type MacOSUpdateInventory = {
 };
 
 export type MacOSUpdateOptions = {
+  applicabilityCachePath?: string;
   cachePath?: string;
   cwd: string;
   env: NodeJS.ProcessEnv;
@@ -119,6 +125,7 @@ export type MacOSUpdateOptions = {
 
 const Version = Schema.String.pipe(Schema.check(Schema.isPattern(/^\d+(?:\.\d+){0,3}$/)));
 const Build = Schema.String.pipe(Schema.check(Schema.isPattern(/^\d+[A-Za-z]+\d+[A-Za-z0-9]*$/)));
+const IsoInstant = Schema.String.pipe(Schema.check(Schema.isPattern(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/)));
 const GdmfAsset = Schema.Struct({
   ProductVersion: Version,
   Build,
@@ -132,7 +139,10 @@ const SofaMacOSFeed = Schema.Struct({
   OSVersions: Schema.Array(Schema.Struct({
     Latest: Schema.Struct({ ProductVersion: Version, Build }),
     SupportedModels: Schema.Array(Schema.Struct({
-      Identifiers: Schema.Record(Schema.String, Schema.String),
+      Identifiers: Schema.Union([
+        Schema.Array(Schema.NonEmptyString),
+        Schema.Record(Schema.String, Schema.String),
+      ]),
     })),
   })),
 });
@@ -145,17 +155,22 @@ const SofaSafariFeed = Schema.Struct({
 });
 const CacheRecord = Schema.Struct({
   schema_version: Schema.Literal(1),
-  checked_at: Schema.NonEmptyString,
-  fetched_at: Schema.optional(Schema.NonEmptyString),
+  checked_at: IsoInstant,
+  fetched_at: Schema.optional(IsoInstant),
   payload: Schema.optional(Schema.Unknown),
   error: Schema.optional(Schema.String),
   failure_kind: Schema.optional(Schema.Literals(["auth", "conflict", "internal", "rate_limit", "transient", "unknown", "validation"])),
+});
+const LiveScanRecord = Schema.Struct({
+  schema_version: Schema.Literal(1),
+  completed_at: IsoInstant,
 });
 
 type GdmfFeed = typeof GdmfFeed.Type;
 type SofaMacOSFeed = typeof SofaMacOSFeed.Type;
 type SofaSafariFeed = typeof SofaSafariFeed.Type;
 type CacheRecord = typeof CacheRecord.Type;
+type LiveScanRecord = typeof LiveScanRecord.Type;
 
 const appleUrl = "https://gdmf.apple.com/v2/pmv";
 const sofaMacOSUrl = "https://sofafeed.macadmins.io/v2/macos_data_feed.json";
@@ -164,6 +179,12 @@ const userAgent = "dotfiles-maintenance/1";
 const dayMs = 24 * 60 * 60 * 1_000;
 const commandTimeoutMs = 5_000;
 const feedTimeoutMs = 1_500;
+const safariMajorByMacOSMajor = new Map([
+  [12, "17"],
+  [13, "18"],
+  [14, "26"],
+  [15, "26"],
+]);
 
 function errorMessage(result: RawCommandResult): string {
   if (result.timedOut) return "command timed out";
@@ -183,13 +204,16 @@ function parseJson(contents: string): unknown {
 }
 
 function parseDateTime(value: string): DateTime.Utc | undefined {
-  return Option.getOrUndefined(DateTime.make(value));
+  const parsed = Option.getOrUndefined(DateTime.make(value));
+  return parsed && DateTime.formatIso(parsed) === value ? parsed : undefined;
 }
 
 function ageSeconds(nowMs: number, value: string): number | undefined {
   const parsed = parseDateTime(value);
   if (!parsed) return undefined;
-  return Math.max(0, Math.floor((nowMs - DateTime.toEpochMillis(parsed)) / 1_000));
+  const ageMs = nowMs - DateTime.toEpochMillis(parsed);
+  if (ageMs < 0) return undefined;
+  return Math.floor(ageMs / 1_000);
 }
 
 function commandInstalled(result: RawCommandResult, source: string, fields: { version?: string; build?: string }): InstalledValue {
@@ -319,7 +343,9 @@ export function selectGdmfBaseline(payload: unknown, deviceIdentifiers: readonly
 export function selectSofaMacOSBaseline(payload: unknown, modelIdentifier: string): ReleaseBaseline {
   const feed = decodeSofaMacOS(payload);
   const candidates = feed.OSVersions
-    .filter((release) => release.SupportedModels.some((group) => Object.hasOwn(group.Identifiers, modelIdentifier)))
+    .filter((release) => release.SupportedModels.some((group) => Array.isArray(group.Identifiers)
+      ? group.Identifiers.includes(modelIdentifier)
+      : Object.hasOwn(group.Identifiers, modelIdentifier)))
     .map((release) => ({
       version: release.Latest.ProductVersion,
       build: release.Latest.Build,
@@ -331,9 +357,20 @@ export function selectSofaMacOSBaseline(payload: unknown, modelIdentifier: strin
   return selected;
 }
 
-export function selectSofaSafariBaseline(payload: unknown, installedVersion: string): ReleaseBaseline {
+function compatibleSafariMajor(installedSafariVersion: string, installedMacOSVersion: string): string {
+  const safariMajor = installedSafariVersion.split(".")[0] ?? "";
+  const macOSMajor = Number(installedMacOSVersion.split(".")[0]);
+  if (macOSMajor >= 26) return String(macOSMajor);
+  return safariMajorByMacOSMajor.get(macOSMajor) ?? safariMajor;
+}
+
+export function selectSofaSafariBaseline(
+  payload: unknown,
+  installedVersion: string,
+  installedMacOSVersion: string,
+): ReleaseBaseline {
   const feed = decodeSofaSafari(payload);
-  const major = installedVersion.split(".")[0];
+  const major = compatibleSafariMajor(installedVersion, installedMacOSVersion);
   const candidates = feed.AppVersions
     .filter((release) => release.AppVersion.match(/\d+/)?.[0] === major)
     .map((release) => ({
@@ -384,6 +421,23 @@ function parseCache(contents: string | undefined): { record?: CacheRecord; error
   }
 }
 
+function parseLiveScanRecord(contents: string | undefined): { record?: LiveScanRecord; error?: string } {
+  if (contents === undefined) return {};
+  try {
+    return { record: Schema.decodeUnknownSync(LiveScanRecord)(parseJson(contents)) };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+async function readCacheResult(io: MacOSUpdateIO, path: string): Promise<{ contents?: string; error?: string }> {
+  try {
+    return { contents: await io.readCache(path) };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
 async function appleSource(
   io: MacOSUpdateIO,
   cachePath: string,
@@ -394,27 +448,31 @@ async function appleSource(
   const cached = parseCache(await io.readCache(cachePath).catch(() => undefined));
   const checkedAge = cached.record ? ageSeconds(nowMs, cached.record.checked_at) : undefined;
   const fetchedAge = cached.record?.fetched_at ? ageSeconds(nowMs, cached.record.fetched_at) : undefined;
-  if (cached.record && checkedAge !== undefined && checkedAge < dayMs / 1_000) {
-    if (cached.record.payload !== undefined) {
+  const fetchedAgeUnknown = cached.record?.fetched_at !== undefined && fetchedAge === undefined;
+  const reusableCache = cached.record && checkedAge !== undefined && !fetchedAgeUnknown
+    ? cached.record
+    : undefined;
+  if (reusableCache && checkedAge !== undefined && checkedAge < dayMs / 1_000) {
+    if (reusableCache.payload !== undefined) {
       const result = selectPayload(
         "apple_gdmf",
-        cached.record.payload,
-        cached.record.checked_at,
+        reusableCache.payload,
+        reusableCache.checked_at,
         fetchedAge !== undefined && fetchedAge >= dayMs / 1_000 ? "stale_cache" : "daily_cache",
         (payload) => selectGdmfBaseline(payload, identifiers),
         fetchedAge,
       );
-      return result.freshness === "stale_cache" && cached.record.error
-        ? { ...result, error: cached.record.error, failure_kind: cached.record.failure_kind ?? "unknown" }
+      return result.freshness === "stale_cache" && reusableCache.error
+        ? { ...result, error: reusableCache.error, failure_kind: reusableCache.failure_kind ?? "unknown" }
         : result;
     }
     return sourceFailure(
       "apple_gdmf",
-      cached.record.checked_at,
+      reusableCache.checked_at,
       "unavailable",
       "unavailable",
-      cached.record.error ?? "Apple GDMF is unavailable",
-      cached.record.failure_kind ?? "unknown",
+      reusableCache.error ?? "Apple GDMF is unavailable",
+      reusableCache.failure_kind ?? "unknown",
     );
   }
 
@@ -438,8 +496,8 @@ async function appleSource(
     checked_at: nowIso,
     ...(failure
       ? {
-          ...(cached.record?.payload === undefined ? {} : { payload: cached.record.payload }),
-          ...(cached.record?.fetched_at === undefined ? {} : { fetched_at: cached.record.fetched_at }),
+          ...(reusableCache?.payload === undefined ? {} : { payload: reusableCache.payload }),
+          ...(reusableCache?.fetched_at === undefined ? {} : { fetched_at: reusableCache.fetched_at }),
           error: failure.error,
           failure_kind: failure.kind,
         }
@@ -497,7 +555,7 @@ function parseDevice(result: RawCommandResult): DeviceValue {
   const modelIdentifier = /"model"\s*=\s*<"([^"]+)">/.exec(result.stdout)?.[1];
   const boardIdentifier = /"board-id"\s*=\s*<"([^"]+)">/.exec(result.stdout)?.[1];
   if (!softwareUpdateId && !modelIdentifier && !boardIdentifier) {
-    return { status: "unavailable", source: "ioreg", freshness: "installed", error: "ioreg did not return a software-update device identifier" };
+    return { status: "unavailable", source: "ioreg", freshness: "installed", error: "ioreg did not return a supported device identifier" };
   }
   return {
     status: "ok",
@@ -529,12 +587,15 @@ const collectMacOSUpdateInventoryEffect = Effect.fn("collectMacOSUpdateInventory
   const nowIso = DateTime.formatIso(now);
   const nowMs = DateTime.toEpochMillis(now);
 
-  const [osVersionResult, osBuildResult, safariResult, deviceResult, cachedResult] = yield* Effect.all([
+  const applicabilityCachePath = options.applicabilityCachePath
+    ?? join(options.home, ".cache/dotfiles/macos-updates/softwareupdate-live.json");
+  const [osVersionResult, osBuildResult, safariResult, deviceResult, cachedResult, liveScanCacheResult] = yield* Effect.all([
     runCommand(runner, options, "sw_vers", ["-productVersion"], commandTimeoutMs),
     runCommand(runner, options, "sw_vers", ["-buildVersion"], commandTimeoutMs),
     runCommand(runner, options, "defaults", ["read", "/Applications/Safari.app/Contents/Info", "CFBundleShortVersionString"], commandTimeoutMs),
     runCommand(runner, options, "ioreg", ["-rd1", "-c", "IOPlatformExpertDevice"], commandTimeoutMs),
     runCommand(runner, options, "softwareupdate", ["-l", "--no-scan"], commandTimeoutMs),
+    Effect.promise(() => readCacheResult(io, applicabilityCachePath)),
   ], { concurrency: "unbounded" });
 
   const osVersion = osVersionResult.stdout.trim();
@@ -550,11 +611,24 @@ const collectMacOSUpdateInventoryEffect = Effect.fn("collectMacOSUpdateInventory
       && version.version && build.build
     ? { status: "ok", source: "sw_vers", freshness: "installed", version: version.version, build: build.build }
     : { status: "unavailable", source: "sw_vers", freshness: "installed", error: version.error ?? build.error ?? "sw_vers returned an invalid version or build" };
-  const installedSafari = Schema.is(Version)(safariVersion)
-    ? commandInstalled(safariResult, "Safari Info.plist", { version: safariVersion })
+  const safari = commandInstalled(safariResult, "Safari Info.plist", {
+    ...(Schema.is(Version)(safariVersion) ? { version: safariVersion } : {}),
+  });
+  const installedSafari = safari.status === "unavailable" || safari.version
+    ? safari
     : { status: "unavailable" as const, source: "Safari Info.plist", freshness: "installed" as const, error: "Safari returned an invalid version" };
   const device = parseDevice(deviceResult);
   const cachedApplicability = parseApplicability(cachedResult, false);
+  const liveScanCache = liveScanCacheResult.error
+    ? { error: liveScanCacheResult.error }
+    : parseLiveScanRecord(liveScanCacheResult.contents);
+  const lastLiveScanAge = liveScanCache.record
+    ? ageSeconds(nowMs, liveScanCache.record.completed_at)
+    : undefined;
+  const liveScanCacheError = liveScanCache.error
+    ?? (liveScanCache.record && lastLiveScanAge === undefined
+      ? "cached live-scan timestamp is invalid"
+      : undefined);
   const identifiers = device.status === "ok"
     ? [device.software_update_id, device.board_identifier, device.model_identifier].filter((value): value is string => value !== undefined)
     : [];
@@ -563,13 +637,21 @@ const collectMacOSUpdateInventoryEffect = Effect.fn("collectMacOSUpdateInventory
   const [apple, sofaMacOS, sofaSafari] = yield* Effect.all([
     Effect.promise(() => appleSource(io, cachePath, nowIso, nowMs, identifiers)),
     Effect.promise(() => sofaSource(io, "sofa_macos", sofaMacOSUrl, nowIso, (payload) => selectSofaMacOSBaseline(payload, device.model_identifier ?? ""))),
-    Effect.promise(() => sofaSource(io, "sofa_safari", sofaSafariUrl, nowIso, (payload) => selectSofaSafariBaseline(payload, installedSafari.version ?? ""))),
+    Effect.promise(() => sofaSource(
+      io,
+      "sofa_safari",
+      sofaSafariUrl,
+      nowIso,
+      (payload) => selectSofaSafariBaseline(payload, installedSafari.version ?? "", installedOs.version ?? ""),
+    )),
   ], { concurrency: "unbounded" });
 
   const selectedOs = newest([apple, sofaMacOS].flatMap((source) => source.status === "ok" && source.baseline ? [source.baseline] : []));
   const selectedSafari = sofaSafari.status === "ok" ? sofaSafari.baseline : undefined;
   const reasons: string[] = [];
   if (options.fresh) reasons.push("explicit_fresh");
+  if (liveScanCacheError || lastLiveScanAge === undefined) reasons.push("live_scan_age_unknown");
+  else if (lastLiveScanAge >= dayMs / 1_000) reasons.push("live_scan_stale");
   if (cachedApplicability.status === "failed") reasons.push("cached_applicability_invalid");
   else if (cachedApplicability.available) reasons.push("cached_backlog_nonempty");
   if (installedOs.status !== "ok" || !installedOs.version || !installedOs.build || device.status !== "ok") reasons.push("installed_state_invalid");
@@ -587,10 +669,33 @@ const collectMacOSUpdateInventoryEffect = Effect.fn("collectMacOSUpdateInventory
     freshness: "not_run",
     items: [],
     reasons: [...new Set(reasons)],
+    ...(lastLiveScanAge === undefined || !liveScanCache.record
+      ? {}
+      : {
+          last_success_at: liveScanCache.record.completed_at,
+          last_success_age_seconds: lastLiveScanAge,
+        }),
+    ...(liveScanCacheError ? { cache_error: liveScanCacheError } : {}),
   };
   if (reasons.length > 0) {
     const live = parseApplicability(yield* runCommand(runner, options, "softwareupdate", ["-l"], null), true);
-    liveScan = { ...live, reasons: [...new Set(reasons)] };
+    const uniqueReasons = [...new Set(reasons)];
+    liveScan = { ...liveScan, ...live, reasons: uniqueReasons };
+    if (live.status === "current" || live.status === "updates_available") {
+      const cacheWriteError = yield* Effect.promise(async () => {
+        try {
+          await io.writeCache(applicabilityCachePath, JSON.stringify({ schema_version: 1, completed_at: nowIso } satisfies LiveScanRecord));
+          return undefined;
+        } catch (error) {
+          return error instanceof Error ? error.message : String(error);
+        }
+      });
+      if (cacheWriteError) {
+        liveScan = { ...liveScan, cache_error: cacheWriteError };
+      } else {
+        liveScan = { ...live, reasons: uniqueReasons, last_success_at: nowIso, last_success_age_seconds: 0 };
+      }
+    }
   }
 
   const applicability = liveScan.status === "current"

@@ -10,6 +10,7 @@ import {
   parseSoftwareUpdate,
   selectGdmfBaseline,
   selectSofaMacOSBaseline,
+  selectSofaSafariBaseline,
   type CommandRunner,
   type HttpResult,
   type MacOSUpdateIO,
@@ -40,7 +41,7 @@ const sofaMacOS = {
     },
     {
       Latest: { ProductVersion: "15.7.9", Build: "24G830" },
-      SupportedModels: [{ Identifiers: { "Mac98,1": "Older Fixture Mac" } }],
+      SupportedModels: [{ Identifiers: ["Mac98,1"] }],
     },
   ],
 };
@@ -64,14 +65,23 @@ function runner(options: {
   osVersion?: string;
   osBuild?: string;
   safariVersion?: string;
+  safariStatus?: number;
+  safariStderr?: string;
+  deviceOutput?: string;
   calls?: Array<{ command: string; args: readonly string[]; timeoutMs: number | null }>;
 } = {}): CommandRunner {
   return async (command, args, runOptions) => {
     options.calls?.push({ command, args, timeoutMs: runOptions.timeoutMs });
     if (command === "sw_vers" && args[0] === "-productVersion") return commandResult(`${options.osVersion ?? "26.6.2"}\n`);
     if (command === "sw_vers" && args[0] === "-buildVersion") return commandResult(`${options.osBuild ?? "25G83"}\n`);
-    if (command === "defaults") return commandResult(`${options.safariVersion ?? "26.6.2"}\n`);
-    if (command === "ioreg") return commandResult(deviceOutput);
+    if (command === "defaults") {
+      return {
+        status: options.safariStatus ?? 0,
+        stdout: `${options.safariVersion ?? "26.6.2"}\n`,
+        stderr: options.safariStderr ?? "",
+      };
+    }
+    if (command === "ioreg") return commandResult(options.deviceOutput ?? deviceOutput);
     if (command === "softwareupdate" && args.includes("--no-scan")) {
       return commandResult(options.cached ?? "Software Update Tool\nNo new software available.\n");
     }
@@ -85,6 +95,7 @@ function io(options: {
   macos?: HttpResult;
   safari?: HttpResult;
   cache?: string;
+  applicabilityCache?: string | null;
   fetches?: string[];
   writes?: string[];
 } = {}): MacOSUpdateIO {
@@ -95,7 +106,12 @@ function io(options: {
       if (url.includes("macos_data_feed")) return options.macos ?? { status: 200, body: JSON.stringify(sofaMacOS) };
       return options.safari ?? { status: 200, body: JSON.stringify(sofaSafari) };
     },
-    async readCache() {
+    async readCache(path) {
+      if (path.endsWith("softwareupdate-live.json")) {
+        if (options.applicabilityCache === null) return undefined;
+        return options.applicabilityCache
+          ?? JSON.stringify({ schema_version: 1, completed_at: now });
+      }
       return options.cache;
     },
     async writeCache(_path, contents) {
@@ -141,6 +157,17 @@ test("SOFA matches the model without depending on the executing Mac", () => {
     source: "sofa_macos",
     device_match: "Mac99,1",
   });
+  assert.equal(selectSofaMacOSBaseline(sofaMacOS, "Mac98,1").version, "15.7.9");
+});
+
+test("SOFA selects the newest Safari major compatible with the installed macOS", () => {
+  assert.deepEqual(selectSofaSafariBaseline(sofaSafari, "18.6", "14.8.9"), {
+    version: "26.6.1",
+    source: "sofa_safari",
+    device_match: "Safari 26",
+  });
+  assert.equal(selectSofaSafariBaseline(sofaSafari, "18.6", "15.7.8").version, "26.6.1");
+  assert.equal(selectSofaSafariBaseline(sofaSafari, "18.6", "13.7.8").version, "18.6");
 });
 
 test("upstream parsers reject missing, malformed, and incompatible feeds", () => {
@@ -174,6 +201,77 @@ test("routine inventory preserves source and freshness without a live scan", asy
   assert.equal(calls.filter((call) => call.command === "softwareupdate" && !call.args.includes("--no-scan")).length, 0);
 });
 
+test("routine inventory bounds stale applicability with a daily live scan", async () => {
+  const calls: Array<{ command: string; args: readonly string[]; timeoutMs: number | null }> = [];
+  const applicabilityCache = JSON.stringify({
+    schema_version: 1,
+    completed_at: "2026-08-24T12:00:00.000Z",
+  });
+  const inventory = await collect(runner({ calls }), io({ applicabilityCache }));
+
+  assert.ok(inventory.live_scan.reasons.includes("live_scan_stale"));
+  assert.equal(inventory.live_scan.status, "current");
+  assert.equal(inventory.live_scan.last_success_at, now);
+  assert.equal(calls.filter((call) => call.command === "softwareupdate" && !call.args.includes("--no-scan")).length, 1);
+});
+
+test("malformed, impossible, or future live-scan timestamps fail closed through the live path", async () => {
+  for (const completedAt of [
+    "2026-08-26",
+    "2026-02-30T12:00:00.000Z",
+    "2026-08-27T12:00:00.000Z",
+  ]) {
+    const applicabilityCache = JSON.stringify({ schema_version: 1, completed_at: completedAt });
+    const inventory = await collect(runner(), io({ applicabilityCache }));
+
+    assert.ok(inventory.live_scan.reasons.includes("live_scan_age_unknown"));
+    assert.equal(inventory.live_scan.status, "current");
+    assert.equal(inventory.live_scan.last_success_at, now);
+  }
+});
+
+test("failed live scans preserve cache diagnostics", async () => {
+  const inventory = await collect(
+    runner({ live: "scan failed", liveStatus: 1 }),
+    io({ applicabilityCache: "{" }),
+  );
+
+  assert.equal(inventory.live_scan.status, "failed");
+  assert.ok(inventory.live_scan.cache_error);
+});
+
+test("failed live scans reject invalid cached success timestamps", async () => {
+  const applicabilityCache = JSON.stringify({
+    schema_version: 1,
+    completed_at: "2026-02-30T12:00:00.000Z",
+  });
+  const inventory = await collect(
+    runner({ live: "scan failed", liveStatus: 1 }),
+    io({ applicabilityCache }),
+  );
+
+  assert.equal(inventory.live_scan.status, "failed");
+  assert.equal(inventory.live_scan.last_success_at, undefined);
+  assert.equal(inventory.live_scan.cache_error, "cached live-scan timestamp is invalid");
+});
+
+test("Safari command failures preserve their diagnostic", async () => {
+  const inventory = await collect(runner({
+    safariStatus: 1,
+    safariStderr: "Safari domain not found",
+  }), io());
+
+  assert.equal(inventory.installed.safari.status, "unavailable");
+  assert.equal(inventory.installed.safari.error, "Safari domain not found");
+});
+
+test("missing device identifiers report the supported identifier contract", async () => {
+  const inventory = await collect(runner({ deviceOutput: "IOPlatformExpertDevice\n" }), io());
+
+  assert.equal(inventory.installed.device.status, "unavailable");
+  assert.equal(inventory.installed.device.error, "ioreg did not return a supported device identifier");
+});
+
 test("a fresh daily Apple cache avoids another Apple request", async () => {
   const fetches: string[] = [];
   const cache = JSON.stringify({ schema_version: 1, checked_at: now, fetched_at: now, payload: gdmf });
@@ -183,6 +281,44 @@ test("a fresh daily Apple cache avoids another Apple request", async () => {
   assert.equal(inventory.upstream.apple_gdmf.freshness, "daily_cache");
   assert.equal(fetches.filter((url) => url.includes("gdmf.apple.com")).length, 0);
   assert.equal(fetches.length, 2);
+});
+
+test("an invalid cached fetch timestamp forces an Apple refresh", async () => {
+  const fetches: string[] = [];
+  const cache = JSON.stringify({
+    schema_version: 1,
+    checked_at: now,
+    fetched_at: "2026-02-30T12:00:00.000Z",
+    payload: gdmf,
+  });
+  const inventory = await collect(runner(), io({ cache, fetches }));
+
+  assert.equal(inventory.upstream.apple_gdmf.freshness, "live");
+  assert.equal(fetches.filter((url) => url.includes("gdmf.apple.com")).length, 1);
+});
+
+test("a failed Apple refresh does not reuse invalid cached metadata", async () => {
+  const writes: string[] = [];
+  const cache = JSON.stringify({
+    schema_version: 1,
+    checked_at: now,
+    fetched_at: "2026-02-30T12:00:00.000Z",
+    payload: gdmf,
+  });
+  const inventory = await collect(runner(), io({
+    apple: { status: 503, body: "unavailable" },
+    cache,
+    writes,
+  }));
+
+  assert.equal(inventory.upstream.apple_gdmf.status, "unavailable");
+  assert.equal(inventory.upstream.apple_gdmf.freshness, "unavailable");
+  assert.deepEqual(JSON.parse(writes[0] ?? "{}"), {
+    schema_version: 1,
+    checked_at: now,
+    error: "Apple GDMF returned HTTP 503",
+    failure_kind: "transient",
+  });
 });
 
 test("a stale Apple cache stays visible when SOFA can establish current state", async () => {
@@ -246,7 +382,7 @@ test("unavailable upstream sources fail closed through the live path", async () 
 
 test("device-incompatible upstream data is labeled and fails closed", async () => {
   const incompatibleGdmf = { PublicAssetSets: { macOS: [{ ProductVersion: "26.6.2", Build: "25G83", SupportedDevices: ["OtherAP"] }] } };
-  const incompatibleSofa = { Version: "2.0", OSVersions: [{ Latest: { ProductVersion: "26.6.2", Build: "25G83" }, SupportedModels: [{ Identifiers: { "Mac0,0": "Other Mac" } }] }] };
+  const incompatibleSofa = { Version: "2.0", OSVersions: [{ Latest: { ProductVersion: "26.6.2", Build: "25G83" }, SupportedModels: [{ Identifiers: ["Mac0,0"] }] }] };
   const inventory = await collect(runner(), io({
     apple: { status: 200, body: JSON.stringify(incompatibleGdmf) },
     macos: { status: 200, body: JSON.stringify(incompatibleSofa) },
@@ -293,4 +429,5 @@ test("a failed live scan keeps installed and upstream partial results", async ()
   assert.equal(inventory.applicability.status, "unknown");
   assert.equal(inventory.installed.os.version, "26.6.2");
   assert.equal(inventory.upstream.selected_os?.build, "25G83");
+  assert.equal(inventory.live_scan.last_success_at, now);
 });
