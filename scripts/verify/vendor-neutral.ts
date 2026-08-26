@@ -56,6 +56,8 @@ function allowed(file: string, content: string): boolean {
     case "scripts/agents/plugins/personal.json":
     case "scripts/agents/plugins.test.ts":
       return content.includes("uinaf/ffss");
+    case "scripts/agents/rules.json":
+      return content.includes("githubusercontent.com/uinaf/ffss");
     case "scripts/agents/mcps/developer.json":
     case "scripts/agents/mcps/workstation.json":
     case "scripts/agents/mcps/devbox.json":

@@ -20,7 +20,8 @@ Use chezmoi source attributes instead of literal target filenames:
 | `chezmoi/private_dot_claude/modify_private_settings.json` | Selected values inside `~/.claude/settings.json` for developer profiles |
 | `chezmoi/private_dot_config/zed/private_settings.json` | `~/.config/zed/settings.json` for workstation profiles |
 | `chezmoi/private_dot_config/zed/private_keymap.json` | `~/.config/zed/keymap.json` for workstation profiles |
-| `chezmoi/private_AGENTS.md.tmpl` | `~/AGENTS.md`, the shared global agent rules composed with optional start and end Markdown fragments |
+| `chezmoi/agent-rules.md` | Ignored vendored input for the shared global agent rules |
+| `chezmoi/private_AGENTS.md.tmpl` | `~/AGENTS.md`, the vendored shared rules composed with optional start and end Markdown fragments |
 | `chezmoi/private_dot_claude/symlink_CLAUDE.md` | `~/.claude/CLAUDE.md` link to `~/AGENTS.md` |
 | `chezmoi/private_dot_codex/symlink_AGENTS.md` | `~/.codex/AGENTS.md` link to `~/AGENTS.md` |
 
@@ -86,7 +87,9 @@ mise run dotfiles:apply workstation
 ```
 
 `./dotfiles apply` delegates to `scripts/bootstrap/install.ts`, which applies
-the same source before running the remaining profile install steps.
+the same source before running the remaining profile install steps. Developer
+applies first refresh `chezmoi/agent-rules.md` from the ordered remote sources;
+offline or dry-run operation keeps using the reviewed snapshot.
 
 For normal edits:
 

@@ -92,6 +92,7 @@ function runWrapperResult(home: string, profile = "workstation") {
     env: {
       ...process.env,
       HOME: home,
+      DOTFILES_AGENT_RULES_OFFLINE: "1",
       XDG_CACHE_HOME: join(home, ".cache"),
       XDG_CONFIG_HOME: join(home, ".config"),
       XDG_DATA_HOME: join(home, ".local/share"),
@@ -253,12 +254,12 @@ test("shows rule changes in diff and waits for an explicit apply", () => {
   const rulesPath = join(home, "AGENTS.md");
   const before = readFileSync(rulesPath, "utf8");
 
-  appendFileSync(join(source, "private_AGENTS.md.tmpl"), "\nFixture public rule changed.\n");
+  appendFileSync(join(source, "agent-rules.md"), "\nFixture public rule changed: `{{ .chezmoi.homeDir }}`.\n");
 
   assert.match(runChezmoi(home, config, "diff", source), /Fixture public rule changed/);
   assert.equal(readFileSync(rulesPath, "utf8"), before);
   runChezmoi(home, config, "apply", source);
-  assert.match(readFileSync(rulesPath, "utf8"), /Fixture public rule changed/);
+  assert.match(readFileSync(rulesPath, "utf8"), /Fixture public rule changed: `\{\{ \.chezmoi\.homeDir \}\}`/);
   assert.equal(runChezmoi(home, config, "diff", source), "");
 });
 

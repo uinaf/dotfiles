@@ -6,11 +6,14 @@ neither.
 
 ## Global Rules
 
-Chezmoi owns the shared rules and agent entrypoints:
+Configured remote sources own the shared layer. Chezmoi keeps its reviewed
+snapshot and owns the agent entrypoints:
 
-| Source | Target |
+| Source | Role or target |
 | --- | --- |
-| `chezmoi/private_AGENTS.md.tmpl` | `~/AGENTS.md` |
+| `scripts/agents/rules.json` | Ordered HTTPS sources for the shared layer |
+| `chezmoi/agent-rules.md` | Vendored shared snapshot for review and offline apply |
+| `chezmoi/private_AGENTS.md.tmpl` | Composes the snapshot and private fragments into `~/AGENTS.md` |
 | `chezmoi/private_dot_claude/symlink_CLAUDE.md` | `~/.claude/CLAUDE.md` |
 | `chezmoi/private_dot_codex/symlink_AGENTS.md` | `~/.codex/AGENTS.md` |
 
@@ -21,7 +24,20 @@ Preview and apply rule changes with the normal dotfile commands:
 ./dotfiles apply workstation
 ```
 
-- `~/AGENTS.md` is the private canonical file; Claude and Codex link directly to
+A non-dry-run developer apply refreshes the vendored snapshot before Chezmoi
+renders it. The refresh fetches every configured source in order and adopts the
+combined result only when:
+
+- Every source is non-empty and has no frontmatter.
+- The combined document starts at `## General guidelines`.
+- `gitleaks` reports no possible secrets.
+
+An unavailable source or secret scanner leaves the existing snapshot in place
+and prints one warning. Invalid fetched content fails the apply without changing
+the snapshot. `./dotfiles diff` never fetches or writes the snapshot. Set
+`DOTFILES_AGENT_RULES_OFFLINE=1` to force a non-dry-run apply to use the snapshot.
+
+- `~/AGENTS.md` is the private canonical target; Claude and Codex link directly to
   it.
 - Managed user settings disable Claude Code and Codex native auto-memory. Keep
   durable rules in `~/AGENTS.md` or the owning repository instead.
@@ -50,7 +66,7 @@ Add private instructions here.
 ```
 
 - The start and end fragments own their heading structure.
-- The built-in rules begin at `## General Guidelines`, so a start fragment can
+- The shared rules begin at `## General guidelines`, so a start fragment can
   provide the document title and an end fragment can add sibling sections.
 - Chezmoi reads each fragment literally, trims surrounding whitespace, joins
   non-empty layers with one blank line, and omits absent or blank files.
@@ -276,9 +292,11 @@ mise run verify:domain config
 mise run verify:domain agents
 ```
 
-- Rule fixtures cover clean and repeated applies, local Markdown files and
-  symlinks, permissions and ownership, workload isolation, explicit diffs, and
-  conflicts.
+- Rule-source fixtures cover strict config, ordered composition, rejected
+  content, atomic snapshot updates, and offline fallback.
+- Rule-composition fixtures cover clean and repeated applies, local Markdown
+  files and symlinks, literal snapshot content, permissions and ownership,
+  workload isolation, explicit diffs, and conflicts.
 - Skill fixtures cover install, update, conflict, removal, and ownership without
   touching rules or Git.
 - Plugin and MCP fixtures cover the same ownership contract: first-run lock
