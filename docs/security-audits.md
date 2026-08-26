@@ -50,8 +50,9 @@ mise run verify
 That command runs the repository secret scan after the complete deterministic
 graph. Run `mise run audit repo` when you only need the secret scanners.
 
-The local Gitleaks scan covers every local branch, remote-tracking branch, and
-tag. Transient nonstandard refs are outside that repository-history boundary.
+The local Gitleaks scan covers `HEAD`, every local branch, remote-tracking
+branch, and tag. Other transient nonstandard refs are outside that
+repository-history boundary.
 
 For agent or dashboard consumption, add `--json`:
 
