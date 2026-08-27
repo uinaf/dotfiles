@@ -5,16 +5,19 @@ import test from "node:test";
 import {
   createSyncBundle,
   parseArguments,
-  parseT3NightlyVersion,
+  parseT3Version,
   remoteUpdate,
+  selectWorkstationT3App,
   shellQuote,
 } from "./sync-devbox-t3-server.ts";
 
-test("accepts copied nightly commands and exact versions", () => {
-  const version = "0.0.34-nightly.20260823.1166";
-  assert.equal(parseT3NightlyVersion(version), version);
-  assert.equal(parseT3NightlyVersion(`t3@${version}`), version);
-  assert.equal(parseT3NightlyVersion(`npx t3@${version}`), version);
+test("accepts stable, prerelease, and copied exact versions", () => {
+  assert.equal(parseT3Version("0.0.35"), "0.0.35");
+  assert.equal(parseT3Version("t3@0.0.35"), "0.0.35");
+  assert.equal(
+    parseT3Version("npx t3@0.0.36-beta.1"),
+    "0.0.36-beta.1",
+  );
 });
 
 test("parses an explicit portable devbox target", () => {
@@ -23,11 +26,11 @@ test("parses an explicit portable devbox target", () => {
       "--host",
       "example@example-devbox",
       "--version",
-      "t3@0.0.34-nightly.20260823.1166",
+      "t3@0.0.35",
     ]),
     {
       host: "example@example-devbox",
-      version: "0.0.34-nightly.20260823.1166",
+      version: "0.0.35",
     },
   );
 });
@@ -51,9 +54,21 @@ test("rejects implicit hosts, removed path options, and mutable versions", () =>
         "--host",
         "user@host",
         "--version",
-        "t3@nightly",
+        "t3@latest",
       ]),
-    /exact T3 nightly version/,
+    /exact T3 version/,
+  );
+});
+
+test("selects the installed T3 Code app without assuming a release channel", () => {
+  assert.equal(selectWorkstationT3App(["T3 Code (Alpha).app"]), "T3 Code (Alpha).app");
+  assert.equal(
+    selectWorkstationT3App(["T3 Code (Alpha).app", "T3 Code.app"]),
+    "T3 Code.app",
+  );
+  assert.throws(
+    () => selectWorkstationT3App(["T3 Code (Alpha).app", "T3 Code (Beta).app"]),
+    /multiple T3 Code apps/,
   );
 });
 

@@ -2,13 +2,12 @@
 
 import {execFileSync, spawnSync} from "node:child_process";
 import { Effect } from "effect";
-import {existsSync} from "node:fs";
-import {dirname, resolve} from "node:path";
+import {readdirSync} from "node:fs";
+import {dirname, join, resolve} from "node:path";
 import {fileURLToPath} from "node:url";
 import { runMain } from "../lib/program.ts";
 
-const NIGHTLY_APP_PLIST =
-  "/Applications/T3 Code (Nightly).app/Contents/Info.plist";
+const APPLICATIONS_DIRECTORY = "/Applications";
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const SYNC_BUNDLE_PATHS = [
   "package.json",
@@ -28,13 +27,13 @@ export type SyncOptions = {
   version?: string;
 };
 
-export function parseT3NightlyVersion(input: string): string {
+export function parseT3Version(input: string): string {
   const packageSpec = input.trim().replace(/^npx\s+/, "");
   const version = packageSpec.startsWith("t3@")
     ? packageSpec.slice("t3@".length)
     : packageSpec;
-  if (!/^0\.0\.\d+-nightly\.\d{8}\.\d+$/.test(version)) {
-    throw new Error(`expected an exact T3 nightly version, got: ${input}`);
+  if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/.test(version)) {
+    throw new Error(`expected an exact T3 version, got: ${input}`);
   }
   return version;
 }
@@ -54,7 +53,7 @@ export function parseArguments(args: readonly string[]): SyncOptions {
         break;
       case "--version":
         if (!value) throw new Error("--version requires a value");
-        version = parseT3NightlyVersion(value);
+        version = parseT3Version(value);
         index += 1;
         break;
       default:
@@ -69,18 +68,23 @@ export function parseArguments(args: readonly string[]): SyncOptions {
   return {host, version};
 }
 
-export function workstationT3NightlyVersion(): string {
-  if (!existsSync(NIGHTLY_APP_PLIST)) {
-    throw new Error(
-      `missing T3 Code Nightly app; pass --version explicitly: ${NIGHTLY_APP_PLIST}`,
-    );
-  }
+export function selectWorkstationT3App(appNames: readonly string[]): string {
+  const matches = appNames.filter((name) => /^T3 Code(?: \([^)]+\))?\.app$/.test(name));
+  if (matches.includes("T3 Code.app")) return "T3 Code.app";
+  if (matches.length === 1) return matches[0];
+  if (matches.length === 0) throw new Error("missing T3 Code app; pass --version explicitly");
+  throw new Error(`multiple T3 Code apps found; pass --version explicitly: ${matches.sort().join(", ")}`);
+}
+
+export function workstationT3Version(applicationsDirectory = APPLICATIONS_DIRECTORY): string {
+  const app = selectWorkstationT3App(readdirSync(applicationsDirectory));
+  const plist = join(applicationsDirectory, app, "Contents/Info.plist");
   const version = execFileSync(
     "/usr/libexec/PlistBuddy",
-    ["-c", "Print :CFBundleShortVersionString", NIGHTLY_APP_PLIST],
+    ["-c", "Print :CFBundleShortVersionString", plist],
     {encoding: "utf8"},
   );
-  return parseT3NightlyVersion(version);
+  return parseT3Version(version);
 }
 
 export function shellQuote(value: string): string {
@@ -146,7 +150,7 @@ export function createSyncBundle(): Buffer {
 }
 
 export function syncDevboxT3Server(options: SyncOptions): void {
-  const version = options.version ?? workstationT3NightlyVersion();
+  const version = options.version ?? workstationT3Version();
   const remoteCommand = [
     "/bin/bash -c",
     shellQuote(remoteUpdate),
@@ -174,9 +178,9 @@ function usage(): void {
   process.stdout.write(`Usage:
   scripts/bootstrap/sync-devbox-t3-server.ts \\
     --host USER@HOST \\
-    [--version t3@0.0.34-nightly.20260823.1166]
+    [--version t3@0.0.35]
 
-Without --version, reads the installed T3 Code Nightly app version. The remote
+Without --version, reads the installed T3 Code app version. The remote
 server uses the SSH user's home as its working directory.
 `);
 }

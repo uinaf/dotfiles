@@ -260,19 +260,19 @@ for project and skill discovery:
 sudo node ./scripts/bootstrap/install-devbox-service-daemons.ts \
   --user example \
   --t3-code \
-  --t3-version 0.0.34-nightly.20260823.1166 \
+  --t3-version 0.0.35 \
   --t3-working-directory /Users/example/projects/example/workspace
 ```
 
-After updating T3 Code Nightly on a workstation, sync its exact version to a
-devbox with the portable workstation-side command:
+After updating T3 Code on a workstation, sync its exact version to a devbox
+with the portable workstation-side command:
 
 ```zsh
 ./scripts/bootstrap/sync-devbox-t3-server.ts \
   --host example@example-devbox
 ```
 
-Pass `--version t3@<exact-nightly-version>` to override workstation app
+Pass `--version t3@<exact-version>` to override workstation app
 detection. The command sends the tracked installer sources through SSH, uses
 the remote user's home as the server working directory, and leaves no remote
 bundle behind. It requires an explicit SSH user and host; it never discovers or
