@@ -91,7 +91,7 @@ test("repository adapter selects the mSCP 2.0 artifact and only checks it", () =
     });
     assert.ok(calls.some(([name, args, options]) => name === "zsh" && args[0] === compliance && args[1] === "--check" && options?.output === "discard"));
     assert.ok(calls.some(([name, args]) =>
-      name === "gitleaks" && args.includes("--log-opts=--branches --remotes --tags")
+      name === "gitleaks" && args.includes("--log-opts=HEAD --branches --remotes --tags")
     ));
     assert.ok(calls.every(([, args]) => !args.includes("--fix")));
     assert.ok(calls.filter(([name]) => name === "gitleaks" || name === "trufflehog").every(([, , options]) => options?.output === "discard"));

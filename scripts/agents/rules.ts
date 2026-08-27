@@ -88,10 +88,14 @@ const fetchRuleSource = Effect.fn("fetchRuleSource")((url: string) =>
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       return response.text();
     },
-    catch: () => new RuleRefreshUnavailable({ message: `cannot fetch agent rule source: ${url}` }),
+    catch: (error) => new RuleRefreshUnavailable({
+      message: `cannot fetch agent rule source: ${url}: ${error instanceof Error ? error.message : String(error)}`,
+    }),
   }).pipe(
     Effect.timeout("10 seconds"),
-    Effect.mapError(() => new RuleRefreshUnavailable({ message: `cannot fetch agent rule source: ${url}` })),
+    Effect.catchTag("TimeoutError", () => Effect.fail(new RuleRefreshUnavailable({
+      message: `cannot fetch agent rule source: ${url}: timed out after 10 seconds`,
+    }))),
   ),
 );
 
