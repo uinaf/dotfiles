@@ -8,18 +8,20 @@ import { CommandRunner } from "../lib/command.ts";
 import { fail, runMain } from "../lib/program.ts";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
-const flagName = "vertical-tabs";
-const flagValue = "vertical-tabs@1";
+const flagOverrides = [
+  { name: "vertical-tabs", value: "vertical-tabs@1" },
+  { name: "enable-lens-overlay-edu-action-chip", value: "enable-lens-overlay-edu-action-chip@2" },
+] as const;
 const usage = `Usage:
   scripts/bootstrap/configure-chrome.ts [options]
 
-Enables Chrome's native vertical tabs flag in the local Chrome "Local State"
-file. Quit Chrome before running this script so Chrome does not overwrite the
-change on exit.
+Enables Chrome's native vertical tabs and disables its Lens education action
+chip in the local Chrome "Local State" file. Quit Chrome before running this
+script so Chrome does not overwrite the change on exit.
 
 Options:
   --state PATH       Chrome Local State path
-  --disable          remove the vertical-tabs flag
+  --disable          remove both flag overrides
   --allow-running    write even when Chrome appears to be running
   -h, --help`;
 
@@ -55,19 +57,22 @@ const program = Effect.gen(function*() {
       return yield* fail("quit Google Chrome before changing Local State, or rerun with --allow-running");
     }
   }
-  const result = yield* runner.run(process.execPath, [
-    resolve(repoRoot, "scripts/bootstrap/chrome-state.ts"),
-    statePath,
-    mode,
-    flagName,
-    flagValue,
-  ], { output: "inherit" });
-  if (result.status !== 0) {
-    return yield* fail(`Chrome Local State update exited ${result.status}`);
+  for (const flag of flagOverrides) {
+    const result = yield* runner.run(process.execPath, [
+      resolve(repoRoot, "scripts/bootstrap/chrome-state.ts"),
+      statePath,
+      mode,
+      flag.name,
+      flag.value,
+    ], { output: "inherit" });
+    if (result.status !== 0) {
+      return yield* fail(`Chrome Local State update for ${flag.name} exited ${result.status}`);
+    }
   }
+  const summary = flagOverrides.map((flag) => mode === "enable" ? flag.value : flag.name).join(", ");
   yield* Console.log(mode === "enable"
-    ? `enabled Chrome flag: ${flagValue} in ${statePath}`
-    : `disabled Chrome flag: ${flagName} in ${statePath}`);
+    ? `configured Chrome flags: ${summary} in ${statePath}`
+    : `removed Chrome flag overrides: ${summary} in ${statePath}`);
 }).pipe(
   Effect.provide(CommandRunner.layer),
   Effect.provide(NodeServices.layer),

@@ -47,10 +47,7 @@ function result(stdout: string, status = 0) {
 
 test("Homebrew backlog parsing keeps exact installed and current versions", () => {
   assert.deepEqual(
-    parseBrewBacklog(JSON.stringify({
-      formulae: [{ name: "jq", installed_versions: ["1.7"], current_version: "1.8" }],
-      casks: [{ name: "example", installed_versions: ["1.0"], current_version: "2.0" }],
-    })),
+    parseBrewBacklog('{"formulae":[{"name":"jq","installed_versions":["1.7"],"current_version":"1.8","pinned":true}],"casks":[{"name":"example","installed_versions":["1.0"],"current_version":"2.0","auto_updates":false}]}'),
     {
       formulae: [{ name: "jq", installed_versions: ["1.7"], current_version: "1.8" }],
       casks: [{ name: "example", installed_versions: ["1.0"], current_version: "2.0" }],
@@ -64,7 +61,12 @@ test("maintenance probes run concurrently and summarize package drift", async ()
   const runner: CommandRunner = async (command, args) => {
     active += 1;
     maxActive = Math.max(maxActive, active);
-    await new Promise((resolve) => setTimeout(resolve, 5));
+    if (maxActive === 1) {
+      await new Promise<void>((resolve, reject) => queueMicrotask(() => {
+        if (maxActive > 1) resolve();
+        else reject(new Error("maintenance probes ran sequentially"));
+      }));
+    }
     active -= 1;
     if (command === "df") return result("Filesystem 1024-blocks Used Available Capacity Mounted on\n/dev/disk 100 40 60 40% /\n");
     if (command === "tailscale" && args[0] === "status") return result(JSON.stringify({ BackendState: "Running", MagicDNSSuffix: "fixture.ts.net", Self: { Online: true }, Peer: {} }));
@@ -128,5 +130,8 @@ test("macOS inventory preserves typed partial results in the maintenance probe",
   assert.equal(snapshot.summary.software_update_status, "current");
   assert.equal(snapshot.summary.required_failures, 0);
   const inventory = snapshot.probes.software_update?.value;
-  assert.equal(typeof inventory, "object");
+  assert.equal(inventory?.installed.os.version, "26.6.2");
+  assert.equal(inventory?.installed.os.build, "25G83");
+  assert.equal(inventory?.installed.device.software_update_id, "Fixture1AP");
+  assert.equal(inventory?.upstream.apple_gdmf.status, "ok");
 });
