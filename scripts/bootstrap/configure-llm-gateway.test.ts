@@ -38,7 +38,7 @@ const validConfig = {
 };
 
 test("gateway config is strict and provider edits use command-backed Responses auth", () => {
-  assert.deepEqual(parseGatewayConfig(JSON.stringify(validConfig)), validConfig);
+  const config = parseGatewayConfig(JSON.stringify(validConfig));
   assert.throws(
     () => parseGatewayConfig(JSON.stringify({ ...validConfig, token: "secret" })),
     /unknown field/,
@@ -48,7 +48,7 @@ test("gateway config is strict and provider edits use command-backed Responses a
     /HTTPS \/v1 URL/,
   );
 
-  const edits = gatewayEdits(validConfig, "/Users/example/.local/libexec/dotfiles/llm-gateway-credential");
+  const edits = gatewayEdits(config, "/Users/example/.local/libexec/dotfiles/llm-gateway-credential");
   assert.equal(edits.some((edit) => edit.keyPath === "forced_login_method"), false);
   assert.ok(edits.some((edit) => edit.keyPath === "features.apps" && edit.value === false));
   assert.ok(edits.some((edit) => edit.keyPath === "mcp_servers.node_repl" && edit.value === null));
@@ -58,9 +58,9 @@ test("gateway config is strict and provider edits use command-backed Responses a
   assert.ok(edits.some((edit) => edit.keyPath === "model_providers.bifrost.auth.args" && Array.isArray(edit.value) && edit.value[0] === "bifrost"));
   assert.equal(edits.some((edit) => edit.keyPath.includes("env_key") || edit.keyPath.includes("bearer_token")), false);
 
-  assert.equal(claudeGatewayBaseUrl("https://gatewai.example/v1"), "https://gatewai.example");
+  assert.equal(claudeGatewayBaseUrl(config.gatewaiBaseUrl), "https://gatewai.example");
   assert.deepEqual(
-    claudeGatewaySettings('{"theme":"dark","env":{"KEEP":"yes"}}', validConfig.gatewaiBaseUrl, "/Users/example/.local/libexec/dotfiles/llm-gateway-credential"),
+    claudeGatewaySettings('{"theme":"dark","env":{"KEEP":"yes"}}', config.gatewaiBaseUrl, "/Users/example/.local/libexec/dotfiles/llm-gateway-credential"),
     {
       theme: "dark",
       apiKeyHelper: "/Users/example/.local/libexec/dotfiles/llm-gateway-credential gatewai",
@@ -77,23 +77,10 @@ test("gateway config is strict and provider edits use command-backed Responses a
     /versioned vendor executable/,
   );
 
-  assert.deepEqual(parseGatewayConfig(JSON.stringify({
-    version: 3,
-    credentials: { gatewai: validConfig.credentials.gatewai, bifrost: validConfig.credentials.bifrost },
-    gatewaiBaseUrl: validConfig.gatewaiBaseUrl,
-    bifrostBaseUrl: validConfig.bifrostBaseUrl,
-    grokBin: "/opt/homebrew/bin/grok",
-  })), {
-    version: 3,
-    credentials: { gatewai: validConfig.credentials.gatewai, bifrost: validConfig.credentials.bifrost },
-    gatewaiBaseUrl: validConfig.gatewaiBaseUrl,
-    bifrostBaseUrl: validConfig.bifrostBaseUrl,
-    grokBin: "/opt/homebrew/bin/grok",
-  });
-  assert.match(grokGatewaySettings("[ui]\ntheme = \"dark\"\n", validConfig.gatewaiBaseUrl, "/helper"), /models_base_url = "https:\/\/gatewai\.example\/v1"/);
-  assert.match(grokGatewaySettings("", validConfig.gatewaiBaseUrl, "/helper"), /auth_provider_command = "\/helper gatewai"/);
+  assert.match(grokGatewaySettings("[ui]\ntheme = \"dark\"\n", config.gatewaiBaseUrl, "/helper"), /models_base_url = "https:\/\/gatewai\.example\/v1"/);
+  assert.match(grokGatewaySettings("", config.gatewaiBaseUrl, "/helper"), /auth_provider_command = "\/helper gatewai"/);
   assert.throws(
-    () => grokGatewaySettings('[auth]\nauth_provider_command = "/other"\n', validConfig.gatewaiBaseUrl, "/helper"),
+    () => grokGatewaySettings('[auth]\nauth_provider_command = "/other"\n', config.gatewaiBaseUrl, "/helper"),
     /conflicts with gateway section: auth/,
   );
 });

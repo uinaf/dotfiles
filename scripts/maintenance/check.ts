@@ -23,12 +23,16 @@ export type { CommandRunner, RawCommandResult } from "./macos-updates.ts";
 
 type ProbeStatus = "ok" | "failed" | "timed_out" | "unavailable";
 
-export type ProbeResult = {
+export type ProbeResult<Value = unknown> = {
   status: ProbeStatus;
   required: boolean;
   duration_ms: number;
-  value?: unknown;
+  value?: Value;
   error?: string;
+};
+
+type MaintenanceProbes = Record<string, ProbeResult> & {
+  software_update?: ProbeResult<MacOSUpdateInventory>;
 };
 
 type Probe = {
@@ -310,7 +314,8 @@ export async function collectMaintenanceSnapshot(
     Promise.all(buildProbes(context).map(async (spec) => [spec.id, await runProbe(spec, context, runner)] as const)),
     inventory,
   ]);
-  const probes = Object.fromEntries(entries);
+  const probes: MaintenanceProbes = {};
+  for (const [id, result] of entries) probes[id] = result;
   if (macosUpdates) {
     probes.software_update = {
       status: macosUpdates.applicability.status === "unknown" ? "failed" : "ok",
