@@ -179,9 +179,10 @@ Retirement is intentionally separate from enrollment:
 - A complete developer-profile `install.ts` run preserves gateway routing and
   removes any legacy Codex login-method restriction.
 - Personal setup asks the installed credential helper for the device-scoped
-  Bifrost key, writes it to OpenCode's owner-only `bifrost` auth slot, removes
-  the retired direct `opencode` and `opencode-go` slots, and preserves unrelated
-  providers.
+  Bifrost key, writes it to OpenCode's owner-only `bifrost` auth slot, and sets
+  `enabled_providers` to only `bifrost`. Other OpenCode settings and inactive
+  credentials remain untouched; direct `opencode` and `opencode-go` auth slots
+  remain absent.
 
 Claude Code:
 

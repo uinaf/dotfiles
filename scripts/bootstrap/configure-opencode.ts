@@ -8,6 +8,7 @@ import { CliFailure, fail, runMain } from "../lib/program.ts";
 
 const BifrostKey = Schema.String.pipe(Schema.check(Schema.isPattern(/^sk-bf-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/)));
 const Auth = Schema.Record(Schema.String, Schema.Unknown);
+const Config = Schema.Record(Schema.String, Schema.Unknown);
 const retiredProviders = ["opencode", "opencode-go"] as const;
 
 const program = Effect.gen(function*() {
@@ -17,6 +18,7 @@ const program = Effect.gen(function*() {
   const home = resolve(process.env.HOME || "");
   const helper = resolve(process.env.OPENCODE_CREDENTIAL_HELPER || join(home, ".local/libexec/dotfiles/llm-gateway-credential"));
   const authPath = resolve(process.env.OPENCODE_AUTH_PATH || join(home, ".local/share/opencode/auth.json"));
+  const configPath = resolve(process.env.OPENCODE_CONFIG_PATH || join(home, ".config/opencode/opencode.json"));
   const fs = yield* FileSystem.FileSystem;
   const helperLink = yield* fs.readLink(helper).pipe(Effect.option);
   const helperInfo = yield* fs.stat(helper).pipe(Effect.option);
@@ -40,10 +42,22 @@ const program = Effect.gen(function*() {
     const parsed = yield* Effect.try({ try: () => JSON.parse(source) as unknown, catch: (error) => error });
     auth = yield* Schema.decodeUnknownEffect(Auth)(parsed).pipe(Effect.mapError(() => new CliFailure({ exitCode: 1, message: "OpenCode auth must contain a JSON object" })));
   }
+  let config: Record<string, unknown> = {};
+  const configLink = yield* fs.readLink(configPath).pipe(Effect.option);
+  const configInfo = yield* fs.stat(configPath).pipe(Effect.option);
+  if (Option.isSome(configLink)) return yield* fail(`OpenCode config must be a regular file: ${configPath}`);
+  if (Option.isSome(configInfo)) {
+    if (configInfo.value.type !== "File") return yield* fail(`OpenCode config must be a regular file: ${configPath}`);
+    const source = yield* fs.readFileString(configPath);
+    const parsed = yield* Effect.try({ try: () => JSON.parse(source) as unknown, catch: (error) => error });
+    config = yield* Schema.decodeUnknownEffect(Config)(parsed).pipe(Effect.mapError(() => new CliFailure({ exitCode: 1, message: "OpenCode config must contain a JSON object" })));
+  }
   const matches = (value: unknown) => typeof value === "object" && value !== null && "type" in value && "key" in value && value.type === "api" && value.key === key;
+  const onlyBifrostEnabled = Array.isArray(config.enabled_providers) && config.enabled_providers.length === 1 && config.enabled_providers[0] === "bifrost";
   if (check) {
     if (Option.isNone(authInfo) || (authInfo.value.mode & 0o077) !== 0 || !matches(auth.bifrost) || retiredProviders.some((provider) => provider in auth)) return yield* fail("OpenCode Bifrost authentication drifted");
-    yield* Console.log("ok OpenCode uses the resolved Bifrost credential");
+    if (Option.isNone(configInfo) || (configInfo.value.mode & 0o077) !== 0 || !onlyBifrostEnabled) return yield* fail("OpenCode provider catalog drifted");
+    yield* Console.log("ok OpenCode uses the resolved Bifrost credential and only enables Bifrost");
     return;
   }
   for (const provider of retiredProviders) delete auth[provider];
@@ -55,7 +69,15 @@ const program = Effect.gen(function*() {
     yield* fs.rename(temporary, authPath);
     yield* fs.chmod(authPath, 0o600);
   }));
-  yield* Console.log("configured OpenCode Bifrost authentication");
+  yield* Effect.scoped(Effect.gen(function*() {
+    yield* fs.makeDirectory(dirname(configPath), { recursive: true, mode: 0o700 });
+    const temporaryDirectory = yield* fs.makeTempDirectoryScoped({ directory: dirname(configPath), prefix: ".opencode-config." });
+    const temporary = join(temporaryDirectory, "opencode.json");
+    yield* fs.writeFileString(temporary, `${JSON.stringify({ ...config, enabled_providers: ["bifrost"] }, null, 2)}\n`, { mode: 0o600 });
+    yield* fs.rename(temporary, configPath);
+    yield* fs.chmod(configPath, 0o600);
+  }));
+  yield* Console.log("configured OpenCode Bifrost authentication and provider catalog");
 }).pipe(Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer));
 
 runMain(program);
