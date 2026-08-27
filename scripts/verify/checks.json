@@ -171,6 +171,13 @@
       "output": "Host-only T3 Code target, version parsing, and remote source bundle"
     },
     {
+      "id": "t3-server-version",
+      "domain": "services",
+      "command": ["node", "--test", "scripts/verify/t3-server-version.test.ts"],
+      "inputs": ["scripts/verify/t3-server-version.ts", "scripts/verify/t3-server-version.test.ts", "scripts/bootstrap/sync-devbox-t3-server.ts", "scripts/lib/command.ts"],
+      "output": "Read-only workstation and remote T3 Code version, service, and health comparison"
+    },
+    {
       "id": "maintenance-check",
       "domain": "services",
       "command": ["node", "--test", "scripts/maintenance/check.test.ts", "scripts/maintenance/macos-updates.test.ts"],

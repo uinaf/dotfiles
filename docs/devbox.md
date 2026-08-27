@@ -272,6 +272,19 @@ with the portable workstation-side command:
   --host example@example-devbox
 ```
 
+Inspect the same contract without changing either machine:
+
+```zsh
+./scripts/verify/t3-server-version.ts \
+  --host example@example-devbox
+```
+
+The inspection writes one JSON object. `status` is `clean` when the versions
+match and the service is loaded and healthy, `attention` for version or runtime
+drift, and `incomplete` when workstation detection, SSH transport, or the
+remote service structure cannot be established. Completed inspections exit
+`0`, including drift; incomplete inspections exit `1`.
+
 Pass `--version t3@<exact-version>` to override workstation app
 detection. The command sends the tracked installer sources through SSH, uses
 the remote user's home as the server working directory, and leaves no remote
