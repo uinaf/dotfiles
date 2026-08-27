@@ -1,6 +1,6 @@
 import { NodeServices } from "@effect/platform-node";
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -19,13 +19,19 @@ import {
 
 const originalRules = "## General guidelines\n\nOriginal rules.\n";
 
-function createFixture(sources = ["https://rules.example.test/shared.md"]): string {
+function createFixture(
+  sources = ["https://rules.example.test/shared.md"],
+  options: { readonly cached?: boolean } = { cached: true },
+): { cache: string; root: string } {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-agent-rules-"));
+  const cache = join(root, "state/dotfiles/agent-rules.md");
   mkdirSync(join(root, "scripts/agents"), { recursive: true });
-  mkdirSync(join(root, "chezmoi"), { recursive: true });
   writeFileSync(join(root, "scripts/agents/rules.json"), `${JSON.stringify({ version: 1, sources })}\n`);
-  writeFileSync(join(root, "chezmoi/agent-rules.md"), originalRules);
-  return root;
+  if (options.cached !== false) {
+    mkdirSync(join(root, "state/dotfiles"), { recursive: true });
+    writeFileSync(cache, originalRules);
+  }
+  return { cache, root };
 }
 
 function run<A>(effect: Effect.Effect<A, unknown, FileSystem.FileSystem | CommandRunner>): Promise<A> {
@@ -85,9 +91,9 @@ test("composes normalized source fragments in configured order", async () => {
   );
 });
 
-test("refreshes the snapshot only after every source and the secret scan succeed", async () => {
+test("refreshes the cache only after every source and the secret scan succeed", async () => {
   const sources = ["https://rules.example.test/first.md", "https://rules.example.test/second.md"];
-  const root = createFixture(sources);
+  const { cache, root } = createFixture(sources, { cached: false });
   const fetched = new Map([
     [sources[0], "## General guidelines\n\nFirst.\n"],
     [sources[1], "### Delivery\n\nSecond.\n"],
@@ -98,17 +104,18 @@ test("refreshes the snapshot only after every source and the secret scan succeed
     scan: (contents) => Effect.sync(() => { scanned = contents; }),
   };
   try {
-    assert.equal(await run(refreshAgentRules(root, { runtime })), "updated");
+    assert.equal(await run(refreshAgentRules(root, cache, { runtime })), "updated");
     const expected = "## General guidelines\n\nFirst.\n\n### Delivery\n\nSecond.\n";
-    assert.equal(readFileSync(join(root, "chezmoi/agent-rules.md"), "utf8"), expected);
+    assert.equal(readFileSync(cache, "utf8"), expected);
+    assert.equal(statSync(cache).mode & 0o777, 0o600);
     assert.equal(scanned, expected);
-    assert.equal(await run(refreshAgentRules(root, { runtime })), "current");
+    assert.equal(await run(refreshAgentRules(root, cache, { runtime })), "current");
   } finally {
     rmSync(root, { force: true, recursive: true });
   }
 });
 
-test("keeps the snapshot when refresh or secret validation is unavailable", async () => {
+test("keeps the cache when refresh or secret validation is unavailable", async () => {
   const runtimes: RuleRuntime[] = [
     {
       fetch: (url) => Effect.fail(new RuleRefreshUnavailable({ message: `offline: ${url}` })),
@@ -120,25 +127,25 @@ test("keeps the snapshot when refresh or secret validation is unavailable", asyn
     },
   ];
   for (const runtime of runtimes) {
-    const root = createFixture();
+    const { cache, root } = createFixture();
     try {
-      assert.equal(await run(refreshAgentRules(root, { runtime })), "offline");
-      assert.equal(readFileSync(join(root, "chezmoi/agent-rules.md"), "utf8"), originalRules);
+      assert.equal(await run(refreshAgentRules(root, cache, { runtime })), "offline");
+      assert.equal(readFileSync(cache, "utf8"), originalRules);
     } finally {
       rmSync(root, { force: true, recursive: true });
     }
   }
 });
 
-test("includes HTTP failures in the vendored-snapshot warning", async () => {
-  const root = createFixture();
+test("includes HTTP failures in the machine-local cache warning", async () => {
+  const { cache, root } = createFixture();
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async () => new Response("", { status: 503 });
   try {
     await captureWarnings(async (warnings) => {
-      assert.equal(await run(refreshAgentRules(root, { runtime: liveRuleRuntime })), "offline");
+      assert.equal(await run(refreshAgentRules(root, cache, { runtime: liveRuleRuntime })), "offline");
       assert.deepEqual(warnings, [
-        "cannot fetch agent rule source: https://rules.example.test/shared.md: HTTP 503; using the vendored snapshot",
+        "cannot fetch agent rule source: https://rules.example.test/shared.md: HTTP 503; using the machine-local cache",
       ]);
     });
   } finally {
@@ -147,7 +154,7 @@ test("includes HTTP failures in the vendored-snapshot warning", async () => {
   }
 });
 
-test("includes timeout failures in the vendored-snapshot warning", async () => {
+test("includes timeout failures in the machine-local cache warning", async () => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async (_input, init) => new Promise((_resolve, reject) => {
     init?.signal?.addEventListener("abort", () => reject(new Error("aborted")), { once: true });
@@ -167,16 +174,16 @@ test("includes timeout failures in the vendored-snapshot warning", async () => {
     globalThis.fetch = originalFetch;
   }
 
-  const root = createFixture();
+  const { cache, root } = createFixture();
   const runtime: RuleRuntime = {
     fetch: () => Effect.fail(timeoutError),
     scan: () => Effect.succeed(undefined),
   };
   try {
     await captureWarnings(async (warnings) => {
-      assert.equal(await run(refreshAgentRules(root, { runtime })), "offline");
+      assert.equal(await run(refreshAgentRules(root, cache, { runtime })), "offline");
       assert.deepEqual(warnings, [
-        "cannot fetch agent rule source: https://rules.example.test/shared.md: timed out after 10 seconds; using the vendored snapshot",
+        "cannot fetch agent rule source: https://rules.example.test/shared.md: timed out after 10 seconds; using the machine-local cache",
       ]);
     });
   } finally {
@@ -184,7 +191,7 @@ test("includes timeout failures in the vendored-snapshot warning", async () => {
   }
 });
 
-test("rejects invalid or secret-bearing fetched content without replacing the snapshot", async () => {
+test("rejects invalid or secret-bearing fetched content without replacing the cache", async () => {
   const runtimes: RuleRuntime[] = [
     {
       fetch: () => Effect.succeed("---\ntitle: rules\n---\n"),
@@ -196,12 +203,46 @@ test("rejects invalid or secret-bearing fetched content without replacing the sn
     },
   ];
   for (const runtime of runtimes) {
-    const root = createFixture();
+    const { cache, root } = createFixture();
     try {
-      await assert.rejects(run(refreshAgentRules(root, { runtime })), /frontmatter|possible secret/);
-      assert.equal(readFileSync(join(root, "chezmoi/agent-rules.md"), "utf8"), originalRules);
+      await assert.rejects(run(refreshAgentRules(root, cache, { runtime })), /frontmatter|possible secret/);
+      assert.equal(readFileSync(cache, "utf8"), originalRules);
     } finally {
       rmSync(root, { force: true, recursive: true });
     }
+  }
+});
+
+test("requires a machine-local cache when offline or refresh is unavailable", async () => {
+  const { cache, root } = createFixture(undefined, { cached: false });
+  const runtime: RuleRuntime = {
+    fetch: (url) => Effect.fail(new RuleRefreshUnavailable({ message: `offline: ${url}` })),
+    scan: () => Effect.succeed(undefined),
+  };
+  try {
+    await assert.rejects(run(refreshAgentRules(root, cache, { offline: true })), /cache is unavailable/);
+    await assert.rejects(run(refreshAgentRules(root, cache, { runtime })), /offline.*cache is unavailable/);
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test("online refresh replaces an unreadable cache", async (context) => {
+  if (process.getuid?.() === 0) {
+    context.skip("requires a non-root test runner");
+    return;
+  }
+  const { cache, root } = createFixture();
+  chmodSync(cache, 0o000);
+  const runtime: RuleRuntime = {
+    fetch: () => Effect.succeed("## General guidelines\n\nRefreshed rules.\n"),
+    scan: () => Effect.succeed(undefined),
+  };
+  try {
+    assert.equal(await run(refreshAgentRules(root, cache, { runtime })), "updated");
+    assert.equal(readFileSync(cache, "utf8"), "## General guidelines\n\nRefreshed rules.\n");
+    assert.equal(statSync(cache).mode & 0o777, 0o600);
+  } finally {
+    rmSync(root, { force: true, recursive: true });
   }
 });

@@ -20,8 +20,7 @@ Use chezmoi source attributes instead of literal target filenames:
 | `chezmoi/private_dot_claude/modify_private_settings.json` | Selected values inside `~/.claude/settings.json` for developer profiles |
 | `chezmoi/private_dot_config/zed/private_settings.json` | `~/.config/zed/settings.json` for workstation profiles |
 | `chezmoi/private_dot_config/zed/private_keymap.json` | `~/.config/zed/keymap.json` for workstation profiles |
-| `chezmoi/agent-rules.md` | Ignored vendored input for the shared global agent rules |
-| `chezmoi/private_AGENTS.md.tmpl` | `~/AGENTS.md`, the vendored shared rules composed with optional start and end Markdown fragments |
+| `chezmoi/private_AGENTS.md.tmpl` | `~/AGENTS.md`, remotely owned shared rules composed with optional start and end Markdown fragments |
 | `chezmoi/private_dot_claude/symlink_CLAUDE.md` | `~/.claude/CLAUDE.md` link to `~/AGENTS.md` |
 | `chezmoi/private_dot_codex/symlink_AGENTS.md` | `~/.codex/AGENTS.md` link to `~/AGENTS.md` |
 
@@ -88,8 +87,10 @@ mise run dotfiles:apply workstation
 
 `./dotfiles apply` delegates to `scripts/bootstrap/install.ts`, which applies
 the same source before running the remaining profile install steps. Developer
-applies first refresh `chezmoi/agent-rules.md` from the ordered remote sources;
-offline or dry-run operation keeps using the reviewed snapshot.
+previews and applies first refresh the ignored machine-local rule cache at
+`${XDG_STATE_HOME:-~/.local/state}/dotfiles/agent-rules.md` from the ordered
+remote sources. `DOTFILES_AGENT_RULES_OFFLINE=1` skips fetching and requires an
+existing valid cache.
 
 For normal edits:
 
@@ -99,8 +100,11 @@ For normal edits:
 
 ```zsh
 tmp_dest="$(mktemp -d /tmp/dotfiles-chezmoi-apply.XXXXXX)"
+agent_rules="${XDG_STATE_HOME:-$HOME/.local/state}/dotfiles/agent-rules.md"
+template_data="$(jq -nc --arg agentRulesPath "$agent_rules" \
+  --arg dotfilesProfile workstation '$ARGS.named')"
 chezmoi --source "$PWD/chezmoi" --destination "$tmp_dest" \
-  --override-data '{"dotfilesProfile":"workstation"}' --force apply
+  --override-data "$template_data" --force apply
 find "$tmp_dest" -maxdepth 4 -type f -o -type l | sort
 rm -rf "$tmp_dest"
 ```

@@ -63,13 +63,16 @@ function renderFixture(fixture: Fixture, root: string): Promise<void> {
   return new Promise((finish, reject) => {
     const home = join(root, "home");
     const temp = join(root, "tmp");
+    const agentRulesPath = join(root, "xdg/state/dotfiles/agent-rules.md");
     mkdirSync(home, { recursive: true });
     mkdirSync(temp, { recursive: true });
+    mkdirSync(dirname(agentRulesPath), { recursive: true });
+    writeFileSync(agentRulesPath, "## General guidelines\n\nFixture shared rule.\n", { mode: 0o600 });
     const child = spawn("chezmoi", [
       "--source",
       sourceDir,
       "--override-data",
-      '{"dotfilesProfile":"workstation"}',
+      JSON.stringify({ agentRulesPath, dotfilesProfile: "workstation" }),
       "execute-template",
       "--with-stdin",
       "--file",
