@@ -141,16 +141,14 @@ test("applies public rules and links without private output", () => {
 });
 
 test("omits global rules for workload profiles", () => {
-  for (const profile of ["assistant"]) {
-    const { config, home } = createFixture();
-    runChezmoi(home, config, "apply", sourceDir, profile);
+  const { config, home } = createFixture();
+  runChezmoi(home, config, "apply", sourceDir, "assistant");
 
-    assert.equal(lstatSync(home).isDirectory(), true);
-    assert.equal(readdirSync(home).includes("AGENTS.md"), false);
-    assert.equal(readdirSync(home).includes(".agents"), false);
-    assert.equal(readdirSync(home).includes(".claude"), false);
-    assert.equal(readdirSync(home).includes(".codex"), false);
-  }
+  assert.equal(lstatSync(home).isDirectory(), true);
+  assert.equal(readdirSync(home).includes("AGENTS.md"), false);
+  assert.equal(readdirSync(home).includes(".agents"), false);
+  assert.equal(readdirSync(home).includes(".claude"), false);
+  assert.equal(readdirSync(home).includes(".codex"), false);
 });
 
 test("preserves retired rules for workload profiles", () => {
@@ -423,15 +421,13 @@ test("rejects a local Markdown symlink resolving to a directory", () => {
 
 test("ignores broken local Markdown links for workload profiles", () => {
   for (const name of ["agents.start.md", "agents.end.md"]) {
-    for (const profile of ["assistant"]) {
-      const { home } = createFixture();
-      const privateRules = join(home, ".config/dotfiles", name);
-      mkdirSync(dirname(privateRules), { recursive: true });
-      symlinkSync(join(home, `missing-${name}`), privateRules);
+    const { home } = createFixture();
+    const privateRules = join(home, ".config/dotfiles", name);
+    mkdirSync(dirname(privateRules), { recursive: true });
+    symlinkSync(join(home, `missing-${name}`), privateRules);
 
-      runWrapper(home, profile);
+    runWrapper(home, "assistant");
 
-      assert.equal(readdirSync(home).includes("AGENTS.md"), false);
-    }
+    assert.equal(readdirSync(home).includes("AGENTS.md"), false);
   }
 });
