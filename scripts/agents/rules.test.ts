@@ -1,6 +1,6 @@
 import { NodeServices } from "@effect/platform-node";
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -155,6 +155,26 @@ test("requires a machine-local cache when offline or refresh is unavailable", as
   try {
     await assert.rejects(run(refreshAgentRules(root, cache, { offline: true })), /cache is unavailable/);
     await assert.rejects(run(refreshAgentRules(root, cache, { runtime })), /offline.*cache is unavailable/);
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test("online refresh replaces an unreadable cache", async (context) => {
+  if (process.getuid?.() === 0) {
+    context.skip("requires a non-root test runner");
+    return;
+  }
+  const { cache, root } = createFixture();
+  chmodSync(cache, 0o000);
+  const runtime: RuleRuntime = {
+    fetch: () => Effect.succeed("## General guidelines\n\nRefreshed rules.\n"),
+    scan: () => Effect.succeed(undefined),
+  };
+  try {
+    assert.equal(await run(refreshAgentRules(root, cache, { runtime })), "updated");
+    assert.equal(readFileSync(cache, "utf8"), "## General guidelines\n\nRefreshed rules.\n");
+    assert.equal(statSync(cache).mode & 0o777, 0o600);
   } finally {
     rmSync(root, { force: true, recursive: true });
   }

@@ -174,7 +174,18 @@ export const refreshAgentRules = Effect.fn("refreshAgentRules")(function*(
   const config = yield* readRequiredFile(configPath, "agent rule source config").pipe(
     Effect.flatMap(parseRuleSourceConfig),
   );
-  const existing = yield* readCachedRules(cachePath);
+  if (options.offline) {
+    const existing = yield* readCachedRules(cachePath);
+    if (Option.isNone(existing)) {
+      return yield* new RuleRefreshUnavailable({ message: `agent rule cache is unavailable: ${cachePath}` });
+    }
+    yield* validateCachedRules(cachePath, existing.value);
+    return "offline" as const;
+  }
+  const existing = yield* readCachedRules(cachePath).pipe(
+    Effect.catchTag("RuleConfigurationFailure", (error) =>
+      Console.warn(`${error.message}; refreshing from configured sources`).pipe(Effect.as(Option.none()))),
+  );
   const useCache = Effect.fn("useCachedAgentRules")(function*(error?: RuleRefreshUnavailable) {
     if (Option.isNone(existing)) {
       return yield* new RuleRefreshUnavailable({
@@ -185,7 +196,6 @@ export const refreshAgentRules = Effect.fn("refreshAgentRules")(function*(
     if (error) yield* Console.warn(`${error.message}; using the machine-local cache`);
     return "offline" as const;
   });
-  if (options.offline) return yield* useCache();
 
   const runtime = options.runtime ?? liveRuleRuntime;
   const fetched = yield* Effect.forEach(config.sources, (source) =>
