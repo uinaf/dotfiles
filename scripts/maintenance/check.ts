@@ -230,8 +230,7 @@ function buildProbes(context: MaintenanceContext): Probe[] {
     );
   }
   if (context.ownsHomebrew) {
-    const brewEnv = { ...context.env, HOMEBREW_NO_AUTO_UPDATE: "1" };
-    probes.push(probe("brew_outdated_greedy", "brew", ["outdated", "--greedy", "--json=v2"], (result) => parseBrewBacklog(result.stdout), { env: brewEnv }));
+    probes.push(probe("brew_outdated_greedy", "brew", ["outdated", "--greedy", "--json=v2"], (result) => parseBrewBacklog(result.stdout)));
   }
   if (context.profileConfig.capabilities.personal && context.profileConfig.capabilities.workstation) {
     probes.push(probe("mas_outdated", "mas", ["outdated"], (result) => result.stdout.split(/\r?\n/).map((line) => line.trim()).filter(Boolean), {

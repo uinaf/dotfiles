@@ -55,6 +55,26 @@ test("Homebrew backlog parsing keeps exact installed and current versions", () =
   );
 });
 
+test("Homebrew backlog permits normal metadata refresh", async () => {
+  let brewEnv: NodeJS.ProcessEnv | undefined;
+  const runner: CommandRunner = async (command, args, options) => {
+    if (command === "brew") {
+      brewEnv = options.env;
+      return result('{"formulae":[],"casks":[]}');
+    }
+    if (command === "df") return result("Filesystem 1024-blocks Used Available Capacity Mounted on\n/dev/disk 100 40 60 40% /\n");
+    if (command === "tailscale" && args[0] === "status") return result(JSON.stringify({ BackendState: "Running", Self: { Online: true }, Peer: {} }));
+    if (command === "mise" || (command === "npm" && args[0] === "outdated")) return result("{}");
+    return result("1.0.0\n");
+  };
+  await collectMaintenanceSnapshot({
+    ...context(),
+    ownsHomebrew: true,
+    profileConfig: { ...profileConfig, skillLayers: [] },
+  }, runner);
+  assert.equal(brewEnv?.HOMEBREW_NO_AUTO_UPDATE, undefined);
+});
+
 test("maintenance probes run concurrently and summarize package drift", async () => {
   let active = 0;
   let maxActive = 0;
