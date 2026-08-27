@@ -276,10 +276,6 @@ applied by this checkout:
   lock until the CLI returns.
 - Add or removal failures leave the lock unchanged.
 
-When one service has historical harness-specific names, narrow each manifest
-entry with `harnesses`. Do not add both names to one harness; the URL and
-service identity remain the same.
-
 Executor is not selected for Grok Build 1.0.4. Its pinned `rmcp 2.1.0` rejects
 same-origin MCP paths during OAuth discovery; enable the entry only after Grok
 uses `rmcp 2.2.0` or newer.

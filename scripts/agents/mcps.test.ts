@@ -466,13 +466,9 @@ test("ships the tailnet executor on the personal layer only", () => {
   assert.deepEqual(developer, []);
   assert.deepEqual(workstation, []);
   assert.deepEqual(devbox, []);
-  assert.deepEqual(
-    personal.map((server) => server.name),
-    ["uinaf_executor", "uinaf-executor"],
-  );
+  assert.deepEqual(personal.map((server) => server.name), ["uinaf-executor"]);
   assert.equal(personal[0]?.url, "https://executor.zebroid-skate.ts.net/mcp");
-  assert.deepEqual(personal[0]?.harnesses, ["codex"]);
-  assert.deepEqual(personal[1]?.harnesses, ["claude", "cursor", "opencode"]);
+  assert.deepEqual(personal[0]?.harnesses, ["claude", "codex", "cursor", "opencode"]);
 });
 
 test("initializes a missing ownership lock without removing unowned servers", () => {

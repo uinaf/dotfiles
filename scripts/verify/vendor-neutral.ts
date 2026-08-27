@@ -63,7 +63,7 @@ function allowed(file: string, content: string): boolean {
     case "scripts/agents/mcps/devbox.json":
     case "scripts/agents/mcps/personal.json":
     case "scripts/agents/mcps.test.ts":
-      return containsAny(content, ["uinaf-executor", "uinaf_executor"]);
+      return content.includes("uinaf-executor");
     case "scripts/agents/sync.test.ts":
       return containsAny(content, ["uinaf/agents", "uinaf/skills", "uinaf/agent-skills", "uinaf/attach", "uinaf/design", "uinaf-design"]);
     case "scripts/verify/profiles.ts":
