@@ -230,7 +230,8 @@ What each step does:
   devbox Macs: it disables indexing on mounted volumes without deleting existing
   index data.
 
-Chrome vertical tabs are a local browser preference. Quit Chrome first, then:
+Chrome vertical tabs and the disabled Lens education chip are local browser
+preferences. Quit Chrome first, then:
 
 ```zsh
 ./scripts/bootstrap/configure-chrome.ts
