@@ -28,6 +28,7 @@ test("SSH inspection disables client-side writes and forwarding", () => {
   assert.deepEqual(args.slice(-2)[0], target);
   assert.ok(args.includes("BatchMode=yes"));
   assert.ok(args.includes("ClearAllForwardings=yes"));
+  assert.ok(args.includes("ForwardAgent=no"));
   assert.ok(args.includes("StrictHostKeyChecking=yes"));
   assert.ok(args.includes("UpdateHostKeys=no"));
   assert.ok(args.includes("ControlMaster=no"));
@@ -36,7 +37,19 @@ test("SSH inspection disables client-side writes and forwarding", () => {
 test("remote inspection is read-only", () => {
   assert.doesNotMatch(remoteInspection, /\b(?:install|kickstart|bootstrap|bootout|enable|disable|rm|mv|cp|chmod|chown|mkdir|touch)\b/);
   assert.match(remoteInspection, /launchctl print/);
+  assert.ok(remoteInspection.includes("pid = \\([0-9][0-9]*\\)"));
+  assert.match(remoteInspection, /lsof -nP -a -p "\$service_pid" -iTCP:3773 -sTCP:LISTEN/);
   assert.match(remoteInspection, /curl --fail/);
+  const pidCheck = remoteInspection.indexOf('[[ "$service_pid" =~');
+  const listenerCheck = remoteInspection.indexOf("lsof -nP");
+  const httpCheck = remoteInspection.indexOf("curl --fail");
+  const healthy = remoteInspection.indexOf('health="healthy"');
+  assert.ok(pidCheck >= 0 && pidCheck < listenerCheck && listenerCheck < httpCheck && httpCheck < healthy);
+  assert.equal(remoteInspection.match(/health="healthy"/g)?.length, 1);
+  assert.match(remoteInspection, /stat -f '%Su:%Sg:%Lp'/);
+  assert.match(remoteInspection, /root:wheel:644/);
+  assert.match(remoteInspection, /plutil -extract UserName/);
+  assert.match(remoteInspection, /plutil -extract GroupName/);
 });
 
 test("validates the strict remote protocol", () => {
@@ -105,6 +118,17 @@ test("distinguishes transport, structure, and workstation failures", () => {
   assert.equal(structure.status, "incomplete");
   assert.equal(structure.error?.kind, "structure");
   assert.equal(structure.error?.code, "missing_service_plist");
+
+  for (const code of ["unsafe_service_plist", "invalid_service_identity"] as const) {
+    const contract = evaluateRemoteInspection(
+      target,
+      workstation,
+      result(`{"schema_version":1,"status":"error","error_code":"${code}"}`),
+    );
+    assert.equal(contract.status, "incomplete");
+    assert.equal(contract.error?.kind, "structure");
+    assert.equal(contract.error?.code, code);
+  }
 
   const invalid = evaluateRemoteInspection(target, workstation, result("login banner"));
   assert.equal(invalid.error?.code, "invalid_remote_protocol");

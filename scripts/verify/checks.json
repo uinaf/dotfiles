@@ -174,7 +174,7 @@
       "id": "t3-server-version",
       "domain": "services",
       "command": ["node", "--test", "scripts/verify/t3-server-version.test.ts"],
-      "inputs": ["scripts/verify/t3-server-version.ts", "scripts/verify/t3-server-version.test.ts", "scripts/bootstrap/sync-devbox-t3-server.ts", "scripts/lib/command.ts"],
+      "inputs": ["scripts/verify/t3-server-version.ts", "scripts/verify/t3-server-version.test.ts", "scripts/bootstrap/sync-devbox-t3-server.ts", "scripts/lib/command.ts", "scripts/lib/program.ts"],
       "output": "Read-only workstation and remote T3 Code version, service, and health comparison"
     },
     {

@@ -19,7 +19,9 @@ const RemoteErrorCode = Schema.Literals([
   "missing_namespace",
   "invalid_namespace",
   "missing_service_plist",
+  "unsafe_service_plist",
   "invalid_service_plist",
+  "invalid_service_identity",
   "invalid_service_entrypoint",
   "invalid_server_version",
   "missing_server_entrypoint",
@@ -69,7 +71,9 @@ const remoteErrorMessages = {
   missing_namespace: "the remote launchd namespace contract is missing",
   invalid_namespace: "the remote launchd namespace contract is invalid",
   missing_service_plist: "the remote T3 Code service plist is missing",
+  unsafe_service_plist: "the remote T3 Code service plist must be root:wheel mode 0644",
   invalid_service_plist: "the remote T3 Code service plist cannot be read",
+  invalid_service_identity: "the remote T3 Code service user or group does not match the SSH identity",
   invalid_service_entrypoint: "the remote T3 Code service entrypoint is outside the managed layout",
   invalid_server_version: "the remote T3 Code service has an invalid version",
   missing_server_entrypoint: "the remote T3 Code server entrypoint is missing",
@@ -81,7 +85,8 @@ emit_error() {
   exit 0
 }
 
-user="$(id -un 2>/dev/null)" || emit_error "identity_unavailable"
+user="$(/usr/bin/id -un 2>/dev/null)" || emit_error "identity_unavailable"
+group="$(/usr/bin/id -gn 2>/dev/null)" || emit_error "identity_unavailable"
 [[ "$user" =~ ^[A-Za-z0-9._-]+$ ]] || emit_error "invalid_identity"
 
 namespace_file="$HOME/.config/dotfiles/launchd-namespace"
@@ -92,6 +97,11 @@ namespace="$(cat "$namespace_file" 2>/dev/null)" || emit_error "invalid_namespac
 label="$namespace.t3-code.$user"
 plist="/Library/LaunchDaemons/$label.plist"
 [ -f "$plist" ] && [ ! -L "$plist" ] && [ -r "$plist" ] || emit_error "missing_service_plist"
+plist_contract="$(/usr/bin/stat -f '%Su:%Sg:%Lp' "$plist" 2>/dev/null)" || emit_error "invalid_service_plist"
+[ "$plist_contract" = "root:wheel:644" ] || emit_error "unsafe_service_plist"
+plist_user="$(/usr/bin/plutil -extract UserName raw "$plist" 2>/dev/null)" || emit_error "invalid_service_plist"
+plist_group="$(/usr/bin/plutil -extract GroupName raw "$plist" 2>/dev/null)" || emit_error "invalid_service_plist"
+[ "$plist_user" = "$user" ] && [ "$plist_group" = "$group" ] || emit_error "invalid_service_identity"
 entrypoint="$(/usr/bin/plutil -extract ProgramArguments.1 raw "$plist" 2>/dev/null)" || emit_error "invalid_service_plist"
 
 prefix="$HOME/.local/share/t3-code/service/"
@@ -108,11 +118,15 @@ expected_entrypoint="$prefix$version$suffix"
 [ -f "$entrypoint" ] && [ ! -L "$entrypoint" ] && [ -r "$entrypoint" ] || emit_error "missing_server_entrypoint"
 
 service_state="unloaded"
-if /bin/launchctl print "system/$label" >/dev/null 2>&1; then
+service_pid=""
+if service_output="$(/bin/launchctl print "system/$label" 2>/dev/null)"; then
   service_state="loaded"
+  service_pid="$(printf '%s\n' "$service_output" | /usr/bin/sed -n 's/^[[:space:]]*pid = \([0-9][0-9]*\)$/\1/p' | /usr/bin/head -n 1)"
 fi
 health="unhealthy"
-if /usr/bin/curl --fail --silent --show-error --max-time 5 http://127.0.0.1:3773/ >/dev/null 2>&1; then
+if [[ "$service_pid" =~ ^[1-9][0-9]*$ ]] &&
+  /usr/sbin/lsof -nP -a -p "$service_pid" -iTCP:3773 -sTCP:LISTEN >/dev/null 2>&1 &&
+  /usr/bin/curl --fail --silent --show-error --max-time 5 http://127.0.0.1:3773/ >/dev/null 2>&1; then
   health="healthy"
 fi
 
@@ -147,6 +161,7 @@ export function sshArguments(host: string): readonly string[] {
     "-o", "ConnectTimeout=10",
     "-o", "ControlMaster=no",
     "-o", "ControlPath=none",
+    "-o", "ForwardAgent=no",
     "-o", "RequestTTY=no",
     "-o", "ServerAliveCountMax=2",
     "-o", "ServerAliveInterval=5",
