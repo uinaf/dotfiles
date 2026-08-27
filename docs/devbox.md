@@ -273,10 +273,23 @@ with the portable workstation-side command:
 ```
 
 Pass `--version t3@<exact-version>` to override workstation app
-detection. The command sends the tracked installer sources through SSH, uses
-the remote user's home as the server working directory, and leaves no remote
-bundle behind. It requires an explicit SSH user and host; it never discovers or
-fans out to machines implicitly.
+detection. The sync command sends the tracked installer sources through SSH,
+uses the remote user's home as the server working directory, and leaves no
+remote bundle behind. It requires an explicit SSH user and host; it never
+discovers or fans out to machines implicitly.
+
+Inspect the same contract without changing either machine:
+
+```zsh
+./scripts/verify/t3-server-version.ts \
+  --host example@example-devbox
+```
+
+The inspection writes one JSON object. `status` is `clean` when the versions
+match and the service is loaded and healthy, `attention` for version or runtime
+drift, and `incomplete` when workstation detection, SSH transport, or the
+remote service structure cannot be established. Completed inspections exit
+`0`, including drift; incomplete inspections exit `1`.
 
 - `--allow-openclaw-restart` grants that user passwordless restart of only its
   exact OpenClaw system job, not general launchctl or sudo access.

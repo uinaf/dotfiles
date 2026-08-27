@@ -76,7 +76,14 @@ export function selectWorkstationT3App(appNames: readonly string[]): string {
   throw new Error(`multiple T3 Code apps found; pass --version explicitly: ${matches.sort().join(", ")}`);
 }
 
-export function workstationT3Version(applicationsDirectory = APPLICATIONS_DIRECTORY): string {
+export type WorkstationT3Installation = {
+  app: string;
+  version: string;
+};
+
+export function workstationT3Installation(
+  applicationsDirectory = APPLICATIONS_DIRECTORY,
+): WorkstationT3Installation {
   const app = selectWorkstationT3App(readdirSync(applicationsDirectory));
   const plist = join(applicationsDirectory, app, "Contents/Info.plist");
   const version = execFileSync(
@@ -84,7 +91,11 @@ export function workstationT3Version(applicationsDirectory = APPLICATIONS_DIRECT
     ["-c", "Print :CFBundleShortVersionString", plist],
     {encoding: "utf8"},
   );
-  return parseT3Version(version);
+  return {app, version: parseT3Version(version)};
+}
+
+export function workstationT3Version(applicationsDirectory = APPLICATIONS_DIRECTORY): string {
+  return workstationT3Installation(applicationsDirectory).version;
 }
 
 export function shellQuote(value: string): string {

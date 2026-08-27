@@ -54,6 +54,10 @@ one explicit remote T3 Code server to the workstation's installed version. The
 command streams the installer sources and uses the remote user's home as the
 server working directory.
 
+Use `scripts/verify/t3-server-version.ts --host USER@HOST` first for a
+strictly read-only comparison. It emits typed JSON for the workstation app,
+remote installed version, version match, launchd state, and HTTP health.
+
 ## Effect Runtime
 
 Repository automation uses Effect `4.0.0-rc.112` and
