@@ -29,7 +29,9 @@ host and they are not a security boundary by themselves.
   every host-wide dependency.
 - Shared devbox Homebrew is owner-write and consumer-read-only. Devbox shells
   disable implicit Homebrew auto-update, and bootstrap verification rejects
-  foreign-owned or group-writable prefix content.
+  foreign-owned or group-writable prefix content. Bootstrap verifies installed
+  package presence without using per-user metadata for upgrade freshness;
+  maintenance inventory owns freshness checks.
 - The role is stored in `~/.config/dotfiles/profile`. Per-user verification
   checks that the selected role matches this marker.
 - Shared software visibility is not isolation. Enforce isolation with Unix

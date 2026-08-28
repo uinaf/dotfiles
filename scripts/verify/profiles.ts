@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { CommandRunner, type CommandResult } from "../lib/command.ts";
-import { profileBrewfiles } from "../lib/homebrew.ts";
+import { bundleCheckArgs, profileBrewfiles } from "../lib/homebrew.ts";
 import { fail, runMain } from "../lib/program.ts";
 import { readPersistedProfile, resolveProfile } from "../profiles/current.ts";
 import { readProfileModelEffect, requireProfile } from "../profiles/model.ts";
@@ -34,6 +34,12 @@ const program = Effect.scoped(Effect.gen(function*() {
   assert.deepEqual(profileBrewfiles(model, "personal-devbox"), ["Brewfile", "Brewfile.developer", "Brewfile.devbox", "Brewfile.personal"]);
   assert.deepEqual(profileBrewfiles(model, "workstation"), ["Brewfile", "Brewfile.developer", "Brewfile.workstation"]);
   assert.deepEqual(profileBrewfiles(model, "personal-workstation"), ["Brewfile", "Brewfile.developer", "Brewfile.workstation", "Brewfile.personal"]);
+  for (const profile of ["personal-devbox", "devbox", "assistant"]) {
+    assert.deepEqual(bundleCheckArgs(model, profile, "Brewfile"), ["bundle", "check", "--no-upgrade", "--file", "Brewfile"]);
+  }
+  for (const profile of ["personal-workstation", "workstation"]) {
+    assert.deepEqual(bundleCheckArgs(model, profile, "Brewfile"), ["bundle", "check", "--file", "Brewfile"]);
+  }
 
   for (const script of ["scripts/bootstrap/configure-power.ts", "scripts/verify/bootstrap.ts"]) {
     const result = yield* run(process.execPath, [join(repoRoot, script), "workstation", "devbox"]);

@@ -109,6 +109,11 @@ export function profileBrewfiles(model: ProfileModel, profile: string): readonly
   return requireProfile(model, profile).brewfiles;
 }
 
+export function bundleCheckArgs(model: ProfileModel, profile: string, file: string): readonly string[] {
+  const installedOnly = requireProfile(model, profile).capabilities.sharedHomebrew ? ["--no-upgrade"] : [];
+  return ["bundle", "check", ...installedOnly, "--file", file];
+}
+
 export const composeBrewfile = Effect.fn("composeBrewfile")(function*(repoRoot: string, files: readonly string[]) {
   const fs = yield* FileSystem.FileSystem;
   const composed = yield* fs.makeTempFile({ directory: repoRoot, prefix: "Brewfile.composed." });

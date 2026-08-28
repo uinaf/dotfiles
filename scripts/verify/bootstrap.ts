@@ -5,7 +5,7 @@ import { Console, Effect, FileSystem } from "effect";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { CommandRunner } from "../lib/command.ts";
-import { bundleDrift, configureExternalCapabilities, profileBrewfiles, runHomebrewRaw, verifyPrefixPermissions } from "../lib/homebrew.ts";
+import { bundleCheckArgs, bundleDrift, configureExternalCapabilities, profileBrewfiles, runHomebrewRaw, verifyPrefixPermissions } from "../lib/homebrew.ts";
 import { fail, runMain } from "../lib/program.ts";
 import { checkMiseDoctor, runCleanZsh } from "../lib/shell-probe.ts";
 import { resolveProfile } from "../profiles/current.ts";
@@ -100,7 +100,7 @@ const program = Effect.gen(function*() {
   const homebrew = Effect.gen(function*() {
     const external = yield* configureExternalCapabilities(repoRoot, model, profile);
     for (const file of profileBrewfiles(model, profile)) {
-      const result = yield* runHomebrewRaw("brew", ["bundle", "check", "--file", join(repoRoot, file)], { env: { ...external, HOMEBREW_BUNDLE_DOTFILES_PROFILE: profile, HOMEBREW_NO_AUTO_UPDATE: "1" } });
+      const result = yield* runHomebrewRaw("brew", bundleCheckArgs(model, profile, join(repoRoot, file)), { env: { ...external, HOMEBREW_BUNDLE_DOTFILES_PROFILE: profile, HOMEBREW_NO_AUTO_UPDATE: "1" } });
       if (result.status !== 0) return yield* fail(`missing Homebrew dependencies from ${file}`);
     }
     const drift = yield* bundleDrift(repoRoot, model, profile);
