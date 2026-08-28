@@ -55,11 +55,12 @@ test("Homebrew backlog parsing keeps exact installed and current versions", () =
   );
 });
 
-test("Homebrew backlog permits normal metadata refresh", async () => {
-  let brewEnv: NodeJS.ProcessEnv | undefined;
+test("Homebrew backlog refreshes metadata before the greedy inventory", async () => {
+  const brewCalls: string[][] = [];
   const runner: CommandRunner = async (command, args, options) => {
     if (command === "brew") {
-      brewEnv = options.env;
+      brewCalls.push([...args]);
+      if (args[0] === "update") return result("");
       return result('{"formulae":[],"casks":[]}');
     }
     if (command === "df") return result("Filesystem 1024-blocks Used Available Capacity Mounted on\n/dev/disk 100 40 60 40% /\n");
@@ -69,10 +70,37 @@ test("Homebrew backlog permits normal metadata refresh", async () => {
   };
   await collectMaintenanceSnapshot({
     ...context(),
+    env: { ...context().env, HOMEBREW_NO_AUTO_UPDATE: "1" },
     ownsHomebrew: true,
     profileConfig: { ...profileConfig, skillLayers: [] },
   }, runner);
-  assert.equal(brewEnv?.HOMEBREW_NO_AUTO_UPDATE, undefined);
+  assert.deepEqual(brewCalls, [
+    ["update"],
+    ["outdated", "--greedy", "--json=v2"],
+  ]);
+});
+
+test("a failed Homebrew metadata refresh makes the snapshot incomplete", async () => {
+  const brewCalls: string[][] = [];
+  const runner: CommandRunner = async (command, args) => {
+    if (command === "brew") {
+      brewCalls.push([...args]);
+      return result("", 1);
+    }
+    if (command === "df") return result("Filesystem 1024-blocks Used Available Capacity Mounted on\n/dev/disk 100 40 60 40% /\n");
+    if (command === "tailscale" && args[0] === "status") return result(JSON.stringify({ BackendState: "Running", Self: { Online: true }, Peer: {} }));
+    if (command === "mise" || (command === "npm" && args[0] === "outdated")) return result("{}");
+    return result("1.0.0\n");
+  };
+  const snapshot = await collectMaintenanceSnapshot({
+    ...context(),
+    ownsHomebrew: true,
+    profileConfig: { ...profileConfig, skillLayers: [] },
+  }, runner);
+  assert.deepEqual(brewCalls, [["update"]]);
+  assert.equal(snapshot.probes.brew_outdated_greedy?.status, "failed");
+  assert.equal(snapshot.probes.brew_outdated_greedy?.error, "brew update failed: exit 1");
+  assert.equal(snapshot.summary.status, "incomplete");
 });
 
 test("maintenance probes run concurrently and summarize package drift", async () => {

@@ -229,9 +229,6 @@ function buildProbes(context: MaintenanceContext): Probe[] {
       probe("tailscale_version", "tailscale", ["version"], firstLine),
     );
   }
-  if (context.ownsHomebrew) {
-    probes.push(probe("brew_outdated_greedy", "brew", ["outdated", "--greedy", "--json=v2"], (result) => parseBrewBacklog(result.stdout)));
-  }
   if (context.profileConfig.capabilities.personal && context.profileConfig.capabilities.workstation) {
     probes.push(probe("mas_outdated", "mas", ["outdated"], (result) => result.stdout.split(/\r?\n/).map((line) => line.trim()).filter(Boolean), {
       env: { ...context.env, MAS_NO_AUTO_INDEX: "1" },
@@ -279,6 +276,26 @@ export async function runProbe(spec: Probe, context: MaintenanceContext, runner:
   }
 }
 
+async function runBrewBacklogProbe(context: MaintenanceContext, runner: CommandRunner): Promise<ProbeResult> {
+  const started = performance.now();
+  const refresh = await runProbe(probe("brew_update", "brew", ["update"], () => null), context, runner);
+  if (refresh.status !== "ok") {
+    return {
+      status: refresh.status,
+      required: true,
+      duration_ms: Math.round(performance.now() - started),
+      error: `brew update failed: ${refresh.error ?? refresh.status}`,
+    };
+  }
+
+  const backlog = await runProbe(
+    probe("brew_outdated_greedy", "brew", ["outdated", "--greedy", "--json=v2"], (result) => parseBrewBacklog(result.stdout)),
+    context,
+    runner,
+  );
+  return { ...backlog, duration_ms: Math.round(performance.now() - started) };
+}
+
 function backlogCount(probes: Record<string, ProbeResult>): number {
   let count = 0;
   const brew = probes.brew_outdated_greedy?.value;
@@ -310,7 +327,12 @@ export async function collectMaintenanceSnapshot(
       }, runner, macosUpdateIO)
     : undefined;
   const [entries, macosUpdates] = await Promise.all([
-    Promise.all(buildProbes(context).map(async (spec) => [spec.id, await runProbe(spec, context, runner)] as const)),
+    Promise.all([
+      ...buildProbes(context).map(async (spec) => [spec.id, await runProbe(spec, context, runner)] as const),
+      ...(context.ownsHomebrew
+        ? [runBrewBacklogProbe(context, runner).then((result) => ["brew_outdated_greedy", result] as const)]
+        : []),
+    ]),
     inventory,
   ]);
   const probes: MaintenanceProbes = {};

@@ -253,7 +253,9 @@ mise run audit workstation
 ```
 
 `maintenance:check` emits a versioned, read-only JSON snapshot and runs
-independent inventory probes concurrently. Its macOS update inventory reports:
+independent inventory probes concurrently. The Homebrew probe explicitly runs
+`brew update` before its greedy backlog inventory and reports an incomplete
+snapshot when the refresh fails. Its macOS update inventory reports:
 
 - installed macOS version and build plus the installed Safari version;
 - Apple GDMF and advisory SOFA release baselines with source and freshness;
