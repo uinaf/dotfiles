@@ -19,6 +19,24 @@ config_mode="$(stat -f '%Lp' "$config_path" 2>/dev/null || stat -c '%a' "$config
 command -v python3 >/dev/null 2>&1 || fail "missing python3"
 cursor_agent="$(jq -er '.cursorAgentBin | select(type == "string" and startswith("/"))' "$config_path")" \
   || fail "invalid cursorAgentBin in gateway config"
+
+# Cursor's self-updater replaces its canonical command with a symlink to the
+# newly installed version. Prefer that vendor target when it has the expected
+# owner-scoped shape; the configured executable remains the safe fallback when
+# dotfiles currently owns the canonical command.
+installer_command="$HOME/.local/bin/cursor-agent"
+if [ -L "$installer_command" ]; then
+  installer_target="$(readlink "$installer_command" 2>/dev/null || true)"
+  case "$installer_target" in
+    "$HOME"/.local/share/cursor-agent/versions/*/cursor-agent)
+      if [ -x "$installer_target" ]; then
+        cursor_agent="$installer_target"
+      fi
+      ;;
+  esac
+  unset installer_target
+fi
+unset installer_command
 [ -x "$cursor_agent" ] || fail "Cursor Agent executable is unavailable"
 
 case "${1:-}" in

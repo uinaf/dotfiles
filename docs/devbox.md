@@ -197,17 +197,22 @@ Claude Code:
 
 Cursor commands:
 
+- The stable API-key launcher lives at
+  `~/.local/libexec/dotfiles/cursor-agent-api`. Point clients that accept an
+  explicit binary path, including T3 Code, at that absolute path.
 - The configurator records the exact installer-managed symlink targets, then
   replaces `~/.local/bin/cursor-agent` and `~/.local/bin/agent` with the API-key
-  launcher. That covers interactive shells and automation that executes either
-  canonical path directly.
+  launcher. Cursor can replace those paths again during a self-update, so they
+  are compatibility commands rather than the durable integration point.
 - Managed login and non-interactive zsh shells include `~/.local/bin` in `PATH`,
-  so agent harnesses can discover both commands by name.
+  while interactive zsh aliases `cursor-agent` to the stable launcher.
 - `cursorAgentBin` must therefore point to Cursor's versioned vendor executable,
   never one of those launcher paths.
 - The standalone `~/.local/bin/cursor-agent-api` path remains available for
-  explicit calls.
-- Cursor installer upgrades automatically reapply the managed commands.
+  compatibility.
+- When Cursor self-updates, the stable launcher follows the new canonical
+  vendor symlink while preserving API-key authentication. A later managed
+  installer run reapplies the compatibility commands.
 - The launcher uses Cursor's in-memory credential store so API-key checks do
   not recreate saved login state.
 

@@ -455,10 +455,11 @@ async function run(): Promise<void> {
   const credentialTarget = join(home, ".local/libexec/dotfiles/llm-gateway-credential");
   const cursorAcpAuthTarget = join(home, ".local/libexec/dotfiles/cursor-acp-api-key-auth");
   const legacyCredentialTarget = join(home, ".local/libexec/dotfiles/llm-client-credential");
-  const cursorApiTarget = join(home, ".local/bin/cursor-agent-api");
+  const cursorApiTarget = join(home, ".local/libexec/dotfiles/cursor-agent-api");
+  const cursorApiCompatibilityTarget = join(home, ".local/bin/cursor-agent-api");
   const cursorCommandTargets = [join(home, ".local/bin/cursor-agent"), join(home, ".local/bin/agent")];
   const cursorAuth = join(home, ".cursor/auth.json");
-  const managedCursorTargets = [cursorApiTarget, ...cursorCommandTargets];
+  const managedCursorTargets = [cursorApiTarget, cursorApiCompatibilityTarget, ...cursorCommandTargets];
   const grokHome = join(home, ".grok");
   const grokConfig = join(grokHome, "config.toml");
   const grokAuth = join(grokHome, "auth.json");
@@ -495,6 +496,7 @@ async function run(): Promise<void> {
     rmSync(cursorAcpAuthTarget, { force: true });
     rmSync(legacyCredentialTarget, { force: true });
     rmSync(cursorApiTarget, { force: true });
+    rmSync(cursorApiCompatibilityTarget, { force: true });
     if (stateHasCursorCommands(state) && state.cursorCommands.length > 0) restoreCursorCommands(state.cursorCommands);
     if (state.version === 5 && state.grokEnabled) {
       rmSync(legacyGrokTarget, { force: true });

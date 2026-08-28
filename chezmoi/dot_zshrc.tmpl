@@ -69,6 +69,12 @@ fi
 # User binaries
 path+=("$HOME/.local/bin")
 
+# Cursor owns and replaces ~/.local/bin/cursor-agent during self-update. Keep
+# interactive calls on the dotfiles-owned API-key launcher that survives it.
+if [ -x "$HOME/.local/libexec/dotfiles/cursor-agent-api" ]; then
+  alias cursor-agent="$HOME/.local/libexec/dotfiles/cursor-agent-api"
+fi
+
 # Prefer the Android Studio SDK when present. Headless developer profiles use
 # the Homebrew command-line-tools SDK root instead.
 if [ -d "$HOME/Library/Android/sdk" ]; then

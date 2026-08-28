@@ -180,6 +180,7 @@ rm -f "$HOME/.claude/.credentials.json"
     assert.equal(state.authRetired, false);
     assert.deepEqual(state.cursorCommands.map((command) => command.target), originalCursorTargets);
     assert.equal(statSync(join(home, ".local/libexec/dotfiles/cursor-acp-api-key-auth")).mode & 0o777, 0o700);
+    assert.equal(statSync(join(home, ".local/libexec/dotfiles/cursor-agent-api")).mode & 0o777, 0o700);
     const bifrostCredential = spawnSync(join(home, ".local/libexec/dotfiles/llm-gateway-credential"), ["bifrost"], {
       encoding: "utf8",
       env,
@@ -194,7 +195,11 @@ rm -f "$HOME/.claude/.credentials.json"
 
     const check = run("--check");
     assert.equal(check.status, 0, check.stderr);
-    for (const command of [join(home, ".local/bin/cursor-agent-api"), ...cursorCommands]) {
+    for (const command of [
+      join(home, ".local/libexec/dotfiles/cursor-agent-api"),
+      join(home, ".local/bin/cursor-agent-api"),
+      ...cursorCommands,
+    ]) {
       const cursorStatus = spawnSync(command, ["status"], { encoding: "utf8", env });
       assert.equal(cursorStatus.status, 0, cursorStatus.stderr);
       assert.equal(cursorStatus.stdout.trim(), "API key authenticated");
@@ -229,6 +234,32 @@ rm -f "$HOME/.claude/.credentials.json"
       assert.doesNotMatch(readFileSync(acpLog, "utf8"), /"method":"authenticate"/);
     }
 
+    const updatedCursorBin = join(home, ".local/share/cursor-agent/versions/updated/cursor-agent");
+    mkdirSync(dirname(updatedCursorBin), { recursive: true });
+    writeFileSync(updatedCursorBin, `#!/usr/bin/env bash
+case "\${1:-}" in
+  models) exit 0 ;;
+  --version) printf '2026.08.25-3e8eec8\\n' ;;
+  *) exit 2 ;;
+esac
+`, { mode: 0o700 });
+    for (const command of cursorCommands) {
+      rmSync(command, { force: true });
+      symlinkSync(updatedCursorBin, command);
+    }
+    const stableAfterUpdate = spawnSync(join(home, ".local/libexec/dotfiles/cursor-agent-api"), ["about", "--format", "json"], {
+      encoding: "utf8",
+      env,
+    });
+    assert.equal(stableAfterUpdate.status, 0, stableAfterUpdate.stderr);
+    assert.deepEqual(JSON.parse(stableAfterUpdate.stdout), {
+      cliVersion: "2026.08.25-3e8eec8",
+      userEmail: "api-key@local",
+    });
+    const repairAfterUpdate = run();
+    assert.equal(repairAfterUpdate.status, 0, repairAfterUpdate.stderr);
+    for (const command of cursorCommands) assert.equal(lstatSync(command).isSymbolicLink(), false);
+
     const retire = run("--retire-auth");
     assert.equal(retire.status, 0, retire.stderr);
     assert.equal(existsSync(join(codexHome, "auth.json")), false);
@@ -262,6 +293,7 @@ rm -f "$HOME/.claude/.credentials.json"
     assert.match(rollback.stdout, /requires reauthentication/);
     assert.equal(readFileSync(claudeSettingsPath, "utf8"), originalClaudeSettings);
     assert.equal(existsSync(join(home, ".local/bin/cursor-agent-api")), false);
+    assert.equal(existsSync(join(home, ".local/libexec/dotfiles/cursor-agent-api")), false);
     assert.equal(existsSync(join(home, ".local/libexec/dotfiles/cursor-acp-api-key-auth")), false);
     assert.equal(existsSync(join(home, ".local/libexec/dotfiles/llm-gateway-credential")), false);
     for (const [index, command] of cursorCommands.entries()) {
@@ -328,6 +360,7 @@ printf "%s\\n" "$*"
     assert.equal(readFileSync(`${grokLogin}.llm-gateway.backup`, "utf8"), originalGrokLogin);
     assert.equal(readFileSync(`${grokConfig}.llm-gateway.backup`, "utf8"), originalGrokConfig);
     assert.equal(existsSync(join(home, ".local/bin/cursor-agent-api")), false);
+    assert.equal(existsSync(join(home, ".local/libexec/dotfiles/cursor-agent-api")), false);
     assert.equal(existsSync(join(home, ".local/libexec/dotfiles/cursor-acp-api-key-auth")), false);
     assert.match(readFileSync(grokConfig, "utf8"), /default = "grok-4\.6"/);
     assert.match(readFileSync(grokConfig, "utf8"), /\[ui\]\ntheme = "dark"/);

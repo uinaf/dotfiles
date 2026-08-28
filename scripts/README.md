@@ -71,7 +71,7 @@ repository's Node module graph:
 | Boundary | Reason |
 | --- | --- |
 | `agents/llm-gateway-credential.sh` | Copied as a standalone credential helper for external clients. |
-| `agents/cursor-agent-api.sh` | Copied as the stable executable adapter expected by Cursor. |
+| `agents/cursor-agent-api.sh` | Copied to dotfiles libexec as Cursor's stable API-key adapter. |
 | `lib/sudo-age-askpass.sh` | Invoked directly by macOS `sudo` through `SUDO_ASKPASS`, including from an isolated temporary directory. |
 
 Parsing, policy, retries, filesystem mutation, and command orchestration stay
