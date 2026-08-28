@@ -137,9 +137,9 @@ Create `~/.config/dotfiles/llm-gateway.json` with mode `0600`:
 `credentials.cursor` only with `cursorAgentBin`. The values are already-resolved
 opaque strings: this repository does not know or require their source. Both
 `cursorAgentBin` and `grokBin` are optional. The configurators route Codex,
-Claude, and Grok through Gatewai, Cursor through its own API, and OpenCode
-through Bifrost. Pi and other clients can call the installed credential helper
-with `bifrost`. The configurator then:
+Claude, and Grok through Gatewai, Cursor through its own API, and OpenCode and
+Pi through Bifrost. Other clients can call the installed credential helper
+with `bifrost`. The configurators then:
 
 - installs owner-only process helpers
 - backs up the current Codex and Claude settings once
@@ -149,8 +149,8 @@ with `bifrost`. The configurator then:
 ```bash
 ./scripts/bootstrap/configure-llm-gateway.ts
 ./scripts/bootstrap/configure-llm-gateway.ts --check
-./scripts/bootstrap/configure-opencode.ts
-./scripts/bootstrap/configure-opencode.ts --check
+./scripts/bootstrap/configure-bifrost-clients.ts
+./scripts/bootstrap/configure-bifrost-clients.ts --check
 ```
 
 - The first enrollment keeps any saved Codex login intact.
@@ -180,9 +180,10 @@ Retirement is intentionally separate from enrollment:
   removes any legacy Codex login-method restriction.
 - Personal setup asks the installed credential helper for the device-scoped
   Bifrost key, writes it to OpenCode's owner-only `bifrost` auth slot, and sets
-  `enabled_providers` to only `bifrost`. Other OpenCode settings and inactive
-  credentials remain untouched; direct `opencode` and `opencode-go` auth slots
-  remain absent.
+  `enabled_providers` to only `bifrost`. It converges the same six-model catalog
+  in OpenCode and Pi, including context and output limits. Other settings,
+  providers, and inactive credentials remain untouched; direct `opencode` and
+  `opencode-go` auth slots remain absent.
 
 Claude Code:
 

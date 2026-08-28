@@ -59,11 +59,11 @@
       "output": "Opt-in Codex and Claude gateway routing, Cursor API-key isolation, check, and exact rollback"
     },
     {
-      "id": "opencode",
+      "id": "bifrost-clients",
       "domain": "config",
-      "command": ["node", "--test", "scripts/bootstrap/configure-opencode.test.ts"],
-      "inputs": ["scripts/bootstrap/configure-opencode.ts", "scripts/bootstrap/configure-opencode.test.ts", "scripts/agents/llm-gateway-credential.sh", "scripts/bootstrap/install.ts", "chezmoi/.chezmoidata/profiles.json", "docs/devbox.md"],
-      "output": "OpenCode native credential convergence for both catalogs"
+      "command": ["node", "--test", "scripts/bootstrap/configure-bifrost-clients.test.ts"],
+      "inputs": ["scripts/bootstrap/configure-bifrost-clients.ts", "scripts/bootstrap/configure-bifrost-clients.test.ts", "scripts/agents/llm-gateway-credential.sh", "scripts/bootstrap/install.ts", "chezmoi/.chezmoidata/profiles.json", "docs/devbox.md"],
+      "output": "OpenCode and Pi Bifrost credential and six-model catalog convergence"
     },
     {
       "id": "agent-rule-sources",

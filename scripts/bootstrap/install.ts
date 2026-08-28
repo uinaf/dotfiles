@@ -56,9 +56,9 @@ const runStep = Effect.fn("runInstallStep")(function*(step: string, profile: str
       yield* execute(step, bootstrap("configure-llm-gateway.ts"), []);
       return yield* execute(`${step} retire auth`, bootstrap("configure-llm-gateway.ts"), ["--retire-auth"]);
     }
-    case "configure-opencode":
-      yield* execute(step, bootstrap("configure-opencode.ts"), []);
-      return yield* execute(`${step} check`, bootstrap("configure-opencode.ts"), ["--check"]);
+    case "configure-bifrost-clients":
+      yield* execute(step, bootstrap("configure-bifrost-clients.ts"), []);
+      return yield* execute(`${step} check`, bootstrap("configure-bifrost-clients.ts"), ["--check"]);
     case "sync-agents":
       for (const name of ["sync.ts", "plugins.ts", "mcps.ts"]) {
         yield* execute(`${step} ${name}`, resolve(repoRoot, "scripts/agents", name), ["--profile", profile]);

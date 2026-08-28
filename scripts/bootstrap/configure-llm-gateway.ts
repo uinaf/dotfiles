@@ -586,7 +586,7 @@ async function run(): Promise<void> {
       }
     }
     if (mode === "check") {
-      process.stdout.write(`ok Gatewai/Bifrost config, helpers, resolved credentials, Codex and Claude on Gatewai, Cursor=${Boolean(config.cursorAgentBin)}, Grok=${Boolean(config.grokBin)}, OpenCode=Bifrost, and auth-retired=${state.authRetired}\n`);
+      process.stdout.write(`ok Gatewai/Bifrost config, helpers, resolved credentials, Codex and Claude on Gatewai, Cursor=${Boolean(config.cursorAgentBin)}, Grok=${Boolean(config.grokBin)}, and auth-retired=${state.authRetired}\n`);
       return;
     }
 

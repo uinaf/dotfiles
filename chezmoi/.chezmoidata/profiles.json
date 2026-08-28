@@ -34,7 +34,7 @@
           "install-gh-extensions",
           "configure-codex",
           "configure-llm-gateway",
-          "configure-opencode",
+          "configure-bifrost-clients",
           "sync-agents"
         ]
       },
@@ -70,7 +70,7 @@
           "install-gh-extensions",
           "configure-codex",
           "configure-llm-gateway",
-          "configure-opencode",
+          "configure-bifrost-clients",
           "sync-agents"
         ]
       },
