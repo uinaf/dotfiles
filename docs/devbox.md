@@ -134,7 +134,10 @@ Create `~/.config/dotfiles/llm-gateway.json` with mode `0600`:
 ```
 
 `credentials.gatewai` and `credentials.bifrost` are required. Configure
-`credentials.cursor` only with `cursorAgentBin`. The values are already-resolved
+`credentials.cursor` only with `cursorAgentBin`. An optional
+`preservedLogins` array (values `codex`, `claude`, `cursor`, `grok`) declares
+host-local vendor logins that retirement and `--check` must leave alone; use
+it for a deliberately kept login instead of tolerating a failing check. The values are already-resolved
 opaque strings: this repository does not know or require their source. Both
 `cursorAgentBin` and `grokBin` are optional. The configurators route Codex,
 Claude, and Grok through Gatewai, Cursor through its own API, and OpenCode and

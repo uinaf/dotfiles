@@ -36,15 +36,28 @@ esac
 # HOME; pin the resolved config path for it explicitly.
 export LLM_GATEWAY_CONFIG="$config_path"
 
-exec codex \
-  -c 'model_provider="gatewai"' \
-  -c 'model_providers.gatewai.name="Gatewai"' \
-  -c "model_providers.gatewai.base_url=\"$base_url\"" \
-  -c 'model_providers.gatewai.wire_api="responses"' \
-  -c 'model_providers.gatewai.requires_openai_auth=false' \
-  -c 'model_providers.gatewai.supports_websockets=false' \
-  -c "model_providers.gatewai.auth.command=\"$credential\"" \
-  -c 'model_providers.gatewai.auth.args=["gatewai"]' \
-  -c 'model_providers.gatewai.auth.timeout_ms=5000' \
-  -c 'model_providers.gatewai.auth.refresh_interval_ms=0' \
-  "$@"
+overrides=(
+  'model_provider="gatewai"'
+  'model_providers.gatewai.name="Gatewai"'
+  "model_providers.gatewai.base_url=\"$base_url\""
+  'model_providers.gatewai.wire_api="responses"'
+  'model_providers.gatewai.requires_openai_auth=false'
+  'model_providers.gatewai.supports_websockets=false'
+  "model_providers.gatewai.auth.command=\"$credential\""
+  'model_providers.gatewai.auth.args=["gatewai"]'
+  'model_providers.gatewai.auth.timeout_ms=5000'
+  'model_providers.gatewai.auth.refresh_interval_ms=0'
+)
+
+# configure-llm-gateway --check compares this against the Codex config edits
+# so the launcher cannot drift from the enrolled provider definition.
+if [ "${1:-}" = "--gateway-overrides" ]; then
+  printf '%s\n' "${overrides[@]}"
+  exit 0
+fi
+
+arguments=()
+for override in "${overrides[@]}"; do
+  arguments+=(-c "$override")
+done
+exec codex "${arguments[@]}" "$@"

@@ -47,6 +47,18 @@ test("gateway config is strict and provider edits use command-backed Responses a
     () => parseGatewayConfig(JSON.stringify({ ...validConfig, gatewaiBaseUrl: "http://gatewai.example/v1" })),
     /HTTPS \/v1 URL/,
   );
+  assert.deepEqual(
+    parseGatewayConfig(JSON.stringify({ ...validConfig, preservedLogins: ["claude"] })).preservedLogins,
+    ["claude"],
+  );
+  assert.throws(
+    () => parseGatewayConfig(JSON.stringify({ ...validConfig, preservedLogins: ["claude", "claude"] })),
+    /preservedLogins must list unique clients/,
+  );
+  assert.throws(
+    () => parseGatewayConfig(JSON.stringify({ ...validConfig, preservedLogins: ["opencode"] })),
+    /preservedLogins must list unique clients/,
+  );
 
   const edits = gatewayEdits(config, "/Users/example/.local/libexec/dotfiles/llm-gateway-credential");
   assert.equal(edits.some((edit) => edit.keyPath === "forced_login_method"), false);
@@ -410,71 +422,30 @@ printf "%s\\n" "$*"
   }
 });
 
-test("deployed llm-client version 2 state migrates to the Claude-capable llm-gateway state", { skip: !codexInstalled }, () => {
-  const root = mkdtempSync(join(tmpdir(), "dotfiles-llm-gateway-migration-"));
+test("pre-v6 gateway state fails closed with a re-enroll instruction", { skip: !codexInstalled }, () => {
+  const root = mkdtempSync(join(tmpdir(), "dotfiles-llm-gateway-prev6-"));
   const home = join(root, "home");
-  const bin = join(root, "bin");
   const configDir = join(home, ".config/dotfiles");
-  const codexHome = join(home, ".codex");
-  const claudeSettingsPath = join(home, ".claude/settings.json");
   const gatewayConfig = join(configDir, "llm-gateway.json");
-  const cursorBin = join(home, ".local/share/cursor-agent/versions/test/cursor-agent");
-  const cursorCommands = [join(home, ".local/bin/cursor-agent"), join(home, ".local/bin/agent")];
-  const originalCursorTarget = "/vendor/cursor-agent";
-  const originalCodex = '# original\nforced_login_method = "chatgpt"\n';
-  const currentCodex = 'model_provider = "llm_gateway"\n';
-  const originalClaude = '{"permissions":{"defaultMode":"auto"}}\n';
-  const legacyBackup = join(codexHome, "config.toml.llm-client.backup");
-  const legacyState = join(configDir, "llm-client-state.json");
-  const legacyCredential = join(home, ".local/libexec/dotfiles/llm-client-credential");
+  const statePath = join(configDir, "llm-gateway-state.json");
 
   try {
-    for (const path of [configDir, codexHome, dirname(claudeSettingsPath), dirname(cursorBin), dirname(cursorCommands[0]), dirname(legacyCredential), bin]) {
-      mkdirSync(path, { recursive: true });
-    }
-    writeFileSync(join(codexHome, "config.toml"), currentCodex, { mode: 0o600 });
-    writeFileSync(legacyBackup, originalCodex, { mode: 0o600 });
-    writeFileSync(claudeSettingsPath, originalClaude, { mode: 0o600 });
-    writeFileSync(gatewayConfig, `${JSON.stringify({ ...validConfig, cursorAgentBin: cursorBin })}\n`, { mode: 0o600 });
-    writeFileSync(cursorBin, '#!/usr/bin/env bash\n[ "${1:-}" = models ] || exit 2\n', { mode: 0o700 });
-    for (const command of cursorCommands) writeFileSync(command, "legacy wrapper\n", { mode: 0o700 });
-    writeFileSync(legacyCredential, "legacy helper\n", { mode: 0o700 });
-    writeFileSync(legacyState, `${JSON.stringify({
+    mkdirSync(configDir, { recursive: true });
+    writeFileSync(gatewayConfig, `${JSON.stringify({ ...validConfig, cursorAgentBin: undefined, credentials: { gatewai: validConfig.credentials.gatewai, bifrost: validConfig.credentials.bifrost } })}\n`, { mode: 0o600 });
+    writeFileSync(statePath, `${JSON.stringify({
       version: 2,
-      codexConfigExisted: true,
-      codexBackupPath: legacyBackup,
-      cursorCommands: cursorCommands.map((path) => ({ path, target: originalCursorTarget })),
+      codexConfigExisted: false,
+      codexBackupPath: null,
+      cursorCommands: [],
     }, null, 2)}\n`, { mode: 0o600 });
 
-    const env = {
-      ...process.env,
-      HOME: home,
-      CODEX_HOME: codexHome,
-      LLM_GATEWAY_CONFIG: gatewayConfig,
-      PATH: fixturePath(bin),
-    };
-    const preMigrationCheck = spawnSync(script, ["--check"], { encoding: "utf8", env });
-    assert.notEqual(preMigrationCheck.status, 0);
-    assert.equal(existsSync(legacyState), true);
-    assert.equal(existsSync(join(configDir, "llm-gateway-state.json")), false);
-    const apply = spawnSync(script, [], { encoding: "utf8", env });
-    assert.equal(apply.status, 0, apply.stderr);
-    assert.equal(existsSync(legacyState), false);
-    assert.equal(existsSync(legacyCredential), false);
-    const migrated = JSON.parse(readFileSync(join(configDir, "llm-gateway-state.json"), "utf8")) as { version: number; authRetired: boolean; codexBackupPath: string };
-    assert.equal(migrated.version, 6);
-    assert.equal(migrated.authRetired, false);
-    assert.equal(migrated.codexBackupPath, legacyBackup);
-    assert.equal(readFileSync(`${claudeSettingsPath}.llm-gateway.backup`, "utf8"), originalClaude);
-
-    const rollback = spawnSync(script, ["--rollback"], { encoding: "utf8", env });
-    assert.equal(rollback.status, 0, rollback.stderr);
-    assert.equal(readFileSync(join(codexHome, "config.toml"), "utf8"), originalCodex);
-    assert.equal(readFileSync(claudeSettingsPath, "utf8"), originalClaude);
-    for (const command of cursorCommands) {
-      assert.equal(lstatSync(command).isSymbolicLink(), true);
-      assert.equal(readlinkSync(command), originalCursorTarget);
+    const env = { ...process.env, HOME: home, LLM_GATEWAY_CONFIG: gatewayConfig };
+    for (const args of [[], ["--check"], ["--rollback"]]) {
+      const result = spawnSync(script, args, { encoding: "utf8", env });
+      assert.notEqual(result.status, 0);
+      assert.match(result.stderr, /roll back and re-enroll pre-v6 hosts/);
     }
+    assert.equal(existsSync(statePath), true);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
