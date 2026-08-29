@@ -44,7 +44,7 @@ const runStep = Effect.fn("runInstallStep")(function*(step: string, profile: str
     case "install-repository-dependencies":
       return yield* execute(step, "mise", ["exec", "--", "corepack", "pnpm", "--dir", repoRoot, "install", "--frozen-lockfile"]);
     case "configure-codex":
-      return yield* execute(step, bootstrap("configure-codex.ts"), []);
+      return yield* execute(step, bootstrap("configure-codex.ts"), ["--profile", profile]);
     case "configure-llm-gateway": {
       const fs = yield* FileSystem.FileSystem;
       const path = process.env.LLM_GATEWAY_CONFIG || join(process.env.HOME || "", ".config/dotfiles/llm-gateway.json");

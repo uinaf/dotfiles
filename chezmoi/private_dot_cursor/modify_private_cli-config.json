@@ -1,0 +1,12 @@
+{{- /* chezmoi:modify-template */ -}}
+{{- $profile := includeTemplate "profile" . | fromJson -}}
+{{- $settings := dict -}}
+{{- if ne (trim .chezmoi.stdin) "" -}}
+{{- $settings = fromJson .chezmoi.stdin -}}
+{{- end -}}
+{{- $displayName := "Cursor Grok 4.6" -}}
+{{- if $profile.capabilities.personal -}}
+{{- $displayName = "Cursor Grok 4.6 High Fast" -}}
+{{- end -}}
+{{- $model := dict "modelId" "grok-4.6" "displayModelId" "grok-4.6" "displayName" $displayName "displayNameShort" $displayName "aliases" (list) "maxMode" false -}}
+{{ $settings | setValueAtPath "model" $model | setValueAtPath "maxMode" false | setValueAtPath "hasChangedDefaultModel" true | toPrettyJson }}

@@ -13,12 +13,12 @@ import { managedEdits } from "./configure-codex.ts";
 const script = resolve(dirname(fileURLToPath(import.meta.url)), "configure-codex.ts");
 const codexInstalled = spawnSync("codex", ["--version"], { stdio: "ignore" }).status === 0;
 
-function run(home: string) {
-  return spawnSync(script, { encoding: "utf8", env: { ...process.env, CODEX_HOME: home } });
+function run(home: string, profile = "workstation") {
+  return spawnSync(script, ["--profile", profile], { encoding: "utf8", env: { ...process.env, CODEX_HOME: home } });
 }
 
-test("Codex defaults are one typed atomic edit batch", () => {
-  assert.deepEqual(managedEdits, [
+test("Codex defaults are one profile-aware typed atomic edit batch", () => {
+  assert.deepEqual(managedEdits(false), [
     { keyPath: "forced_login_method", value: null, mergeStrategy: "replace" },
     { keyPath: "model", value: "gpt-5.6-sol", mergeStrategy: "upsert" },
     { keyPath: "model_reasoning_effort", value: "medium", mergeStrategy: "upsert" },
@@ -26,6 +26,10 @@ test("Codex defaults are one typed atomic edit batch", () => {
     { keyPath: "features.fast_mode", value: null, mergeStrategy: "replace" },
     { keyPath: "features.goals", value: true, mergeStrategy: "upsert" },
     { keyPath: "features.memories", value: false, mergeStrategy: "upsert" },
+  ]);
+  assert.deepEqual(managedEdits(true).slice(3, 5), [
+    { keyPath: "service_tier", value: "fast", mergeStrategy: "upsert" },
+    { keyPath: "features.fast_mode", value: true, mergeStrategy: "upsert" },
   ]);
 });
 
@@ -56,6 +60,25 @@ test("installed Codex removes forced login, preserves unrelated config, and is i
     const second = run(home);
     assert.equal(second.status, 0, second.stderr);
     assert.equal(readFileSync(config, "utf8"), contents);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("installed Codex enables Fast mode for personal profiles", { skip: !codexInstalled }, () => {
+  const root = mkdtempSync(join(tmpdir(), "dotfiles-codex-personal-config-"));
+  const home = join(root, "codex");
+  const config = join(home, "config.toml");
+  try {
+    mkdirSync(home);
+    writeFileSync(config, 'service_tier = "default"\n\n[features]\nfast_mode = false\n');
+    const result = run(home, "personal-workstation");
+    assert.equal(result.status, 0, result.stderr);
+    const contents = readFileSync(config, "utf8");
+    assert.ok(contents.includes('model = "gpt-5.6-sol"'));
+    assert.ok(contents.includes('model_reasoning_effort = "medium"'));
+    assert.ok(contents.includes('service_tier = "fast"'));
+    assert.ok(contents.includes("fast_mode = true"));
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

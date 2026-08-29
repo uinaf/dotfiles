@@ -1,11 +1,14 @@
 #!/usr/bin/env node
 
+import { NodeServices } from "@effect/platform-node";
 import { spawn } from "node:child_process";
 import { Console, Effect, Schema } from "effect";
 import { chmodSync, mkdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import readline from "node:readline";
 import { runMain } from "../lib/program.ts";
+import { profileModelFile, resolveProfile } from "../profiles/current.ts";
+import { readProfileModelEffect, requireProfile } from "../profiles/model.ts";
 
 type RpcMessage = { id?: number; result?: unknown; error?: { message?: string } };
 const RpcMessage = Schema.Struct({
@@ -16,15 +19,21 @@ const RpcMessage = Schema.Struct({
 type Scalar = boolean | null | number | string | readonly string[];
 export type ConfigEdit = { keyPath: string; value: Scalar; mergeStrategy: "replace" | "upsert" };
 
-export const managedEdits = [
-  { keyPath: "forced_login_method", value: null, mergeStrategy: "replace" },
-  { keyPath: "model", value: "gpt-5.6-sol", mergeStrategy: "upsert" },
-  { keyPath: "model_reasoning_effort", value: "medium", mergeStrategy: "upsert" },
-  { keyPath: "service_tier", value: null, mergeStrategy: "replace" },
-  { keyPath: "features.fast_mode", value: null, mergeStrategy: "replace" },
-  { keyPath: "features.goals", value: true, mergeStrategy: "upsert" },
-  { keyPath: "features.memories", value: false, mergeStrategy: "upsert" },
-] satisfies ConfigEdit[];
+export function managedEdits(personal: boolean): ConfigEdit[] {
+  return [
+    { keyPath: "forced_login_method", value: null, mergeStrategy: "replace" },
+    { keyPath: "model", value: "gpt-5.6-sol", mergeStrategy: "upsert" },
+    { keyPath: "model_reasoning_effort", value: "medium", mergeStrategy: "upsert" },
+    personal
+      ? { keyPath: "service_tier", value: "fast", mergeStrategy: "upsert" }
+      : { keyPath: "service_tier", value: null, mergeStrategy: "replace" },
+    personal
+      ? { keyPath: "features.fast_mode", value: true, mergeStrategy: "upsert" }
+      : { keyPath: "features.fast_mode", value: null, mergeStrategy: "replace" },
+    { keyPath: "features.goals", value: true, mergeStrategy: "upsert" },
+    { keyPath: "features.memories", value: false, mergeStrategy: "upsert" },
+  ];
+}
 
 export async function writeConfigEdits(edits: readonly ConfigEdit[]): Promise<string> {
   const codexHome = resolve(process.env.CODEX_HOME || join(process.env.HOME || "", ".codex"));
@@ -87,13 +96,25 @@ export async function writeConfigEdits(edits: readonly ConfigEdit[]): Promise<st
   return configPath;
 }
 
-export async function configure(): Promise<string> {
-  return writeConfigEdits(managedEdits);
+export async function configure(personal: boolean): Promise<string> {
+  return writeConfigEdits(managedEdits(personal));
 }
 
 if (import.meta.main) {
-  runMain(Effect.tryPromise({ try: configure, catch: (error) => error }).pipe(
-    Effect.tap((configPath) => Console.log(`configured Codex defaults in ${configPath}`)),
-    Effect.asVoid,
-  ));
+  const program = Effect.gen(function*() {
+    const args = process.argv.slice(2);
+    const profileIndex = args.indexOf("--profile");
+    if (args.length > 2 || (args.length > 0 && (profileIndex !== 0 || !args[1]))) {
+      return yield* Effect.fail(new Error("usage: configure-codex.ts [--profile PROFILE]"));
+    }
+    const profile = yield* resolveProfile(profileIndex === 0 ? args[1] : undefined);
+    const model = yield* readProfileModelEffect(profileModelFile());
+    const personal = requireProfile(model, profile).capabilities.personal;
+    const configPath = yield* Effect.tryPromise({
+      try: () => configure(personal),
+      catch: (error) => error,
+    });
+    yield* Console.log(`configured Codex defaults in ${configPath}`);
+  });
+  runMain(program.pipe(Effect.provide(NodeServices.layer)));
 }

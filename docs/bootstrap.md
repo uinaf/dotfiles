@@ -166,14 +166,19 @@ defaults in `~/.codex/config.toml`:
 - Removes the legacy `forced_login_method` setting so each identity can use its
   active ChatGPT session or an explicitly configured API provider without the
   bootstrap overriding that choice.
-- Sets medium reasoning effort without managing the service tier or Fast mode,
-  leaving that selection to the active client and thread.
+- Selects GPT-5.6 Sol with medium reasoning effort.
+- Enables Fast mode for personal profiles. Standard profiles leave the service
+  tier and Fast mode keys absent.
 - Preserves unrelated settings and formatting.
 - Does not manage Codex auth tokens, sessions, approvals, or app state.
 
 The typed edit list in `scripts/bootstrap/configure-codex.ts` is the source of
 truth; the bootstrap client sends it through Codex's native writer as one
 atomic update.
+
+Developer profiles also select Claude Fable 5 with medium effort and Cursor
+Grok 4.6 High. Personal profiles select Cursor's Fast variant. Grok Build on
+personal workstations defaults to Grok 4.6 through the managed gateway config.
 
 Personal profiles then require the owner-only LLM gateway config, apply it to
 Codex, Claude Code, Cursor Agent, and Grok Build, and retire their saved vendor

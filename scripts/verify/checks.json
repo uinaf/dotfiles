@@ -42,7 +42,14 @@
       "domain": "config",
       "command": ["node", "scripts/verify/claude-settings.ts"],
       "inputs": ["chezmoi/private_dot_claude/**", "chezmoi/.chezmoiignore.tmpl", "chezmoi/.chezmoidata/profiles.json", "chezmoi/.chezmoitemplates/profile", "scripts/profiles/model.ts", "scripts/verify/claude-settings.ts", "scripts/verify/home-fixture.ts"],
-      "output": "Claude user settings preserve unrelated keys, mode, and malformed input"
+      "output": "Claude user settings preserve unrelated keys and select Fable 5 at medium effort"
+    },
+    {
+      "id": "cursor-settings",
+      "domain": "config",
+      "command": ["node", "scripts/verify/cursor-settings.ts"],
+      "inputs": ["chezmoi/private_dot_cursor/**", "chezmoi/.chezmoiignore.tmpl", "chezmoi/.chezmoidata/profiles.json", "chezmoi/.chezmoitemplates/profile", "scripts/profiles/model.ts", "scripts/verify/cursor-settings.ts", "scripts/verify/home-fixture.ts"],
+      "output": "Cursor user settings preserve unrelated keys and select profile-aware Grok defaults"
     },
     {
       "id": "codex-settings",
