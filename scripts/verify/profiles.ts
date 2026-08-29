@@ -87,7 +87,7 @@ const program = Effect.scoped(Effect.gen(function*() {
   const personal = yield* brewfile("Brewfile.personal");
   for (const entry of ['brew "asc"', 'brew "uinaf/tap/attach"', 'brew "openclaw/tap/crabbox"', 'brew "putdotio/tap/putio-cli"']) assert.ok(personal.split("\n").includes(entry));
   const workstation = yield* brewfile("Brewfile.workstation");
-  for (const entry of ['cask "ghostty"', 'cask "1password"', 'cask "t3-code"', 'cask "zed"', 'brew "ykman"']) assert.ok(workstation.split("\n").includes(entry));
+  for (const entry of ['cask "ghostty"', 'cask "1password"', 'cask "chatgpt"', 'cask "t3-code"', 'cask "zed"', 'brew "ykman"']) assert.ok(workstation.split("\n").includes(entry));
   const assistant = yield* brewfile("Brewfile.assistant");
   for (const entry of ['brew "yt-dlp"', 'brew "qpdf"', 'brew "whisper-cpp"']) assert.ok(assistant.split("\n").includes(entry));
 

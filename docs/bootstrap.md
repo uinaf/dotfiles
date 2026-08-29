@@ -177,7 +177,8 @@ atomic update.
 
 Personal profiles then require the owner-only LLM gateway config, apply it to
 Codex, Claude Code, Cursor Agent, and Grok Build, and retire their saved vendor
-login sessions. T3 Code remains the only managed coding desktop app.
+login sessions. Workstation profiles manage the T3 Code and ChatGPT desktop
+apps.
 
 The same install step also:
 
