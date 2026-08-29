@@ -185,6 +185,20 @@ Retirement is intentionally separate from enrollment:
   providers, and inactive credentials remain untouched; direct `opencode` and
   `opencode-go` auth slots remain absent.
 
+Codex after retirement:
+
+- `codex login status` reports `Not logged in` by design: authentication flows
+  through the `model_providers.*.auth` credential command in `config.toml`,
+  not a saved login or `OPENAI_API_KEY`.
+- Do not diagnose a "missing" Codex credential from `codex login status` or
+  environment variables. Verify with a live call instead:
+  `echo ok | codex exec --ephemeral --skip-git-repo-check -`.
+- Child processes that launch `codex` inherit this configuration as long as
+  they preserve `HOME`/`CODEX_HOME`. Harnesses that pass
+  `--ignore-user-config` drop the gateway provider and cannot authenticate
+  Codex here; route those through Claude Code, whose gateway settings live in
+  user-scope settings that such harnesses preserve.
+
 Claude Code:
 
 - Receives `ANTHROPIC_BASE_URL` and `apiKeyHelper` in its existing user
