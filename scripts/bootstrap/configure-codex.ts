@@ -19,9 +19,9 @@ export type ConfigEdit = { keyPath: string; value: Scalar; mergeStrategy: "repla
 export const managedEdits = [
   { keyPath: "forced_login_method", value: null, mergeStrategy: "replace" },
   { keyPath: "model", value: "gpt-5.6-sol", mergeStrategy: "upsert" },
-  { keyPath: "model_reasoning_effort", value: "high", mergeStrategy: "upsert" },
-  { keyPath: "service_tier", value: "default", mergeStrategy: "upsert" },
-  { keyPath: "features.fast_mode", value: false, mergeStrategy: "upsert" },
+  { keyPath: "model_reasoning_effort", value: "medium", mergeStrategy: "upsert" },
+  { keyPath: "service_tier", value: null, mergeStrategy: "replace" },
+  { keyPath: "features.fast_mode", value: null, mergeStrategy: "replace" },
   { keyPath: "features.goals", value: true, mergeStrategy: "upsert" },
   { keyPath: "features.memories", value: false, mergeStrategy: "upsert" },
 ] satisfies ConfigEdit[];

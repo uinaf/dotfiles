@@ -166,8 +166,8 @@ defaults in `~/.codex/config.toml`:
 - Removes the legacy `forced_login_method` setting so each identity can use its
   active ChatGPT session or an explicitly configured API provider without the
   bootstrap overriding that choice.
-- Sets high reasoning effort, selects the standard service tier, and disables
-  fast mode by default.
+- Sets medium reasoning effort without managing the service tier or Fast mode,
+  leaving that selection to the active client and thread.
 - Preserves unrelated settings and formatting.
 - Does not manage Codex auth tokens, sessions, approvals, or app state.
 

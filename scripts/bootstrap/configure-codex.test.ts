@@ -21,9 +21,9 @@ test("Codex defaults are one typed atomic edit batch", () => {
   assert.deepEqual(managedEdits, [
     { keyPath: "forced_login_method", value: null, mergeStrategy: "replace" },
     { keyPath: "model", value: "gpt-5.6-sol", mergeStrategy: "upsert" },
-    { keyPath: "model_reasoning_effort", value: "high", mergeStrategy: "upsert" },
-    { keyPath: "service_tier", value: "default", mergeStrategy: "upsert" },
-    { keyPath: "features.fast_mode", value: false, mergeStrategy: "upsert" },
+    { keyPath: "model_reasoning_effort", value: "medium", mergeStrategy: "upsert" },
+    { keyPath: "service_tier", value: null, mergeStrategy: "replace" },
+    { keyPath: "features.fast_mode", value: null, mergeStrategy: "replace" },
     { keyPath: "features.goals", value: true, mergeStrategy: "upsert" },
     { keyPath: "features.memories", value: false, mergeStrategy: "upsert" },
   ]);
@@ -35,7 +35,7 @@ test("installed Codex removes forced login, preserves unrelated config, and is i
   const config = join(home, "config.toml");
   try {
     mkdirSync(home);
-    writeFileSync(config, 'forced_login_method = "chatgpt"\n# keep this comment\napproval_policy = "never"\n\n[mcp_servers.fixture]\ncommand = "example"\n');
+    writeFileSync(config, 'forced_login_method = "chatgpt"\nservice_tier = "default"\n# keep this comment\napproval_policy = "never"\n\n[features]\nfast_mode = false\n\n[mcp_servers.fixture]\ncommand = "example"\n');
     chmodSync(config, 0o644);
 
     const first = run(home);
@@ -45,10 +45,11 @@ test("installed Codex removes forced login, preserves unrelated config, and is i
     assert.ok(contents.includes('approval_policy = "never"'));
     assert.ok(contents.includes('[mcp_servers.fixture]\ncommand = "example"'));
     assert.ok(!contents.includes("forced_login_method"));
+    assert.ok(!contents.includes("service_tier"));
+    assert.ok(!contents.includes("fast_mode"));
     for (const expected of [
       'model = "gpt-5.6-sol"',
-      'model_reasoning_effort = "high"', 'service_tier = "default"',
-      "fast_mode = false", "goals = true", "memories = false",
+      'model_reasoning_effort = "medium"', "goals = true", "memories = false",
     ]) assert.ok(contents.includes(expected), `missing ${expected}`);
     assert.equal(statSync(config).mode & 0o777, 0o600);
 
