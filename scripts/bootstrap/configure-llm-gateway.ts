@@ -118,6 +118,7 @@ function stateHasGrok(state: ClientState): state is ClientStateV5 | ClientStateV
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const sourceCredential = join(repoRoot, "scripts/agents/llm-gateway-credential.sh");
+const sourceCodexGatewai = join(repoRoot, "scripts/agents/codex-gatewai.sh");
 const sourceCursor = join(repoRoot, "scripts/agents/cursor-agent-api.sh");
 const sourceCursorAcpAuth = join(repoRoot, "scripts/agents/cursor-acp-api-key-auth.py");
 
@@ -453,6 +454,7 @@ async function run(): Promise<void> {
   const statePath = join(home, ".config/dotfiles/llm-gateway-state.json");
   const legacyStatePath = join(home, ".config/dotfiles/llm-client-state.json");
   const credentialTarget = join(home, ".local/libexec/dotfiles/llm-gateway-credential");
+  const codexGatewaiTarget = join(home, ".local/libexec/dotfiles/codex-gatewai");
   const cursorAcpAuthTarget = join(home, ".local/libexec/dotfiles/cursor-acp-api-key-auth");
   const legacyCredentialTarget = join(home, ".local/libexec/dotfiles/llm-client-credential");
   const cursorApiTarget = join(home, ".local/libexec/dotfiles/cursor-agent-api");
@@ -493,6 +495,7 @@ async function run(): Promise<void> {
       }
     }
     rmSync(credentialTarget, { force: true });
+    rmSync(codexGatewaiTarget, { force: true });
     rmSync(cursorAcpAuthTarget, { force: true });
     rmSync(legacyCredentialTarget, { force: true });
     rmSync(cursorApiTarget, { force: true });
@@ -540,6 +543,7 @@ async function run(): Promise<void> {
     if (state.version !== 6) throw new Error("LLM gateway state must be upgraded by applying the configurator");
     assertStateCursorCommands(state, cursorCommandTargets, Boolean(config.cursorAgentBin));
     assertInstalledFile(sourceCredential, credentialTarget);
+    assertInstalledFile(sourceCodexGatewai, codexGatewaiTarget);
     if (config.cursorAgentBin) {
       assertInstalledFile(sourceCursorAcpAuth, cursorAcpAuthTarget);
       for (const target of managedCursorTargets) assertInstalledFile(sourceCursor, target);
@@ -701,6 +705,7 @@ async function run(): Promise<void> {
   }
 
   atomicCopy(sourceCredential, credentialTarget, 0o700);
+  atomicCopy(sourceCodexGatewai, codexGatewaiTarget, 0o700);
   if (config.cursorAgentBin) {
     atomicCopy(sourceCursorAcpAuth, cursorAcpAuthTarget, 0o700);
     for (const target of managedCursorTargets) atomicCopy(sourceCursor, target, 0o700);

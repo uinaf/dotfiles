@@ -195,9 +195,13 @@ Codex after retirement:
   `echo ok | codex exec --ephemeral --skip-git-repo-check -`.
 - Child processes that launch `codex` inherit this configuration as long as
   they preserve `HOME`/`CODEX_HOME`. Harnesses that pass
-  `--ignore-user-config` drop the gateway provider and cannot authenticate
-  Codex here; route those through Claude Code, whose gateway settings live in
-  user-scope settings that such harnesses preserve.
+  `--ignore-user-config` drop the gateway provider from `config.toml`; for
+  those, point the harness at the installed
+  `~/.local/libexec/dotfiles/codex-gatewai` launcher (for example
+  `CODEX_BIN=~/.local/libexec/dotfiles/codex-gatewai`). It re-injects the
+  gateway provider as CLI `-c` overrides, resolves its paths from its own
+  install location so a redirected `HOME` cannot break it, and keeps secrets
+  out of the environment and argument list.
 
 Claude Code:
 
