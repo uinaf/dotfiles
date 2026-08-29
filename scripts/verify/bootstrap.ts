@@ -83,7 +83,7 @@ const program = Effect.gen(function*() {
   });
   const developerTools = Effect.gen(function*() {
     if (!config.capabilities.developer) return;
-    yield* shellChecks(["python --version", "uv --version", "gh auth status", "gh stack --help", "glab --version", "bun --version", "java -version", "codex --version", "claude --version", "cursor-agent --version", "slopguard version", "slopmachine version"]);
+    yield* shellChecks(["python --version", "python -c 'import yaml; assert yaml.__version__ == \"6.0.3\"'", "uv --version", "gh auth status", "gh stack --help", "glab --version", "bun --version", "java -version", "codex --version", "claude --version", "cursor-agent --version", "slopguard version", "slopmachine version"]);
     const androidHome = yield* shell('printf %s "$ANDROID_HOME"');
     if (!androidHome || !(yield* fs.exists(androidHome))) return yield* fail("ANDROID_HOME is missing");
     for (const [name, path] of [["adb", "platform-tools/adb"], ["emulator", "emulator/emulator"], ["sdkmanager", "cmdline-tools/latest/bin/sdkmanager"]]) {

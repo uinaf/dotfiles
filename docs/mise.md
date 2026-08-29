@@ -109,6 +109,8 @@ The runtime group shared by `personal-workstation`, `personal-devbox`,
 `workstation`, and `devbox`:
 
 - pins Ruby alongside its other development runtimes
+- installs PyYAML 6.0.3 into the mise-managed Python for bundled Codex skill
+  validation
 - enables Corepack in its Node entry and installs pnpm 12.0.0 as the default
   outside projects
 - pins npm itself to 12.0.2 through the Node postinstall
