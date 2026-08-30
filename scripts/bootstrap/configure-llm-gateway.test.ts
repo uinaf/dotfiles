@@ -65,6 +65,8 @@ test("gateway config is strict and provider edits use command-backed Responses a
   assert.ok(edits.some((edit) => edit.keyPath === "features.apps" && edit.value === false));
   assert.ok(edits.some((edit) => edit.keyPath === "mcp_servers.node_repl" && edit.value === null));
   assert.ok(edits.some((edit) => edit.keyPath === "model_providers.gatewai.name" && edit.value === "Gatewai"));
+  assert.ok(edits.some((edit) => edit.keyPath === "model_providers.gatewai.http_headers"
+    && JSON.stringify(edit.value) === JSON.stringify({ "X-OpenAI-Actor-Authorization": "local-proxy" })));
   assert.ok(edits.some((edit) => edit.keyPath === "model_providers.bifrost.name" && edit.value === "Bifrost"));
   assert.ok(edits.some((edit) => edit.keyPath === "model_providers.gatewai.auth.args" && Array.isArray(edit.value) && edit.value[0] === "gatewai"));
   assert.ok(edits.some((edit) => edit.keyPath === "model_providers.bifrost.auth.args" && Array.isArray(edit.value) && edit.value[0] === "bifrost"));
@@ -169,6 +171,7 @@ rm -f "$HOME/.claude/.credentials.json"
     assert.equal(statSync(join(codexHome, "config.toml")).mode & 0o777, 0o600);
     const appliedCodex = readFileSync(join(codexHome, "config.toml"), "utf8");
     assert.match(appliedCodex, /model_provider = "gatewai"/);
+    assert.match(appliedCodex, /X-OpenAI-Actor-Authorization = "local-proxy"/);
     assert.match(appliedCodex, /\[model_providers\.bifrost\]/);
     assert.match(appliedCodex, /forced_login_method = "chatgpt"/);
     const appliedClaude = JSON.parse(readFileSync(claudeSettingsPath, "utf8")) as {

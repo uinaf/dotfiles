@@ -43,6 +43,7 @@ overrides=(
   'model_providers.gatewai.wire_api="responses"'
   'model_providers.gatewai.requires_openai_auth=false'
   'model_providers.gatewai.supports_websockets=false'
+  'model_providers.gatewai.http_headers={"X-OpenAI-Actor-Authorization":"local-proxy"}'
   "model_providers.gatewai.auth.command=\"$credential\""
   'model_providers.gatewai.auth.args=["gatewai"]'
   'model_providers.gatewai.auth.timeout_ms=5000'

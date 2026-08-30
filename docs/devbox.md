@@ -193,6 +193,9 @@ Codex after retirement:
 - `codex login status` reports `Not logged in` by design: authentication flows
   through the `model_providers.*.auth` credential command in `config.toml`,
   not a saved login or `OPENAI_API_KEY`.
+- The Gatewai provider sends Codex's `X-OpenAI-Actor-Authorization: local-proxy`
+  compatibility marker so the client exposes its local image-generation tool
+  while the credential command remains the authentication boundary.
 - Do not diagnose a "missing" Codex credential from `codex login status` or
   environment variables. Verify with a live call instead:
   `echo ok | codex exec --ephemeral --skip-git-repo-check -`.

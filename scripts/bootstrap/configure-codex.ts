@@ -16,7 +16,7 @@ const RpcMessage = Schema.Struct({
   result: Schema.optional(Schema.Unknown),
   error: Schema.optional(Schema.Struct({ message: Schema.optional(Schema.String) })),
 });
-type Scalar = boolean | null | number | string | readonly string[];
+type Scalar = boolean | null | number | string | readonly string[] | Readonly<Record<string, string>>;
 export type ConfigEdit = { keyPath: string; value: Scalar; mergeStrategy: "replace" | "upsert" };
 
 export function managedEdits(personal: boolean): ConfigEdit[] {
