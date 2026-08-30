@@ -116,6 +116,7 @@ function renderFixture(fixture: Fixture, root: string): Promise<void> {
             model: undefined,
             effortLevel: undefined,
             outputStyle: undefined,
+            attribution: undefined,
             permissions: { ...actual.permissions, [managedMode]: undefined },
           },
           {
@@ -123,6 +124,7 @@ function renderFixture(fixture: Fixture, root: string): Promise<void> {
             model: undefined,
             effortLevel: undefined,
             outputStyle: undefined,
+            attribution: undefined,
             autoMemoryEnabled: false,
             permissions: { ...expected.permissions, [managedMode]: undefined },
           },
@@ -131,6 +133,7 @@ function renderFixture(fixture: Fixture, root: string): Promise<void> {
         assert.equal(actual.effortLevel, "medium");
         assert.equal(actual.outputStyle, "Concise");
         assert.equal(actual.autoMemoryEnabled, false);
+        assert.deepEqual(actual.attribution, { commit: "", pr: "", sessionUrl: false });
         assert.equal(actual.permissions?.[managedMode], "auto");
         finish();
       } catch (failure) {
