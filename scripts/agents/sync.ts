@@ -85,18 +85,6 @@ function readSkills(manifestPath: string): Skill[] {
   return parsed.skills;
 }
 
-function assertUniqueSkillNames(skills: readonly Skill[], manifestPath: string): void {
-  const names = new Set<string>();
-  for (const skill of skills) {
-    if (names.has(skill.name)) {
-      throw new Error(
-        `Invalid skills manifest at ${manifestPath}: ${skill.name} is defined more than once`,
-      );
-    }
-    names.add(skill.name);
-  }
-}
-
 function readLayeredSkills(
   repoDir: string,
   profile: string,
@@ -109,9 +97,7 @@ function readLayeredSkills(
   const manifests = new Map<SkillLayer, Skill[]>();
   for (const layer of ["developer", "workstation", "devbox", "personal"] as const) {
     const manifestPath = join(repoDir, "scripts", "agents", "skills", `${layer}.json`);
-    const skillsForLayer = readSkills(manifestPath);
-    assertUniqueSkillNames(skillsForLayer, manifestPath);
-    manifests.set(layer, skillsForLayer);
+    manifests.set(layer, readSkills(manifestPath));
   }
 
   const sources = new Map<string, string>();

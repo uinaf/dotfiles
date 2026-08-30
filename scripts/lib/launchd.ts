@@ -1,5 +1,4 @@
 import { Effect, FileSystem, Option } from "effect";
-import { basename } from "node:path";
 import { fail } from "./program.ts";
 
 const component = /^[A-Za-z0-9._-]+$/;
@@ -130,8 +129,4 @@ ${args}
   </dict>
 </plist>
 `;
-}
-
-export function plistLabelFromPath(path: string): string {
-  return basename(path, ".plist");
 }
