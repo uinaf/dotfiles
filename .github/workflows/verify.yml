@@ -48,7 +48,7 @@ jobs:
     name: GitHub Release
     needs: [repository]
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, '[skip ci]') }}
-    runs-on: blacksmith-2vcpu-ubuntu-2404
+    runs-on: blacksmith-2vcpu-ubuntu-2404-arm
     timeout-minutes: 15
     environment: release
     permissions:
