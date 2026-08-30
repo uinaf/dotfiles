@@ -62,14 +62,16 @@ Repository automation uses Effect `4.0.0-rc.112` and
 `pnpm install --frozen-lockfile`; run `pnpm typecheck` before the repository
 verification graph.
 
-Shell remains only at three protocol boundaries that cannot assume this
+Shell remains only at protocol boundaries that cannot assume this
 repository's Node module graph:
 
 | Boundary | Reason |
 | --- | --- |
 | `agents/llm-gateway-credential.sh` | Copied as a standalone credential helper for external clients. |
 | `agents/cursor-agent-api.sh` | Copied to dotfiles libexec as Cursor's stable API-key adapter. |
+| `agents/codex-gatewai.sh` | Copied to dotfiles libexec; launches Codex with gateway overrides for harnesses that pass `--ignore-user-config`. |
 | `lib/sudo-age-askpass.sh` | Invoked directly by macOS `sudo` through `SUDO_ASKPASS`, including from an isolated temporary directory. |
+| `../dotfiles` | Operator entrypoint that provisions the Node module graph before delegating to `scripts/dotfiles.ts`. |
 
 Parsing, policy, retries, filesystem mutation, and command orchestration stay
 in Effect TypeScript. These shell files only translate their fixed process
