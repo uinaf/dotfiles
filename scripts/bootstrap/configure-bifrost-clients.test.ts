@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import { chmodSync, mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
+import { pathToFileURL } from "node:url";
 import test from "node:test";
 import assert from "node:assert/strict";
 
@@ -55,6 +56,18 @@ printf 'sk-bf-11111111-1111-4111-8111-111111111111\\n'
     },
   };
 }
+
+test("can be imported without running the configurator", () => {
+  const home = join(mkdtempSync(join(tmpdir(), "dotfiles-bifrost-import-")), "home");
+  mkdirSync(home, { recursive: true });
+  execFileSync(process.execPath, [
+    "--input-type=module",
+    "--eval",
+    `await import(${JSON.stringify(pathToFileURL(script).href)})`,
+  ], {
+    env: { ...process.env, HOME: home, BIFROST_CREDENTIAL_HELPER: "" },
+  });
+});
 
 test("configures and checks OpenCode and Pi with the Bifrost catalog", () => {
   const paths = fixture();

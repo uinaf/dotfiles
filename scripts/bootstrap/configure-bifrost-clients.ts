@@ -149,4 +149,6 @@ const program = Effect.gen(function*() {
   yield* Console.log("configured OpenCode and Pi with the six-model Bifrost catalog");
 }).pipe(Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer));
 
-runMain(program);
+if (import.meta.main) {
+  runMain(program);
+}
