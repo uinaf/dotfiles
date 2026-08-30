@@ -188,6 +188,9 @@ Codex after retirement:
 - The Gatewai provider sends Codex's `X-OpenAI-Actor-Authorization: local-proxy`
   compatibility marker so the client exposes its local image-generation tool
   while the credential command remains the authentication boundary.
+- The Gatewai provider enables Codex's persistent Responses WebSocket
+  transport to the proxy. Native upstream reuse also requires WebSockets on
+  the proxy's selected Codex credential.
 - Do not diagnose a "missing" Codex credential from `codex login status` or
   environment variables. Verify with a live call instead:
   `echo ok | codex exec --ephemeral --skip-git-repo-check -`.

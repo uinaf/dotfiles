@@ -150,7 +150,7 @@ export function gatewayEdits(config: GatewayConfig, credentialPath: string): Con
     { keyPath: "model_providers.gatewai.base_url", value: config.gatewaiBaseUrl, mergeStrategy: "upsert" },
     { keyPath: "model_providers.gatewai.wire_api", value: "responses", mergeStrategy: "upsert" },
     { keyPath: "model_providers.gatewai.requires_openai_auth", value: false, mergeStrategy: "upsert" },
-    { keyPath: "model_providers.gatewai.supports_websockets", value: false, mergeStrategy: "upsert" },
+    { keyPath: "model_providers.gatewai.supports_websockets", value: true, mergeStrategy: "upsert" },
     {
       keyPath: "model_providers.gatewai.http_headers",
       value: { "X-OpenAI-Actor-Authorization": "local-proxy" },
