@@ -48,8 +48,8 @@ it directly:
 | Consumer | How it reads the file |
 | --- | --- |
 | Chezmoi | as template data |
-| TypeScript | strict parser in `scripts/profiles/model.ts` |
 | TypeScript | Effect Schema boundary in `scripts/profiles/model.ts` |
+| Homebrew | `Brewfile.personal` gates casks on profile capabilities |
 
 Each consumer rejects unsupported versions, unknown profiles, missing fields,
 and wrong value types.

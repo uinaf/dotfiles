@@ -142,7 +142,7 @@ opaque strings: this repository does not know or require their source. Both
 `cursorAgentBin` and `grokBin` are optional. The configurators route Codex,
 Claude, and Grok through Gatewai, Cursor through its own API, and OpenCode and
 Pi through Bifrost. Other clients can call the installed credential helper
-with `bifrost`. The configurators then:
+with `bifrost`. The gateway configurator then:
 
 - installs owner-only process helpers
 - backs up the current Codex and Claude settings once

@@ -20,6 +20,7 @@ Use chezmoi source attributes instead of literal target filenames:
 | `chezmoi/private_dot_claude/modify_private_settings.json` | Selected values inside `~/.claude/settings.json` for developer profiles |
 | `chezmoi/private_dot_config/zed/private_settings.json` | `~/.config/zed/settings.json` for workstation profiles |
 | `chezmoi/private_dot_config/zed/private_keymap.json` | `~/.config/zed/keymap.json` for workstation profiles |
+| `chezmoi/private_Library/private_Application Support/com.mitchellh.ghostty/private_config` | `~/Library/Application Support/com.mitchellh.ghostty/config` for workstation profiles |
 | `chezmoi/private_AGENTS.md.tmpl` | `~/AGENTS.md`, remotely owned shared rules composed with optional start and end Markdown fragments |
 | `chezmoi/private_dot_claude/symlink_CLAUDE.md` | `~/.claude/CLAUDE.md` link to `~/AGENTS.md` |
 | `chezmoi/private_dot_codex/symlink_AGENTS.md` | `~/.codex/AGENTS.md` link to `~/AGENTS.md` |

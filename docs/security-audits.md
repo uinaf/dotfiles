@@ -182,10 +182,12 @@ PATH="$PWD/.venv/bin:$PATH" ./mscp.py --os_name macos --os_version 26 guidance \
 - Use it for macOS compliance baselines, not as the policy engine for this
   repo's workstation and devbox boundaries.
 
-Then run:
+Then run the mSCP scope. Add `--allow-sudo-prompt` for privileged checks; the
+underlying `scripts/audit/repo.ts` also runs the repository secret scanners:
 
 ```zsh
-node scripts/audit/repo.ts --allow-sudo-prompt
+mise run audit mscp
+node scripts/audit/repo.ts --allow-sudo-prompt # privileged variant
 ```
 
 Review non-compliant rules and decide exceptions before applying remediation.

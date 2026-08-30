@@ -6,9 +6,11 @@ Native TV targets that need both Apple TV and Android TV simulators.
 
 What the dotfiles already install:
 
-- Android Studio, Xcode tooling, Watchman, and a Temurin 21 JDK via mise.
-- The Android Studio SDK at `~/Library/Android/sdk`, falling back to Homebrew's
-  command-line-tools SDK on headless developer profiles.
+- Xcode tooling, Watchman, and a Temurin 21 JDK via mise. Android Studio
+  installs on `personal-workstation` only; other developer profiles get
+  Homebrew's `android-commandlinetools`.
+- The Android Studio SDK at `~/Library/Android/sdk` where Android Studio is
+  installed, falling back to Homebrew's command-line-tools SDK elsewhere.
 - That SDK's platform tools, emulator, and command line tools on `PATH`.
 
 CocoaPods and Fastlane remain project-owned so their versions match the target
@@ -45,7 +47,8 @@ acceptance.
 
 ## Android Studio and Android TV
 
-1. Launch Android Studio once. Run the first-time setup wizard with default
+1. Launch Android Studio once (install it first on profiles other than
+   `personal-workstation`). Run the first-time setup wizard with default
    settings. This installs the Android SDK under `~/Library/Android/sdk`.
 2. Open a new shell and confirm the managed SDK location:
 
