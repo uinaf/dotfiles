@@ -173,7 +173,16 @@ export function gatewayEdits(config: GatewayConfig, credentialPath: string): Con
 }
 
 export function codexGatewaiOverrides(config: GatewayConfig, credentialPath: string): string[] {
-  const serialize = (value: ConfigEdit["value"]): string => JSON.stringify(value);
+  // Codex parses -c values as TOML, so objects must be inline tables
+  // ({"k" = "v"}), not JSON ({"k":"v"}); JSON syntax degrades to a string.
+  const serialize = (value: ConfigEdit["value"]): string => {
+    if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+      const entries = Object.entries(value)
+        .map(([key, entry]) => `${JSON.stringify(key)} = ${JSON.stringify(entry)}`);
+      return `{${entries.join(", ")}}`;
+    }
+    return JSON.stringify(value);
+  };
   return gatewayEdits(config, credentialPath)
     .filter((edit) => edit.keyPath === "model_provider" || edit.keyPath.startsWith("model_providers.gatewai."))
     .map((edit) => `${edit.keyPath}=${serialize(edit.value)}`);

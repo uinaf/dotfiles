@@ -12,6 +12,7 @@ import {
   assertCursorAgentBinSafe,
   claudeGatewayBaseUrl,
   claudeGatewaySettings,
+  codexGatewaiOverrides,
   gatewayEdits,
   grokGatewaySettings,
   parseGatewayConfig,
@@ -49,6 +50,8 @@ test("gateway config is strict and provider edits use command-backed Responses a
   assert.ok(edits.some((edit) => edit.keyPath === "model_providers.gatewai.supports_websockets" && edit.value === true));
   assert.ok(edits.some((edit) => edit.keyPath === "model_providers.gatewai.http_headers"
     && JSON.stringify(edit.value) === JSON.stringify({ "X-OpenAI-Actor-Authorization": "local-proxy" })));
+  const overrides = codexGatewaiOverrides(config, "/Users/example/.local/libexec/dotfiles/llm-gateway-credential");
+  assert.ok(overrides.includes('model_providers.gatewai.http_headers={"X-OpenAI-Actor-Authorization" = "local-proxy"}'));
   assert.ok(edits.some((edit) => edit.keyPath === "model_providers.bifrost.name" && edit.value === "Bifrost"));
   assert.ok(edits.some((edit) => edit.keyPath === "model_providers.gatewai.auth.args" && Array.isArray(edit.value) && edit.value[0] === "gatewai"));
   assert.ok(edits.some((edit) => edit.keyPath === "model_providers.bifrost.auth.args" && Array.isArray(edit.value) && edit.value[0] === "bifrost"));
