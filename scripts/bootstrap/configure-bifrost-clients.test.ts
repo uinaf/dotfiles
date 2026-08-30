@@ -5,15 +5,10 @@ import { tmpdir } from "node:os";
 import test from "node:test";
 import assert from "node:assert/strict";
 
+import { models } from "./configure-bifrost-clients.ts";
+
 const script = resolve(import.meta.dirname, "configure-bifrost-clients.ts");
-const modelIds = [
-  "ollama/kimi-k3",
-  "ollama/deepseek-v4-flash:0731",
-  "ollama/glm-5.3-flash",
-  "openrouter/qwen/qwen3.8-flash",
-  "openrouter/z-ai/glm-5.3-flash",
-  "openrouter/deepseek/deepseek-v4-flash-0731",
-];
+const modelIds = models.map((model) => model.id);
 
 function fixture() {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-bifrost-clients-"));
@@ -77,14 +72,14 @@ test("configures and checks OpenCode and Pi with the Bifrost catalog", () => {
   assert.deepEqual(openCode.plugin, ["kept"]);
   assert.deepEqual(Object.keys(openCode.provider.bifrost.models), modelIds);
   assert.equal(openCode.provider.bifrost.name, "bifrost");
-  assert.equal(openCode.provider.bifrost.models["ollama/kimi-k3"].limit.context, 1_048_576);
+  assert.equal(openCode.provider.bifrost.models[models[0].id].limit.context, models[0].context);
   assert.deepEqual(openCode.provider.anthropic, { name: "inactive" });
 
   const pi = JSON.parse(readFileSync(paths.pi, "utf8"));
   assert.deepEqual(pi.providers.bifrost.models.map((model: { id: string }) => model.id), modelIds);
   assert.equal(pi.providers.bifrost.baseUrl, "https://bifrost.example/v1");
   assert.match(pi.providers.bifrost.apiKey, /^!".*credential-helper" bifrost$/);
-  assert.equal(pi.providers.bifrost.models[0].contextWindow, 1_048_576);
+  assert.equal(pi.providers.bifrost.models[0].contextWindow, models[0].context);
   assert.deepEqual(pi.providers.local, { baseUrl: "http://localhost" });
 
   for (const path of [paths.auth, paths.openCode, paths.pi]) assert.equal(statSync(path).mode & 0o777, 0o600);

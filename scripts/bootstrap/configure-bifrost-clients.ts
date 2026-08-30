@@ -12,7 +12,7 @@ const BifrostAuth = Schema.Struct({ type: Schema.Literal("api"), key: BifrostKey
 const JsonObject = Schema.Record(Schema.String, Schema.Unknown);
 const GatewayConfig = Schema.Struct({ bifrostBaseUrl: Schema.String });
 const retiredProviders = ["opencode", "opencode-go"] as const;
-const models = [
+export const models = [
   { id: "ollama/kimi-k3", context: 1_048_576, output: 943_718, input: ["text", "image"] },
   { id: "ollama/deepseek-v4-flash:0731", context: 1_048_576, output: 943_718, input: ["text"] },
   { id: "ollama/glm-5.3-flash", context: 1_048_576, output: 131_072, input: ["text", "image"] },

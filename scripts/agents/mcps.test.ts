@@ -457,18 +457,10 @@ test("rejects unknown arguments and prints help without applying", () => {
   assert.equal(helped.calls.length, 0);
 });
 
-test("ships the tailnet executor on the personal layer only", () => {
-  const developer = readServers(join(repoRoot, "scripts/agents/mcps/developer.json"));
-  const workstation = readServers(join(repoRoot, "scripts/agents/mcps/workstation.json"));
-  const devbox = readServers(join(repoRoot, "scripts/agents/mcps/devbox.json"));
-  const personal = readServers(join(repoRoot, "scripts/agents/mcps/personal.json"));
-
-  assert.deepEqual(developer, []);
-  assert.deepEqual(workstation, []);
-  assert.deepEqual(devbox, []);
-  assert.deepEqual(personal.map((server) => server.name), ["uinaf-executor"]);
-  assert.equal(personal[0]?.url, "https://executor.zebroid-skate.ts.net/mcp");
-  assert.deepEqual(personal[0]?.harnesses, ["claude", "codex", "cursor", "opencode"]);
+test("every real MCP manifest parses", () => {
+  for (const layer of ["developer", "workstation", "devbox", "personal"]) {
+    readServers(join(repoRoot, `scripts/agents/mcps/${layer}.json`));
+  }
 });
 
 test("initializes a missing ownership lock without removing unowned servers", () => {

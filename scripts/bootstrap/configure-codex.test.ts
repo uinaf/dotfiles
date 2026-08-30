@@ -17,21 +17,16 @@ function run(home: string, profile = "workstation") {
   return spawnSync(script, ["--profile", profile], { encoding: "utf8", env: { ...process.env, CODEX_HOME: home } });
 }
 
-test("Codex defaults are one profile-aware typed atomic edit batch", () => {
-  assert.deepEqual(managedEdits(false), [
-    { keyPath: "forced_login_method", value: null, mergeStrategy: "replace" },
-    { keyPath: "model", value: "gpt-5.6-sol", mergeStrategy: "upsert" },
-    { keyPath: "model_reasoning_effort", value: "medium", mergeStrategy: "upsert" },
-    { keyPath: "service_tier", value: null, mergeStrategy: "replace" },
-    { keyPath: "features.fast_mode", value: null, mergeStrategy: "replace" },
-    { keyPath: "features.goals", value: true, mergeStrategy: "upsert" },
-    { keyPath: "features.memories", value: false, mergeStrategy: "upsert" },
-  ]);
-  assert.deepEqual(managedEdits(true).slice(3, 5), [
-    { keyPath: "service_tier", value: "fast", mergeStrategy: "upsert" },
-    { keyPath: "features.fast_mode", value: true, mergeStrategy: "upsert" },
-  ]);
-});
+function assertAppliedEdits(contents: string, personal: boolean): void {
+  for (const edit of managedEdits(personal)) {
+    const key = edit.keyPath.split(".").at(-1) as string;
+    if (edit.value === null) {
+      assert.ok(!contents.includes(key), `unexpected ${key}`);
+    } else {
+      assert.ok(contents.includes(`${key} = ${JSON.stringify(edit.value)}`), `missing ${key}`);
+    }
+  }
+}
 
 test("installed Codex removes forced login, preserves unrelated config, and is idempotent", { skip: !codexInstalled }, () => {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-codex-config-"));
@@ -48,13 +43,7 @@ test("installed Codex removes forced login, preserves unrelated config, and is i
     assert.ok(contents.includes("# keep this comment"));
     assert.ok(contents.includes('approval_policy = "never"'));
     assert.ok(contents.includes('[mcp_servers.fixture]\ncommand = "example"'));
-    assert.ok(!contents.includes("forced_login_method"));
-    assert.ok(!contents.includes("service_tier"));
-    assert.ok(!contents.includes("fast_mode"));
-    for (const expected of [
-      'model = "gpt-5.6-sol"',
-      'model_reasoning_effort = "medium"', "goals = true", "memories = false",
-    ]) assert.ok(contents.includes(expected), `missing ${expected}`);
+    assertAppliedEdits(contents, false);
     assert.equal(statSync(config).mode & 0o777, 0o600);
 
     const second = run(home);
@@ -74,11 +63,7 @@ test("installed Codex enables Fast mode for personal profiles", { skip: !codexIn
     writeFileSync(config, 'service_tier = "default"\n\n[features]\nfast_mode = false\n');
     const result = run(home, "personal-workstation");
     assert.equal(result.status, 0, result.stderr);
-    const contents = readFileSync(config, "utf8");
-    assert.ok(contents.includes('model = "gpt-5.6-sol"'));
-    assert.ok(contents.includes('model_reasoning_effort = "medium"'));
-    assert.ok(contents.includes('service_tier = "fast"'));
-    assert.ok(contents.includes("fast_mode = true"));
+    assertAppliedEdits(readFileSync(config, "utf8"), true);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

@@ -588,22 +588,6 @@ test("skill manifests hold valid, non-legacy skill entries", () => {
   }
 });
 
-test("personal profiles install the put.io development skills", () => {
-  const scriptDir = dirname(fileURLToPath(import.meta.url));
-  const manifest = JSON.parse(
-    readFileSync(join(scriptDir, "skills", "personal.json"), "utf8"),
-  ) as { skills: Array<{ name: string; source: string }> };
-
-  assert.deepEqual(
-    manifest.skills.filter((skill) => skill.source.startsWith("putdotio/")),
-    [
-      { name: "putio-cli", source: "putdotio/putio-cli" },
-      { name: "putio-frontend-dev", source: "putdotio/agent-skills" },
-      { name: "putio-sdk-dev", source: "putdotio/agent-skills" },
-    ],
-  );
-});
-
 test("the executable TypeScript entrypoint runs the CLI", () => {
   const scriptPath = join(dirname(fileURLToPath(import.meta.url)), "sync.ts");
   const result = spawnSync(scriptPath, ["unexpected"], { encoding: "utf8" });

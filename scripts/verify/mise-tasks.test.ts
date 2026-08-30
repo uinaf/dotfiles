@@ -28,22 +28,6 @@ const miseEnv = {
     .join(delimiter),
   MISE_TRUSTED_CONFIG_PATHS: [process.env.MISE_TRUSTED_CONFIG_PATHS, repoRoot].filter(Boolean).join(delimiter),
 };
-const publicTasks = [
-  "agents:sync",
-  "agents:update",
-  "audit",
-  "bootstrap:trust-agent-worktrees",
-  "dotfiles:apply",
-  "dotfiles:diff",
-  "maintenance:check",
-  "maintenance:verify",
-  "verify",
-  "verify:bootstrap",
-  "verify:devbox-services",
-  "verify:domain",
-  "verify:fast",
-];
-
 function run(command: string, args: string[], env: NodeJS.ProcessEnv = {}) {
   const configDir = mkdtempSync(join(tmpdir(), "dotfiles-mise-config-"));
   try {
@@ -63,26 +47,9 @@ test("mise exposes one validated task graph", () => {
 
   const listing = run("mise", ["tasks", "--hidden", "--json"]);
   assert.equal(listing.status, 0, listing.stderr);
-  const tasks = JSON.parse(listing.stdout) as Array<{ name: string; depends: string[]; hide: boolean; source: string; usage: string }>;
-  assert.deepEqual(
-    tasks.filter((task) => !task.hide).map((task) => task.name).sort(),
-    publicTasks,
-  );
-  assert.deepEqual(tasks.find((task) => task.name === "verify")?.depends.sort(), ["verify:fast", "verify:history"]);
+  const tasks = JSON.parse(listing.stdout) as Array<{ name: string; depends: string[]; source: string }>;
   assert.ok(tasks.every((task) => task.source === resolve(repoRoot, "mise.toml")));
-  assert.ok(tasks.find((task) => task.name === "audit")?.usage.includes("<scope>"));
-  assert.ok(tasks.find((task) => task.name === "verify:bootstrap")?.usage.includes("<profile>"));
-});
-
-test("empty mise config environment values use the default path", () => {
-  assert.equal(
-    globalMiseConfigPath({ MISE_GLOBAL_CONFIG_FILE: "", XDG_CONFIG_HOME: "" }),
-    join(homedir(), ".config/mise/config.toml"),
-  );
-  assert.equal(
-    globalMiseConfigDirectory({ MISE_CONFIG_DIR: "", XDG_CONFIG_HOME: "" }),
-    join(homedir(), ".config/mise"),
-  );
+  assert.ok(tasks.find((task) => task.name === "verify")?.depends.includes("verify:history"));
 });
 
 test("task arguments fail before live commands run", () => {

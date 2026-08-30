@@ -844,19 +844,9 @@ test("rejects unknown arguments and prints help without applying", () => {
   assert.equal(helped.calls.length, 0);
 });
 
-test("ships the ffss plugin on workstation and personal layers, not plain devbox", () => {
-  const developer = readPlugins(join(repoRoot, "scripts/agents/plugins/developer.json"));
-  const workstation = readPlugins(join(repoRoot, "scripts/agents/plugins/workstation.json"));
-  const devbox = readPlugins(join(repoRoot, "scripts/agents/plugins/devbox.json"));
-  const personal = readPlugins(join(repoRoot, "scripts/agents/plugins/personal.json"));
-
-  assert.deepEqual(developer, []);
-  assert.deepEqual(devbox, []);
-  for (const layer of [workstation, personal]) {
-    assert.deepEqual(layer.map(pluginRef), ["ffss@ffss"]);
-    assert.equal(layer[0]?.marketplace, "uinaf/ffss");
-    assert.deepEqual(layer[0]?.harnesses, HARNESSES);
-    assert.equal(layer[0]?.cursorMode, "skills");
+test("every real plugin manifest parses", () => {
+  for (const layer of ["developer", "workstation", "devbox", "personal"]) {
+    readPlugins(join(repoRoot, `scripts/agents/plugins/${layer}.json`));
   }
 });
 

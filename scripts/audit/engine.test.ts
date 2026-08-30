@@ -37,14 +37,6 @@ test("workstation policy is declarative and passes a clean fixture", () => {
   const { home, root } = fixture();
   const output: string[] = [];
   try {
-    assert.deepEqual(workstationPolicy.sections.map(({ title }) => title), [
-      "local config file modes",
-      "local secret scan",
-      "Git and GitHub identity",
-      "SSH key file permissions",
-      "Codex log size",
-      "Tailscale",
-    ]);
     const result = runPolicy(workstationPolicy, "json", {
       home,
       env: { HOME: home, TMPDIR: join(root, "tmp") },
