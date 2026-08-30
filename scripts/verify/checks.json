@@ -61,8 +61,8 @@
     {
       "id": "llm-gateway",
       "domain": "config",
-      "command": ["node", "--test", "scripts/bootstrap/configure-llm-gateway.test.ts"],
-      "inputs": ["scripts/bootstrap/configure-codex.ts", "scripts/bootstrap/configure-llm-gateway.ts", "scripts/bootstrap/configure-llm-gateway.test.ts", "scripts/bootstrap/install-cursor-agent.ts", "scripts/agents/llm-gateway-credential.sh", "scripts/agents/cursor-agent-api.sh", "scripts/agents/cursor-acp-api-key-auth.py", "chezmoi/dot_zshrc.tmpl", "docs/devbox.md"],
+      "command": ["node", "--test", "scripts/bootstrap/configure-llm-gateway.test.ts", "scripts/bootstrap/configure-llm-gateway-grok.test.ts"],
+      "inputs": ["scripts/bootstrap/configure-codex.ts", "scripts/bootstrap/configure-llm-gateway.ts", "scripts/bootstrap/configure-llm-gateway*.test.ts", "scripts/bootstrap/llm-gateway-fixture.ts", "scripts/bootstrap/install-cursor-agent.ts", "scripts/agents/llm-gateway-credential.sh", "scripts/agents/cursor-agent-api.sh", "scripts/agents/cursor-acp-api-key-auth.py", "chezmoi/dot_zshrc.tmpl", "docs/devbox.md"],
       "output": "Opt-in Codex and Claude gateway routing, Cursor API-key isolation, check, and exact rollback"
     },
     {
@@ -82,8 +82,8 @@
     {
       "id": "agent-rules",
       "domain": "agents",
-      "command": ["node", "--test", "scripts/verify/agent-rules.test.ts"],
-      "inputs": ["chezmoi/private_AGENTS.md.tmpl", "chezmoi/private_dot_claude/symlink_CLAUDE.md", "chezmoi/private_dot_codex/**", "chezmoi/.chezmoiignore.tmpl", "chezmoi/.chezmoiremove.tmpl", "chezmoi/.chezmoidata/profiles.json", "chezmoi/.chezmoitemplates/profile", "scripts/bootstrap/apply-dotfiles.ts", "scripts/verify/agent-rules.test.ts"],
+      "command": ["node", "--test", "scripts/verify/agent-rules.test.ts", "scripts/verify/agent-rules-conflicts.test.ts", "scripts/verify/agent-rules-safety.test.ts"],
+      "inputs": ["chezmoi/private_AGENTS.md.tmpl", "chezmoi/private_dot_claude/symlink_CLAUDE.md", "chezmoi/private_dot_codex/**", "chezmoi/.chezmoiignore.tmpl", "chezmoi/.chezmoiremove.tmpl", "chezmoi/.chezmoidata/profiles.json", "chezmoi/.chezmoitemplates/profile", "scripts/bootstrap/apply-dotfiles.ts", "scripts/verify/agent-rules*.test.ts", "scripts/verify/agent-rules-fixture.ts"],
       "output": "Global agent rules, local Markdown and symlinks, permissions, links, conflicts, and explicit apply behavior"
     },
     {
@@ -271,8 +271,8 @@
     {
       "id": "pre-push",
       "domain": "git",
-      "command": ["node", "--test", "scripts/verify/pre-push.test.ts"],
-      "inputs": ["scripts/verify/pre-push.ts", "scripts/verify/pre-push.test.ts", "scripts/verify/install-pre-push-hook.ts"],
+      "command": ["node", "--test", "scripts/verify/pre-push.test.ts", "scripts/verify/pre-push-installer.test.ts"],
+      "inputs": ["scripts/verify/pre-push.ts", "scripts/verify/pre-push*.test.ts", "scripts/verify/pre-push-fixture.ts", "scripts/verify/install-pre-push-hook.ts"],
       "output": "Outgoing commit hygiene across Git ref update shapes"
     },
     {
