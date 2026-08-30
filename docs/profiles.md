@@ -156,20 +156,11 @@ mise trust
 Configure the appropriate human or workload Git identity separately:
 
 ```zsh
-./scripts/bootstrap/configure-git.ts --profile workstation
-./scripts/bootstrap/configure-git.ts --profile personal-workstation
-./scripts/bootstrap/configure-git.ts --profile personal-devbox
-./scripts/bootstrap/configure-git.ts --profile devbox
-GIT_USER_NAME='Workload Name' \
-GIT_USER_EMAIL='APP_BOT_NOREPLY_EMAIL' \
-  ./scripts/bootstrap/configure-git.ts --profile assistant --non-interactive
-./scripts/bootstrap/configure-assistant-github-app.ts \
-  --name example-app \
-  --app-id APP_ID \
-  --installation-id INSTALLATION_ID \
-  --repo github.com/example/workspace \
-  --repo github.com/example/vault
+./scripts/bootstrap/configure-git.ts --profile "$profile"
 ```
+
+Assistant workload authorship and GitHub App enrollment use the commands in
+[Identity provisioning](identities.md#workload-git-authorship).
 
 ## Externally Managed Homebrew Capabilities
 

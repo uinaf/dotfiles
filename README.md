@@ -79,9 +79,8 @@ mise run verify
 - `verify:fast` runs the deterministic graph.
 - `verify` also scans full Git history.
 - CI always runs the deterministic graph.
-- Live profile and host checks live in
-  [Agent readiness](docs/agent-readiness.md) and
-  [Security audits](docs/security-audits.md).
+- Live profile and host checks live in [Mise](docs/mise.md#task-namespaces)
+  and [Security audits](docs/security-audits.md).
 
 ## Documentation
 
@@ -93,8 +92,7 @@ mise run verify
 | Configure a devbox, coding LLM gateway, or shared-host service | [Devbox setup](docs/devbox.md) |
 | Apply global coding-agent rules or sync skills | [Agent setup](docs/agents.md) |
 | Edit chezmoi source state | [Chezmoi](docs/chezmoi.md) |
-| Use repo tasks or change runtime pins | [Mise](docs/mise.md) |
-| Understand local and CI proof | [Agent readiness](docs/agent-readiness.md) |
+| Use repo tasks, run local proof, or change runtime pins | [Mise](docs/mise.md) |
 | Understand Actions and releases | [GitHub pipelines](docs/github-pipelines.md) |
 | Run security checks | [Security audits](docs/security-audits.md) |
 | Build mobile and TV apps | [Mobile and TV development](docs/mobile-and-tv-development.md) |

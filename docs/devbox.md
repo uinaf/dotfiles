@@ -43,16 +43,8 @@ Local only:
 - Product repos should consume env vars, owner-only prepared files, or CI
   secrets instead of containing secret-manager clients.
 
-Provision or verify the age identity:
-
-```bash
-./scripts/secrets/configure-sops-age-identity.ts
-./scripts/secrets/configure-sops-age-identity.ts --check
-./scripts/secrets/configure-sops-age-identity.ts --print-recipient
-```
-
-Use `SOPS_AGE_KEY_FILE` only when the deployment intentionally uses a
-non-default owner-only path.
+Provision or verify the age identity with the commands in
+[Identity provisioning](identities.md#sops-age-identity).
 
 ## Sudo Without a Plaintext Password File
 

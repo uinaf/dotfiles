@@ -18,12 +18,8 @@ task graph; reusable behavior stays here.
 
 ## Repository Checks
 
-```zsh
-mise run verify:domain config # example; select the owning domain
-mise run verify:fast
-mise run verify
-mise run audit repo --format json
-```
+Use the verification tasks in [Mise](../docs/mise.md#tasks); `mise run audit
+repo --format json` covers the repository secret scan.
 
 ## Bootstrap
 

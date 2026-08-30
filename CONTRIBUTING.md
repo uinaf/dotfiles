@@ -37,6 +37,16 @@ mise run verify
 - Live bootstrap checks inspect the active home directory. Run them only when the
   current machine should satisfy that profile.
 
+Optionally install the commit-hygiene pre-push hook:
+
+```zsh
+./scripts/verify/install-pre-push-hook.ts
+```
+
+It checks only outgoing commit objects for whitespace and conflict-marker
+errors and can be bypassed with `git push --no-verify`; CI is the enforcement
+boundary.
+
 ## Change the Owning Surface
 
 - Packages: `Brewfile`, `Brewfile.developer`, and `Brewfile.<profile>`.

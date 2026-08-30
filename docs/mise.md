@@ -42,38 +42,40 @@ mise run verify:fast          # complete deterministic graph
 mise run verify               # deterministic graph plus history scan
 ```
 
-The complete task depends on `verify:fast` and the hidden history scan. Mise
-runs those independent dependencies in parallel and returns a failing status.
+- Each domain declares its inputs and proof in the
+  [verification registry](../scripts/verify/checks.json). Checks marked
+  `complete only` cover cross-domain parity and stay out of focused runs.
+- The complete task depends on `verify:fast` and the hidden history scan; mise
+  runs those independent dependencies in parallel.
+- CI always runs the complete deterministic graph.
 
 ## Task Namespaces
 
-Repository checks:
+Repository checks, beyond the verification tasks above:
 
 ```zsh
-mise run verify
-mise run verify:fast
-mise run verify:domain profiles
 mise run audit repo
 mise run audit repo --format json
 mise run audit mscp
 ```
 
-Live host checks:
+Live host checks run only as the Unix user that should satisfy the selected
+profile or audit boundary:
 
-```zsh
-mise run verify:bootstrap personal-workstation
-mise run verify:bootstrap personal-devbox
-mise run verify:bootstrap workstation
-mise run verify:bootstrap devbox
-mise run verify:bootstrap assistant
-mise run verify:devbox-services
-mise run audit host
-mise run audit workstation --format json
-mise run audit devbox --format json
-```
+| Surface | Command | Proves |
+| --- | --- | --- |
+| Workstation | `mise run verify:bootstrap workstation` | Required package layers, SOPS/age CLIs, mise tools, Codex CLI, and managed config exist. Age identity is optional until secrets are consumed. |
+| Personal workstation | `mise run verify:bootstrap personal-workstation` | Workstation package and runtime contracts exist with personal packages, dotfiles, and skills selected. |
+| Personal devbox | `mise run verify:bootstrap personal-devbox` | Devbox package, identity, and runtime contracts exist with headless personal tools, dotfiles, and skills selected. |
+| Devbox | `mise run verify:bootstrap devbox` | Developer package layers, age identity, mise tools, Codex CLI, and managed config exist. |
+| Assistant | `mise run verify:bootstrap assistant` | Shared browser and GitHub tools, assistant automation packages, age identity, managed Git base, and workload authorship match the assistant contract. |
+| Devbox services | `mise run verify:devbox-services` | Launchd, age, and local service configuration match the shared-host contract. |
+| Workstation drift | `mise run audit workstation` | Human Git, SSH, Codex, secret, permission, and local-state boundaries are visible. |
+| Devbox drift | `mise run audit devbox` | Agent-user identity, service, secret, project-permission, and Tailscale boundaries are visible. |
+| Host hardening | `mise run audit host` | Lynis reports the current host hardening index, warnings, and suggestions. |
 
-Use repo checks for ordinary PR work. Use live host checks only on a machine
-that should actually satisfy that profile or audit boundary.
+Live audits support `--format json` for compact collection. Treat raw prose
+output as sensitive because maintained scanners may include matched material.
 
 Bootstrap helpers:
 
