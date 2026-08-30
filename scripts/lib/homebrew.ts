@@ -1,6 +1,6 @@
 import { Console, Effect, FileSystem, Option, Schema } from "effect";
 import { basename, delimiter, dirname, isAbsolute, join } from "node:path";
-import { CommandRunner, type CommandResult } from "./command.ts";
+import { runChecked, runCommand } from "./command.ts";
 import { CliFailure, fail } from "./program.ts";
 import type { ProfileModel } from "../profiles/model.ts";
 import { requireProfile } from "../profiles/model.ts";
@@ -37,30 +37,8 @@ export const commandAvailable = Effect.fn("homebrewCommandAvailable")(function*(
   return false;
 });
 
-const runRaw = Effect.fn("runHomebrewCommand")(function*(
-  command: string,
-  args: readonly string[],
-  options: { readonly env?: HomebrewEnvironment; readonly output?: "capture" | "inherit" | "ignore" } = {},
-): Effect.fn.Return<CommandResult, CliFailure, CommandRunner> {
-  const runner = yield* CommandRunner;
-  return yield* runner.run(command, args, {
-    env: options.env,
-    extendEnv: true,
-    output: options.output ?? "capture",
-  }).pipe(
-    Effect.mapError((error) => new CliFailure({ exitCode: 1, message: `${command} is required or failed to start: ${error.message}` })),
-  );
-});
-
-const run = Effect.fn("runCheckedHomebrewCommand")(function*(
-  command: string,
-  args: readonly string[],
-  options: { readonly env?: HomebrewEnvironment; readonly output?: "capture" | "inherit" | "ignore" } = {},
-) {
-  const result = yield* runRaw(command, args, options);
-  if (result.status !== 0) return yield* fail(`${command} exited ${result.status}`, result.status);
-  return result;
-});
+const runRaw = runCommand;
+const run = runChecked;
 
 export const homebrewPrefix = Effect.fn("homebrewPrefix")(function*() {
   return (yield* run("brew", ["--prefix"])).stdout.trim();

@@ -15,8 +15,23 @@ import { Effect } from "effect";
 
 import { runMain } from "../lib/program.ts";
 import { readProfileModel, requireProfile, type SkillLayer } from "../profiles/model.ts";
+import {
+  composeLayers,
+  type Harness,
+  HARNESS_INFO,
+  HARNESSES,
+  harnessPresent,
+  isSafeName,
+  mergeLockEntries,
+  parseSyncArgs,
+  presentHarnessEntries,
+  readHarnesses,
+  reportSyncFailures,
+  retainAbsentEntries,
+  staleEntries,
+  type SyncFailure,
+} from "./harness.ts";
 import { readLockFile, writeLockFile } from "./lock.ts";
-import { HARNESSES, type Harness } from "./plugins.ts";
 import {
   createRuntime,
   errorMessage,
@@ -26,45 +41,22 @@ import {
   writeLine,
 } from "./runtime.ts";
 
-const NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
-const RESERVED_NAMES = new Set(["__proto__", "constructor", "prototype"]);
-
-function isSafeName(value: string): boolean {
-  return NAME_PATTERN.test(value) && !RESERVED_NAMES.has(value);
-}
-
 export type McpServer = {
   name: string;
   url: string;
   harnesses: readonly Harness[];
 };
 
-type McpFailure = {
-  diagnostic: string;
-  summary: string;
-};
+type McpFailure = SyncFailure;
 
-function isHarness(value: unknown): value is Harness {
-  return typeof value === "string" && (HARNESSES as readonly string[]).includes(value);
-}
-
-function readHarnesses(value: unknown, manifestPath: string, name: string): readonly Harness[] {
+function readManifestHarnesses(value: unknown, path: string, name: string): readonly Harness[] {
   if (value === undefined) {
     return HARNESSES;
   }
-  if (
-    !Array.isArray(value) ||
-    value.length === 0 ||
-    !value.every(isHarness) ||
-    new Set(value).size !== value.length
-  ) {
-    throw new Error(
-      `Invalid MCP manifest at ${manifestPath}: ${name} harnesses must be a unique non-empty subset of ${HARNESSES.join(", ")}`,
-    );
-  }
-  // Selection uses membership, never order; normalize so composition compares
-  // manifests by meaning rather than authoring order.
-  return HARNESSES.filter((harness) => value.includes(harness));
+  return readHarnesses(
+    value,
+    `Invalid MCP manifest at ${path}: ${name} harnesses must be a unique non-empty subset of ${HARNESSES.join(", ")}`,
+  );
 }
 
 function readServer(value: unknown, manifestPath: string): McpServer {
@@ -92,7 +84,7 @@ function readServer(value: unknown, manifestPath: string): McpServer {
     throw new Error(`Invalid MCP manifest at ${manifestPath}: ${value.name} url must use https`);
   }
 
-  const harnesses = readHarnesses(
+  const harnesses = readManifestHarnesses(
     "harnesses" in value ? value.harnesses : undefined,
     manifestPath,
     value.name,
@@ -146,21 +138,12 @@ export function readLayeredServers(
     manifests.set(layer, readServers(join(repoDir, "scripts", "agents", "mcps", `${layer}.json`)));
   }
 
-  const seen = new Map<string, string>();
-  const servers: McpServer[] = [];
-  for (const server of layers.flatMap((layer) => manifests.get(layer) ?? [])) {
-    const shape = JSON.stringify(server);
-    const previous = seen.get(server.name);
-    if (previous === shape) {
-      continue; // the same server selected by more than one composed layer
-    }
-    if (previous !== undefined) {
-      throw new Error(`Invalid layered MCP servers: ${server.name} is defined more than once`);
-    }
-    seen.set(server.name, shape);
-    servers.push(server);
-  }
-
+  const servers = composeLayers(
+    layers,
+    manifests,
+    (server) => server.name,
+    (name) => `Invalid layered MCP servers: ${name} is defined more than once`,
+  );
   return { layers, servers };
 }
 
@@ -203,14 +186,12 @@ function readServerLock(lockPath: string): LockedServer[] | undefined {
         `Invalid managed MCP lock at ${lockPath}: servers[${index}] must have a safe name`,
       );
     }
-    if (!("harnesses" in server) || server.harnesses === undefined) {
-      throw new Error(
-        `Invalid managed MCP lock at ${lockPath}: ${server.name} harnesses must be an explicit unique non-empty subset of ${HARNESSES.join(", ")}`,
-      );
-    }
     return {
       name: server.name,
-      harnesses: readHarnesses(server.harnesses, lockPath, server.name),
+      harnesses: readHarnesses(
+        "harnesses" in server ? server.harnesses : undefined,
+        `Invalid managed MCP lock at ${lockPath}: ${server.name} harnesses must be an explicit unique non-empty subset of ${HARNESSES.join(", ")}`,
+      ),
     };
   });
   const names = servers.map((server) => server.name);
@@ -225,102 +206,14 @@ function writeServerLock(lockPath: string, servers: readonly LockedServer[]): vo
   writeLockFile(lockPath, lock);
 }
 
-function staleServers(previous: readonly LockedServer[], current: readonly McpServer[]): LockedServer[] {
-  const currentByName = new Map(current.map((server) => [server.name, server]));
-  const stale: LockedServer[] = [];
-
-  for (const owned of previous) {
-    const next = currentByName.get(owned.name);
-    if (next === undefined) {
-      stale.push(owned);
-      continue;
-    }
-    const dropped = owned.harnesses.filter((harness) => !next.harnesses.includes(harness));
-    if (dropped.length > 0) {
-      stale.push({ name: owned.name, harnesses: dropped });
-    }
-  }
-
-  return stale;
-}
-
 function appliedServers(runtime: Runtime, servers: readonly McpServer[]): LockedServer[] {
-  return servers
-    .map((server) => ({
-      name: server.name,
-      harnesses: server.harnesses.filter((harness) =>
-        runtime.commandExists(HARNESS_BINARIES[harness]),
-      ),
-    }))
-    .filter((server) => server.harnesses.length > 0);
-}
-
-function retainAbsentServers(
-  runtime: Runtime,
-  previous: readonly LockedServer[],
-  current: readonly McpServer[],
-): LockedServer[] {
-  const currentByName = new Map(current.map((server) => [server.name, server]));
-  const leftover: LockedServer[] = [];
-
-  for (const owned of previous) {
-    const next = currentByName.get(owned.name);
-    if (next === undefined) {
-      continue;
-    }
-    const absent = owned.harnesses.filter(
-      (harness) =>
-        next.harnesses.includes(harness) && !runtime.commandExists(HARNESS_BINARIES[harness]),
-    );
-    if (absent.length > 0) {
-      leftover.push({ name: owned.name, harnesses: absent });
-    }
-  }
-
-  return leftover;
-}
-
-function mergeServerLock(
-  current: readonly LockedServer[],
-  leftover: readonly LockedServer[],
-): LockedServer[] {
-  const byName = new Map(
-    current.map((server) => [server.name, { name: server.name, harnesses: [...server.harnesses] }]),
+  return presentHarnessEntries(
+    runtime,
+    servers.map((server) => ({ name: server.name, harnesses: server.harnesses })),
   );
-
-  for (const extra of leftover) {
-    const existing = byName.get(extra.name);
-    if (existing === undefined) {
-      byName.set(extra.name, { name: extra.name, harnesses: [...extra.harnesses] });
-      continue;
-    }
-    existing.harnesses = HARNESSES.filter(
-      (harness) => existing.harnesses.includes(harness) || extra.harnesses.includes(harness),
-    );
-  }
-
-  return [...byName.values()];
 }
 
-const HARNESS_BINARIES: Record<Harness, string> = {
-  claude: "claude",
-  codex: "codex",
-  cursor: "cursor-agent",
-  grok: "grok",
-  opencode: "opencode",
-};
-
-const HARNESS_LABELS: Record<Harness, string> = {
-  claude: "Claude Code",
-  codex: "Codex",
-  cursor: "Cursor",
-  grok: "Grok",
-  opencode: "OpenCode",
-};
-
-function harnessPresent(runtime: Runtime): boolean {
-  return HARNESSES.some((harness) => runtime.commandExists(HARNESS_BINARIES[harness]));
-}
+const serverName = (server: { name: string; harnesses: readonly Harness[] }) => server.name;
 
 function mcpRemoveArgs(harness: Exclude<Harness, "cursor" | "opencode">, name: string): string[] {
   switch (harness) {
@@ -519,26 +412,13 @@ function applyCursor(runtime: Runtime, servers: readonly McpServer[], failures: 
   }
 
   const configPath = join(home, ".cursor", "mcp.json");
-  let config: Record<string, unknown> = {};
+  let config: JsonObject = {};
   if (existsSync(configPath)) {
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(readFileSync(configPath, "utf8"));
-    } catch (error) {
-      failures.push({
-        diagnostic: sanitizeDiagnostic(errorMessage(error)),
-        summary: `${label}: ${configPath} is not valid JSON`,
-      });
+    const parsed = readJsonObjectFile(configPath, label, failures);
+    if (parsed === undefined) {
       return;
     }
-    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-      failures.push({
-        diagnostic: `${configPath} must contain a JSON object`,
-        summary: `${label}: ${configPath} has an unexpected shape`,
-      });
-      return;
-    }
-    config = parsed as Record<string, unknown>;
+    config = parsed;
   }
 
   const existingServers = Object.hasOwn(config, "mcpServers") ? config.mcpServers : undefined;
@@ -567,15 +447,7 @@ function applyCursor(runtime: Runtime, servers: readonly McpServer[], failures: 
     return;
   }
 
-  mkdirSync(dirname(configPath), { recursive: true });
-  const temporaryDirectory = mkdtempSync(join(dirname(configPath), ".mcp-json-"));
-  try {
-    const temporaryPath = join(temporaryDirectory, "mcp.json");
-    writeFileSync(temporaryPath, `${JSON.stringify(config, null, 2)}\n`, { mode: 0o600 });
-    renameSync(temporaryPath, configPath);
-  } finally {
-    rmSync(temporaryDirectory, { force: true, recursive: true });
-  }
+  writeJsonObjectFile(configPath, config);
   writeLine(runtime.stdout, `${label}: updated ${configPath}`);
 }
 
@@ -840,8 +712,7 @@ function removeStaleServers(
   for (const server of stale) {
     const leftoverHarnesses: Harness[] = [];
     for (const harness of server.harnesses) {
-      const binary = HARNESS_BINARIES[harness];
-      const label = HARNESS_LABELS[harness];
+      const { binary, label } = HARNESS_INFO[harness];
       if (!runtime.commandExists(binary)) {
         leftoverHarnesses.push(harness);
         writeLine(runtime.stdout, `Skipping ${label} MCP removal: '${binary}' is not installed`);
@@ -892,38 +763,7 @@ export type McpOptions = {
   profile?: string;
 };
 
-type ParsedArgs =
-  | { kind: "run"; options: McpOptions }
-  | { kind: "help" }
-  | { kind: "error"; message: string };
-
 const USAGE = "Usage: ./scripts/agents/mcps.ts [--profile PROFILE]";
-
-export function parseArgs(args: readonly string[]): ParsedArgs {
-  let profile: string | undefined;
-
-  for (let index = 0; index < args.length; index += 1) {
-    const arg = args[index];
-    if (arg === "--profile") {
-      if (profile !== undefined) {
-        return { kind: "error", message: `${USAGE}\n--profile may be provided only once` };
-      }
-      const value = args[index + 1];
-      if (value === undefined) {
-        return { kind: "error", message: `${USAGE}\n--profile requires a value` };
-      }
-      profile = value;
-      index += 1;
-      continue;
-    }
-    if (arg === "--help" || arg === "-h") {
-      return { kind: "help" };
-    }
-    return { kind: "error", message: `${USAGE}\nUnknown argument: ${arg}` };
-  }
-
-  return { kind: "run", options: { profile } };
-}
 
 function apply(runtime: Runtime, options: McpOptions): number {
   const scriptDir = dirname(fileURLToPath(import.meta.url));
@@ -970,35 +810,27 @@ function apply(runtime: Runtime, options: McpOptions): number {
   }
 
   const leftover = [
-    ...removeStaleServers(runtime, staleServers(previouslyManaged, servers), failures),
-    ...retainAbsentServers(runtime, previouslyManaged, servers),
+    ...removeStaleServers(runtime, staleEntries(previouslyManaged, servers, serverName), failures),
+    ...retainAbsentEntries(runtime, previouslyManaged, servers, serverName),
   ];
   if (failures.length > 0) {
     return reportMcpFailures(runtime, failures);
   }
 
-  writeServerLock(mcpLockPath, mergeServerLock(appliedServers(runtime, servers), leftover));
+  writeServerLock(
+    mcpLockPath,
+    mergeLockEntries(appliedServers(runtime, servers), leftover, serverName),
+  );
   writeLine(runtime.stdout, "Done.");
   return 0;
 }
 
 function reportMcpFailures(runtime: Runtime, failures: readonly McpFailure[]): 1 {
-  const noun = failures.length === 1 ? "command" : "commands";
-  writeLine(runtime.stderr, `MCP sync failed for ${failures.length} ${noun}:`);
-  for (const failure of failures) {
-    writeLine(runtime.stderr, `  - ${failure.summary}`);
-    for (const line of failure.diagnostic.split("\n")) {
-      if (line.length > 0) {
-        writeLine(runtime.stderr, `    ${line}`);
-      }
-    }
-  }
-  writeLine(runtime.stderr, "Fix the reported MCP failures, then rerun sync.");
-  return 1;
+  return reportSyncFailures(runtime, failures, "MCP sync", ["command", "commands"], "MCP");
 }
 
 export function main(args: readonly string[], runtime: Runtime = createRuntime()): number {
-  const parsed = parseArgs(args);
+  const parsed = parseSyncArgs(args, USAGE, false);
   if (parsed.kind === "help") {
     writeLine(runtime.stdout, USAGE);
     return 0;
@@ -1009,7 +841,7 @@ export function main(args: readonly string[], runtime: Runtime = createRuntime()
   }
 
   try {
-    return apply(runtime, parsed.options);
+    return apply(runtime, { profile: parsed.profile });
   } catch (error) {
     writeLine(runtime.stderr, `MCP sync failed: ${errorMessage(error)}`);
     return 1;

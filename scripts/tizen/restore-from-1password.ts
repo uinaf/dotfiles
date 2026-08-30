@@ -4,20 +4,17 @@ import { NodeServices } from "@effect/platform-node";
 import { Console, Effect, FileSystem, Schema } from "effect";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { CommandRunner } from "../lib/command.ts";
+import { CommandRunner, runChecked } from "../lib/command.ts";
 import { CliFailure, fail, runMain } from "../lib/program.ts";
 
 const Sha256 = Schema.String.pipe(Schema.check(Schema.isPattern(/^[0-9a-f]{64}$/)));
 const scriptDir = resolve(dirname(fileURLToPath(import.meta.url)));
 
-const run = Effect.fn("runTizenOnePasswordCommand")(function*(command: string, args: readonly string[], inherit = false) {
-  const runner = yield* CommandRunner;
-  const result = yield* runner.run(command, args, { stdin: inherit ? "inherit" : "ignore", output: inherit ? "inherit" : "capture" }).pipe(
-    Effect.mapError((error) => new CliFailure({ exitCode: 1, message: `missing required command or failed to start ${command}: ${error.message}` })),
-  );
-  if (result.status !== 0) return yield* fail(`${command} exited ${result.status}`, result.status);
-  return result;
-});
+const run = (command: string, args: readonly string[], inherit = false) =>
+  runChecked(command, args, {
+    stdin: inherit ? "inherit" : "ignore",
+    output: inherit ? "inherit" : "capture",
+  });
 
 const program = Effect.gen(function*() {
   const args = process.argv.slice(2);

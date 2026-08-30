@@ -4,7 +4,7 @@ import { NodeServices } from "@effect/platform-node";
 import { Console, Effect, FileSystem, Option, Schema } from "effect";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { CommandRunner } from "../lib/command.ts";
+import { CommandRunner, runCommand } from "../lib/command.ts";
 import { launchdLabel, resolveLaunchdNamespaceContract } from "../lib/launchd.ts";
 import { CliFailure, fail, runMain } from "../lib/program.ts";
 
@@ -13,12 +13,7 @@ const home = process.env.HOME || "";
 const configPath = process.env.DEVBOX_CONFIG || join(home, ".config/dotfiles/devbox.env");
 const Config = Schema.Struct({ DEVBOX_USER: Schema.optional(Schema.NonEmptyString) });
 
-const run = Effect.fn("runDevboxVerificationCommand")(function*(command: string, args: readonly string[] = []) {
-  const runner = yield* CommandRunner;
-  return yield* runner.run(command, args).pipe(
-    Effect.mapError((error) => new CliFailure({ exitCode: 1, message: `${command} failed to start: ${error.message}` })),
-  );
-});
+const run = runCommand;
 
 const readConfig = Effect.fn("readDevboxVerificationConfig")(function*() {
   yield* Console.log("\n## local devbox config");

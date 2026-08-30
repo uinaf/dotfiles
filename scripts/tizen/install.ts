@@ -3,7 +3,7 @@
 import { NodeServices } from "@effect/platform-node";
 import { Console, Effect, FileSystem, Option } from "effect";
 import { join } from "node:path";
-import { CommandRunner, type CommandResult } from "../lib/command.ts";
+import { CommandRunner, runChecked, runCommand } from "../lib/command.ts";
 import { commandAvailable } from "../lib/homebrew.ts";
 import { CliFailure, fail, runMain } from "../lib/program.ts";
 
@@ -49,28 +49,19 @@ const parseArguments = Effect.fn("parseTizenInstallArguments")(function*(args: r
   return { showPackages, packages };
 });
 
-const runRaw = Effect.fn("runTizenInstallCommand")(function*(
+const runRaw = (
   command: string,
   args: readonly string[],
   env: Readonly<Record<string, string>> = {},
   output: "capture" | "inherit" | "ignore" = "inherit",
-): Effect.fn.Return<CommandResult, CliFailure, CommandRunner> {
-  const runner = yield* CommandRunner;
-  return yield* runner.run(command, args, { env, extendEnv: true, stdin: "inherit", output }).pipe(
-    Effect.mapError((error) => new CliFailure({ exitCode: 1, message: `missing required command or failed to start ${command}: ${error.message}` })),
-  );
-});
+) => runCommand(command, args, { env, stdin: "inherit", output });
 
-const run = Effect.fn("runCheckedTizenInstallCommand")(function*(
+const run = (
   command: string,
   args: readonly string[],
   env: Readonly<Record<string, string>> = {},
   output: "capture" | "inherit" | "ignore" = "inherit",
-) {
-  const result = yield* runRaw(command, args, env, output);
-  if (result.status !== 0) return yield* fail(`${command} exited ${result.status}`, result.status);
-  return result;
-});
+) => runChecked(command, args, { env, stdin: "inherit", output });
 
 const executable = Effect.fn("isExecutableFile")(function*(path: string) {
   const fs = yield* FileSystem.FileSystem;

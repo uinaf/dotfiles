@@ -3,7 +3,7 @@
 import { NodeServices } from "@effect/platform-node";
 import { Console, Effect, FileSystem, Option, Schema } from "effect";
 import { dirname, join } from "node:path";
-import { CommandRunner, type CommandResult } from "../lib/command.ts";
+import { CommandRunner, runCommand } from "../lib/command.ts";
 import { commandAvailable } from "../lib/homebrew.ts";
 import { CliFailure, fail, runMain } from "../lib/program.ts";
 
@@ -38,15 +38,8 @@ const runRaw = Effect.fn("runSopsIdentityCommand")(function*(
   command: string,
   args: readonly string[],
   options: { readonly cwd?: string; readonly env?: Readonly<Record<string, string>>; readonly extendEnv?: boolean } = {},
-): Effect.fn.Return<CommandResult, CliFailure, CommandRunner> {
-  const runner = yield* CommandRunner;
-  return yield* runner.run(command, args, {
-    cwd: options.cwd,
-    env: options.env,
-    extendEnv: options.extendEnv ?? true,
-  }).pipe(
-    Effect.mapError((error) => new CliFailure({ exitCode: 1, message: `${command} is required or failed to start: ${error.message}` })),
-  );
+) {
+  return yield* runCommand(command, args, options);
 });
 
 const validateIdentity = Effect.fn("validateSopsAgeIdentity")(function*(identityFile: string) {

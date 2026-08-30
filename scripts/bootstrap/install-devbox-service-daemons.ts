@@ -4,7 +4,7 @@ import { NodeServices } from "@effect/platform-node";
 import { Console, Effect, FileSystem, Option, Schema } from "effect";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { CommandRunner, type CommandResult } from "../lib/command.ts";
+import { CommandRunner, runCommand } from "../lib/command.ts";
 import {
   launchdLabel,
   openclawRestartSudoersName,
@@ -128,12 +128,8 @@ const parseArguments = Effect.fn("parseServiceInstallerArguments")(function*(arg
   return options;
 });
 
-const run = Effect.fn("runServiceCommand")(function*(command: string, args: readonly string[] = [], inherit = false) {
-  const runner = yield* CommandRunner;
-  return yield* runner.run(command, args, { output: inherit ? "inherit" : "capture" }).pipe(
-    Effect.mapError((error) => new CliFailure({ exitCode: 1, message: `${command} failed to start: ${error.message}` })),
-  );
-});
+const run = (command: string, args: readonly string[] = [], inherit = false) =>
+  runCommand(command, args, { output: inherit ? "inherit" : "capture" });
 
 const checked = Effect.fn("runCheckedServiceCommand")(function*(command: string, args: readonly string[] = [], inherit = false) {
   const result = yield* run(command, args, inherit);

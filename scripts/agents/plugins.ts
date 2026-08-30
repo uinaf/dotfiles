@@ -16,6 +16,22 @@ import { Effect } from "effect";
 
 import { runMain } from "../lib/program.ts";
 import { readProfileModel, requireProfile, type SkillLayer } from "../profiles/model.ts";
+import {
+  composeLayers,
+  type Harness,
+  HARNESS_INFO,
+  HARNESSES,
+  harnessPresent,
+  isSafeName,
+  mergeLockEntries,
+  parseSyncArgs,
+  presentHarnessEntries,
+  readHarnesses,
+  reportSyncFailures,
+  retainAbsentEntries,
+  staleEntries,
+  type SyncFailure,
+} from "./harness.ts";
 import { readLockFile, writeLockFile } from "./lock.ts";
 import {
   createRuntime,
@@ -26,20 +42,10 @@ import {
   writeLine,
 } from "./runtime.ts";
 
+export { type Harness, HARNESSES } from "./harness.ts";
+
 // `owner/repo` as accepted by the marketplace-add subcommands.
 const MARKETPLACE_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*\/[A-Za-z0-9][A-Za-z0-9._-]*$/;
-const NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
-const RESERVED_NAMES = new Set(["__proto__", "constructor", "prototype"]);
-
-function isSafeName(value: string): boolean {
-  return NAME_PATTERN.test(value) && !RESERVED_NAMES.has(value);
-}
-
-// Claude must precede cursor and opencode: their skill links resolve into the
-// Claude marketplace checkout that Claude's own sync creates and updates.
-export const HARNESSES = ["claude", "codex", "cursor", "grok", "opencode"] as const;
-
-export type Harness = (typeof HARNESSES)[number];
 
 // How Cursor installs a plugin: through its marketplace and the interactive
 // /plugins flow, or by linking standard skill directories into Cursor's
@@ -71,10 +77,7 @@ export type PlannedCommand = {
   refresh?: boolean;
 };
 
-type PluginFailure = {
-  diagnostic: string;
-  summary: string;
-};
+type PluginFailure = SyncFailure;
 
 type HarnessSpec = {
   binary: string;
@@ -100,27 +103,23 @@ type HarnessSpec = {
 
 const HARNESS_SPECS: Record<Harness, HarnessSpec> = {
   claude: {
-    binary: "claude",
-    label: "Claude Code",
+    ...HARNESS_INFO.claude,
     marketplaceArgs: (plugin) => ["plugin", "marketplace", "add", plugin.marketplace],
     installArgs: (plugin) => ["plugin", "install", pluginRef(plugin)],
     updateArgs: (plugin) => ["plugin", "update", pluginRef(plugin), "-y"],
   },
   codex: {
-    binary: "codex",
-    label: "Codex",
+    ...HARNESS_INFO.codex,
     marketplaceArgs: (plugin) => ["plugin", "marketplace", "add", plugin.marketplace],
     upgradeMarketplaceArgs: (plugin) => ["plugin", "marketplace", "upgrade", plugin.marketplaceId],
     installArgs: (plugin) => ["plugin", "add", pluginRef(plugin)],
   },
   cursor: {
-    binary: "cursor-agent",
-    label: "Cursor",
+    ...HARNESS_INFO.cursor,
     marketplaceArgs: (plugin) => ["plugin", "marketplace", "add", `github.com/${plugin.marketplace}`],
   },
   grok: {
-    binary: "grok",
-    label: "Grok",
+    ...HARNESS_INFO.grok,
     installArgs: (plugin) => ["plugin", "install", plugin.marketplace, "--trust"],
     updateArgs: (plugin) => ["plugin", "update", plugin.name],
     installsMarketplace: {
@@ -130,8 +129,7 @@ const HARNESS_SPECS: Record<Harness, HarnessSpec> = {
     },
   },
   opencode: {
-    binary: "opencode",
-    label: "OpenCode",
+    ...HARNESS_INFO.opencode,
     linksClaudeSkills: true,
   },
 };
@@ -140,27 +138,14 @@ export function pluginRef(plugin: Plugin): string {
   return `${plugin.name}@${plugin.marketplaceId}`;
 }
 
-function isHarness(value: unknown): value is Harness {
-  return typeof value === "string" && (HARNESSES as readonly string[]).includes(value);
-}
-
-function readHarnesses(value: unknown, manifestPath: string, name: string): readonly Harness[] {
+function readManifestHarnesses(value: unknown, manifestPath: string, name: string): readonly Harness[] {
   if (value === undefined) {
     return HARNESSES;
   }
-  if (
-    !Array.isArray(value) ||
-    value.length === 0 ||
-    !value.every(isHarness) ||
-    new Set(value).size !== value.length
-  ) {
-    throw new Error(
-      `Invalid plugins manifest at ${manifestPath}: ${name} harnesses must be a unique non-empty subset of ${HARNESSES.join(", ")}`,
-    );
-  }
-  // Selection uses membership, never order; normalize so composition compares
-  // manifests by meaning rather than authoring order.
-  return HARNESSES.filter((harness) => value.includes(harness));
+  return readHarnesses(
+    value,
+    `Invalid plugins manifest at ${manifestPath}: ${name} harnesses must be a unique non-empty subset of ${HARNESSES.join(", ")}`,
+  );
 }
 
 function readPlugin(value: unknown, manifestPath: string): Plugin {
@@ -190,7 +175,7 @@ function readPlugin(value: unknown, manifestPath: string): Plugin {
     );
   }
 
-  const harnesses = readHarnesses(
+  const harnesses = readManifestHarnesses(
     "harnesses" in value ? value.harnesses : undefined,
     manifestPath,
     value.name,
@@ -264,22 +249,12 @@ export function readLayeredPlugins(
     );
   }
 
-  const seen = new Map<string, string>();
-  const plugins: Plugin[] = [];
-  for (const plugin of layers.flatMap((layer) => manifests.get(layer) ?? [])) {
-    const ref = pluginRef(plugin);
-    const shape = JSON.stringify(plugin);
-    const previous = seen.get(ref);
-    if (previous === shape) {
-      continue; // the same plugin selected by more than one composed layer
-    }
-    if (previous !== undefined) {
-      throw new Error(`Invalid layered plugins: ${ref} is defined more than once`);
-    }
-    seen.set(ref, shape);
-    plugins.push(plugin);
-  }
-
+  const plugins = composeLayers(
+    layers,
+    manifests,
+    pluginRef,
+    (ref) => `Invalid layered plugins: ${ref} is defined more than once`,
+  );
   return { layers, plugins };
 }
 
@@ -289,17 +264,10 @@ type PluginLock = {
 };
 
 function readLockedHarnesses(value: unknown, lockPath: string, name: string): readonly Harness[] {
-  if (
-    !Array.isArray(value) ||
-    value.length === 0 ||
-    !value.every(isHarness) ||
-    new Set(value).size !== value.length
-  ) {
-    throw new Error(
-      `Invalid managed plugins lock at ${lockPath}: ${name} harnesses must be an explicit unique non-empty subset of ${HARNESSES.join(", ")}`,
-    );
-  }
-  return HARNESSES.filter((harness) => value.includes(harness));
+  return readHarnesses(
+    value,
+    `Invalid managed plugins lock at ${lockPath}: ${name} harnesses must be an explicit unique non-empty subset of ${HARNESSES.join(", ")}`,
+  );
 }
 
 function readLockedPlugin(value: unknown, lockPath: string): Plugin {
@@ -366,89 +334,24 @@ function writePluginLock(lockPath: string, plugins: readonly Plugin[]): void {
 }
 
 function stalePlugins(previous: readonly Plugin[], current: readonly Plugin[]): Plugin[] {
-  const currentByRef = new Map(current.map((plugin) => [pluginRef(plugin), plugin]));
-  const stale: Plugin[] = [];
-
-  for (const owned of previous) {
-    const next = currentByRef.get(pluginRef(owned));
-    if (next === undefined) {
-      stale.push(owned);
-      continue;
-    }
-    const dropped = owned.harnesses.filter((harness) => !next.harnesses.includes(harness));
-    if (
-      owned.cursorMode === "marketplace" &&
-      next.cursorMode === "skills" &&
-      owned.harnesses.includes("cursor") &&
-      next.harnesses.includes("cursor") &&
-      !dropped.includes("cursor")
-    ) {
-      dropped.push("cursor");
-    }
-    if (dropped.length > 0) {
-      stale.push({ ...owned, harnesses: dropped, cursorMode: owned.cursorMode });
-    }
-  }
-
-  return stale;
-}
-
-function appliedPlugins(runtime: Runtime, plugins: readonly Plugin[]): Plugin[] {
-  return plugins
-    .map((plugin) => ({
-      ...plugin,
-      harnesses: plugin.harnesses.filter((harness) =>
-        runtime.commandExists(HARNESS_SPECS[harness].binary),
-      ),
-    }))
-    .filter((plugin) => plugin.harnesses.length > 0);
-}
-
-function retainAbsentPlugins(
-  runtime: Runtime,
-  previous: readonly Plugin[],
-  current: readonly Plugin[],
-): Plugin[] {
-  const currentByRef = new Map(current.map((plugin) => [pluginRef(plugin), plugin]));
-  const leftover: Plugin[] = [];
-
-  for (const owned of previous) {
-    const next = currentByRef.get(pluginRef(owned));
-    if (next === undefined) {
-      continue;
-    }
-    const absent = owned.harnesses.filter(
-      (harness) =>
-        next.harnesses.includes(harness) && !runtime.commandExists(HARNESS_SPECS[harness].binary),
-    );
-    if (absent.length > 0) {
-      leftover.push({ ...owned, harnesses: absent });
-    }
-  }
-
-  return leftover;
+  // A cursor plugin that switched to native-skills mode also drops its
+  // marketplace ownership even though cursor stays selected.
+  return staleEntries(previous, current, pluginRef, (owned, next) =>
+    owned.cursorMode === "marketplace" &&
+    next.cursorMode === "skills" &&
+    owned.harnesses.includes("cursor") &&
+    next.harnesses.includes("cursor")
+      ? ["cursor"]
+      : [],
+  );
 }
 
 function mergePluginLock(current: readonly Plugin[], leftover: readonly Plugin[]): Plugin[] {
-  const byRef = new Map(
-    current.map((plugin) => [pluginRef(plugin), { ...plugin, harnesses: [...plugin.harnesses] }]),
-  );
-
-  for (const extra of leftover) {
-    const existing = byRef.get(pluginRef(extra));
-    if (existing === undefined) {
-      byRef.set(pluginRef(extra), { ...extra, harnesses: [...extra.harnesses] });
-      continue;
-    }
-    existing.harnesses = HARNESSES.filter(
-      (harness) => existing.harnesses.includes(harness) || extra.harnesses.includes(harness),
-    );
+  return mergeLockEntries(current, leftover, pluginRef, (existing, extra) => {
     if (extra.harnesses.includes("cursor")) {
       existing.cursorMode = extra.cursorMode;
     }
-  }
-
-  return [...byRef.values()];
+  });
 }
 
 function uninstallArgs(harness: Harness, plugin: Plugin): string[] | undefined {
@@ -463,10 +366,6 @@ function uninstallArgs(harness: Harness, plugin: Plugin): string[] | undefined {
     case "opencode":
       return undefined;
   }
-}
-
-function harnessPresent(runtime: Runtime): boolean {
-  return HARNESSES.some((harness) => runtime.commandExists(HARNESS_SPECS[harness].binary));
 }
 
 function removeStalePlugins(
@@ -1005,43 +904,7 @@ export type PluginOptions = {
   update: boolean;
 };
 
-type ParsedArgs =
-  | { kind: "run"; options: PluginOptions }
-  | { kind: "help" }
-  | { kind: "error"; message: string };
-
 const USAGE = "Usage: ./scripts/agents/plugins.ts [--profile PROFILE] [--update]";
-
-export function parseArgs(args: readonly string[]): ParsedArgs {
-  let profile: string | undefined;
-  let update = false;
-
-  for (let index = 0; index < args.length; index += 1) {
-    const arg = args[index];
-    if (arg === "--update") {
-      update = true;
-      continue;
-    }
-    if (arg === "--profile") {
-      if (profile !== undefined) {
-        return { kind: "error", message: `${USAGE}\n--profile may be provided only once` };
-      }
-      const value = args[index + 1];
-      if (value === undefined) {
-        return { kind: "error", message: `${USAGE}\n--profile requires a value` };
-      }
-      profile = value;
-      index += 1;
-      continue;
-    }
-    if (arg === "--help" || arg === "-h") {
-      return { kind: "help" };
-    }
-    return { kind: "error", message: `${USAGE}\nUnknown argument: ${arg}` };
-  }
-
-  return { kind: "run", options: { profile, update } };
-}
 
 function apply(runtime: Runtime, options: PluginOptions): number {
   const scriptDir = dirname(fileURLToPath(import.meta.url));
@@ -1082,42 +945,34 @@ function apply(runtime: Runtime, options: PluginOptions): number {
       return 0;
     }
     writeLine(runtime.stdout, "Initializing managed plugins lock without removing existing plugins");
-    writePluginLock(pluginLockPath, appliedPlugins(runtime, plugins));
+    writePluginLock(pluginLockPath, presentHarnessEntries(runtime, plugins));
     writeLine(runtime.stdout, "Done.");
     return 0;
   }
 
   const leftover = [
     ...removeStalePlugins(runtime, stalePlugins(previouslyManaged, plugins), failures),
-    ...retainAbsentPlugins(runtime, previouslyManaged, plugins),
+    ...retainAbsentEntries(runtime, previouslyManaged, plugins, pluginRef),
   ];
   if (failures.length > 0) {
     return reportPluginFailures(runtime, failures);
   }
 
   pruneNativeSkillLinks(runtime, plugins, previouslyManaged);
-  writePluginLock(pluginLockPath, mergePluginLock(appliedPlugins(runtime, plugins), leftover));
+  writePluginLock(
+    pluginLockPath,
+    mergePluginLock(presentHarnessEntries(runtime, plugins), leftover),
+  );
   writeLine(runtime.stdout, "Done.");
   return 0;
 }
 
 function reportPluginFailures(runtime: Runtime, failures: readonly PluginFailure[]): 1 {
-  const noun = failures.length === 1 ? "failure" : "failures";
-  writeLine(runtime.stderr, `Plugin sync failed for ${failures.length} ${noun}:`);
-  for (const failure of failures) {
-    writeLine(runtime.stderr, `  - ${failure.summary}`);
-    for (const line of failure.diagnostic.split("\n")) {
-      if (line.length > 0) {
-        writeLine(runtime.stderr, `    ${line}`);
-      }
-    }
-  }
-  writeLine(runtime.stderr, "Fix the reported plugin failures, then rerun sync.");
-  return 1;
+  return reportSyncFailures(runtime, failures, "Plugin sync", ["failure", "failures"], "plugin");
 }
 
 export function main(args: readonly string[], runtime: Runtime = createRuntime()): number {
-  const parsed = parseArgs(args);
+  const parsed = parseSyncArgs(args, USAGE, true);
   if (parsed.kind === "help") {
     writeLine(runtime.stdout, USAGE);
     return 0;
@@ -1128,7 +983,7 @@ export function main(args: readonly string[], runtime: Runtime = createRuntime()
   }
 
   try {
-    return apply(runtime, parsed.options);
+    return apply(runtime, { profile: parsed.profile, update: parsed.update });
   } catch (error) {
     writeLine(runtime.stderr, `Plugin sync failed: ${errorMessage(error)}`);
     return 1;

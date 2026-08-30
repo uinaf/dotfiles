@@ -1,20 +1,13 @@
 #!/usr/bin/env node
 
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  renameSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Effect } from "effect";
 
 import { runMain } from "../lib/program.ts";
 import { readProfileModel, requireProfile, type SkillLayer } from "../profiles/model.ts";
+import { readLockFile, writeLockFile } from "./lock.ts";
 import {
   createRuntime,
   errorMessage,
@@ -24,7 +17,7 @@ import {
   writeLine,
 } from "./runtime.ts";
 
-export { createRuntime, type Runtime } from "./runtime.ts";
+export { type Runtime } from "./runtime.ts";
 
 const DEFAULT_SKILLS_CLI_VERSION = "1.5.7";
 
@@ -120,15 +113,9 @@ function readLayeredSkills(
 }
 
 function readSkillLock(lockPath: string): Skill[] | undefined {
-  if (!existsSync(lockPath)) {
+  const parsed = readLockFile(lockPath, "skills");
+  if (parsed === undefined) {
     return undefined;
-  }
-
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(readFileSync(lockPath, "utf8"));
-  } catch (error) {
-    throw new Error(`Invalid managed skills lock at ${lockPath}: ${errorMessage(error)}`);
   }
 
   if (
@@ -154,17 +141,8 @@ function readSkillLock(lockPath: string): Skill[] | undefined {
 }
 
 function writeSkillLock(lockPath: string, skills: readonly Skill[]): void {
-  mkdirSync(dirname(lockPath), { recursive: true });
-  const temporaryDirectory = mkdtempSync(join(dirname(lockPath), ".skills-lock-"));
-  const temporaryLock = join(temporaryDirectory, "skills.lock.json");
   const lock: SkillLock = { version: 1, skills: [...skills] };
-
-  try {
-    writeFileSync(temporaryLock, `${JSON.stringify(lock, null, 2)}\n`, { mode: 0o600 });
-    renameSync(temporaryLock, lockPath);
-  } finally {
-    rmSync(temporaryDirectory, { force: true, recursive: true });
-  }
+  writeLockFile(lockPath, lock);
 }
 
 function findInstalledAgents(runtime: Runtime): Agent[] {

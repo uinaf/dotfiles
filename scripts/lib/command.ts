@@ -1,6 +1,8 @@
 import { Context, Effect, Fiber, Layer, Schema, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 
+import { CliFailure, fail } from "./program.ts";
+
 export class CommandError extends Schema.TaggedError<CommandError>()("CommandError", {
   command: Schema.NonEmptyString,
   message: Schema.String,
@@ -72,3 +74,30 @@ export class CommandRunner extends Context.Service<CommandRunner, {
     }),
   );
 }
+
+// Run a command, mapping a failed spawn (missing binary, bad cwd) to a CliFailure.
+export const runCommand = Effect.fn("runCommand")(function*(
+  command: string,
+  args: readonly string[] = [],
+  options: CommandOptions = {},
+): Effect.fn.Return<CommandResult, CliFailure, CommandRunner> {
+  const runner = yield* CommandRunner;
+  return yield* runner.run(command, args, options).pipe(
+    Effect.mapError((error) =>
+      new CliFailure({ exitCode: 1, message: `${command} is required or failed to start: ${error.message}` })
+    ),
+  );
+});
+
+// Run a command and propagate a non-zero exit status as the process exit code.
+export const runChecked = Effect.fn("runChecked")(function*(
+  command: string,
+  args: readonly string[] = [],
+  options: CommandOptions = {},
+): Effect.fn.Return<CommandResult, CliFailure, CommandRunner> {
+  const result = yield* runCommand(command, args, options);
+  if (result.status !== 0) {
+    return yield* fail(`${command} exited ${result.status}`, result.status);
+  }
+  return result;
+});

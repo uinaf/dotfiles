@@ -3,7 +3,7 @@
 import { NodeServices } from "@effect/platform-node";
 import { Console, Effect, FileSystem, Option, Schema } from "effect";
 import { join } from "node:path";
-import { CommandRunner } from "../lib/command.ts";
+import { CommandRunner, runChecked } from "../lib/command.ts";
 import { CliFailure, fail, runMain } from "../lib/program.ts";
 
 const sourceCommit = process.env.GH_APP_AUTH_SOURCE_COMMIT || "620f73d8e27a81ea5736acbf5643b461da61c0f4";
@@ -22,17 +22,7 @@ const run = Effect.fn("runGhAppAuthInstallCommand")(function*(
   args: readonly string[],
   options: { readonly env?: Readonly<Record<string, string>>; readonly output?: "capture" | "inherit"; readonly cwd?: string } = {},
 ) {
-  const runner = yield* CommandRunner;
-  const result = yield* runner.run(command, args, {
-    cwd: options.cwd,
-    env: options.env,
-    extendEnv: true,
-    output: options.output ?? "capture",
-  }).pipe(
-    Effect.mapError((error) => new CliFailure({ exitCode: 1, message: `${command} is required or failed to start: ${error.message}` })),
-  );
-  if (result.status !== 0) return yield* fail(`${command} exited ${result.status}`, result.status);
-  return result;
+  return yield* runChecked(command, args, options);
 });
 
 const verifyInstall = Effect.fn("verifyGhAppAuthInstall")(function*() {

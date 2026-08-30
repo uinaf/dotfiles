@@ -4,7 +4,7 @@ import { NodeServices } from "@effect/platform-node";
 import { Console, Effect, FileSystem, Option, Schema } from "effect";
 import { isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { CommandRunner, type CommandResult } from "../lib/command.ts";
+import { CommandRunner, type CommandResult, runCommand } from "../lib/command.ts";
 import { CliFailure, fail, runMain } from "../lib/program.ts";
 
 const repoRoot = resolve(fileURLToPath(new URL("../..", import.meta.url)));
@@ -61,15 +61,11 @@ const runRaw = Effect.fn("runSopsSudoCommand")(function*(
     readonly stdin?: "ignore" | "inherit";
   } = {},
 ): Effect.fn.Return<CommandResult, CliFailure, CommandRunner> {
-  const runner = yield* CommandRunner;
-  return yield* runner.run(command, args, {
-    env: options.env,
-    extendEnv: options.extendEnv ?? true,
+  return yield* runCommand(command, args, {
+    ...options,
     output: options.output ?? "inherit",
     stdin: options.stdin ?? "inherit",
-  }).pipe(
-    Effect.mapError((error) => new CliFailure({ exitCode: 1, message: `${command} failed to start: ${error.message}` })),
-  );
+  });
 });
 
 const executable = Effect.fn("sopsSudoExecutable")(function*(path: string) {

@@ -3,7 +3,7 @@
 import { NodeServices } from "@effect/platform-node";
 import { Console, Effect, FileSystem, Option, Schema, Terminal } from "effect";
 import { dirname, join } from "node:path";
-import { CommandRunner, type CommandResult } from "../lib/command.ts";
+import { CommandRunner, runCommand } from "../lib/command.ts";
 import { CliFailure, fail, runMain } from "../lib/program.ts";
 import { normalizeProfile, profileModelFile, resolveProfile } from "../profiles/current.ts";
 import { readProfileModelEffect, requireProfile, type ProfileConfig } from "../profiles/model.ts";
@@ -56,18 +56,8 @@ const parseArguments = Effect.fn("parseConfigureGitArguments")(function*(args: r
   return { profile, nonInteractive };
 });
 
-const runRaw = Effect.fn("runConfigureGitCommand")(function*(
-  command: string,
-  args: readonly string[],
-): Effect.fn.Return<CommandResult, CliFailure, CommandRunner> {
-  const runner = yield* CommandRunner;
-  return yield* runner.run(command, args).pipe(
-    Effect.mapError((error) => new CliFailure({ exitCode: 1, message: `${command} is required or failed to start: ${error.message}` })),
-  );
-});
-
 const run = Effect.fn("runCheckedConfigureGitCommand")(function*(command: string, args: readonly string[], message?: string) {
-  const result = yield* runRaw(command, args);
+  const result = yield* runCommand(command, args);
   if (result.status !== 0) return yield* fail(message || `${command} exited ${result.status}`, result.status);
   return result.stdout.trimEnd();
 });
@@ -119,7 +109,7 @@ const validatePrivateKey = Effect.fn("validateLocalSshPrivateKey")(function*(pur
   const firstLine = (yield* fs.readFileString(path)).split(/\r?\n/, 1)[0];
   const header = yield* Schema.decodeUnknownEffect(PrivateKeyHeader)(firstLine).pipe(Effect.option);
   if (Option.isNone(header)) return yield* fail(`cannot configure ${purpose}; key file is not an SSH private key: ${path}`);
-  const parsed = yield* runRaw("ssh-keygen", ["-lf", path]);
+  const parsed = yield* runCommand("ssh-keygen", ["-lf", path]);
   if (parsed.status !== 0) return yield* fail(`cannot configure ${purpose}; key file is not a valid SSH private key: ${path}`);
   if (Option.getOrUndefined(info.value.uid) !== process.getuid?.()) {
     return yield* fail(`cannot configure ${purpose}; key file is not owned by the current user: ${path}`);
@@ -233,7 +223,7 @@ Host github.com
 });
 
 const getGlobal = Effect.fn("getGlobalGitConfig")(function*(key: string) {
-  const result = yield* runRaw("git", ["config", "--global", "--get", key]);
+  const result = yield* runCommand("git", ["config", "--global", "--get", key]);
   return result.status === 0 ? result.stdout.trimEnd() : "";
 });
 
@@ -270,7 +260,7 @@ const buildConfiguration = Effect.fn("buildGitConfiguration")(function*(
   let publicKey = "";
   if (signCommits === "true") {
     yield* validatePrivateKey("Git signing", signingKey);
-    const publicKeyResult = yield* runRaw("ssh-keygen", ["-y", "-P", "", "-f", signingKey]);
+    const publicKeyResult = yield* runCommand("ssh-keygen", ["-y", "-P", "", "-f", signingKey]);
     if (publicKeyResult.status !== 0) {
       return yield* fail(`cannot configure Git signing; GIT_SIGNING_KEY must be an unencrypted SSH private key: ${signingKey}`);
     }

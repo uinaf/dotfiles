@@ -3,7 +3,7 @@
 import { NodeServices } from "@effect/platform-node";
 import { Console, Effect, FileSystem, Option, Schema } from "effect";
 import { join } from "node:path";
-import { CommandRunner, type CommandResult } from "../lib/command.ts";
+import { CommandRunner, runChecked, runCommand } from "../lib/command.ts";
 import { CliFailure, fail, runMain } from "../lib/program.ts";
 import { resolveProfile } from "../profiles/current.ts";
 
@@ -78,30 +78,8 @@ const parseArguments = Effect.fn("parseAssistantGithubAppArguments")(function*(a
   );
 });
 
-const runRaw = Effect.fn("runAssistantGithubAppCommand")(function*(
-  command: string,
-  args: readonly string[],
-  options: { readonly cwd?: string; readonly env?: Readonly<Record<string, string>> } = {},
-): Effect.fn.Return<CommandResult, CliFailure, CommandRunner> {
-  const runner = yield* CommandRunner;
-  return yield* runner.run(command, args, {
-    cwd: options.cwd,
-    env: options.env,
-    extendEnv: true,
-  }).pipe(
-    Effect.mapError((error) => new CliFailure({ exitCode: 1, message: `${command} is required or failed to start: ${error.message}` })),
-  );
-});
-
-const run = Effect.fn("runCheckedAssistantGithubAppCommand")(function*(
-  command: string,
-  args: readonly string[],
-  options: { readonly cwd?: string; readonly env?: Readonly<Record<string, string>> } = {},
-) {
-  const result = yield* runRaw(command, args, options);
-  if (result.status !== 0) return yield* fail(`${command} exited ${result.status}`, result.status);
-  return result;
-});
+const runRaw = runCommand;
+const run = runChecked;
 
 const validateOwnerOnly = Effect.fn("validateOwnerOnly")(function*(
   label: string,
