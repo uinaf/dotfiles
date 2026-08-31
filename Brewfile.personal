@@ -52,9 +52,8 @@ if workstation_enabled
 
   # Cloud tooling
   cask "gcloud-cli"
-end
 
-if workstation_enabled
+  # Desktop utilities
   cask "cleanshot"
   cask "tuna"
 
