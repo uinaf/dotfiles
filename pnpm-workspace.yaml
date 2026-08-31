@@ -1,6 +1,8 @@
 allowBuilds:
   msgpackr-extract: false
+# Effect RC releases are excluded by name so version bumps touch only
+# package.json. Bare names exempt every version of these packages.
 minimumReleaseAgeExclude:
-  - '@effect/platform-node-shared@4.0.0-rc.112'
-  - '@effect/platform-node@4.0.0-rc.112'
-  - effect@4.0.0-rc.112
+  - '@effect/platform-node-shared'
+  - '@effect/platform-node'
+  - effect
