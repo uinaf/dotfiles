@@ -20,7 +20,7 @@ secret values remain local or in an approved recovery system.
 
 ## Install
 
-Install Apple Command Line Tools and Homebrew, then bootstrap a workstation:
+Install Apple Command Line Tools and Homebrew, then clone the repository:
 
 ```zsh
 brew install git gh
@@ -28,26 +28,11 @@ gh auth login
 mkdir -p ~/projects
 gh repo clone uinaf/dotfiles ~/projects/dotfiles
 cd ~/projects/dotfiles
-
-./scripts/bootstrap/brew-bundle.ts workstation
-mise trust
-./dotfiles diff workstation
-./dotfiles apply workstation
-# Optional until this machine decrypts vault or other SOPS material:
-# ./scripts/secrets/configure-sops-age-identity.ts
-./scripts/bootstrap/configure-git.ts --profile workstation
-./scripts/bootstrap/configure-power.ts --profile workstation
-./scripts/bootstrap/configure-spotlight.ts
-./dotfiles check workstation
 ```
 
-When you do provision an age identity for live ciphertext, register and verify
-its recovery copy as described in [Identity
-provisioning](docs/identities.md#back-up-and-verify-recovery).
-
-Use the [Bootstrap guide](docs/bootstrap.md) for first-machine prerequisites,
-devbox and assistant flows, optional desktop setup, updates, and
-troubleshooting.
+Then follow the [Bootstrap guide](docs/bootstrap.md). It owns the canonical
+per-profile command sequences plus first-machine prerequisites, devbox and
+assistant flows, optional desktop setup, updates, and troubleshooting.
 
 ## Managed Surfaces
 

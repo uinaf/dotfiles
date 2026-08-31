@@ -64,7 +64,7 @@ sudo calls:
 
 ```bash
 node scripts/secrets/sops-devbox-sudo.ts -- /bin/launchctl kickstart -k system/example.service
-node scripts/secrets/sops-devbox-sudo.ts --nested -- ./scripts/service/restart.sh
+node scripts/secrets/sops-devbox-sudo.ts --nested -- /path/to/service-restart.sh
 ```
 
 The password exists only in the askpass process. Keep the sudoers allowlist as

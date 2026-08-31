@@ -23,19 +23,10 @@ repo --format json` covers the repository secret scan.
 
 ## Bootstrap
 
-```zsh
-profile=workstation
-./scripts/bootstrap/brew-bundle.ts "$profile"
-mise trust
-./dotfiles diff "$profile"
-./dotfiles apply "$profile"
-# ./scripts/secrets/configure-sops-age-identity.ts # optional for workstation
-./scripts/bootstrap/configure-git.ts --profile "$profile"
-./dotfiles check "$profile"
-```
-
-`./dotfiles` is the operator entrypoint. The scripts below it remain narrow
-implementation owners and are also used by repository tests.
+`./dotfiles` is the operator entrypoint, and [Bootstrap](../docs/bootstrap.md)
+owns the canonical per-profile command sequences. The scripts below the
+entrypoint remain narrow implementation owners and are also used by repository
+tests.
 
 | Need | Guide |
 | --- | --- |
@@ -57,8 +48,8 @@ remote installed version, version match, launchd state, and HTTP health.
 
 ## Effect Runtime
 
-Repository automation uses Effect `4.0.0-rc.112` and
-`@effect/platform-node` on the same RC. Install the locked graph with
+Repository automation uses `effect` and `@effect/platform-node` at the version
+pinned in `package.json`. Install the locked graph with
 `pnpm install --frozen-lockfile`; run `pnpm typecheck` before the repository
 verification graph.
 

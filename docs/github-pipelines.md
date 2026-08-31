@@ -7,11 +7,12 @@ creates tag-only GitHub Releases.
 
 | Workflow | Trigger | Contract |
 | --- | --- | --- |
-| Verify | Push to `main`, pull request, manual dispatch | Run every deterministic domain in parallel through `./scripts/verify/run.ts --skip-security` on macOS. Successful pushes to `main` continue to release evaluation. |
-| Secret scanning | Push to `main`, pull request, weekly schedule, manual dispatch | Run Gitleaks and TruffleHog with full Git history. |
+| Verify | Pull request, manual dispatch | Run every deterministic domain in parallel through `./scripts/verify/run.ts --skip-security` on macOS. Pushes to `main` skip this job and run only release evaluation. |
+| Scan | Pull request, weekly schedule, manual dispatch | Call the shared `uinaf/.github` scan workflow: Gitleaks, TruffleHog, Actionlint, and Zizmor against full Git history. |
 
-CI does not use path filters. The secret workflow stays separate and fails
-closed against full Git history. The full local equivalent is:
+CI does not use path filters. Neither workflow runs on push: pull requests
+verify and scan the same tree before merge, and the weekly schedule covers
+history, so do not restore the push triggers. The full local equivalent is:
 
 ```zsh
 ./scripts/verify/run.ts
@@ -25,8 +26,11 @@ Git tags and GitHub Releases are the version boundary. Inspect a checkout with:
 git describe --tags --always --dirty
 ```
 
-After repository verification succeeds on a push to `main`, semantic-release
-evaluates Conventional Commits since the latest `v*` tag:
+Pushes to `main` release without re-verifying: verification happens on the
+pull request for the same tree, so the release job carries no `needs:` gate.
+Direct pushes to `main` must run the local gate first, `mise run verify:fast`
+at minimum. On each push, semantic-release evaluates Conventional Commits
+since the latest `v*` tag:
 
 | Commit | Release |
 | --- | --- |
