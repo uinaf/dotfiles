@@ -12,7 +12,9 @@ permissions: {}
 jobs:
   repository:
     name: Repository checks
-    if: ${{ github.event_name != 'push' || !contains(github.event.head_commit.message, '[skip ci]') }}
+    # No push run: the pull request already verified the same tree on this
+    # macOS runner, which stays Darwin-only because static.ts needs plutil.
+    if: ${{ github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' }}
     runs-on: blacksmith-6vcpu-macos-latest
     timeout-minutes: 20
     permissions:
@@ -46,7 +48,6 @@ jobs:
 
   release:
     name: GitHub Release
-    needs: [repository]
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, '[skip ci]') }}
     runs-on: blacksmith-2vcpu-ubuntu-2404-arm
     timeout-minutes: 15
