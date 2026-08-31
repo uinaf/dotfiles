@@ -42,7 +42,7 @@ mise run verify:fast          # complete deterministic graph
 mise run verify               # deterministic graph plus history scan
 ```
 
-- Each domain declares its inputs and proof in the
+- Each check declares its command and proof in the
   [verification registry](../scripts/verify/checks.json). Checks marked
   `complete only` cover cross-domain parity and stay out of focused runs.
 - The complete task depends on `verify:fast` and the hidden history scan; mise

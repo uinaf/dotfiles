@@ -14,7 +14,6 @@ const Check = Schema.Struct({
   gate: Schema.optional(Gate),
   scope: Schema.optional(Schema.Literal("complete")),
   command: Schema.NonEmptyArray(Schema.NonEmptyString),
-  inputs: Schema.NonEmptyArray(Schema.NonEmptyString),
   output: Schema.NonEmptyString,
 });
 const Registry = Schema.Struct({
@@ -160,7 +159,6 @@ const listRegistry = Effect.fn("listRegistry")(function*(registry: Registry, jso
     yield* Console.log(domain);
     for (const check of registry.checks.filter((candidate) => candidate.domain === domain)) {
       yield* Console.log(`  ${check.id}${check.scope === "complete" ? " [complete only]" : ""}: ${check.output}`);
-      yield* Console.log(`    inputs: ${check.inputs.join(", ")}`);
     }
   }
 });
