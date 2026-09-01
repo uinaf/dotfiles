@@ -130,7 +130,7 @@ function renderFixture(fixture: Fixture, root: string): Promise<void> {
           },
         );
         assert.equal(actual.model, "claude-fable-5-1");
-        assert.equal(actual.effortLevel, "medium");
+        assert.equal(actual.effortLevel, "high");
         assert.equal(actual.outputStyle, "Concise");
         assert.equal(actual.autoMemoryEnabled, false);
         assert.deepEqual(actual.attribution, { commit: "", pr: "", sessionUrl: false });
@@ -171,7 +171,7 @@ async function verifyModeAndIdempotence(root: string): Promise<void> {
   const firstMtime = statSync(path, { bigint: true }).mtimeNs;
   assert.equal((JSON.parse(firstContents) as Settings).autoMemoryEnabled, false);
   assert.equal((JSON.parse(firstContents) as Settings).model, "claude-fable-5-1");
-  assert.equal((JSON.parse(firstContents) as Settings).effortLevel, "medium");
+  assert.equal((JSON.parse(firstContents) as Settings).effortLevel, "high");
   assert.equal((JSON.parse(firstContents) as Settings).outputStyle, "Concise");
   assert.equal((JSON.parse(firstContents) as Settings).permissions?.[managedMode], "auto");
   assert.equal(Number(statSync(path, { bigint: true }).mode & 0o777n), 0o600);
