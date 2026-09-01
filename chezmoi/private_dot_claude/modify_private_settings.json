@@ -3,4 +3,4 @@
 {{- if ne (trim .chezmoi.stdin) "" -}}
 {{- $settings = fromJson .chezmoi.stdin -}}
 {{- end -}}
-{{ $settings | setValueAtPath "model" "claude-fable-5" | setValueAtPath "effortLevel" "medium" | setValueAtPath "outputStyle" "Concise" | setValueAtPath "permissions.defaultMode" "auto" | setValueAtPath "autoMemoryEnabled" false | setValueAtPath "attribution.commit" "" | setValueAtPath "attribution.pr" "" | setValueAtPath "attribution.sessionUrl" false | toPrettyJson }}
+{{ $settings | setValueAtPath "model" "claude-fable-5-1" | setValueAtPath "effortLevel" "medium" | setValueAtPath "outputStyle" "Concise" | setValueAtPath "permissions.defaultMode" "auto" | setValueAtPath "autoMemoryEnabled" false | setValueAtPath "attribution.commit" "" | setValueAtPath "attribution.pr" "" | setValueAtPath "attribution.sessionUrl" false | toPrettyJson }}

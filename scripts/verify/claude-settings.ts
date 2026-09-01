@@ -129,7 +129,7 @@ function renderFixture(fixture: Fixture, root: string): Promise<void> {
             permissions: { ...expected.permissions, [managedMode]: undefined },
           },
         );
-        assert.equal(actual.model, "claude-fable-5");
+        assert.equal(actual.model, "claude-fable-5-1");
         assert.equal(actual.effortLevel, "medium");
         assert.equal(actual.outputStyle, "Concise");
         assert.equal(actual.autoMemoryEnabled, false);
@@ -170,7 +170,7 @@ async function verifyModeAndIdempotence(root: string): Promise<void> {
   const firstContents = readFileSync(path, "utf8");
   const firstMtime = statSync(path, { bigint: true }).mtimeNs;
   assert.equal((JSON.parse(firstContents) as Settings).autoMemoryEnabled, false);
-  assert.equal((JSON.parse(firstContents) as Settings).model, "claude-fable-5");
+  assert.equal((JSON.parse(firstContents) as Settings).model, "claude-fable-5-1");
   assert.equal((JSON.parse(firstContents) as Settings).effortLevel, "medium");
   assert.equal((JSON.parse(firstContents) as Settings).outputStyle, "Concise");
   assert.equal((JSON.parse(firstContents) as Settings).permissions?.[managedMode], "auto");

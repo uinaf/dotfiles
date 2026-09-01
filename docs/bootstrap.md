@@ -176,7 +176,7 @@ The typed edit list in `scripts/bootstrap/configure-codex.ts` is the source of
 truth; the bootstrap client sends it through Codex's native writer as one
 atomic update.
 
-Developer profiles also select Claude Fable 5 with medium effort and Cursor
+Developer profiles also select Claude Fable 5.1 with medium effort and Cursor
 Grok 4.6 High. Personal profiles select Cursor's Fast variant. Grok Build on
 personal workstations defaults to Grok 4.6 through the managed gateway config.
 

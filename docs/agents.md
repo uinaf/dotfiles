@@ -91,7 +91,7 @@ capability and risk boundaries when a model change exposes a measured gap:
 | GPT-5.6 Sol | [Prompting best practices](https://developers.openai.com/api/docs/guides/prompt-guidance-gpt-5p6) and [system card](https://deploymentsafety.openai.com/gpt-5-6) |
 | Grok 4.6 | [Release guidance](https://x.ai/news/grok-4-6) and [model reference](https://docs.x.ai/developers/models/grok-4.6) |
 | Claude Opus 5 | [Prompting Claude Opus 5](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5) |
-| Claude Fable 5 | [Prompting Claude Fable 5](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-fable-5) and [system card](https://www-cdn.anthropic.com/2f9323abbcc4abe219577539efe19a623c9ca2bd/Claude%20Fable%205%20%26%20Claude%20Mythos%205%20System%20Card.pdf) |
+| Claude Fable 5.1 | [Prompting Claude Fable 5.1](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-fable-5-1) and [model overview](https://platform.claude.com/docs/en/models/fable-5-1/overview) |
 
 When maintaining the shared rules:
 

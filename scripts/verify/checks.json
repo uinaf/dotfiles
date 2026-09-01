@@ -36,7 +36,7 @@
       "id": "claude-settings",
       "domain": "config",
       "command": ["node", "scripts/verify/claude-settings.ts"],
-      "output": "Claude user settings preserve unrelated keys and select Fable 5 at medium effort"
+      "output": "Claude user settings preserve unrelated keys and select Fable 5.1 at medium effort"
     },
     {
       "id": "cursor-settings",
