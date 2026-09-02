@@ -2,6 +2,7 @@
 # Reclaim regenerable developer caches for the current user on a devbox.
 # Never touches project sources, simulator runtimes, or other users' homes.
 set -u
+cd "$HOME" || exit 1
 
 dry_run=0
 for argument in "$@"; do
@@ -34,7 +35,7 @@ run() {
     log "dry-run: $*"
     return 0
   fi
-  "$@" >/dev/null 2>&1 || log "warning: failed: $*"
+  output=$("$@" 2>&1) || log "warning: failed: $* :: $(printf '%s' "$output" | tail -1)"
 }
 
 remove_tree() {
