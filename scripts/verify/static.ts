@@ -12,6 +12,10 @@ const agentlessSigner = resolve(
   repoRoot,
   "chezmoi/private_dot_local/private_libexec/private_dotfiles/private_executable_git-ssh-sign-agentless",
 );
+const diskCleanup = resolve(
+  repoRoot,
+  "chezmoi/private_dot_local/private_libexec/private_dotfiles/private_executable_disk-cleanup",
+);
 const ghosttyConfig = resolve(
   repoRoot,
   "chezmoi/private_Library/private_Application Support/com.mitchellh.ghostty/private_config",
@@ -38,6 +42,7 @@ const program = Effect.gen(function*() {
     resolve(repoRoot, "dotfiles"),
     ...(yield* fs.glob("**/*.sh", { root: scriptsRoot })).map((path) => resolve(scriptsRoot, path)),
     agentlessSigner,
+    diskCleanup,
   ];
   yield* Effect.forEach(
     shellFiles,

@@ -334,6 +334,28 @@ remote service structure cannot be established. Completed inspections exit
 - Retire a competing user LaunchAgent before installing a system service for the
   same process.
 
+## Disk Cleanup
+
+Devbox profiles ship `~/.local/libexec/dotfiles/disk-cleanup` and a per-user
+LaunchAgent that runs it every Sunday at 04:17 local time with low I/O
+priority. It removes only regenerable state for the current user: Xcode
+DerivedData and Archives, unavailable simulators, simulator and Gradle build
+caches older than 30 days, Homebrew downloads, unreferenced pnpm store
+entries, the npm cache, and Docker build cache older than 7 days when the
+Docker daemon is already running. It never touches project checkouts,
+`node_modules`, simulator runtimes, or other users' homes.
+
+Load the agent once after applying dotfiles, and preview or run it by hand:
+
+```zsh
+launchctl bootstrap "gui/$(id -u)" ~/Library/LaunchAgents/local.dotfiles.disk-cleanup.plist
+~/.local/libexec/dotfiles/disk-cleanup --dry-run
+launchctl kickstart "gui/$(id -u)/local.dotfiles.disk-cleanup"
+tail ~/Library/Logs/dotfiles/disk-cleanup.log
+```
+
+Re-run `bootstrap` after `bootout` when the plist changes.
+
 ## Verification
 
 Run each check as the intended Unix identity:

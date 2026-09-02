@@ -17,6 +17,8 @@ Use chezmoi source attributes instead of literal target filenames:
 | `chezmoi/private_dot_config/private_dotfiles/profile.tmpl` | `~/.config/dotfiles/profile` |
 | `chezmoi/private_dot_ssh/private_config` | `~/.ssh/config` |
 | `chezmoi/private_dot_local/private_libexec/private_dotfiles/private_executable_git-ssh-sign-agentless` | `~/.local/libexec/dotfiles/git-ssh-sign-agentless` |
+| `chezmoi/private_dot_local/private_libexec/private_dotfiles/private_executable_disk-cleanup` | `~/.local/libexec/dotfiles/disk-cleanup` for devbox profiles |
+| `chezmoi/private_Library/LaunchAgents/local.dotfiles.disk-cleanup.plist.tmpl` | `~/Library/LaunchAgents/local.dotfiles.disk-cleanup.plist` weekly cache cleanup for devbox profiles |
 | `chezmoi/private_dot_claude/modify_private_settings.json` | Selected values inside `~/.claude/settings.json` for developer profiles |
 | `chezmoi/private_dot_config/zed/private_settings.json` | `~/.config/zed/settings.json` for workstation profiles |
 | `chezmoi/private_dot_config/zed/private_keymap.json` | `~/.config/zed/keymap.json` for workstation profiles |
