@@ -165,7 +165,7 @@ defaults in `~/.codex/config.toml`:
 - Removes the legacy `forced_login_method` setting so each identity can use its
   active ChatGPT session or an explicitly configured API provider without the
   bootstrap overriding that choice.
-- Selects GPT-5.6 Sol with medium reasoning effort.
+- Selects GPT-6 Astra with medium reasoning effort.
 - Enables Fast mode for personal profiles. Standard profiles leave the service
   tier and Fast mode keys absent.
 - Preserves unrelated settings and formatting.

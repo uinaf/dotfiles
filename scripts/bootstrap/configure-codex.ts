@@ -22,7 +22,7 @@ export type ConfigEdit = { keyPath: string; value: Scalar; mergeStrategy: "repla
 export function managedEdits(personal: boolean): ConfigEdit[] {
   return [
     { keyPath: "forced_login_method", value: null, mergeStrategy: "replace" },
-    { keyPath: "model", value: "gpt-5.6-sol", mergeStrategy: "upsert" },
+    { keyPath: "model", value: "gpt-6-astra", mergeStrategy: "upsert" },
     { keyPath: "model_reasoning_effort", value: "medium", mergeStrategy: "upsert" },
     personal
       ? { keyPath: "service_tier", value: "fast", mergeStrategy: "upsert" }
