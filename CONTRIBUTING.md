@@ -12,11 +12,17 @@ brew install git gh
 gh auth login
 gh repo clone uinaf/dotfiles ~/projects/dotfiles
 cd ~/projects/dotfiles
-./scripts/bootstrap/brew-bundle.ts workstation
+brew install mise
+./dotfiles prepare
+export PATH="$(mise --no-config where node@24.19.0)/bin:$PATH"
+brew install actionlint chezmoi shellcheck
 mise trust
-mise install
 mise run verify:domain static
 ```
+
+For a new agent worktree on a prepared Mac, run `./dotfiles prepare`, then
+`mise trust` and the focused verification domain. This installs repository
+dependencies without applying dotfiles or changing the machine profile.
 
 Use the [Bootstrap guide](docs/bootstrap.md) for a different profile or a Mac
 that does not yet have Homebrew, Git, or GitHub CLI.

@@ -11,6 +11,16 @@
       "output": "Syntax, lint, workflow, entrypoint, and Git diff hygiene"
     },
     {
+      "id": "verification-runner",
+      "domain": "static",
+      "command": [
+        "node",
+        "--test",
+        "scripts/verify/runner.test.ts"
+      ],
+      "output": "Prompt check results, bounded timeout, and scoped child cleanup"
+    },
+    {
       "id": "mise-tasks",
       "domain": "static",
       "command": [

@@ -106,3 +106,26 @@ test("operator command validates and delegates every profile", async () => {
     rmSync(fixture, { recursive: true, force: true });
   }
 });
+
+test("fresh checkout launcher prepares dependencies without applying a profile", async () => {
+  const { spawnSync } = await import("node:child_process");
+  const root = mkdtempSync(join(tmpdir(), "dotfiles-prepare-"));
+  try {
+    cpSync(join(repoRoot, "dotfiles"), join(root, "dotfiles"));
+    const bin = join(root, "bin");
+    mkdirSync(bin);
+    const log = join(root, "commands");
+    writeFileSync(join(bin, "mise"), '#!/bin/sh\nprintf "%s\\n" "$*" >> "$TEST_LOG"\nexit "${TEST_EXIT:-0}"\n', { mode: 0o755 });
+    const env = { ...process.env, PATH: `${bin}:/usr/bin:/bin`, TEST_LOG: log };
+    const help = spawnSync("/bin/sh", [join(root, "dotfiles"), "--help"], { env, encoding: "utf8" });
+    assert.equal(help.status, 0, help.stderr);
+    assert.deepEqual((await import("node:fs")).readdirSync(root).sort(), ["bin", "dotfiles"]);
+    const prepared = spawnSync("/bin/sh", [join(root, "dotfiles"), "prepare"], { env, encoding: "utf8" });
+    assert.equal(prepared.status, 0, prepared.stderr);
+    assert.equal(readFileSync(log, "utf8"), `--no-config x node@24.19.0 -- corepack pnpm --dir ${root} install --frozen-lockfile\n`);
+    const failed = spawnSync("/bin/sh", [join(root, "dotfiles"), "prepare"], { env: { ...env, TEST_EXIT: "23" }, encoding: "utf8" });
+    assert.equal(failed.status, 23);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});

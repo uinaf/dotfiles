@@ -2,7 +2,7 @@
 
 Use this guide when installing or refreshing a Mac from this repository.
 
-The repo has five per-user profiles:
+The repo has four per-user profiles:
 
 - `workstation` for a portable human-operated development Mac.
 - `personal-workstation` for a workstation plus personal packages and skills.
@@ -70,10 +70,15 @@ Clone the repo:
 mkdir -p ~/projects
 gh repo clone uinaf/dotfiles ~/projects/dotfiles
 cd ~/projects/dotfiles
+brew install mise
+./dotfiles prepare
+export PATH="$(mise --no-config where node@24.19.0)/bin:$PATH"
 ```
 
-The selected Homebrew profile installs mise. Trust this checkout after the
-bundle step and before `mise tasks` or `mise run ...`.
+`./dotfiles prepare` installs the pinned Node runtime and locked repository
+dependencies before any TypeScript entrypoint runs. It does not apply a profile.
+
+Trust this checkout after the bundle step and before `mise tasks` or `mise run ...`.
 
 ## Gitless First Fetch
 
@@ -89,6 +94,10 @@ ditto -x -k /tmp/dotfiles-main.zip ~/projects
 mv ~/projects/dotfiles-main ~/projects/dotfiles
 cd ~/projects/dotfiles
 ```
+
+Before running TypeScript scripts from this archive, install Homebrew and run
+`brew install mise`, then `./dotfiles prepare` and export the Node `PATH`
+shown in the clone steps above.
 
 Archive checkouts are disposable:
 

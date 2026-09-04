@@ -61,14 +61,16 @@ export const requirePrefixOwner = Effect.fn("requireHomebrewPrefixOwner")(functi
 export const repairSharedReadability = Effect.fn("repairHomebrewSharedReadability")(function*() {
   const prefix = yield* requirePrefixOwner();
   const uid = String(process.getuid?.());
-  for (const args of [
-    [prefix, "-xdev", "-type", "d", "-uid", uid, "(", "!", "-perm", "-0050", "-o", "-perm", "-0020", ")", "-exec", "chmod", "g+rX,g-w", "{}", "+"],
-    [prefix, "-xdev", "-type", "f", "-uid", uid, "(", "!", "-perm", "-0040", "-o", "-perm", "-0020", ")", "-exec", "chmod", "g+r,g-w", "{}", "+"],
-    [prefix, "-xdev", "-type", "f", "-uid", uid, "-perm", "-0100", "!", "-perm", "-0010", "-exec", "chmod", "g+x", "{}", "+"],
-  ]) yield* run("find", args);
+  const branches = [
+    "(", "-type", "d", "(", "!", "-perm", "-0050", "-o", "-perm", "-0020", ")", "-exec", "chmod", "g+rX,g-w", "{}", "+", ")",
+    "-o", "(", "-type", "f", "(", "!", "-perm", "-0040", "-o", "-perm", "-0020", ")", "-exec", "chmod", "g+r,g-w", "{}", "+", ")",
+  ];
   if (process.platform === "darwin") {
-    yield* run("find", [prefix, "-xdev", "-type", "l", "-uid", uid, "(", "!", "-perm", "-0050", "-o", "-perm", "-0020", ")", "-exec", "chmod", "-h", "g+rX,g-w", "{}", "+"]);
+    branches.push("-o", "(", "-type", "l", "(", "!", "-perm", "-0050", "-o", "-perm", "-0020", ")", "-exec", "chmod", "-h", "g+rX,g-w", "{}", "+", ")");
   }
+  yield* run("find", [prefix, "-xdev", "-uid", uid, "(", ...branches, ")"]);
+  // Executable files also need group execute after the general file repair.
+  yield* run("find", [prefix, "-xdev", "-type", "f", "-uid", uid, "-perm", "-0100", "!", "-perm", "-0010", "-exec", "chmod", "g+x", "{}", "+"]);
 });
 
 export const verifyPrefixPermissions = Effect.fn("verifyHomebrewPrefixPermissions")(function*() {

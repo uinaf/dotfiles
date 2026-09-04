@@ -30,6 +30,22 @@ exit "\${FAKE_BREW_EXIT:-0}"
   const execute = (script: string, args: readonly string[], log: string, extra: Readonly<Record<string, string>> = {}, home = process.env.HOME || temporary) => runner.run(process.execPath, [join(repoRoot, script), ...args], {
     env: { HOME: home, PATH: path, FAKE_BREW_LOG: log, FAKE_BREW_PREFIX: prefix, DOTFILES_EXTERNAL_HOMEBREW_FILE: external, ...extra },
   });
+  const repairDirectory = join(prefix, "private-directory");
+  const repairFile = join(prefix, "private-file");
+  const repairExecutable = join(prefix, "private-executable");
+  const otherExecutable = join(prefix, "other-executable");
+  const repairLink = join(prefix, "private-link");
+  yield* fs.makeDirectory(repairDirectory, { mode: 0o700 });
+  yield* fs.writeFileString(repairFile, "fixture", { mode: 0o600 });
+  yield* fs.writeFileString(repairExecutable, "fixture", { mode: 0o700 });
+  yield* fs.writeFileString(otherExecutable, "fixture", { mode: 0o601 });
+  yield* fs.symlink(repairFile, repairLink);
+  const repairResult = yield* execute("scripts/bootstrap/brew-devbox.ts", ["--repair-shared-readability"], join(temporary, "repair.log"));
+  assert.equal(repairResult.status, 0, repairResult.stderr);
+  for (const [path, mode] of [[repairDirectory, 0o750], [repairFile, 0o640], [repairExecutable, 0o750], [otherExecutable, 0o641]] as const) {
+    assert.equal((yield* fs.stat(path)).mode & 0o777, mode);
+  }
+  assert.equal(yield* fs.readLink(repairLink), repairFile);
   const directLog = join(temporary, "direct.log");
   const output = join(temporary, "output");
   yield* fs.writeFileString(directLog, "");

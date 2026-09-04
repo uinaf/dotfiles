@@ -4,6 +4,20 @@ set -eu
 repo_root="$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)"
 node_version=24.19.0
 
+if [ "$#" -eq 1 ]; then
+  case "$1" in
+    -h|--help)
+      printf '%s\n' 'Usage: ./dotfiles prepare | diff|apply|check PROFILE' \
+        'prepare installs repository dependencies without applying a machine profile.'
+      exit 0
+      ;;
+    prepare)
+      mise --no-config x "node@$node_version" -- corepack pnpm --dir "$repo_root" install --frozen-lockfile
+      exit 0
+      ;;
+  esac
+fi
+
 if command -v node >/dev/null 2>&1 \
   && (cd "$repo_root" && node -e 'import("effect")' >/dev/null 2>&1); then
   exec node "$repo_root/scripts/dotfiles.ts" "$@"
@@ -14,5 +28,5 @@ if ! command -v mise >/dev/null 2>&1; then
   exit 1
 fi
 
-mise x "node@$node_version" -- corepack pnpm --dir "$repo_root" install --frozen-lockfile
-exec mise x "node@$node_version" -- corepack pnpm --dir "$repo_root" exec node "$repo_root/scripts/dotfiles.ts" "$@"
+mise --no-config x "node@$node_version" -- corepack pnpm --dir "$repo_root" install --frozen-lockfile
+exec mise --no-config x "node@$node_version" -- corepack pnpm --dir "$repo_root" exec node "$repo_root/scripts/dotfiles.ts" "$@"

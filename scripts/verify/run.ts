@@ -113,11 +113,13 @@ const readRegistry = Effect.fn("readRegistry")(function*() {
   return registry;
 });
 
-const runCheck = Effect.fn("runCheck")(function*(check: Check): Effect.fn.Return<Result, never, CommandRunner> {
+const runCheck = Effect.fn("runCheck")(function*(check: Check, timeoutMs = 300_000): Effect.fn.Return<Result, never, CommandRunner> {
   const started = yield* Clock.currentTimeMillis;
   const runner = yield* CommandRunner;
   const [command, ...args] = check.command;
   const execution = runner.run(command, args, { cwd: repoRoot, env: { NO_COLOR: "1" } }).pipe(
+    Effect.timeout(timeoutMs),
+    Effect.catchTag("TimeoutError", () => Effect.succeed({ status: 1, stderr: `check timed out after ${timeoutMs}ms\n`, stdout: "" })),
     Effect.map(({ status, stderr, stdout }) => ({ output: `${stdout}${stderr}`, status })),
     Effect.catch((error) => Effect.succeed({ output: `${error.message}\n`, status: 1 })),
   );
@@ -126,27 +128,22 @@ const runCheck = Effect.fn("runCheck")(function*(check: Check): Effect.fn.Return
   return { check, durationMs: finished - started, ...result };
 });
 
-const runChecks = Effect.fn("runChecks")(function*(checks: readonly Check[]) {
-  const results = yield* Effect.forEach(checks, runCheck, { concurrency: "unbounded" });
-  let passed = true;
-
-  for (const result of results) {
-    const seconds = (result.durationMs / 1000).toFixed(2);
-    if (result.status === 0) {
-      yield* Console.log(`ok ${result.check.id} (${seconds}s)`);
-      continue;
-    }
-    passed = false;
-    yield* Effect.sync(() => {
-      process.stderr.write(`\n## ${result.check.id}\n${result.output}`);
-      if (!result.output.endsWith("\n")) {
-        process.stderr.write("\n");
+export const runChecks = Effect.fn("runChecks")(function*(checks: readonly Check[], timeoutMs = 300_000) {
+  const results = yield* Effect.forEach(checks, (check) => runCheck(check, timeoutMs).pipe(
+    Effect.tap((result) => Effect.gen(function*() {
+      const seconds = (result.durationMs / 1000).toFixed(2);
+      if (result.status === 0) {
+        yield* Console.log(`ok ${result.check.id} (${seconds}s)`);
+        return;
       }
-      process.stderr.write(`FAILED: ${result.check.id} exited ${result.status} (${seconds}s)\n`);
-    });
-  }
-
-  return passed;
+      yield* Effect.sync(() => {
+        process.stderr.write(`\n## ${result.check.id}\n${result.output}`);
+        if (!result.output.endsWith("\n")) process.stderr.write("\n");
+        process.stderr.write(`FAILED: ${result.check.id} exited ${result.status} (${seconds}s)\n`);
+      });
+    })),
+  ), { concurrency: "unbounded" });
+  return results.every((result) => result.status === 0);
 });
 
 const listRegistry = Effect.fn("listRegistry")(function*(registry: Registry, json: boolean) {
@@ -207,4 +204,4 @@ const program = Effect.gen(function*() {
   Effect.provide(NodeServices.layer),
 );
 
-runMain(program);
+if (import.meta.main) runMain(program);
