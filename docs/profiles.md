@@ -13,6 +13,14 @@ host and they are not a security boundary by themselves.
 | `devbox` | Remote coding identity on an SSH-first host | Coding agents, Git/GitHub, SDKs, containers, and verification tools |
 | `assistant` | Unattended persona or agent identity | Minimal agent runtime, browser, and scoped GitHub App access |
 
+> Unattended agent runtimes may be hosted outside this repository, in which case
+> the hosting configuration owns their runtime, capability packages, and
+> credential helper, and this profile has no consumer. Retiring it is then
+> possible, but `scripts/bootstrap/configure-assistant-github-app.ts` and
+> `scripts/bootstrap/install-gh-app-auth.ts` must survive: they are the only
+> tooling that provisions an agent identity's GitHub App key and `config.yml`,
+> and a remote host consumes those files rather than creating them.
+
 - Choose `workstation` when another trusted system may supply or govern
   software.
 - Choose `personal-workstation` when this repository should own the full personal
