@@ -3,7 +3,6 @@
 
 # Taps
 tap "openclaw/tap", trusted: true
-tap "steipete/tap", trusted: true
 
 # Document, media, and automation helpers
 brew "yt-dlp"
@@ -14,4 +13,3 @@ brew "weasyprint"
 brew "whisper-cpp"
 brew "summarize"
 brew "openclaw/tap/gogcli"
-brew "steipete/tap/peekaboo"
