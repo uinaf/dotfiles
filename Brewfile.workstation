@@ -7,6 +7,8 @@ cask "1password"
 cask "1password-cli"
 cask "slack"
 cask "chatgpt"
+cask "claude"
+cask "cursor"
 cask "t3-code"
 cask "zed"
 

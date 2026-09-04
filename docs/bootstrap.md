@@ -182,8 +182,8 @@ personal workstations defaults to Grok 4.6 through the managed gateway config.
 
 Personal profiles then require the owner-only LLM gateway config, apply it to
 Codex, Claude Code, Cursor Agent, and Grok Build, and retire their saved vendor
-login sessions. Workstation profiles manage the T3 Code and ChatGPT desktop
-apps.
+login sessions. Workstation profiles manage the T3 Code, ChatGPT, Claude, and
+Cursor desktop apps.
 
 The same install step also:
 

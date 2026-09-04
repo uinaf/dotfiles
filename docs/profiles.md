@@ -81,8 +81,8 @@ What each layer supplies:
 - The development runtime set, including mise-managed Ruby, comes from the
   `developer` runtime group through `install-runtimes`.
 - `Brewfile.workstation`, used by `personal-workstation` and `workstation`:
-  1Password and its CLI, Slack, ChatGPT, T3 Code, Zed, Ghostty, and YubiKey
-  Manager.
+  1Password and its CLI, Slack, ChatGPT, Claude, Cursor, T3 Code, Zed, Ghostty,
+  and YubiKey Manager.
 - `Brewfile.personal`, used by both personal profiles: App Store Connect CLI,
   Attach, Crabbox, Discrawl, Gitcrawl, Pi, putio-cli, and Mole. Only
   `personal-workstation` also gets personal applications such as Slopwake and
@@ -92,7 +92,7 @@ What each layer supplies:
 - Developer profiles manage the Codex, Claude Code, OpenCode, and Cursor Agent
   CLIs. Personal profiles add Pi, workstation profiles add T3 Code and Zed,
   and personal workstations add Grok Build. Workstation profiles also add the
-  ChatGPT desktop app; Cursor desktop is absent.
+  ChatGPT, Claude, and Cursor desktop apps.
 
 Runtimes and dotfiles:
 
