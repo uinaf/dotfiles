@@ -14,8 +14,7 @@ host and they are not a security boundary by themselves.
 
 This repository configures one human's macOS environment. Unattended agent
 identities are hosted elsewhere; the hosting configuration owns their runtime,
-capability packages, GitHub App identity, and credential helper. The retired
-`assistant` profile and its App provisioning scripts moved there with them.
+capability packages, GitHub App identity, and credential helper.
 
 - Choose `workstation` when another trusted system may supply or govern
   software.
@@ -110,8 +109,6 @@ SSH, GitHub App, recovery, and deployment lifecycle.
 
 - `workstation`, `personal-workstation`, `personal-devbox`, and `devbox` users
   configure explicit human authorship and local signing.
-- Services configure unsigned workload authorship but receive authentication
-  only from their owning workload.
 - Identity values remain operator input and are never tracked.
 
 ## Apply a Profile

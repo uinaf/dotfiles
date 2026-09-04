@@ -8,8 +8,6 @@ import { fileURLToPath } from "node:url";
 import { CommandRunner } from "../lib/command.ts";
 import {
   launchdLabel,
-  openclawRestartSudoersName,
-  openclawRestartSudoersRule,
   parsePendingInstallScripts,
   resolveLaunchdNamespaceContract,
   validateT3Version,
@@ -23,7 +21,6 @@ const program = Effect.scoped(Effect.gen(function*() {
   const runner = yield* CommandRunner;
   const runInstaller = (args: readonly string[]) => runner.run(process.execPath, [installer, ...args]);
   const expected = [
-    "local.dotfiles.openclaw-gateway.example",
     "local.dotfiles.colima.example",
     "local.dotfiles.t3-code.example",
   ].join("\n");
@@ -33,16 +30,9 @@ const program = Effect.scoped(Effect.gen(function*() {
   for (const namespace of ["org.example.dotfiles", "org.example_team.dotfiles"]) {
     const custom = yield* runInstaller(["--user", "example", "--namespace", namespace, "--print-labels"]);
     assert.equal(custom.status, 0);
-    assert.equal(custom.stdout.trim(), ["openclaw-gateway", "colima", "t3-code"].map((service) => `${namespace}.${service}.example`).join("\n"));
+    assert.equal(custom.stdout.trim(), ["colima", "t3-code"].map((service) => `${namespace}.${service}.example`).join("\n"));
   }
-  assert.equal(openclawRestartSudoersRule("example", "local.dotfiles.openclaw-gateway.example"),
-    "example ALL=(root) NOPASSWD: /bin/launchctl kickstart -k system/local.dotfiles.openclaw-gateway.example");
-  assert.throws(() => openclawRestartSudoersRule("bad user", "local.dotfiles.openclaw-gateway.example"));
-  assert.throws(() => openclawRestartSudoersRule("example", "local.dotfiles.openclaw-gateway.example *"));
-  assert.equal(openclawRestartSudoersName("a.b", 501), "dotfiles-openclaw-restart-a_b-501");
-  assert.notEqual(openclawRestartSudoersName("a.b", 501), openclawRestartSudoersName("a_b", 502));
-  assert.throws(() => openclawRestartSudoersName("example", Number.NaN));
-  assert.throws(() => launchdLabel("openclaw-gateway", ""));
+  assert.throws(() => launchdLabel("colima", ""));
   assert.throws(() => launchdLabel("", "example"));
 
   const invalid = yield* runInstaller(["--user", "example", "--namespace", "invalid namespace", "--print-labels"]);
@@ -50,9 +40,14 @@ const program = Effect.scoped(Effect.gen(function*() {
   for (const args of [
     ["--user", "example", "--colima", "--openclaw-port", "18790"],
     ["--user", "example", "--colima", "--openclaw-wrapper", "/tmp/wrapper"],
-    ["--user", "example", "--openclaw", "--openclaw-port", "99999999999999999999"],
-    ["--user", "example", "--colima", "--t3-version", "1.2.3"],
-  ]) assert.notEqual((yield* runInstaller(args)).status, 0);
+    ["--user", "example", "--openclaw"],
+    ["--user", "example", "--allow-openclaw-restart"],
+  ]) {
+    const rejected = yield* runInstaller(args);
+    assert.equal(rejected.status, 2);
+    assert.match(`${rejected.stdout}\n${rejected.stderr}`, /unknown argument:/);
+  }
+  assert.notEqual((yield* runInstaller(["--user", "example", "--colima", "--t3-version", "1.2.3"])).status, 0);
 
   assert.equal(validateT3Version("0.0.34-nightly.20260823.1166"), true);
   assert.equal(validateT3Version("latest; unsafe"), false);

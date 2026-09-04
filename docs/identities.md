@@ -1,17 +1,16 @@
 # Identity Provisioning
 
-An identity is a human or workload principal. A deployment binds that identity
+This repository provisions human identities. A deployment binds an identity
 to one Unix user on one host. Credentials grant specific capabilities to that
 deployment; a profile only selects software and defaults.
 
 ```text
-Identity: example-workload
-└── Deployment: example-workload@example-host
+Identity: example-developer
+└── Deployment: example-developer@example-host
     ├── Unix user
     ├── age identity
     ├── optional SSH identity
     ├── Git authorship
-    ├── optional GitHub App
     └── scoped provider credentials
 ```
 
@@ -20,19 +19,18 @@ provider credentials must remain independently replaceable.
 
 ## Capability Policy
 
-| Capability | Workstation | Devbox | Service |
-| --- | --- | --- | --- |
-| Age identity | optional until secrets are consumed | required | required |
-| SSH private identity | required | required | workload-owned only |
-| GitHub App | optional | optional | workload-owned only |
-| Human GitHub login | expected | allowed unless App-based | forbidden |
-| Git signing identity | required | required | disabled |
-| Git authorship metadata | required | required | required |
-| Provider credentials | identity-scoped | identity-scoped | workload-scoped |
+| Capability | Workstation | Devbox |
+| --- | --- | --- |
+| Age identity | optional until secrets are consumed | required |
+| SSH private identity | required | required |
+| Human GitHub login | expected | expected |
+| Git signing identity | required | required |
+| Git authorship metadata | required | required |
+| Provider credentials | identity-scoped | identity-scoped |
 
 - Personal uses the workstation identity policy; personal-devbox uses the
   devbox identity policy.
-- Inbound SSH does not require the workload to own a private SSH key. Put an
+- Inbound SSH does not require the user to own a private SSH key. Put an
   administrator's public key in the target user's `authorized_keys`.
 
 ## Developer Git and SSH
@@ -140,13 +138,12 @@ decrypt it.
 ## Back Up and Verify Recovery
 
 Generation and recovery registration are one provisioning operation. Keep one
-human-controlled recovery item per deployment or workload identity, not one
-password-manager item per private file. Attach independently replaceable
-credentials as separately labeled files in that item:
+human-controlled recovery item per deployment, not one password-manager item
+per private file. Attach independently replaceable credentials as separately
+labeled files in that item:
 
 - general age identity
 - sudo-specific age identity when the deployment uses unattended sudo
-- GitHub App private key when the workload uses App authentication
 - SSH private key only when the deployment initiates outbound SSH
 - account recovery material when the operator's policy permits it
 
@@ -156,7 +153,7 @@ keeps its own scope and rotation lifecycle.
 
 Before using a new general SOPS age identity for live ciphertext:
 
-1. Create or select the deployment or workload's recovery item.
+1. Create or select the deployment's recovery item.
 2. Attach the general SOPS age identity file and record the deployment name,
    public recipient, creation date, and local path.
 3. Restore that general SOPS age identity attachment to an owner-only temporary

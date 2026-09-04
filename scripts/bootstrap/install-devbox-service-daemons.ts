@@ -2,13 +2,11 @@
 
 import { NodeServices } from "@effect/platform-node";
 import { Console, Effect, FileSystem, Option, Schema } from "effect";
-import { dirname, isAbsolute, join, resolve } from "node:path";
+import { isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { CommandRunner, runCommand } from "../lib/command.ts";
 import {
   launchdLabel,
-  openclawRestartSudoersName,
-  openclawRestartSudoersRule,
   parsePendingInstallScripts,
   plistXml,
   resolveLaunchdNamespace,
@@ -22,9 +20,6 @@ const usage = `Usage:
   scripts/bootstrap/install-devbox-service-daemons.ts --user <name> [services]
 
 Services:
-  --openclaw         Run the user's OpenClaw gateway at system boot.
-  --allow-openclaw-restart
-                      Let the selected user restart only its exact system job.
   --colima           Run the user's colima-ensure script once at system boot.
   --t3-code          Run a pinned T3 Code server at system boot.
 
@@ -32,10 +27,6 @@ Options:
   --check            Verify the selected LaunchDaemons without changing them.
   --print-labels     Print the generic labels for the selected user and exit.
   --namespace NAME   Stable label namespace; defaults to local.dotfiles.
-  --openclaw-wrapper PATH
-                      Executable process wrapper for OpenClaw runtime secrets.
-  --openclaw-port PORT
-                      Per-user gateway port; defaults to 18789.
   --t3-version VERSION
                       Exact npm T3 Code version; requires --t3-code.
   --t3-working-directory PATH
@@ -47,12 +38,8 @@ LaunchDaemons that drop privileges to the selected user.`;
 const InstallerOptions = Schema.Struct({
   user: Schema.NonEmptyString,
   namespace: Schema.String,
-  openclaw: Schema.Boolean,
-  allowOpenclawRestart: Schema.Boolean,
   colima: Schema.Boolean,
   t3Code: Schema.Boolean,
-  openclawWrapper: Schema.String,
-  openclawPort: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 65535 })),
   t3Version: Schema.String,
   t3WorkingDirectory: Schema.String,
   check: Schema.Boolean,
@@ -65,7 +52,7 @@ type ServiceContext = {
   readonly options: InstallerOptions;
   readonly target: Target;
   readonly namespace: string;
-  readonly labels: { readonly openclaw: string; readonly colima: string; readonly t3: string };
+  readonly labels: { readonly colima: string; readonly t3: string };
   readonly launchDaemonDir: string;
 };
 type T3Service = {
@@ -79,9 +66,8 @@ type T3Service = {
 
 const parseArguments = Effect.fn("parseServiceInstallerArguments")(function*(argv: readonly string[]) {
   const values = {
-    user: "", namespace: process.env.DOTFILES_LAUNCHD_NAMESPACE || "", openclaw: false,
-    allowOpenclawRestart: false, colima: false, t3Code: false, openclawWrapper: "",
-    openclawPort: 18789, t3Version: "", t3WorkingDirectory: "", check: false, printLabels: false,
+    user: "", namespace: process.env.DOTFILES_LAUNCHD_NAMESPACE || "",
+    colima: false, t3Code: false, t3Version: "", t3WorkingDirectory: "", check: false, printLabels: false,
   };
   const args = [...argv];
   const take = (flag: string): string => {
@@ -94,17 +80,8 @@ const parseArguments = Effect.fn("parseServiceInstallerArguments")(function*(arg
     switch (flag) {
       case "--user": values.user = take(flag); break;
       case "--namespace": values.namespace = take(flag); break;
-      case "--openclaw": values.openclaw = true; break;
-      case "--allow-openclaw-restart": values.allowOpenclawRestart = true; break;
       case "--colima": values.colima = true; break;
       case "--t3-code": values.t3Code = true; break;
-      case "--openclaw-wrapper": values.openclawWrapper = take(flag); break;
-      case "--openclaw-port": {
-        const raw = take(flag);
-        if (!/^\d{1,5}$/.test(raw)) return yield* fail("OpenClaw port must be an integer");
-        values.openclawPort = Number(raw);
-        break;
-      }
       case "--t3-version": values.t3Version = take(flag); break;
       case "--t3-working-directory": values.t3WorkingDirectory = take(flag); break;
       case "--check": values.check = true; break;
@@ -117,14 +94,10 @@ const parseArguments = Effect.fn("parseServiceInstallerArguments")(function*(arg
     Effect.mapError((error) => new CliFailure({ exitCode: 1, message: error.message })),
   );
   if (!/^[A-Za-z0-9._-]+$/.test(options.user)) return yield* fail(`unsupported user name: ${options.user}`);
-  if (!options.openclaw && (options.openclawWrapper || options.openclawPort !== 18789)) {
-    return yield* fail("--openclaw-wrapper and --openclaw-port require --openclaw");
-  }
   if (!options.t3Code && (options.t3Version || options.t3WorkingDirectory)) {
     return yield* fail("--t3-version and --t3-working-directory require --t3-code");
   }
   if (options.t3Code && !options.t3Version) return yield* fail("--t3-code requires --t3-version");
-  if (options.openclawWrapper && !isAbsolute(options.openclawWrapper)) return yield* fail("OpenClaw wrapper must be an absolute path");
   return options;
 });
 
@@ -151,7 +124,6 @@ const resolveTarget = Effect.fn("resolveServiceTarget")(function*(user: string) 
 
 function labels(user: string, namespace: string) {
   return {
-    openclaw: launchdLabel("openclaw-gateway", user, namespace),
     colima: launchdLabel("colima", user, namespace),
     t3: launchdLabel("t3-code", user, namespace),
   };
@@ -236,84 +208,6 @@ const writePlist = Effect.fn("writeServicePlist")(function*(path: string, xml: s
   const fs = yield* FileSystem.FileSystem;
   yield* fs.writeFileString(path, xml, { mode: 0o600 });
   yield* checked("/usr/bin/plutil", ["-lint", path]);
-});
-
-const validateOpenclawWrapper = Effect.fn("validateOpenclawWrapper")(function*(target: Target, input: string) {
-  const fs = yield* FileSystem.FileSystem;
-  const link = yield* fs.readLink(input).pipe(Effect.option);
-  const info = yield* fs.stat(input).pipe(Effect.option);
-  if (Option.isSome(link) || Option.isNone(info) || info.value.type !== "File") return yield* fail(`OpenClaw wrapper must be a regular file: ${input}`);
-  const parent = yield* fs.realPath(dirname(input));
-  const trusted = join(parent, input.split("/").at(-1)!);
-  if (!trusted.startsWith(`${target.home}/`)) return yield* fail(`OpenClaw wrapper must resolve inside ${target.home}`);
-  if ((info.value.mode & 0o111) === 0) return yield* fail(`missing executable ${trusted}`);
-  if (Option.getOrUndefined(info.value.uid) !== target.uid) return yield* fail(`OpenClaw wrapper must be owned by ${target.user}`);
-  if ((info.value.mode & 0o022) !== 0) return yield* fail(`OpenClaw wrapper must not be group/world-writable: ${trusted}`);
-  let current = parent;
-  while (true) {
-    const directoryInfo = yield* fs.stat(current);
-    if ((directoryInfo.mode & 0o022) !== 0) return yield* fail(`OpenClaw wrapper parent must not be group/world-writable: ${current}`);
-    if (current === target.home) break;
-    const next = dirname(current);
-    if (next === current || !current.startsWith(`${target.home}/`)) return yield* fail(`OpenClaw wrapper must resolve inside ${target.home}`);
-    current = next;
-  }
-  return trusted;
-});
-
-const checkRestartPolicy = Effect.fn("checkOpenclawRestartPolicy")(function*(context: ServiceContext) {
-  const path = `/etc/sudoers.d/${openclawRestartSudoersName(context.target.user, context.target.uid)}`;
-  const rule = openclawRestartSudoersRule(context.target.user, context.labels.openclaw);
-  if ((process.getuid?.() ?? -1) !== 0) {
-    if ((process.getuid?.() ?? -1) !== context.target.uid) return yield* fail(`OpenClaw restart policy check requires root or ${context.target.user}`);
-    const authorization = yield* checked("/usr/bin/sudo", ["-n", "-l", "/bin/launchctl", "kickstart", "-k", `system/${context.labels.openclaw}`]);
-    if (!authorization.stdout.split(/\r?\n/).includes(rule.split("NOPASSWD: ")[1]!)) return yield* fail(`${context.target.user} sudo authorization does not match the exact OpenClaw restart command`);
-  } else {
-    const stat = yield* checked("/usr/bin/stat", ["-f", "%Su:%Sg:%Lp", path]);
-    if (stat.stdout.trim() !== "root:wheel:440") return yield* fail(`${path} must be root:wheel mode 0440`);
-    const fs = yield* FileSystem.FileSystem;
-    if ((yield* fs.readFileString(path)) !== `${rule}\n`) return yield* fail(`${path} does not match the exact OpenClaw restart policy`);
-    yield* checked("/usr/sbin/visudo", ["-cf", path]);
-  }
-  yield* Console.log(`ok ${context.target.user} may restart only ${context.labels.openclaw}`);
-});
-
-const installRestartPolicy = Effect.fn("installOpenclawRestartPolicy")(function*(context: ServiceContext, temporary: string) {
-  const fs = yield* FileSystem.FileSystem;
-  const source = join(temporary, "openclaw-restart-sudoers");
-  const destination = `/etc/sudoers.d/${openclawRestartSudoersName(context.target.user, context.target.uid)}`;
-  yield* fs.writeFileString(source, `${openclawRestartSudoersRule(context.target.user, context.labels.openclaw)}\n`, { mode: 0o440 });
-  yield* checked("/usr/sbin/visudo", ["-cf", source]);
-  yield* checked("/usr/bin/install", ["-o", "root", "-g", "wheel", "-m", "0440", source, destination]);
-  yield* checked("/usr/sbin/visudo", ["-cf", "/etc/sudoers"]);
-  yield* checkRestartPolicy(context);
-});
-
-const installOpenclaw = Effect.fn("installOpenclawService")(function*(context: ServiceContext, temporary: string) {
-  const { target, options } = context;
-  let arguments_: readonly string[];
-  if (options.openclawWrapper) {
-    const wrapper = yield* validateOpenclawWrapper(target, options.openclawWrapper);
-    const binary = yield* findExecutable(target, "openclaw");
-    if (!binary) return yield* fail("missing OpenClaw executable");
-    arguments_ = [wrapper, binary, "gateway", "--port", String(options.openclawPort)];
-  } else {
-    const envWrapper = join(target.home, ".openclaw/service-env/ai.openclaw.gateway-env-wrapper.sh");
-    const envFile = join(target.home, ".openclaw/service-env/ai.openclaw.gateway.env");
-    const gatewayWrapper = join(target.home, ".local/bin/openclaw-gateway-mise-wrapper");
-    if (!(yield* executable(envWrapper))) return yield* fail(`missing executable ${envWrapper}`);
-    const fs = yield* FileSystem.FileSystem;
-    if (!(yield* fs.exists(envFile))) return yield* fail(`missing ${envFile}`);
-    if (!(yield* executable(gatewayWrapper))) return yield* fail(`missing executable ${gatewayWrapper}`);
-    arguments_ = ["/bin/sh", envWrapper, envFile, gatewayWrapper, "gateway", "--port", String(options.openclawPort)];
-  }
-  const logDirectory = join(target.home, "Library/Logs/openclaw");
-  yield* checked("/usr/bin/install", ["-d", "-o", target.user, "-g", target.group, "-m", "0750", logDirectory]);
-  const plist = join(temporary, `${context.labels.openclaw}.plist`);
-  yield* writePlist(plist, plistXml({ label: context.labels.openclaw, user: target.user, group: target.group,
-    workingDirectory: join(target.home, ".openclaw"), stdout: join(logDirectory, "gateway.log"),
-    stderr: join(logDirectory, "gateway-error.log"), arguments: arguments_ }));
-  yield* installJob(context, plist, context.labels.openclaw);
 });
 
 const prepareColima = Effect.fn("prepareColimaService")(function*(target: Target) {
@@ -430,33 +324,28 @@ const program = Effect.gen(function*() {
       if (Option.isSome(target)) namespace = yield* resolveLaunchdNamespaceContract(options.namespace, join(target.value.home, ".config/dotfiles/launchd-namespace"), target.value.uid);
     }
     const output = labels(options.user, namespace);
-    yield* Console.log(`${output.openclaw}\n${output.colima}\n${output.t3}`);
+    yield* Console.log(`${output.colima}\n${output.t3}`);
     return;
   }
   if (process.platform !== "darwin") return yield* fail("this installer supports macOS only");
-  if (!options.openclaw && !options.allowOpenclawRestart && !options.colima && !options.t3Code) return yield* fail("select at least one service");
+  if (!options.colima && !options.t3Code) return yield* fail("select at least one service");
   const target = yield* resolveTarget(options.user);
   namespace = yield* resolveLaunchdNamespaceContract(options.namespace, join(target.home, ".config/dotfiles/launchd-namespace"), target.uid);
   const context: ServiceContext = { options, target, namespace, labels: labels(target.user, namespace), launchDaemonDir: "/Library/LaunchDaemons" };
   const colima = options.colima ? yield* prepareColima(target) : undefined;
   const t3 = options.t3Code ? yield* resolveT3(context) : undefined;
   if (options.check) {
-    if (options.openclaw) yield* checkJob(context, context.labels.openclaw);
-    if (options.allowOpenclawRestart) yield* checkRestartPolicy(context);
     if (colima) yield* checkColima(context, colima);
     if (t3) yield* checkT3(context, t3);
     return;
   }
   if ((process.getuid?.() ?? -1) !== 0) return yield* fail("run this installer as root");
-  if (options.allowOpenclawRestart && !(yield* executable("/usr/sbin/visudo"))) return yield* fail("missing /usr/sbin/visudo");
   yield* Effect.scoped(Effect.gen(function*() {
     const fs = yield* FileSystem.FileSystem;
     const temporary = yield* fs.makeTempDirectoryScoped({ directory: process.env.TMPDIR || "/tmp", prefix: "dotfiles-service-daemons." });
     let t3Plist: string | undefined;
     if (t3) t3Plist = yield* prepareT3(context, t3, temporary);
     yield* persistNamespace(context);
-    if (options.openclaw) yield* installOpenclaw(context, temporary);
-    if (options.allowOpenclawRestart) yield* installRestartPolicy(context, temporary);
     if (colima) yield* installColima(context, temporary, colima);
     if (t3 && t3Plist) { yield* installJob(context, t3Plist, context.labels.t3); yield* healthT3(context); }
   }));

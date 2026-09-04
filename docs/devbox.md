@@ -5,8 +5,6 @@ secrets or identities part of the public dotfiles repository.
 
 - Personal-devbox uses the devbox operational contract with headless personal
   tools and skills.
-- Unattended runtimes reuse the same Unix-user and service boundaries without
-  inheriting the coding toolchain or a human Git identity.
 
 Credentials and lifecycle live in [Identity provisioning](identities.md).
 
@@ -266,18 +264,6 @@ Install selected boot services from an authorized administrator account. The
 installer creates root-owned system LaunchDaemons that drop privileges to the
 target user.
 
-For an OpenClaw workload, pass its user-owned executable wrapper and unique
-gateway port:
-
-```zsh
-sudo node ./scripts/bootstrap/install-devbox-service-daemons.ts \
-  --user example \
-  --openclaw \
-  --openclaw-wrapper /Users/example/.local/bin/openclaw-wrapper \
-  --openclaw-port 18789 \
-  --allow-openclaw-restart
-```
-
 For a headless T3 Code server, pin the exact npm version and the workspace used
 for project and skill discovery:
 
@@ -316,8 +302,6 @@ drift, and `incomplete` when workstation detection, SSH transport, or the
 remote service structure cannot be established. Completed inspections exit
 `0`, including drift; incomplete inspections exit `1`.
 
-- `--allow-openclaw-restart` grants that user passwordless restart of only its
-  exact OpenClaw system job, not general launchctl or sudo access.
 - Use `--colima` only when that target user owns the service.
 - T3 Code versions are installed side by side under
   `~/.local/share/t3-code/service/`; the plist pins the selected package and

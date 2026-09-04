@@ -18,18 +18,6 @@ export function launchdLabel(service: string, user: string, namespace = ""): str
   return `${resolveLaunchdNamespace(namespace)}.${service}.${user}`;
 }
 
-export function openclawRestartSudoersRule(user: string, label: string): string {
-  if (!user || !component.test(user)) throw new Error("invalid sudoers user");
-  if (!label || !component.test(label)) throw new Error("invalid sudoers label");
-  return `${user} ALL=(root) NOPASSWD: /bin/launchctl kickstart -k system/${label}`;
-}
-
-export function openclawRestartSudoersName(user: string, uid: number): string {
-  if (!user || !component.test(user)) throw new Error("invalid sudoers user");
-  if (!Number.isSafeInteger(uid) || uid < 0) throw new Error("invalid sudoers UID");
-  return `dotfiles-openclaw-restart-${user.replaceAll(".", "_")}-${uid}`;
-}
-
 export function validateT3Version(version: string): boolean {
   return exactVersion.test(version);
 }
