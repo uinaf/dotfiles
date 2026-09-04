@@ -11,15 +11,11 @@ host and they are not a security boundary by themselves.
 | `personal-workstation` | Owner-operated personal laptop or desktop | Workstation capabilities plus personal applications, tools, skills, and preferences |
 | `personal-devbox` | Owner-operated remote coding identity | Devbox capabilities plus headless personal tools, skills, and preferences |
 | `devbox` | Remote coding identity on an SSH-first host | Coding agents, Git/GitHub, SDKs, containers, and verification tools |
-| `assistant` | Unattended persona or agent identity | Minimal agent runtime, browser, and scoped GitHub App access |
 
-> Unattended agent runtimes may be hosted outside this repository, in which case
-> the hosting configuration owns their runtime, capability packages, and
-> credential helper, and this profile has no consumer. Retiring it is then
-> possible, but `scripts/bootstrap/configure-assistant-github-app.ts` and
-> `scripts/bootstrap/install-gh-app-auth.ts` must survive: they are the only
-> tooling that provisions an agent identity's GitHub App key and `config.yml`,
-> and a remote host consumes those files rather than creating them.
+This repository configures one human's macOS environment. Unattended agent
+identities are hosted elsewhere; the hosting configuration owns their runtime,
+capability packages, GitHub App identity, and credential helper. The retired
+`assistant` profile and its App provisioning scripts moved there with them.
 
 - Choose `workstation` when another trusted system may supply or govern
   software.
@@ -70,12 +66,10 @@ Brewfile order per profile:
 | `personal-devbox` | `Brewfile`, `Brewfile.developer`, `Brewfile.devbox`, `Brewfile.personal` |
 | `workstation` | `Brewfile`, `Brewfile.developer`, `Brewfile.workstation` |
 | `devbox` | `Brewfile`, `Brewfile.developer`, `Brewfile.devbox` |
-| `assistant` | `Brewfile`, `Brewfile.assistant` |
 
 - The shared `Brewfile` base includes Chrome and `gh`.
 - `Brewfile.personal` declarations are profile-aware: GUI casks install only for
   `personal-workstation`.
-- Assistant skips the developer layer.
 
 What each layer supplies:
 
@@ -95,8 +89,6 @@ What each layer supplies:
   Attach, Crabbox, Discrawl, Gitcrawl, Pi, putio-cli, and Mole. Only
   `personal-workstation` also gets personal applications such as Slopwake and
   the Google Cloud CLI, plus `mas`.
-- `Brewfile.assistant`: portable document, media, Google, and macOS automation
-  tools.
 - Developer profiles manage the Codex, Claude Code, OpenCode, and Cursor Agent
   CLIs. Personal profiles add Pi, workstation profiles add T3 Code and Zed,
   and personal workstations add Grok Build. Workstation profiles also add the
@@ -110,13 +102,6 @@ Runtimes and dotfiles:
 - Both workstation profiles manage Zed settings and keymap through chezmoi.
   All profiles set `EDITOR`/`VISUAL` to `vim`. Zed stays a thin editor: vim
   on, AI off, telemetry off, and collaboration chrome hidden.
-- The assistant mise config contains only Node. Workload repositories own
-  OpenClaw, Hermes, model providers, containers, process supervision, language
-  runtimes, and other framework-specific packages.
-- Assistant dotfile application installs the shared Git base and the
-  `gh-app-auth` execution adapter. It omits developer signing, human credential
-  helpers, outbound SSH defaults, desktop settings, global coding-agent
-  instructions, and development skills.
 
 ## Identity Policy
 
@@ -125,8 +110,6 @@ SSH, GitHub App, recovery, and deployment lifecycle.
 
 - `workstation`, `personal-workstation`, `personal-devbox`, and `devbox` users
   configure explicit human authorship and local signing.
-- Assistants configure unsigned workload authorship and use a workload-owned
-  GitHub App for repository access.
 - Services configure unsigned workload authorship but receive authentication
   only from their owning workload.
 - Identity values remain operator input and are never tracked.
@@ -140,7 +123,6 @@ Run Homebrew changes from the authorized host administrator:
 ./scripts/bootstrap/brew-bundle.ts personal-devbox
 ./scripts/bootstrap/brew-bundle.ts workstation
 ./scripts/bootstrap/brew-bundle.ts devbox
-./scripts/bootstrap/brew-bundle.ts assistant
 ```
 
 Then run the per-user setup as the target Unix user:
@@ -158,17 +140,14 @@ mise trust
 - Use `profile=personal-workstation` for the personal workstation composition,
   or `profile=personal-devbox` for the personal devbox composition. The
   remaining steps are identical.
-- Secret-consuming profiles (`personal-devbox`, `devbox`, `assistant`) still
+- Secret-consuming profiles (`personal-devbox` and `devbox`) still
   require the age-identity step before bootstrap verification.
 
-Configure the appropriate human or workload Git identity separately:
+Configure the human Git identity separately:
 
 ```zsh
 ./scripts/bootstrap/configure-git.ts --profile "$profile"
 ```
-
-Assistant workload authorship and GitHub App enrollment use the commands in
-[Identity provisioning](identities.md#workload-git-authorship).
 
 ## Externally Managed Homebrew Capabilities
 

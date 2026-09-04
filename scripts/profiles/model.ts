@@ -3,20 +3,18 @@ import { readFileSync } from "node:fs";
 
 const Capabilities = Schema.Struct({
   developer: Schema.Boolean,
-  workload: Schema.Boolean,
   sharedHomebrew: Schema.Boolean,
   requiresSopsIdentity: Schema.Boolean,
   devbox: Schema.Boolean,
   workstation: Schema.Boolean,
   personal: Schema.Boolean,
-  githubAppAuth: Schema.Boolean,
 });
 
 const SkillLayer = Schema.Literals(["developer", "workstation", "devbox", "personal"]);
 const ProfileConfig = Schema.Struct({
   capabilities: Capabilities,
   brewfiles: Schema.NonEmptyArray(Schema.NonEmptyString),
-  runtimeGroup: Schema.Literals(["developer", "assistant", "none"]),
+  runtimeGroup: Schema.Literals(["developer", "none"]),
   skillLayers: Schema.Array(SkillLayer),
   installSteps: Schema.NonEmptyArray(Schema.NonEmptyString),
 });

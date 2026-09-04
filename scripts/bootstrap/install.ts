@@ -12,7 +12,7 @@ import { readProfileModelEffect, requireProfile } from "../profiles/model.ts";
 const sourceRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const repoRoot = process.env.DOTFILES_INSTALL_REPO_ROOT || sourceRoot;
 const usage = `Usage:
-  scripts/bootstrap/install.ts --profile personal-workstation|personal-devbox|workstation|devbox|assistant
+  scripts/bootstrap/install.ts --profile personal-workstation|personal-devbox|workstation|devbox
   scripts/bootstrap/install.ts --print-steps --profile PROFILE
 
 Applies per-user dotfiles and runs only the setup steps owned by the selected
@@ -31,8 +31,6 @@ const runStep = Effect.fn("runInstallStep")(function*(step: string, profile: str
   switch (step) {
     case "apply-dotfiles":
       return yield* execute(step, bootstrap("apply-dotfiles.ts"), ["--profile", profile]);
-    case "install-gh-app-auth":
-      return yield* execute(step, bootstrap("install-gh-app-auth.ts"), []);
     case "install-cursor-agent":
       return yield* execute(step, bootstrap("install-cursor-agent.ts"), []);
     case "trust-agent-worktrees":
@@ -95,7 +93,7 @@ const program = Effect.gen(function*() {
   }
 
   const profile = yield* resolveProfile(profileInput).pipe(
-    Effect.mapError(() => new CliFailure({ exitCode: 2, message: "a supported profile is required: personal-workstation, personal-devbox, workstation, devbox, or assistant" })),
+    Effect.mapError(() => new CliFailure({ exitCode: 2, message: "a supported profile is required: personal-workstation, personal-devbox, workstation, or devbox" })),
   );
   const modelPath = repoRoot === sourceRoot
     ? profileModelFile()

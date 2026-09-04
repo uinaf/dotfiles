@@ -95,7 +95,6 @@ const program = Effect.gen(function*() {
     if (config.capabilities.workstation) yield* shell("op --version");
     if (config.capabilities.personal && config.capabilities.workstation) yield* shellChecks(["grok --version", "tailscale status --peers=false"]);
     if (config.capabilities.devbox) yield* shellChecks(["tmux -V", "xcodes version", "tailscale status --peers=false"]);
-    if (config.capabilities.githubAppAuth) yield* shellChecks(["GH_NO_EXTENSION_UPDATE_NOTIFIER=1 gh app-auth exec --help", "qpdf --version", "qrencode --version"]);
   });
   const homebrew = Effect.gen(function*() {
     const external = yield* configureExternalCapabilities(repoRoot, model, profile);
@@ -124,12 +123,9 @@ const program = Effect.gen(function*() {
     if (config.capabilities.developer) yield* command(process.execPath, [join(repoRoot, "scripts/bootstrap/configure-spotlight.ts"), "--check"]);
     if (desktop) yield* command(process.execPath, [join(repoRoot, "scripts/bootstrap/configure-desktop.ts"), "--check"]);
   });
-  const workload = Effect.gen(function*() {
-    if (config.capabilities.workload) yield* command(process.execPath, [join(repoRoot, "scripts/verify/workload-git-boundary.ts"), "--profile", profile]);
-  });
   const groups: readonly [string, Effect.Effect<void, unknown, CommandRunner | FileSystem.FileSystem>][] = [
     ["environment", environment], ["runtime", runtime], ["common-tools", commonTools], ["homebrew", homebrew],
-    ["configuration", configuration], ["developer-tools", developerTools], ["profile-tools", profileTools], ["host", host], ["workload", workload],
+    ["configuration", configuration], ["developer-tools", developerTools], ["profile-tools", profileTools], ["host", host],
   ];
   const started = Date.now();
   yield* Effect.forEach(groups, ([name, effect]) => effect.pipe(

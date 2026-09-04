@@ -50,12 +50,6 @@ async function verifyMalformed(root: string): Promise<void> {
   assert.equal(readFileSync(settingsPath(fixtureRoot), "utf8"), original);
 }
 
-async function verifyAssistantExcluded(root: string): Promise<void> {
-  const fixtureRoot = join(root, "assistant");
-  await runApply("assistant", fixtureRoot);
-  assert.equal(existsSync(settingsPath(fixtureRoot)), false);
-}
-
 async function main(): Promise<void> {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-cursor-settings-"));
   try {
@@ -65,7 +59,6 @@ async function main(): Promise<void> {
       verifyProfile(root, "workstation", "Cursor Grok 4.6"),
       verifyProfile(root, "devbox", "Cursor Grok 4.6"),
       verifyMalformed(root),
-      verifyAssistantExcluded(root),
     ]);
     const failure = results.find((result) => result.status === "rejected");
     if (failure?.status === "rejected") throw failure.reason;

@@ -87,18 +87,6 @@ const program = Effect.scoped(Effect.gen(function*() {
   assert.equal(invalidResult.status, 1);
   assert.match(invalidResult.stderr, /key file is not an SSH private key/);
 
-  const assistantHome = join(temporary, "assistant");
-  yield* fs.makeDirectory(assistantHome);
-  assert.equal((yield* run(process.execPath, [join(repoRoot, "scripts/bootstrap/apply-dotfiles.ts"), "--profile", "assistant"], { HOME: assistantHome })).status, 0);
-  const assistant = yield* run(process.execPath, [configurator, "--profile", "assistant", "--non-interactive"], { HOME: assistantHome, GIT_USER_NAME: "Example Workload", GIT_USER_EMAIL: "example-workload@users.noreply.github.com" });
-  assert.equal(assistant.status, 0, assistant.stderr);
-  const assistantConfig = join(assistantHome, ".gitconfig.local");
-  for (const [key, expected] of [["user.name", "Example Workload"], ["user.email", "example-workload@users.noreply.github.com"], ["dotfiles.identity", "workload"], ["commit.gpgsign", "false"]]) {
-    assert.equal((yield* run("git", ["config", "--file", assistantConfig, "--get", key])).stdout.trim(), expected);
-  }
-  assert.notEqual((yield* run("git", ["config", "--file", assistantConfig, "--get", "user.signingkey"])).status, 0);
-  const rejectedSigning = yield* run(process.execPath, [configurator, "--profile", "assistant", "--non-interactive"], { HOME: assistantHome, GIT_USER_NAME: "Example Workload", GIT_USER_EMAIL: "example-workload@users.noreply.github.com", GIT_SIGN_COMMITS: "true", GIT_SIGNING_KEY: join(assistantHome, "signing") });
-  assert.notEqual(rejectedSigning.status, 0);
-  yield* Console.log("ok Git bootstrap preserves developer signing and configures the unsigned assistant workload");
+  yield* Console.log("ok Git bootstrap preserves developer signing");
 }).pipe(Effect.catchCause((cause) => fail(Cause.pretty(cause))), Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer)));
 runMain(program);

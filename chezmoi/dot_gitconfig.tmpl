@@ -20,7 +20,3 @@
 {{ end -}}
 [include]
 	path = ~/.gitconfig.local
-{{ if $profile.capabilities.githubAppAuth -}}
-[include]
-	path = ~/.config/dotfiles/github-app.gitconfig
-{{ end -}}

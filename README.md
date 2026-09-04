@@ -3,7 +3,7 @@
 # uinaf/dotfiles
 
 A vendor-neutral macOS bootstrap framework for workstations, remote coding
-users and unattended assistants.
+users.
 
 The repository manages Homebrew layers, chezmoi source state, mise runtimes,
 Git and SSH defaults, coding-agent setup, and verification scripts. Installed
@@ -32,7 +32,7 @@ cd ~/projects/dotfiles
 
 Then follow the [Bootstrap guide](docs/bootstrap.md). It owns the canonical
 per-profile command sequences plus first-machine prerequisites, devbox and
-assistant flows, optional desktop setup, updates, and troubleshooting.
+optional desktop setup, updates, and troubleshooting.
 
 ## Managed Surfaces
 

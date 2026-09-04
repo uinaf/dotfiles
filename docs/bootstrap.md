@@ -8,7 +8,6 @@ The repo has five per-user profiles:
 - `personal-workstation` for a workstation plus personal packages and skills.
 - `personal-devbox` for a devbox plus headless personal tools and skills.
 - `devbox` for a remote coding identity on an SSH-first host.
-- `assistant` for an unattended persona or agent identity.
 
 The role contract and host/user boundary are defined in
 [User profiles](profiles.md). Run commands from the repo root unless a step
@@ -27,7 +26,7 @@ SOPS and age:
 
 - Keep the SOPS and age CLIs in the portable Homebrew baseline.
 - Require a per-user SOPS age identity only for profiles and workflows that
-  decrypt encrypted material: `personal-devbox`, `devbox`, `assistant`, and any
+  decrypt encrypted material: `personal-devbox`, `devbox`, and any
   vault or sudo consumer.
 - Portable `workstation` and `personal-workstation` boots can pass readiness
   without an identity; decryption stays fail-closed until one is provisioned.
@@ -390,52 +389,6 @@ mise run audit host
 mise run audit devbox
 ```
 
-## Assistant User
-
-An assistant is a minimal unattended Unix identity, not a coding devbox. On a
-shared Mac, an authorized host administrator installs the Homebrew layers once:
-
-```zsh
-./scripts/bootstrap/brew-bundle.ts assistant
-```
-
-Run the user-local setup as the assistant identity:
-
-```zsh
-git clone https://github.com/uinaf/dotfiles.git ~/.local/src/dotfiles
-cd ~/.local/src/dotfiles
-mise trust
-./dotfiles diff assistant
-./dotfiles apply assistant
-./scripts/secrets/configure-sops-age-identity.ts
-GIT_USER_NAME='Workload Name' \
-GIT_USER_EMAIL='APP_BOT_NOREPLY_EMAIL' \
-  ./scripts/bootstrap/configure-git.ts --profile assistant --non-interactive
-./scripts/bootstrap/configure-assistant-github-app.ts \
-  --name example-app \
-  --app-id APP_ID \
-  --installation-id INSTALLATION_ID \
-  --repo github.com/example/workspace
-./dotfiles check assistant
-```
-
-- Start assistants as dedicated Unix users with clean homes.
-- Their Git flow writes unsigned workload authorship and configures
-  exact-repository GitHub App access; see
-  [Assistant GitHub App](identities.md#assistant-github-app).
-- The workload repository owns additional runtimes, providers, channels, and
-  service definitions.
-- Bootstrap verification checks the managed Git base, `gh-app-auth` dispatch,
-  and workload identity.
-- `./scripts/verify/assistant-git-boundary.ts` is the standalone workload
-  boundary check.
-
-When an assistant runs OpenClaw as a system LaunchDaemon, install the explicit
-restart capability with `--allow-openclaw-restart` as documented in
-[Devbox setup](devbox.md#supervisor). This grants only passwordless restart of
-that user's exact gateway label; the workload owns its executable wrapper and
-OpenClaw lifecycle policy.
-
 ## Updating an Existing Machine
 
 Pull the repo and rerun the relevant profile:
@@ -448,15 +401,15 @@ profile=workstation # use personal-workstation for the personal layers
 mise trust
 ./dotfiles diff "$profile"
 ./dotfiles apply "$profile"
-# Optional for workstation/personal-workstation; required for personal-devbox/devbox/assistant:
+# Optional for workstation/personal-workstation; required for personal-devbox/devbox:
 ./scripts/secrets/configure-sops-age-identity.ts
 ./scripts/bootstrap/configure-power.ts --profile "$profile"
 ./scripts/bootstrap/configure-spotlight.ts
 ./dotfiles check "$profile"
 ```
 
-Use the target Unix user's `personal-devbox`, `devbox`, or `assistant` role
-instead when appropriate, and keep the age-identity step for those profiles.
+Use the target Unix user's `personal-devbox` or `devbox` role instead when
+appropriate, and keep the age-identity step for those profiles.
 
 ## Mobile and TV Development
 
@@ -491,9 +444,8 @@ can hang.
   profile layer declares (usually casks dropped from a Brewfile, which
   `brew bundle` never uninstalls). Run
   `./scripts/bootstrap/brew-bundle.ts --cleanup <profile>` to remove them.
-  Shared devbox prefixes compare and clean against the union of devbox,
-  personal-devbox, and assistant layers so one Unix user cannot remove another
-  active profile's packages.
+  Shared devbox prefixes compare and clean against the personal-devbox layers
+  so one Unix user cannot remove another active profile's packages.
 - If historical prefix-owner content has incorrect group permissions, run
   `brew-devbox.ts --repair-shared-readability` as the prefix owner, then retry
   verification. The repair is owner-scoped; reassign content owned by another

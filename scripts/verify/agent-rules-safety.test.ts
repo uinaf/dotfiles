@@ -82,16 +82,3 @@ test("rejects a local Markdown symlink resolving to a directory", () => {
     assert.match(chezmoiResult.stderr, new RegExp(`${name.replaceAll(".", "\\.")} must resolve to a regular file`));
   }
 });
-
-test("ignores broken local Markdown links for workload profiles", () => {
-  for (const name of ["agents.start.md", "agents.end.md"]) {
-    const { home } = createFixture();
-    const privateRules = join(home, ".config/dotfiles", name);
-    mkdirSync(dirname(privateRules), { recursive: true });
-    symlinkSync(join(home, `missing-${name}`), privateRules);
-
-    runWrapper(home, "assistant");
-
-    assert.equal(readdirSync(home).includes("AGENTS.md"), false);
-  }
-});

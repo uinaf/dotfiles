@@ -320,7 +320,7 @@ test("rejects duplicate names across selected layers before installing skills", 
 
 test("refuses profiles without agent setup before managing skills", () => {
   const { repoDir, home } = createFixture();
-  const runtime = new FixtureRuntime(repoDir, home, { profile: "assistant" });
+  const runtime = new FixtureRuntime(repoDir, home, { profile: "unsupported" });
 
   assert.equal(main([], runtime), 1);
   assert.match(runtime.stderr.value, /Profile resolution failed/);

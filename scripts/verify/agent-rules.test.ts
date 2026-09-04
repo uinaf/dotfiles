@@ -31,29 +31,6 @@ test("applies public rules and links without private output", () => {
   assert.equal(runChezmoi(home, config, "diff"), "");
 });
 
-test("omits global rules for workload profiles", () => {
-  const { config, home } = createFixture();
-  runChezmoi(home, config, "apply", undefined, "assistant");
-
-  assert.equal(lstatSync(home).isDirectory(), true);
-  assert.equal(readdirSync(home).includes("AGENTS.md"), false);
-  assert.equal(readdirSync(home).includes(".agents"), false);
-  assert.equal(readdirSync(home).includes(".claude"), false);
-  assert.equal(readdirSync(home).includes(".codex"), false);
-});
-
-test("preserves retired rules for workload profiles", () => {
-  const { home } = createFixture();
-  const retiredRules = join(home, ".agents/AGENTS.md");
-  mkdirSync(dirname(retiredRules), { recursive: true });
-  writeFileSync(retiredRules, "workload-owned fixture rules\n");
-
-  runWrapper(home, "assistant");
-
-  assert.equal(readFileSync(retiredRules, "utf8"), "workload-owned fixture rules\n");
-  assert.equal(readdirSync(join(home, ".agents")).some((name) => name.includes(".backup.")), false);
-});
-
 test("reads an optional private end layer from machine-local Markdown", () => {
   const { home } = createFixture();
   const privateEnd = join(home, ".config/dotfiles/agents.end.md");

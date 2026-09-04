@@ -180,21 +180,6 @@ async function verifyModeAndIdempotence(root: string): Promise<void> {
   assert.equal(statSync(path, { bigint: true }).mtimeNs, firstMtime);
 }
 
-async function verifyExcludedProfile(root: string, profile: "assistant", contents?: string): Promise<void> {
-  const fixtureRoot = join(root, profile);
-  if (contents !== undefined) {
-    writeSettings(fixtureRoot, contents, 0o644);
-  }
-  await runApply(profile, fixtureRoot);
-  const path = settingsPath(fixtureRoot);
-  if (contents === undefined) {
-    assert.equal(existsSync(path), false);
-  } else {
-    assert.equal(readFileSync(path, "utf8"), contents);
-    assert.equal(Number(statSync(path, { bigint: true }).mode & 0o777n), 0o644);
-  }
-}
-
 async function main(): Promise<void> {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-claude-settings-"));
   try {
@@ -203,7 +188,6 @@ async function main(): Promise<void> {
       verifyMissingFile(root),
       verifyMalformedFile(root),
       verifyModeAndIdempotence(root),
-      verifyExcludedProfile(root, "assistant", '{"env":{"KEEP":"yes"}}\n'),
     ]);
     const failure = results.find((result) => result.status === "rejected");
     if (failure?.status === "rejected") {

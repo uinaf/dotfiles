@@ -54,7 +54,7 @@ repository.
 
 1. Run `git status --short --branch` and preserve unrelated work.
 2. Identify the affected profile: `personal-workstation`, `personal-devbox`, `workstation`,
-   `devbox`, `assistant`, or repository-only tooling.
+   `devbox`, or repository-only tooling.
 3. Read the smallest owning guide from the table above.
 4. Change tracked sources, not generated home-directory state.
 5. Update the owning documentation when behavior, paths, or commands change.
@@ -79,7 +79,7 @@ Run live checks only on a machine that should satisfy the selected profile:
 ./scripts/verify/bootstrap.ts --profile personal-workstation
 ./scripts/verify/bootstrap.ts --profile personal-devbox
 ./scripts/verify/bootstrap.ts --profile devbox
-./scripts/verify/bootstrap.ts --profile assistant
+./scripts/verify/bootstrap.ts --profile devbox
 ./scripts/verify/devbox-services.ts
 mise run audit workstation
 mise run audit devbox
@@ -91,11 +91,10 @@ mise run audit devbox
 - Keep `Brewfile` limited to capabilities required by every profile, including
   Chrome and `gh`. Shared coding tools belong in `Brewfile.developer`;
   role-specific software belongs in
-  `Brewfile.workstation`, `Brewfile.personal`, `Brewfile.devbox`,
-  or `Brewfile.assistant`.
+  `Brewfile.workstation`, `Brewfile.personal`, or `Brewfile.devbox`.
 - Edit dotfiles under `chezmoi/`, not the generated files in `$HOME`.
 - Keep machine-global coding-agent rules and additive skill selection under
-  `scripts/agents/`. The assistant profile does not install them.
+  `scripts/agents/`.
 - Keep the repository standalone. Do not require a workspace manager or a
   companion repository.
 - Keep installed paths, commands, config keys, service labels, and portable

@@ -1,8 +1,6 @@
 {{ $profile := includeTemplate "profile" . | fromJson -}}
 [tools]
-{{ if eq $profile.runtimeGroup "assistant" }}
-node = "24.19.0"
-{{ else if eq $profile.runtimeGroup "developer" }}
+{{ if eq $profile.runtimeGroup "developer" }}
 node = { version = "24.19.0", postinstall = "npm install --global npm@12.0.2 && corepack enable pnpm && corepack install --global pnpm@12.0.0" }
 bun = "1.4.0"
 python = { version = "3.13", postinstall = "python -m pip install --disable-pip-version-check PyYAML==6.0.3" }

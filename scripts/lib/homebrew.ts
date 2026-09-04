@@ -112,10 +112,7 @@ export const removeComposedBrewfile = Effect.fn("removeComposedBrewfile")(functi
 
 export function cleanupFiles(model: ProfileModel, profile: string): readonly string[] {
   if (!requireProfile(model, profile).capabilities.sharedHomebrew) return profileBrewfiles(model, profile);
-  return [...new Set([
-    ...profileBrewfiles(model, "personal-devbox"),
-    ...profileBrewfiles(model, "assistant"),
-  ])];
+  return profileBrewfiles(model, "personal-devbox");
 }
 
 export function cleanupProfile(model: ProfileModel, profile: string): string {

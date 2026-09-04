@@ -8,10 +8,10 @@ import { CliFailure, fail, runMain } from "../lib/program.ts";
 import { normalizeProfile, profileModelFile, resolveProfile } from "../profiles/current.ts";
 import { readProfileModelEffect, requireProfile, type ProfileConfig } from "../profiles/model.ts";
 
-const usage = `usage: scripts/bootstrap/configure-git.ts [--profile personal-workstation|personal-devbox|workstation|devbox|assistant] [--non-interactive]
+const usage = `usage: scripts/bootstrap/configure-git.ts [--profile personal-workstation|personal-devbox|workstation|devbox] [--non-interactive]
 
 Personal-workstation, personal-devbox, workstation, and devbox profiles configure human
-identity. The assistant profile writes an explicit workload commit identity without signing or SSH authentication.
+identity.
 
 Writes:
   ~/.gitconfig.local
@@ -24,9 +24,7 @@ Environment:
   GIT_SIGN_COMMITS    true|false
   GIT_ALLOWED_SIGNER_PRINCIPAL optional SSH signing verification principal; defaults to GIT_USER_EMAIL
   GIT_SSH_IDENTITY_FILE optional SSH private key path for git@github.com; devbox defaults to GIT_SIGNING_KEY
-
-After authorship, configure assistant GitHub authentication with
-configure-assistant-github-app.ts and explicit App/repository values.`;
+`;
 
 const PrivateKeyHeader = Schema.String.pipe(
   Schema.check(Schema.isPattern(/^-----BEGIN (?:[A-Z0-9]+ )?PRIVATE KEY-----$/)),
@@ -89,7 +87,7 @@ const resolveSelectedProfile = Effect.fn("resolveConfigureGitProfile")(function*
     );
   }
   const selected = yield* prompt(
-    "Profile (personal-workstation/personal-devbox/workstation/devbox/assistant)",
+    "Profile (personal-workstation/personal-devbox/workstation/devbox)",
     "workstation",
     args.nonInteractive,
   );
@@ -239,13 +237,8 @@ const buildConfiguration = Effect.fn("buildGitConfiguration")(function*(
   let signCommits = process.env.GIT_SIGN_COMMITS || "";
   let sshIdentity = process.env.GIT_SSH_IDENTITY_FILE || "";
   if (config.capabilities.devbox && !signCommits) signCommits = "true";
-  if (config.capabilities.workload && !signCommits) signCommits = "false";
-  if (config.capabilities.workload) {
-    if (signCommits !== "false" || signingKey) return yield* fail(`${profile} workload commits do not use a persisted signing key`, 2);
-    if (sshIdentity) return yield* fail(`${profile} workload authentication does not use a persisted SSH identity file`, 2);
-  }
-  const defaultName = config.capabilities.workload ? "" : yield* getGlobal("user.name");
-  const defaultEmail = config.capabilities.workload ? "" : yield* getGlobal("user.email");
+  const defaultName = yield* getGlobal("user.name");
+  const defaultEmail = yield* getGlobal("user.email");
   if (!name) name = yield* prompt("Git user.name", defaultName, args.nonInteractive);
   if (!email) email = yield* prompt("Git user.email", defaultEmail, args.nonInteractive);
   if (!name || !email) return yield* fail("git user.name and user.email are required");
@@ -313,7 +306,6 @@ const program = Effect.gen(function*() {
       yield* run("git", ["config", "--file", temporary, "gpg.ssh.program", signerProgram]);
     }
     if (profileConfig.capabilities.devbox) yield* run("git", ["config", "--file", temporary, "safe.directory", "/opt/homebrew"]);
-    if (profileConfig.capabilities.workload) yield* run("git", ["config", "--file", temporary, "dotfiles.identity", "workload"]);
 
     if (values.sshIdentity) yield* writeGithubSshConfig(home, values.sshIdentity);
     if (values.signCommits === "true") {

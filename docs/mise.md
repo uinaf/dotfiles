@@ -68,7 +68,6 @@ profile or audit boundary:
 | Personal workstation | `mise run verify:bootstrap personal-workstation` | Workstation package and runtime contracts exist with personal packages, dotfiles, and skills selected. |
 | Personal devbox | `mise run verify:bootstrap personal-devbox` | Devbox package, identity, and runtime contracts exist with headless personal tools, dotfiles, and skills selected. |
 | Devbox | `mise run verify:bootstrap devbox` | Developer package layers, age identity, mise tools, Codex CLI, and managed config exist. |
-| Assistant | `mise run verify:bootstrap assistant` | Shared browser and GitHub tools, assistant automation packages, age identity, managed Git base, and workload authorship match the assistant contract. |
 | Devbox services | `mise run verify:devbox-services` | Launchd, age, and local service configuration match the shared-host contract. |
 | Workstation drift | `mise run audit workstation` | Human Git, SSH, Codex, secret, permission, and local-state boundaries are visible. |
 | Devbox drift | `mise run audit devbox` | Agent-user identity, service, secret, project-permission, and Tailscale boundaries are visible. |
@@ -127,8 +126,6 @@ Install and verification:
   a runtime group, then installs the repository's locked Effect dependencies
   through that runtime. Mise owns the Node postinstall that pins npm and the
   stable pnpm default.
-- The assistant profile contains only Node. Additional runtimes belong to the
-  workload that requires them.
 - `scripts/verify/bootstrap.ts` checks that rendered mise tools converged and
   that their commands resolve from mise.
 - Independent live-check groups run in parallel and print one success line each.

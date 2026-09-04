@@ -1,4 +1,0 @@
-{{ $profile := includeTemplate "profile" . | fromJson }}
-{{ if not $profile.capabilities.workload }}
-.agents/AGENTS.md
-{{ end }}

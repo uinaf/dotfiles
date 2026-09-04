@@ -19,22 +19,21 @@ const program = Effect.scoped(Effect.gen(function*() {
   const runner = yield* CommandRunner;
   const temporary = yield* fs.makeTempDirectoryScoped({ prefix: "dotfiles-profiles." });
   const model = yield* readProfileModelEffect(modelPath);
-  const profiles = ["personal-workstation", "personal-devbox", "workstation", "devbox", "assistant"] as const;
+  const profiles = ["personal-workstation", "personal-devbox", "workstation", "devbox"] as const;
   assert.deepEqual(Object.keys(model.profiles).sort(), [...profiles].sort());
   const run = (command: string, args: readonly string[] = [], options: { env?: Readonly<Record<string, string>>; cwd?: string } = {}): Effect.Effect<CommandResult, unknown> =>
     runner.run(command, args, { env: options.env, cwd: options.cwd });
   for (const profile of profiles) requireProfile(model, profile);
   assert.throws(() => requireProfile(model, "unsupported"));
   assert.equal(requireProfile(model, "workstation").capabilities.requiresSopsIdentity, false);
-  for (const profile of ["personal-workstation", "personal-devbox", "devbox", "assistant"]) {
+  for (const profile of ["personal-workstation", "personal-devbox", "devbox"]) {
     assert.equal(requireProfile(model, profile).capabilities.requiresSopsIdentity, true);
   }
-  assert.deepEqual(profileBrewfiles(model, "assistant"), ["Brewfile", "Brewfile.assistant"]);
   assert.deepEqual(profileBrewfiles(model, "devbox"), ["Brewfile", "Brewfile.developer", "Brewfile.devbox"]);
   assert.deepEqual(profileBrewfiles(model, "personal-devbox"), ["Brewfile", "Brewfile.developer", "Brewfile.devbox", "Brewfile.personal"]);
   assert.deepEqual(profileBrewfiles(model, "workstation"), ["Brewfile", "Brewfile.developer", "Brewfile.workstation"]);
   assert.deepEqual(profileBrewfiles(model, "personal-workstation"), ["Brewfile", "Brewfile.developer", "Brewfile.workstation", "Brewfile.personal"]);
-  for (const profile of ["personal-devbox", "devbox", "assistant"]) {
+  for (const profile of ["personal-devbox", "devbox"]) {
     assert.deepEqual(bundleCheckArgs(model, profile, "Brewfile"), ["bundle", "check", "--no-upgrade", "--file", "Brewfile"]);
   }
   for (const profile of ["personal-workstation", "workstation"]) {
@@ -48,8 +47,8 @@ const program = Effect.scoped(Effect.gen(function*() {
   const profileHome = join(temporary, "profile-resolution");
   const marker = join(profileHome, ".config/dotfiles/profile");
   yield* fs.makeDirectory(join(profileHome, ".config/dotfiles"), { recursive: true });
-  yield* fs.writeFileString(marker, " \tassistant\r\n", { mode: 0o600 });
-  assert.equal(yield* resolveProfile(undefined, { HOME: profileHome, DOTFILES_PROFILE: "workstation" }), "assistant");
+  yield* fs.writeFileString(marker, " \tpersonal-devbox\r\n", { mode: 0o600 });
+  assert.equal(yield* resolveProfile(undefined, { HOME: profileHome, DOTFILES_PROFILE: "workstation" }), "personal-devbox");
   yield* fs.remove(marker);
   assert.equal(yield* resolveProfile(undefined, { HOME: profileHome, DOTFILES_PROFILE: " devbox " }), "devbox");
   assert.equal((yield* resolveProfile(undefined, { HOME: profileHome, DOTFILES_PROFILE: "" }).pipe(Effect.flip)).exitCode, 1);
@@ -57,9 +56,9 @@ const program = Effect.scoped(Effect.gen(function*() {
   yield* fs.symlink(join(profileHome, "missing"), marker);
   assert.equal((yield* resolveProfile(undefined, { HOME: profileHome, DOTFILES_PROFILE: "workstation" }).pipe(Effect.flip)).exitCode, 3);
   yield* fs.remove(marker);
-  yield* fs.writeFileString(marker, "assistant\nextra\n", { mode: 0o600 });
+  yield* fs.writeFileString(marker, "devbox\nextra\n", { mode: 0o600 });
   assert.equal((yield* readPersistedProfile(marker).pipe(Effect.option))._tag, "None");
-  yield* fs.writeFileString(marker, "assistant\n", { mode: 0o666 });
+  yield* fs.writeFileString(marker, "devbox\n", { mode: 0o666 });
   yield* fs.chmod(marker, 0o666);
   assert.equal((yield* readPersistedProfile(marker).pipe(Effect.option))._tag, "None");
 
@@ -76,7 +75,7 @@ const program = Effect.scoped(Effect.gen(function*() {
   yield* fs.makeDirectory(join(canonicalSymlinkHome, ".config"), { recursive: true });
   yield* fs.makeDirectory(canonicalTarget);
   yield* fs.symlink(canonicalTarget, join(canonicalSymlinkHome, ".config/dotfiles"));
-  assert.notEqual((yield* run(process.execPath, [join(repoRoot, "scripts/bootstrap/apply-dotfiles.ts"), "--profile", "assistant"], { env: { HOME: canonicalSymlinkHome } })).status, 0);
+  assert.notEqual((yield* run(process.execPath, [join(repoRoot, "scripts/bootstrap/apply-dotfiles.ts"), "--profile", "devbox"], { env: { HOME: canonicalSymlinkHome } })).status, 0);
   assert.deepEqual(yield* fs.readDirectory(canonicalTarget), []);
 
   const brewfile = (name: string) => fs.readFileString(join(repoRoot, name));
@@ -88,8 +87,6 @@ const program = Effect.scoped(Effect.gen(function*() {
   for (const entry of ['brew "asc"', 'brew "uinaf/tap/attach"', 'brew "openclaw/tap/crabbox"', 'brew "putdotio/tap/putio-cli"']) assert.ok(personal.split("\n").includes(entry));
   const workstation = yield* brewfile("Brewfile.workstation");
   for (const entry of ['cask "ghostty"', 'cask "1password"', 'cask "chatgpt"', 'cask "claude"', 'cask "cursor"', 'cask "t3-code"', 'cask "zed"', 'brew "ykman"']) assert.ok(workstation.split("\n").includes(entry));
-  const assistant = yield* brewfile("Brewfile.assistant");
-  for (const entry of ['brew "yt-dlp"', 'brew "qpdf"', 'brew "whisper-cpp"']) assert.ok(assistant.split("\n").includes(entry));
 
   for (const profile of profiles) {
     const destination = join(temporary, `render-${profile}`);
@@ -102,24 +99,21 @@ const program = Effect.scoped(Effect.gen(function*() {
     assert.match(zshrc.stdout, /^export EDITOR="vim"$/m);
     assert.match(zshrc.stdout, /^export VISUAL="vim"$/m);
   }
-  const assistantSteps = yield* run(process.execPath, [join(repoRoot, "scripts/bootstrap/install.ts"), "--print-steps", "--profile", "assistant"]);
-  assert.equal(assistantSteps.stdout.trim(), ["apply-dotfiles", "install-runtimes", "install-repository-dependencies", "install-gh-app-auth"].join("\n"));
   const developerSteps = (yield* run(process.execPath, [join(repoRoot, "scripts/bootstrap/install.ts"), "--print-steps", "--profile", "workstation"])).stdout.trim().split("\n");
   for (const step of ["apply-dotfiles", "install-runtimes", "install-repository-dependencies", "install-cursor-agent", "trust-agent-worktrees", "install-gh-extensions", "configure-codex", "sync-agents"]) assert.ok(developerSteps.includes(step));
 
-  const assistantHome = join(temporary, "assistant-applied");
-  yield* fs.makeDirectory(assistantHome);
-  const applied = yield* run(process.execPath, [join(repoRoot, "scripts/bootstrap/apply-dotfiles.ts"), "--profile", "assistant"], { env: { HOME: assistantHome } });
+  const appliedHome = join(temporary, "devbox-applied");
+  yield* fs.makeDirectory(appliedHome);
+  const applied = yield* run(process.execPath, [join(repoRoot, "scripts/bootstrap/apply-dotfiles.ts"), "--profile", "devbox"], { env: { HOME: appliedHome } });
   assert.equal(applied.status, 0, applied.stderr);
-  assert.equal((yield* fs.readFileString(join(assistantHome, ".config/dotfiles/profile"))).trim(), "assistant");
-  for (const rejected of [".config/git", ".local/libexec/dotfiles/git-ssh-sign-agentless", ".ssh", "Library/Application Support/com.mitchellh.ghostty"]) {
-    assert.equal(yield* fs.exists(join(assistantHome, rejected)), false);
+  assert.equal((yield* fs.readFileString(join(appliedHome, ".config/dotfiles/profile"))).trim(), "devbox");
+  for (const rejected of ["Library/Application Support/com.mitchellh.ghostty"]) {
+    assert.equal(yield* fs.exists(join(appliedHome, rejected)), false);
   }
-  const gitconfig = yield* fs.readFileString(join(assistantHome, ".gitconfig"));
+  const gitconfig = yield* fs.readFileString(join(appliedHome, ".gitconfig"));
   assert.match(gitconfig, /^\[core\]$/m);
   assert.match(gitconfig, /^\[include\]$/m);
-  assert.match(gitconfig, /^\tpath = ~\/\.config\/dotfiles\/github-app\.gitconfig$/m);
-  yield* Console.log("ok profile layers, applied dotfiles, and workload Git identity");
+  yield* Console.log("ok profile layers and applied dotfiles");
 }).pipe(Effect.catchCause((cause) => fail(Cause.pretty(cause))), Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer)));
 
 runMain(program);

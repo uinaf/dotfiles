@@ -12,7 +12,6 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const modelPath = join(repoRoot, "chezmoi/.chezmoidata/profiles.json");
 const sourceDir = join(repoRoot, "chezmoi");
 const profileNames = [
-  "assistant",
   "devbox",
   "personal-devbox",
   "personal-workstation",
@@ -78,7 +77,7 @@ test("TypeScript rejects malformed, unsupported, missing, and wrong-type data", 
   assert.throws(() => parseProfileModel(JSON.stringify(wrongType)), /Expected boolean/);
 
   const missingRuntimeStep = rawModel();
-  missingRuntimeStep.profileModel.profiles.assistant.installSteps = ["apply-dotfiles", "install-gh-app-auth"];
+  missingRuntimeStep.profileModel.profiles.workstation.installSteps = ["apply-dotfiles", "install-cursor-agent"];
   assert.throws(() => parseProfileModel(JSON.stringify(missingRuntimeStep)), /runtime group and install steps disagree/);
 
   const model = readProfileModel(modelPath);
@@ -135,8 +134,8 @@ test("chezmoi rejects unsupported, unknown, missing, and wrong-type data", () =>
   assert.notEqual(renderProfile("workstation", wrongType.profileModel).status, 0);
 
   const missingRuntimeStep = rawModel();
-  missingRuntimeStep.profileModel.profiles.assistant.installSteps = ["apply-dotfiles", "install-gh-app-auth"];
-  assert.notEqual(renderProfile("assistant", missingRuntimeStep.profileModel).status, 0);
+  missingRuntimeStep.profileModel.profiles.workstation.installSteps = ["apply-dotfiles", "install-cursor-agent"];
+  assert.notEqual(renderProfile("workstation", missingRuntimeStep.profileModel).status, 0);
 });
 
 test("chezmoi rejects malformed profile data before rendering", () => {

@@ -26,7 +26,7 @@ run = './scripts/verify/run.ts --domain "$usage_domain"'
 description = "Verify one live profile"
 usage = '''
 arg "<profile>" help="Profile to verify" {
-  choices "personal-workstation" "personal-devbox" "workstation" "devbox" "assistant"
+  choices "personal-workstation" "personal-devbox" "workstation" "devbox"
 }
 '''
 run = './scripts/verify/bootstrap.ts --profile "$usage_profile"'
@@ -59,7 +59,7 @@ run = "node ./scripts/maintenance/check.ts --verify"
 description = "Apply the repo-local chezmoi source state"
 usage = '''
 arg "<profile>" help="Profile to apply" {
-  choices "personal-workstation" "personal-devbox" "workstation" "devbox" "assistant"
+  choices "personal-workstation" "personal-devbox" "workstation" "devbox"
 }
 '''
 run = './scripts/bootstrap/apply-dotfiles.ts --profile "$usage_profile"'
@@ -68,7 +68,7 @@ run = './scripts/bootstrap/apply-dotfiles.ts --profile "$usage_profile"'
 description = "Preview the repo-local chezmoi source state"
 usage = '''
 arg "<profile>" help="Profile to preview" {
-  choices "personal-workstation" "personal-devbox" "workstation" "devbox" "assistant"
+  choices "personal-workstation" "personal-devbox" "workstation" "devbox"
 }
 '''
 run = './scripts/bootstrap/apply-dotfiles.ts --profile "$usage_profile" --dry-run --verbose'

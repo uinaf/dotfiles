@@ -4,243 +4,361 @@
     {
       "id": "static",
       "domain": "static",
-      "command": ["node", "scripts/verify/static.ts"],
+      "command": [
+        "node",
+        "scripts/verify/static.ts"
+      ],
       "output": "Syntax, lint, workflow, entrypoint, and Git diff hygiene"
     },
     {
       "id": "mise-tasks",
       "domain": "static",
-      "command": ["node", "--test", "scripts/verify/mise-tasks.test.ts"],
+      "command": [
+        "node",
+        "--test",
+        "scripts/verify/mise-tasks.test.ts"
+      ],
       "output": "Validated task graph, typed arguments, routing, and failure propagation"
     },
     {
       "id": "typecheck",
       "domain": "static",
-      "command": ["corepack", "pnpm", "typecheck"],
+      "command": [
+        "corepack",
+        "pnpm",
+        "typecheck"
+      ],
       "output": "Strict TypeScript and Effect service contracts"
     },
     {
       "id": "vendor-neutral",
       "domain": "static",
-      "command": ["scripts/verify/vendor-neutral.ts"],
+      "command": [
+        "scripts/verify/vendor-neutral.ts"
+      ],
       "output": "Portable public interfaces"
     },
     {
       "id": "dotfiles",
       "domain": "config",
       "scope": "complete",
-      "command": ["node", "scripts/verify/home-fixture.ts"],
+      "command": [
+        "node",
+        "scripts/verify/home-fixture.ts"
+      ],
       "output": "All profiles apply in isolated disposable homes"
     },
     {
       "id": "claude-settings",
       "domain": "config",
-      "command": ["node", "scripts/verify/claude-settings.ts"],
+      "command": [
+        "node",
+        "scripts/verify/claude-settings.ts"
+      ],
       "output": "Claude user settings preserve unrelated keys and select Fable 5.1 at medium effort"
     },
     {
       "id": "cursor-settings",
       "domain": "config",
-      "command": ["node", "scripts/verify/cursor-settings.ts"],
+      "command": [
+        "node",
+        "scripts/verify/cursor-settings.ts"
+      ],
       "output": "Cursor user settings preserve unrelated keys and select profile-aware Grok defaults"
     },
     {
       "id": "codex-settings",
       "domain": "config",
-      "command": ["node", "--test", "scripts/bootstrap/configure-codex.test.ts"],
+      "command": [
+        "node",
+        "--test",
+        "scripts/bootstrap/configure-codex.test.ts"
+      ],
       "output": "Codex typed atomic edits plus native write integration when Codex is installed"
     },
     {
       "id": "llm-gateway",
       "domain": "config",
-      "command": ["node", "--test", "scripts/bootstrap/configure-llm-gateway.test.ts", "scripts/bootstrap/configure-llm-gateway-grok.test.ts"],
+      "command": [
+        "node",
+        "--test",
+        "scripts/bootstrap/configure-llm-gateway.test.ts",
+        "scripts/bootstrap/configure-llm-gateway-grok.test.ts"
+      ],
       "output": "Opt-in Codex and Claude gateway routing, Cursor API-key isolation, check, and exact rollback"
     },
     {
       "id": "bifrost-clients",
       "domain": "config",
-      "command": ["node", "--test", "scripts/bootstrap/configure-bifrost-clients.test.ts"],
+      "command": [
+        "node",
+        "--test",
+        "scripts/bootstrap/configure-bifrost-clients.test.ts"
+      ],
       "output": "OpenCode and Pi Bifrost credential and six-model catalog convergence"
     },
     {
       "id": "agent-rule-sources",
       "domain": "agents",
-      "command": ["node", "--test", "scripts/agents/rules.test.ts"],
+      "command": [
+        "node",
+        "--test",
+        "scripts/agents/rules.test.ts"
+      ],
       "output": "Ordered remote rule validation, atomic machine-local cache updates, and offline fallback"
     },
     {
       "id": "agent-rules",
       "domain": "agents",
-      "command": ["node", "--test", "scripts/verify/agent-rules.test.ts", "scripts/verify/agent-rules-conflicts.test.ts", "scripts/verify/agent-rules-safety.test.ts"],
+      "command": [
+        "node",
+        "--test",
+        "scripts/verify/agent-rules.test.ts",
+        "scripts/verify/agent-rules-conflicts.test.ts",
+        "scripts/verify/agent-rules-safety.test.ts"
+      ],
       "output": "Global agent rules, local Markdown and symlinks, permissions, links, conflicts, and explicit apply behavior"
     },
     {
       "id": "agent-worktree-trust",
       "domain": "agents",
-      "command": ["node", "--test", "scripts/bootstrap/trust-agent-worktrees.test.ts"],
+      "command": [
+        "node",
+        "--test",
+        "scripts/bootstrap/trust-agent-worktrees.test.ts"
+      ],
       "output": "Bounded generated-worktree mise config discovery and trust"
     },
     {
       "id": "profiles",
       "domain": "profiles",
-      "command": ["scripts/verify/profiles.ts"],
+      "command": [
+        "scripts/verify/profiles.ts"
+      ],
       "output": "Profile package, install, and managed-path contracts"
     },
     {
       "id": "operator-command",
       "domain": "profiles",
-      "command": ["node", "--test", "scripts/verify/dotfiles.test.ts"],
+      "command": [
+        "node",
+        "--test",
+        "scripts/verify/dotfiles.test.ts"
+      ],
       "output": "Validated operator routing for every profile"
     },
     {
       "id": "profile-model",
       "domain": "profiles",
-      "command": ["node", "--test", "scripts/profiles/model.test.ts"],
+      "command": [
+        "node",
+        "--test",
+        "scripts/profiles/model.test.ts"
+      ],
       "output": "Strict profile model parsing and chezmoi consumption"
     },
     {
       "id": "brew-devbox",
       "domain": "profiles",
-      "command": ["scripts/verify/brew-devbox.ts"],
+      "command": [
+        "scripts/verify/brew-devbox.ts"
+      ],
       "output": "Devbox Homebrew behavior"
     },
     {
       "id": "external-homebrew",
       "domain": "profiles",
-      "command": ["scripts/verify/external-homebrew.ts"],
+      "command": [
+        "scripts/verify/external-homebrew.ts"
+      ],
       "output": "External Homebrew capability boundary"
     },
     {
       "id": "chrome-state",
       "domain": "profiles",
-      "command": ["node", "--test", "scripts/bootstrap/chrome-state.test.ts"],
+      "command": [
+        "node",
+        "--test",
+        "scripts/bootstrap/chrome-state.test.ts"
+      ],
       "output": "Atomic Chrome Local State updates and malformed-input preservation"
     },
     {
       "id": "mise-path",
       "domain": "profiles",
-      "command": ["scripts/verify/mise-path-isolation.ts"],
+      "command": [
+        "scripts/verify/mise-path-isolation.ts"
+      ],
       "output": "Mise runtime path isolation"
     },
     {
       "id": "sops-age",
       "domain": "identity",
-      "command": ["scripts/verify/sops-age-identity.ts"],
+      "command": [
+        "scripts/verify/sops-age-identity.ts"
+      ],
       "output": "SOPS age identity boundary"
     },
     {
       "id": "sops-sudo",
       "domain": "identity",
-      "command": ["scripts/verify/sops-devbox-sudo.ts"],
+      "command": [
+        "scripts/verify/sops-devbox-sudo.ts"
+      ],
       "output": "SOPS-backed sudo boundary"
     },
     {
       "id": "git-bootstrap",
       "domain": "identity",
-      "command": ["scripts/verify/configure-git.ts"],
+      "command": [
+        "scripts/verify/configure-git.ts"
+      ],
       "output": "Git identity and signing behavior"
     },
     {
       "id": "service-labels",
       "domain": "services",
-      "command": ["scripts/verify/service-labels.ts"],
+      "command": [
+        "scripts/verify/service-labels.ts"
+      ],
       "output": "Launchd service labels"
     },
     {
       "id": "t3-devbox-sync",
       "domain": "services",
-      "command": ["node", "--test", "scripts/bootstrap/sync-devbox-t3-server.test.ts"],
+      "command": [
+        "node",
+        "--test",
+        "scripts/bootstrap/sync-devbox-t3-server.test.ts"
+      ],
       "output": "Host-only T3 Code target, version parsing, and remote source bundle"
     },
     {
       "id": "t3-server-version",
       "domain": "services",
-      "command": ["node", "--test", "scripts/verify/t3-server-version.test.ts"],
+      "command": [
+        "node",
+        "--test",
+        "scripts/verify/t3-server-version.test.ts"
+      ],
       "output": "Read-only workstation and remote T3 Code version, service, and health comparison"
     },
     {
       "id": "maintenance-check",
       "domain": "services",
-      "command": ["node", "--test", "scripts/maintenance/check.test.ts", "scripts/maintenance/macos-updates.test.ts"],
+      "command": [
+        "node",
+        "--test",
+        "scripts/maintenance/check.test.ts",
+        "scripts/maintenance/macos-updates.test.ts"
+      ],
       "output": "Concurrent typed maintenance inventory, freshness, and update applicability"
     },
     {
       "id": "audit-adapters",
       "domain": "audit",
-      "command": ["node", "--test", "scripts/audit/adapters.test.ts"],
+      "command": [
+        "node",
+        "--test",
+        "scripts/audit/adapters.test.ts"
+      ],
       "output": "Typed Lynis, repository scanner, and mSCP adapters"
     },
     {
       "id": "audit-data",
       "domain": "audit",
-      "command": ["node", "--test", "scripts/audit/data.test.ts"],
+      "command": [
+        "node",
+        "--test",
+        "scripts/audit/data.test.ts"
+      ],
       "output": "Typed SQLite header and sanitized Gitleaks report handling"
     },
     {
       "id": "audit-engine",
       "domain": "audit",
-      "command": ["node", "--test", "scripts/audit/engine.test.ts", "scripts/audit/devbox.test.ts"],
+      "command": [
+        "node",
+        "--test",
+        "scripts/audit/engine.test.ts",
+        "scripts/audit/devbox.test.ts"
+      ],
       "output": "Typed audit policy execution and workstation/devbox boundaries"
     },
     {
       "id": "agent-sync",
       "domain": "agents",
-      "command": ["node", "--test", "scripts/agents/sync.test.ts"],
+      "command": [
+        "node",
+        "--test",
+        "scripts/agents/sync.test.ts"
+      ],
       "output": "External agent skill installation and ownership"
     },
     {
       "id": "agent-plugins",
       "domain": "agents",
-      "command": ["node", "--test", "scripts/agents/plugins.test.ts"],
+      "command": [
+        "node",
+        "--test",
+        "scripts/agents/plugins.test.ts"
+      ],
       "output": "Declarative coding-agent plugin marketplaces and per-harness install planning"
     },
     {
       "id": "agent-mcps",
       "domain": "agents",
-      "command": ["node", "--test", "scripts/agents/mcps.test.ts"],
+      "command": [
+        "node",
+        "--test",
+        "scripts/agents/mcps.test.ts"
+      ],
       "output": "Declarative MCP server convergence across coding-agent harnesses"
     },
     {
       "id": "gh-extensions",
       "domain": "agents",
-      "command": ["scripts/verify/gh-extensions.ts"],
+      "command": [
+        "scripts/verify/gh-extensions.ts"
+      ],
       "output": "GitHub CLI extension installation"
-    },
-    {
-      "id": "gh-app-auth",
-      "domain": "agents",
-      "command": ["scripts/verify/gh-app-auth.ts"],
-      "output": "GitHub App authentication helper"
-    },
-    {
-      "id": "assistant-gh-app",
-      "domain": "agents",
-      "command": ["scripts/verify/configure-assistant-github-app.ts"],
-      "output": "Assistant GitHub App configuration"
     },
     {
       "id": "zsh-prompt",
       "domain": "config",
-      "command": ["scripts/verify/zsh-prompt.ts"],
+      "command": [
+        "scripts/verify/zsh-prompt.ts"
+      ],
       "output": "Managed zsh login PATH and prompt behavior"
     },
     {
       "id": "zshenv-overlay",
       "domain": "config",
-      "command": ["scripts/verify/zshenv.ts"],
+      "command": [
+        "scripts/verify/zshenv.ts"
+      ],
       "output": "Managed zshenv sources an optional machine-local overlay"
     },
     {
       "id": "pre-push",
       "domain": "git",
-      "command": ["node", "--test", "scripts/verify/pre-push.test.ts", "scripts/verify/pre-push-installer.test.ts"],
+      "command": [
+        "node",
+        "--test",
+        "scripts/verify/pre-push.test.ts",
+        "scripts/verify/pre-push-installer.test.ts"
+      ],
       "output": "Outgoing commit hygiene across Git ref update shapes"
     },
     {
       "id": "history-secrets",
       "domain": "security",
       "gate": "history",
-      "command": ["node", "scripts/audit/repo.ts", "--skip-mscp"],
+      "command": [
+        "node",
+        "scripts/audit/repo.ts",
+        "--skip-mscp"
+      ],
       "output": "Fail-closed full-history secret scan"
     }
   ]

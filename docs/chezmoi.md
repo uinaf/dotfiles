@@ -35,9 +35,6 @@ Profile differences:
 - Personal-workstation and workstation manage Ghostty and Zed settings.
 - All four developer profiles share GitHub authentication, outbound SSH,
   signing-helper, and allowed-signers sources.
-- The assistant profile renders a minimal Git base with a local
-  workload-identity include and excludes those developer surfaces. Only
-  assistant includes the optional GitHub App helper.
 
 Claude Code user settings:
 

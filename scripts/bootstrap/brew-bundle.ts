@@ -22,7 +22,7 @@ import { readProfileModelEffect, requireProfile } from "../profiles/model.ts";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const usage = `Usage:
-  scripts/bootstrap/brew-bundle.ts workstation|devbox|personal-workstation|personal-devbox|assistant
+  scripts/bootstrap/brew-bundle.ts workstation|devbox|personal-workstation|personal-devbox
   scripts/bootstrap/brew-bundle.ts --shared-only PROFILE
   scripts/bootstrap/brew-bundle.ts --print-files PROFILE
   scripts/bootstrap/brew-bundle.ts --cleanup PROFILE

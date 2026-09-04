@@ -821,7 +821,7 @@ test("collapses an identical plugin selected by more than one layer", () => {
 
 test("refuses profiles without agent setup before touching a harness", () => {
   const { repoDir, home } = createFixture();
-  const runtime = new FixtureRuntime(repoDir, home, { profile: "assistant" });
+  const runtime = new FixtureRuntime(repoDir, home, { profile: "unsupported" });
 
   assert.equal(main([], runtime), 1);
   assert.match(runtime.stderr.value, /Plugin sync failed: Profile resolution failed/);

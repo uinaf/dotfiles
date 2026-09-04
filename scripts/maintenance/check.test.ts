@@ -10,13 +10,11 @@ import type { MacOSUpdateIO } from "./macos-updates.ts";
 const profileConfig = {
   capabilities: {
     developer: true,
-    workload: false,
     sharedHomebrew: false,
     requiresSopsIdentity: false,
     devbox: false,
     workstation: true,
     personal: false,
-    githubAppAuth: false,
   },
   brewfiles: ["Brewfile"],
   runtimeGroup: "developer",

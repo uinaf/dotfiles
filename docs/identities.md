@@ -5,8 +5,8 @@ to one Unix user on one host. Credentials grant specific capabilities to that
 deployment; a profile only selects software and defaults.
 
 ```text
-Identity: example-assistant
-└── Deployment: example-assistant@example-host
+Identity: example-workload
+└── Deployment: example-workload@example-host
     ├── Unix user
     ├── age identity
     ├── optional SSH identity
@@ -20,22 +20,20 @@ provider credentials must remain independently replaceable.
 
 ## Capability Policy
 
-| Capability | Workstation | Devbox | Assistant | Service |
-| --- | --- | --- | --- | --- |
-| Age identity | optional until secrets are consumed | required | required | required |
-| SSH private identity | required | required | only for required outbound SSH | workload-owned only |
-| GitHub App | optional | optional | preferred for repository access | workload-owned only |
-| Human GitHub login | expected | allowed unless App-based | forbidden | forbidden |
-| Git signing identity | required | required | disabled | disabled |
-| Git authorship metadata | required | required | required | required |
-| Provider credentials | identity-scoped | identity-scoped | identity-scoped | workload-scoped |
+| Capability | Workstation | Devbox | Service |
+| --- | --- | --- | --- |
+| Age identity | optional until secrets are consumed | required | required |
+| SSH private identity | required | required | workload-owned only |
+| GitHub App | optional | optional | workload-owned only |
+| Human GitHub login | expected | allowed unless App-based | forbidden |
+| Git signing identity | required | required | disabled |
+| Git authorship metadata | required | required | required |
+| Provider credentials | identity-scoped | identity-scoped | workload-scoped |
 
 - Personal uses the workstation identity policy; personal-devbox uses the
   devbox identity policy.
 - Inbound SSH does not require the workload to own a private SSH key. Put an
   administrator's public key in the target user's `authorized_keys`.
-- Provision a private SSH identity for an assistant only when the assistant must
-  initiate an SSH connection.
 
 ## Developer Git and SSH
 
@@ -76,25 +74,12 @@ GIT_SSH_IDENTITY_FILE="$HOME/.ssh/developer_ed25519" \
 - Move aside an unmanaged `~/.ssh/github.config` or any other
   `Host github.com` block before running the configurator.
 
-## Workload Git Authorship
-
-The assistant profile writes unsigned workload authorship to
-`~/.gitconfig.local`. This metadata is not authentication; repository access
-may use the scoped GitHub App flow below.
-
-```sh
-GIT_USER_NAME='Workload Name' \
-GIT_USER_EMAIL='workload@example.invalid' \
-  ./scripts/bootstrap/configure-git.ts --profile assistant --non-interactive
-./scripts/verify/workload-git-boundary.ts --profile assistant
-```
-
 ## SOPS Age Identity
 
 Age calls the private decryption key an **identity** and its derived public
 encryption address a **recipient**.
 
-- Secret-consuming deployments (`personal-devbox`, `devbox`, `assistant`, and
+- Secret-consuming deployments (`personal-devbox`, `devbox`, and
   vault or sudo consumers) require one general SOPS age identity per managed
   Unix user.
 - Portable `workstation` and `personal-workstation` profiles keep the SOPS CLI
@@ -151,61 +136,6 @@ recipient:
 Repository membership alone never grants decryption. Git access controls who
 can fetch ciphertext; the recipient policy controls which age identities can
 decrypt it.
-
-## Assistant GitHub App
-
-Assistants use one workload-owned GitHub App instead of a human GitHub account,
-PAT, or SSH identity. Restore its private key to the canonical owner-only path:
-
-```text
-~/.config/gh/extensions/gh-app-auth/keys/APP_NAME.pem
-```
-
-The key directory must be mode `0700` and the PEM must be owner-only. Configure
-the App from explicit operator-supplied IDs and exact repository patterns:
-
-```sh
-./scripts/bootstrap/configure-assistant-github-app.ts \
-  --name example-app \
-  --app-id APP_ID \
-  --installation-id INSTALLATION_ID \
-  --repo github.com/example/workspace \
-  --repo github.com/example/vault
-```
-
-An existing HTTPS checkout path may replace an exact pattern. Pattern input is
-useful before the first private clone; after cloning, check the real Git path:
-
-```sh
-git clone https://github.com/example/workspace.git ~/projects/example/workspace
-./scripts/bootstrap/configure-assistant-github-app.ts --check \
-  --name example-app \
-  --app-id APP_ID \
-  --installation-id INSTALLATION_ID \
-  --repo ~/projects/example/workspace \
-  --repo github.com/example/vault
-```
-
-- The command writes `~/.config/dotfiles/github-app.gitconfig` with mode
-  `0600`.
-- The assistant profile includes it globally, resets inherited GitHub credential
-  helpers, enables path-aware matching, and delegates directly to
-  `gh-app-auth`.
-- Exact patterns remain in the App configuration, so a token is minted only on
-  demand for a selected repository.
-- Nothing is cached and there is no retained `gh auth` login.
-
-For GitHub CLI or API commands, select the repository explicitly:
-
-```sh
-gh app-auth exec --repo github.com/example/workspace -- gh repo view
-```
-
-- Run the configurator once per App scope change; use `--check` for routine
-  verification.
-- Do not use `gh app-auth gitconfig`: its generated URL sections can collapse
-  multiple exact repositories under the same organization. The dotfiles-owned
-  path-aware helper avoids that ambiguity.
 
 ## Back Up and Verify Recovery
 

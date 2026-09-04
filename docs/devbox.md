@@ -5,7 +5,7 @@ secrets or identities part of the public dotfiles repository.
 
 - Personal-devbox uses the devbox operational contract with headless personal
   tools and skills.
-- The assistant profile reuses the same Unix-user and service boundaries without
+- Unattended runtimes reuse the same Unix-user and service boundaries without
   inheriting the coding toolchain or a human Git identity.
 
 Credentials and lifecycle live in [Identity provisioning](identities.md).
@@ -103,7 +103,6 @@ gateway and run Cursor Agent with an identity-owned API key.
   file. Personal profiles require that file and apply the gateway during normal
   setup.
 - Personal setup retires saved vendor sessions automatically and idempotently.
-- It does not change the assistant profile.
 - It stores no secrets in shell startup, Codex configuration, or Claude
   settings. Resolved credentials live only in the owner-only local gateway
   configuration and client-native owner-only stores.

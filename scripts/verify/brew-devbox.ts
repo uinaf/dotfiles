@@ -67,16 +67,12 @@ exit "\${FAKE_BREW_EXIT:-0}"
   const personal = yield* bundle("personal-devbox");
   assert.equal((personal.match(/^arg=bundle$/gm) || []).length, 4);
   for (const file of ["Brewfile", "Brewfile.developer", "Brewfile.devbox", "Brewfile.personal"]) assert.ok(personal.includes(`arg=${join(repoRoot, file)}`));
-  const assistant = yield* bundle("assistant");
-  assert.equal((assistant.match(/^arg=bundle$/gm) || []).length, 2);
-  assert.equal(assistant.includes(`arg=${join(repoRoot, "Brewfile.developer")}`), false);
   const shared = yield* bundle("devbox", ["--shared-only"]);
   assert.equal((shared.match(/^arg=bundle$/gm) || []).length, 1);
   const cleanup = yield* bundle("devbox", ["--cleanup"]);
   assert.match(cleanup, /^arg=cleanup$/m);
   assert.match(cleanup, /^arg=--force$/m);
   assert.match(cleanup, /^cleanup_entry=brew "pi-coding-agent"$/m);
-  assert.match(cleanup, /^cleanup_entry=brew "yt-dlp"$/m);
   assert.equal((yield* fs.glob("Brewfile.composed.*", { root: repoRoot })).length, 0);
   assert.equal((yield* execute("scripts/bootstrap/brew-bundle.ts", ["--cleanup", "--shared-only", "devbox"], directLog)).status, 2);
   assert.equal((yield* execute("scripts/bootstrap/brew-bundle.ts", ["--shared-only"], directLog)).status, 2);

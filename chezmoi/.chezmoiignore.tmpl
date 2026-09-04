@@ -8,14 +8,3 @@ Library/Application Support/com.mitchellh.ghostty
 .local/libexec/dotfiles/disk-cleanup
 Library/LaunchAgents/local.dotfiles.disk-cleanup.plist
 {{ end }}
-{{ if $profile.capabilities.workload }}
-AGENTS.md
-.agents
-.claude
-.codex
-.cursor
-.config/1Password/ssh
-.config/git
-.local/libexec/dotfiles/git-ssh-sign-agentless
-.ssh
-{{ end }}

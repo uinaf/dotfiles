@@ -19,7 +19,7 @@ const usage = `Usage:
   scripts/bootstrap/apply-dotfiles.ts [--profile PROFILE] [--dry-run] [--verbose]
 
 Applies the repo-local chezmoi source state for personal-workstation, personal-devbox,
-workstation, devbox, or assistant to $HOME. When --profile is omitted, the stored profile is used,
+workstation, or devbox to $HOME. When --profile is omitted, the stored profile is used,
 followed by DOTFILES_PROFILE for first-time setup.`;
 
 const Arguments = Schema.Struct({
@@ -205,7 +205,7 @@ const program = Effect.gen(function*() {
   const profile = yield* resolveProfile(args.profile).pipe(
     Effect.mapError(() => new CliFailure({
       exitCode: 2,
-      message: "a supported profile is required: personal-workstation, personal-devbox, workstation, devbox, or assistant",
+      message: "a supported profile is required: personal-workstation, personal-devbox, workstation, or devbox",
     })),
   );
   const model = yield* readProfileModelEffect(join(sourceDir, ".chezmoidata/profiles.json"));
