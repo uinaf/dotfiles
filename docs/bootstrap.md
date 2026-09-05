@@ -270,7 +270,12 @@ mise run audit workstation
 ```
 
 `maintenance:check` emits a versioned, read-only JSON snapshot and runs
-independent inventory probes concurrently. The Homebrew probe explicitly runs
+independent inventory probes concurrently. Finite probe deadlines send TERM to
+only the direct child, escalate to KILL after 200 ms, then stop draining output
+after another 200 ms if inherited pipes remain open. Descendants are not
+explicitly signaled; closing inherited pipes can still cause EPIPE or SIGPIPE. Collected output and the direct child's observed exit status are
+preserved, and a deadline remains a timeout even if TERM causes a successful
+exit. The Homebrew probe explicitly runs
 `brew update` before its greedy backlog inventory and reports an incomplete
 snapshot when the refresh fails. Its macOS update inventory reports:
 

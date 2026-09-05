@@ -32,9 +32,13 @@ test("verification reports completed checks before a stalled child and cleans it
   try {
     const started = Date.now();
     const result = await Effect.runPromise(runChecks([
-      { id: "quick", domain: "static", command: [process.execPath, "-e", "setTimeout(() => process.exit(7), 200)"], output: "failure" },
+      { id: "quick", domain: "static", command: [process.execPath, "-e", `
+        const fs = require('node:fs');
+        setInterval(() => { if (fs.existsSync(${JSON.stringify(pidFile)})) process.exit(7); }, 20);
+        setTimeout(() => process.exit(8), 9000);
+      `], output: "failure" },
       { id: "success", domain: "static", command: [process.execPath, "-e", ""], output: "success" },
-      { id: "stalled", domain: "static", command: [process.execPath, "-e", `require('node:fs').writeFileSync(${JSON.stringify(pidFile)}, String(process.pid)); process.stdout.write('progress before stall\\n'); process.stderr.write('warning before stall\\n'); setInterval(() => {}, 1000)`], output: "timeout" },
+      { id: "stalled", domain: "static", command: [process.execPath, "-e", `require('node:fs').writeFileSync(${JSON.stringify(pidFile)}, String(process.pid)); process.stdout.write('progress before stall\\n'); process.stderr.write('warning before stall\\n'); setTimeout(() => process.exit(8), 9000)`], output: "timeout" },
     ], 1500).pipe(Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer)));
     assert.equal(result, false);
     assert.equal(failedBeforeTermination, true);

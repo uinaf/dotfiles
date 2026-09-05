@@ -1,0 +1,11 @@
+rules:
+  unpinned-uses:
+    config:
+      policies:
+        # First-party scanner updates are maintained centrally.
+        "uinaf/.github/*": ref-pin
+        "*": hash-pin
+  dependabot-cooldown:
+    config:
+      # Match the existing one-day cooldown for monthly Actions updates.
+      days: 1

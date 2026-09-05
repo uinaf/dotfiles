@@ -46,7 +46,9 @@ a later push cannot interrupt an in-progress release.
 
 ## Maintenance
 
-- Dependabot tracks GitHub Actions monthly.
-- Keep Actions and semantic-release plugins pinned.
+- Dependabot tracks GitHub Actions monthly with a one-day cooldown.
+- Keep third-party Actions and semantic-release plugins hash/version pinned.
+  The first-party shared scanner tracks `main` for centrally maintained updates;
+  `.github/zizmor.yml` enforces this exception and the one-day cooldown.
 - Keep `.releaserc.json` aligned with the table above.
 - Verify workflow changes on GitHub before closing them.

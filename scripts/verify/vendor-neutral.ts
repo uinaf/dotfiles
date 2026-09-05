@@ -34,6 +34,7 @@ function allowed(file: string, content: string): boolean {
         "dev@uinaf.dev",
         "Copyright (c) 2026 uinaf",
       ]);
+    case ".github/zizmor.yml":
     case ".github/workflows/secrets.yml":
     case "docs/github-pipelines.md":
       return content.includes("uinaf/.github");
