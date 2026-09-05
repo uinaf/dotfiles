@@ -20,6 +20,7 @@ export type CommandOptions = {
   readonly extendEnv?: boolean;
   readonly stdin?: "ignore" | "inherit";
   readonly output?: "capture" | "inherit" | "ignore";
+  readonly timeoutMs?: number;
 };
 
 function decode(chunks: readonly Uint8Array[]): string {
@@ -44,6 +45,8 @@ export class CommandRunner extends Context.Service<CommandRunner, {
         options: CommandOptions = {},
       ) {
         const output = options.output ?? "capture";
+        const stdout: Uint8Array[] = [];
+        const stderr: Uint8Array[] = [];
         const execution = Effect.gen(function*() {
           const handle = yield* spawner.spawn(
             ChildProcess.make(command, args, {
@@ -58,14 +61,22 @@ export class CommandRunner extends Context.Service<CommandRunner, {
           if (output !== "capture") {
             return { status: Number(yield* handle.exitCode), stderr: "", stdout: "" };
           }
-          const stdoutFiber = yield* Stream.runCollect(handle.stdout).pipe(Effect.forkScoped);
-          const stderrFiber = yield* Stream.runCollect(handle.stderr).pipe(Effect.forkScoped);
+          const stdoutFiber = yield* Stream.runForEach(handle.stdout, (chunk) => Effect.sync(() => { stdout.push(chunk); })).pipe(Effect.forkScoped);
+          const stderrFiber = yield* Stream.runForEach(handle.stderr, (chunk) => Effect.sync(() => { stderr.push(chunk); })).pipe(Effect.forkScoped);
           const status = Number(yield* handle.exitCode);
-          const [stdout, stderr] = yield* Effect.all([Fiber.join(stdoutFiber), Fiber.join(stderrFiber)]);
+          yield* Effect.all([Fiber.join(stdoutFiber), Fiber.join(stderrFiber)]);
           return { status, stderr: decode(stderr), stdout: decode(stdout) };
         }).pipe(Effect.scoped);
 
-        return yield* execution.pipe(
+        const bounded = options.timeoutMs === undefined ? execution : execution.pipe(
+          Effect.timeout(options.timeoutMs),
+          Effect.catchTag("TimeoutError", () => Effect.succeed({
+            status: 124,
+            stderr: `${decode(stderr)}\ncommand timed out after ${options.timeoutMs}ms\n`,
+            stdout: decode(stdout),
+          })),
+        );
+        return yield* bounded.pipe(
           Effect.mapError((error) => new CommandError({ command, message: String(error) })),
         );
       });

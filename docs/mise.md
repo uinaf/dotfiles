@@ -46,10 +46,12 @@ mise run verify               # deterministic graph plus history scan
   [verification registry](../scripts/verify/checks.json). Checks marked
   `complete only` cover cross-domain parity and stay out of focused runs.
 - Each check reports as soon as it finishes and has a five-minute timeout;
-  timeout cancels its scoped child process and fails the gate.
+  timeout cancels its scoped child process, preserves collected output, and
+  fails the gate.
 - The complete task depends on `verify:fast` and the hidden history scan; mise
   runs those independent dependencies in parallel.
-- CI always runs the complete deterministic graph.
+- Pull request and manual CI checks run the complete deterministic graph.
+  Direct pushes require `mise run verify` locally; release jobs do not run checks.
 
 ## Task Namespaces
 

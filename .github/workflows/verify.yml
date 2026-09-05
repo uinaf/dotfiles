@@ -12,8 +12,8 @@ permissions: {}
 jobs:
   repository:
     name: Repository checks
-    # No push run: the pull request already verified the same tree on this
-    # macOS runner, which stays Darwin-only because static.ts needs plutil.
+    # PR/manual checks use macOS because static.ts needs plutil. Direct pushes
+    # require mise run verify locally; a green release job does not prove tests.
     if: ${{ github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' }}
     runs-on: blacksmith-6vcpu-macos-latest
     timeout-minutes: 20

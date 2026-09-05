@@ -117,9 +117,7 @@ const runCheck = Effect.fn("runCheck")(function*(check: Check, timeoutMs = 300_0
   const started = yield* Clock.currentTimeMillis;
   const runner = yield* CommandRunner;
   const [command, ...args] = check.command;
-  const execution = runner.run(command, args, { cwd: repoRoot, env: { NO_COLOR: "1" } }).pipe(
-    Effect.timeout(timeoutMs),
-    Effect.catchTag("TimeoutError", () => Effect.succeed({ status: 1, stderr: `check timed out after ${timeoutMs}ms\n`, stdout: "" })),
+  const execution = runner.run(command, args, { cwd: repoRoot, env: { NO_COLOR: "1" }, timeoutMs }).pipe(
     Effect.map(({ status, stderr, stdout }) => ({ output: `${stdout}${stderr}`, status })),
     Effect.catch((error) => Effect.succeed({ output: `${error.message}\n`, status: 1 })),
   );

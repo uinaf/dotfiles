@@ -38,8 +38,9 @@ mise run verify
 ```
 
 - `verify:fast` runs every deterministic check in parallel; CI runs the same
-  graph.
-- `verify` also runs the local full-history secret scan.
+  graph on pull requests and manual dispatch.
+- `verify` also runs the local full-history secret scan. Run it before direct
+  pushes; push workflows only evaluate releases and do not verify the tree.
 - Live bootstrap checks inspect the active home directory. Run them only when the
   current machine should satisfy that profile.
 
@@ -50,8 +51,8 @@ Optionally install the commit-hygiene pre-push hook:
 ```
 
 It checks only outgoing commit objects for whitespace and conflict-marker
-errors and can be bypassed with `git push --no-verify`; CI is the enforcement
-boundary.
+errors. It does not replace verification; pull requests use CI, while direct
+pushes require the full local gate.
 
 ## Change the Owning Surface
 
