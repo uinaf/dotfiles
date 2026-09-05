@@ -79,7 +79,6 @@ Run live checks only on a machine that should satisfy the selected profile:
 ./scripts/verify/bootstrap.ts --profile personal-workstation
 ./scripts/verify/bootstrap.ts --profile personal-devbox
 ./scripts/verify/bootstrap.ts --profile devbox
-./scripts/verify/bootstrap.ts --profile devbox
 ./scripts/verify/devbox-services.ts
 mise run audit workstation
 mise run audit devbox

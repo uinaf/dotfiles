@@ -100,9 +100,9 @@ When maintaining the shared rules:
 - State each behavior once. Remove repeated reminders and examples when a
   shorter instruction produces the same result.
 - Escalate a rule only after sessions observably violate it: replace
-  self-graded adjectives with numeric limits, name the anti-pattern, or keep
-  at most one before/after exemplar. Remove the escalation when it stops
-  paying for itself.
+  self-graded adjectives with the concrete outcome wanted, or keep at most
+  one before/after exemplar. Prefer outcome framing to numeric caps. Remove
+  the escalation when it stops paying for itself.
 - Specify the deliverable, scope, authority, evidence, and completion boundary;
   leave hidden reasoning style to the model and harness.
 - Prefer positive operating instructions over long inventories of unwanted
@@ -276,9 +276,10 @@ applied by this checkout:
   lock until the CLI returns.
 - Add or removal failures leave the lock unchanged.
 
-Executor is not selected for Grok Build 1.0.4. Its pinned `rmcp 2.1.0` rejects
-same-origin MCP paths during OAuth discovery; enable the entry only after Grok
-uses `rmcp 2.2.0` or newer.
+Executor is not selected for Grok while its bundled `rmcp` is older than 2.2.0;
+earlier releases reject same-origin MCP paths during OAuth discovery. Check with
+`strings "$(command -v grok)" | grep -o 'rmcp-[0-9.]*'` before enabling the
+entry.
 
 ## Verify
 
