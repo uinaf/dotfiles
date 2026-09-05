@@ -3,6 +3,7 @@
 import { NodeServices } from "@effect/platform-node";
 import { Clock, Console, Effect, FileSystem, Schema } from "effect";
 import { dirname, resolve } from "node:path";
+import { availableParallelism } from "node:os";
 import { fileURLToPath } from "node:url";
 import { CommandRunner } from "../lib/command.ts";
 import { CliFailure, fail, runMain } from "../lib/program.ts";
@@ -44,7 +45,7 @@ const usageText = `Usage:
   scripts/verify/run.ts [--skip-security] [--domain NAME ...]
   scripts/verify/run.ts --list [--json]
 
-Without --domain, runs every deterministic check in parallel. The full-history
+Without --domain, runs every deterministic check with bounded concurrency. The full-history
 secret scan runs afterwards unless --skip-security is set. A focused domain
 omits complete-only parity checks; request --domain security explicitly for
 secret scans.
@@ -126,7 +127,10 @@ const runCheck = Effect.fn("runCheck")(function*(check: Check, timeoutMs = 300_0
   return { check, durationMs: finished - started, ...result };
 });
 
-export const runChecks = Effect.fn("runChecks")(function*(checks: readonly Check[], timeoutMs = 300_000) {
+// Checks can spawn their own workers; reserve capacity for their children and reporting.
+const checkConcurrency = Math.max(1, Math.min(4, availableParallelism() - 1));
+
+export const runChecks = Effect.fn("runChecks")(function*(checks: readonly Check[], timeoutMs = 300_000, concurrency = checkConcurrency) {
   const results = yield* Effect.forEach(checks, (check) => runCheck(check, timeoutMs).pipe(
     Effect.tap((result) => Effect.gen(function*() {
       const seconds = (result.durationMs / 1000).toFixed(2);
@@ -140,7 +144,7 @@ export const runChecks = Effect.fn("runChecks")(function*(checks: readonly Check
         process.stderr.write(`FAILED: ${result.check.id} exited ${result.status} (${seconds}s)\n`);
       });
     })),
-  ), { concurrency: "unbounded" });
+  ), { concurrency });
   return results.every((result) => result.status === 0);
 });
 
