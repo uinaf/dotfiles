@@ -52,9 +52,10 @@ a later push cannot interrupt an in-progress release.
 
 ## Maintenance
 
-- Dependabot tracks GitHub Actions monthly with a one-day cooldown.
+- Renovate tracks GitHub Actions and mise tools monthly with a seven-day
+  release age through the shared `uinaf/renovate-config` preset.
 - Keep third-party Actions and semantic-release plugins hash/version pinned.
   The first-party shared scanner tracks `main` for centrally maintained updates;
-  `.github/zizmor.yml` enforces this exception and the one-day cooldown.
+  `.github/zizmor.yml` enforces this exception.
 - Keep `.releaserc.json` aligned with the table above.
 - Verify workflow changes on GitHub before closing them.
