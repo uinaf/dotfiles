@@ -3,13 +3,15 @@
 import { NodeServices } from "@effect/platform-node";
 import { Cause, Console, Effect, FileSystem } from "effect";
 import assert from "node:assert/strict";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { CommandRunner, type CommandResult } from "../lib/command.ts";
 import { bundleCheckArgs, profileBrewfiles } from "../lib/homebrew.ts";
 import { fail, runMain } from "../lib/program.ts";
 import { readPersistedProfile, resolveProfile } from "../profiles/current.ts";
 import { readProfileModelEffect, requireProfile } from "../profiles/model.ts";
+
+import { agentRulesCache, runWrapperResult, sharedFixtureRules } from "./agent-rules-fixture.ts";
 
 const repoRoot = resolve(fileURLToPath(new URL("../..", import.meta.url)));
 const modelPath = join(repoRoot, "chezmoi/.chezmoidata/profiles.json");
@@ -104,7 +106,10 @@ const program = Effect.scoped(Effect.gen(function*() {
 
   const appliedHome = join(temporary, "devbox-applied");
   yield* fs.makeDirectory(appliedHome);
-  const applied = yield* run(process.execPath, [join(repoRoot, "scripts/bootstrap/apply-dotfiles.ts"), "--profile", "devbox"], { env: { HOME: appliedHome } });
+  // Profile application exercises rendering, using the same offline rules fixture as agent checks.
+  yield* fs.makeDirectory(dirname(agentRulesCache(appliedHome)), { recursive: true, mode: 0o700 });
+  yield* fs.writeFileString(agentRulesCache(appliedHome), sharedFixtureRules, { mode: 0o600 });
+  const applied = runWrapperResult(appliedHome, "devbox");
   assert.equal(applied.status, 0, applied.stderr);
   assert.equal((yield* fs.readFileString(join(appliedHome, ".config/dotfiles/profile"))).trim(), "devbox");
   for (const rejected of ["Library/Application Support/com.mitchellh.ghostty"]) {
