@@ -377,21 +377,39 @@ export function runProcess(command: string, args: readonly string[], options: { 
     let settled = false;
     let timedOut = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
+    let killTimer: ReturnType<typeof setTimeout> | undefined;
+    let drainTimer: ReturnType<typeof setTimeout> | undefined;
+    let exitStatus: number | null = null;
     const complete = (result: RawCommandResult) => {
       if (settled) return;
       settled = true;
-      if (timer) clearTimeout(timer);
+      clearTimeout(timer);
+      clearTimeout(killTimer);
+      clearTimeout(drainTimer);
+      child.stdout.destroy();
+      child.stderr.destroy();
+      // A timed-out child must not retain the collector if it cannot be reaped yet.
+      if (timedOut) child.unref();
       finish(result);
     };
     if (options.timeoutMs !== null) {
       timer = setTimeout(() => {
         timedOut = true;
+        killTimer = setTimeout(() => {
+          // Own only the direct ChildProcess; descendants may still hold its pipes.
+          // Never signal a saved PID after Node has reaped the direct child.
+          drainTimer = setTimeout(() => {
+            complete({ status: exitStatus ?? 1, stdout: Buffer.concat(stdout).toString(), stderr: Buffer.concat(stderr).toString(), timedOut });
+          }, 200);
+          child.kill("SIGKILL");
+        }, 200);
         child.kill("SIGTERM");
       }, options.timeoutMs);
     }
     child.stdout.on("data", (chunk: Buffer) => stdout.push(chunk));
     child.stderr.on("data", (chunk: Buffer) => stderr.push(chunk));
     child.on("error", (error) => complete({ status: 127, stdout: Buffer.concat(stdout).toString(), stderr: Buffer.concat(stderr).toString(), error, timedOut }));
+    child.on("exit", (status) => { exitStatus = status; });
     child.on("close", (status) => complete({ status: status ?? 1, stdout: Buffer.concat(stdout).toString(), stderr: Buffer.concat(stderr).toString(), timedOut }));
   });
 }
