@@ -244,8 +244,11 @@ What each step does:
   devbox Macs: it disables indexing on mounted volumes without deleting existing
   index data.
 
-Chrome vertical tabs and the disabled Lens education chip are local browser
-preferences. Quit Chrome first, then:
+Chrome Lens is disabled for every profile through `defaults write
+com.google.Chrome` policies (`SearchContentSharingSettings`,
+`LensOverlaySettings`, `LensRegionSearchEnabled`, `LensDesktopNTPSearchEnabled`);
+the old `chrome://flags` override for the "Ask Google" chip expired in Chrome 145.
+Vertical tabs remain a Local State flag. Quit Chrome first, then:
 
 ```zsh
 ./scripts/bootstrap/configure-chrome.ts
