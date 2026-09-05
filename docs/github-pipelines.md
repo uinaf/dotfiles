@@ -10,6 +10,10 @@ creates tag-only GitHub Releases.
 | Verify | Push to `main`, pull request, manual dispatch | Run every deterministic domain in parallel through `./scripts/verify/run.ts --skip-security` on macOS. Pushes to `main` skip this job and run only release evaluation. |
 | Scan | Pull request, weekly schedule, manual dispatch | Call the shared `uinaf/.github` scan workflow: Gitleaks, TruffleHog, Actionlint, and Zizmor against full Git history. |
 
+This public repository uses standard GitHub-hosted runners: `macos-26` for
+native macOS repository checks and `ubuntu-24.04-arm` for release evaluation.
+Both jobs retain ARM64 execution.
+
 CI does not use path filters. Repository checks and secret scans do not run
 on push: pull requests verify and scan before merge, and the weekly schedule
 scans history. Direct pushes require `mise run verify` locally before pushing.
