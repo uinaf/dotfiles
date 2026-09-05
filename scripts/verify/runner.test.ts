@@ -39,7 +39,7 @@ test("verification reports completed checks before a stalled child and cleans it
       `], output: "failure" },
       { id: "success", domain: "static", command: [process.execPath, "-e", ""], output: "success" },
       { id: "stalled", domain: "static", command: [process.execPath, "-e", `require('node:fs').writeFileSync(${JSON.stringify(pidFile)}, String(process.pid)); process.stdout.write('progress before stall\\n'); process.stderr.write('warning before stall\\n'); setTimeout(() => process.exit(8), 9000)`], output: "timeout" },
-    ], 1500).pipe(Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer)));
+    ], 1500, 3).pipe(Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer)));
     assert.equal(result, false);
     assert.equal(failedBeforeTermination, true);
     assert.ok(output.join("").indexOf("FAILED: quick") < output.join("").indexOf("FAILED: stalled"));
@@ -54,4 +54,30 @@ test("verification reports completed checks before a stalled child and cleans it
     process.stderr.write = errorWrite;
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+test("verification bounds active checks and drains queued checks after failure", async () => {
+  let active = 0;
+  let peak = 0;
+  const completed: string[] = [];
+  const runner = CommandRunner.of({
+    run: (command) => Effect.gen(function*() {
+      active += 1;
+      peak = Math.max(peak, active);
+      yield* Effect.yieldNow;
+      active -= 1;
+      completed.push(command);
+      return { status: command === "first" ? 7 : 0, stdout: "", stderr: "" };
+    }),
+  });
+  const checks = ["first", "second", "third", "fourth"].map((id) => ({
+    id, domain: "static", command: [id] as [string], output: id,
+  }));
+  const result = await Effect.runPromise(runChecks(checks, 300_000, 2).pipe(
+    Effect.provideService(CommandRunner, runner),
+  ));
+  assert.equal(result, false);
+  assert.equal(peak, 2);
+  assert.equal(active, 0);
+  assert.deepEqual(completed.sort(), ["first", "fourth", "second", "third"]);
 });

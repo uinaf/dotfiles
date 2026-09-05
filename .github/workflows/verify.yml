@@ -15,7 +15,7 @@ jobs:
     # PR/manual checks use macOS because static.ts needs plutil. Direct pushes
     # require mise run verify locally; a green release job does not prove tests.
     if: ${{ github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' }}
-    runs-on: blacksmith-6vcpu-macos-latest
+    runs-on: macos-26
     timeout-minutes: 20
     permissions:
       contents: read
@@ -49,7 +49,7 @@ jobs:
   release:
     name: GitHub Release
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, '[skip ci]') }}
-    runs-on: blacksmith-2vcpu-ubuntu-2404-arm
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 15
     environment: release
     permissions:
