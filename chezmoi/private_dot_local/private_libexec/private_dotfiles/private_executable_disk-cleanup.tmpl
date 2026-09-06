@@ -1,0 +1,2 @@
+#!/bin/sh
+exec node {{ printf "%s/scripts/maintenance/hygiene.ts" (.chezmoi.sourceDir | dir) | quote }} --apply --scheduled "$@"

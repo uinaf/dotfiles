@@ -1,7 +1,8 @@
 #!/bin/sh
-# Reclaim regenerable developer caches for the current user on a devbox.
+# Reclaim aged developer caches for the current user.
 # Never touches project sources, simulator runtimes, or other users' homes.
 set -u
+failed=0
 cd "$HOME" || exit 1
 
 dry_run=0
@@ -35,13 +36,10 @@ run() {
     log "dry-run: $*"
     return 0
   fi
-  output=$("$@" 2>&1) || log "warning: failed: $* :: $(printf '%s' "$output" | tail -1)"
-}
-
-remove_tree() {
-  [ -e "$1" ] || return 0
-  log "remove $1 ($(du -sk "$1" 2>/dev/null | awk '{ printf "%.1fG", $1 / 1048576 }'))"
-  run rm -rf "$1"
+  if ! "$@" >/dev/null 2>&1; then
+    log "warning: failed: $1"
+    failed=1
+  fi
 }
 
 prune_old_files() {
@@ -50,16 +48,15 @@ prune_old_files() {
   if [ "$dry_run" -eq 1 ]; then
     find "$1" -type f -mtime "+$2" -print 2>/dev/null | wc -l | awk '{ print "  would remove " $1 " files" }'
   else
-    find "$1" -type f -mtime "+$2" -delete 2>/dev/null
-    find "$1" -type d -empty -delete 2>/dev/null
+    find "$1" -type f -mtime "+$2" -delete 2>/dev/null || failed=1
+    find "$1" -type d -empty -delete 2>/dev/null || failed=1
   fi
 }
 
 before=$(used_kb)
 log "start used=$(awk "BEGIN { printf \"%.1fG\", $before / 1048576 }") dry_run=$dry_run"
 
-remove_tree "$HOME/Library/Developer/Xcode/DerivedData"
-remove_tree "$HOME/Library/Developer/Xcode/Archives"
+prune_old_files "$HOME/Library/Developer/Xcode/DerivedData" 30
 prune_old_files "$HOME/Library/Developer/CoreSimulator/Caches" 30
 prune_old_files "$HOME/Library/Logs/CoreSimulator" 14
 prune_old_files "$HOME/.gradle/caches/build-cache-1" 30
@@ -71,24 +68,16 @@ if command -v xcrun >/dev/null 2>&1; then
   log "delete unavailable simulators"
   run xcrun simctl delete unavailable
 fi
-if command -v brew >/dev/null 2>&1; then
-  log "brew cleanup"
-  run brew cleanup --prune=all -s
-fi
 if command -v pnpm >/dev/null 2>&1; then
   log "pnpm store prune"
   run pnpm store prune
 fi
-if command -v npm >/dev/null 2>&1; then
-  log "npm cache clean"
-  run npm cache clean --force
-fi
 if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
-  log "docker prune (stopped containers, dangling images, build cache older than 7 days)"
-  run docker container prune -f
-  run docker image prune -f
+  log "docker build cache older than 7 days"
   run docker builder prune -f --filter until=168h
 fi
 
 after=$(used_kb)
 log "done used=$(awk "BEGIN { printf \"%.1fG\", $after / 1048576 }") freed=$(awk "BEGIN { printf \"%.1fG\", ($before - $after) / 1048576 }")"
+
+exit "$failed"

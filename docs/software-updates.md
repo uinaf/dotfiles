@@ -32,7 +32,7 @@ These are macOS calendar jobs, following
 | Runtime versions and declared packages | Install the versions and packages declared by the updated profile |
 | Managed skills/plugins/MCP setup | Update selected skills/plugins and sync MCP registrations through the profile installer |
 | OS upgrades, reboots, remote services | Separate owners; not enabled by this job |
-| Cleanup | Separate maintenance; this job disables implicit Homebrew install cleanup |
+| Host hygiene | Weekly eligible worktree/branch retirement and aged cache cleanup; implicit Homebrew install cleanup stays disabled |
 
 The job sets `HOMEBREW_NO_UPGRADE_QUIT_CASKS=1` so Homebrew does not quit running
 apps. Vendor installers may still disrupt an app, and running apps may need a
@@ -111,6 +111,57 @@ identity enrollment, macOS updates, remote MCP deployment, and service
 restarts/version changes remain with their explicit owners. Plist changes are
 written to disk; reload an enrolled job with the recovery procedure below to
 activate new launchd settings.
+
+## Host Hygiene
+
+Topgrade's `Host hygiene` command runs `scripts/maintenance/hygiene.ts` under
+this user's existing update job. It runs at most weekly after success; a
+failed inspection retries at the next update. Successfully cleaned caches
+remain on their weekly interval during those retries. It also supports:
+
+```sh
+mise run maintenance:hygiene # preview; refreshes Git refs, deletes nothing
+mise run maintenance:clean   # apply eligible cleanup now
+```
+
+Repository discovery covers owning checkouts at `~/projects/<repo>` and
+`~/projects/<group>/<repo>`, without following symlinks. It fetches each origin
+and reads its current default branch. It never pulls, rebases, or removes an
+owning checkout. Missing checkouts are not cloned by cleanup.
+
+Linked worktrees are eligible only below `~/.t3/worktrees`,
+`~/.codex/worktrees`, or `~/.claude/worktrees`. Their HEAD must already be an
+ancestor of the fetched remote default branch. Cleanup preserves:
+
+- Dirty, detached, locked, missing, and non-canonical worktrees.
+- Paths with an open file or working directory held by this user's processes.
+- Unfinished Git operations and ignored local files, except regenerable
+  `node_modules` directories.
+- Unmerged and squash-merged heads that lack Git ancestry proof.
+- Branches with an existing upstream and conventional long-lived branches
+  (`main`, `master`, `develop`, `dev`, `production`, `staging`, `release/*`).
+
+A candidate must have the same HEAD at two eligible observations at least seven
+days apart. Cleanup refreshes the remote, Git state, locks, and process activity
+again before removal. It uses `git worktree remove` and `git branch -d` without
+force. Branches checked out anywhere and the remote default branch stay; after
+a worktree is removed, its branch begins its own grace period. This is an
+observed grace period, not a record of all activity between runs. Use
+`git worktree lock <path>` to retain a worktree deliberately.
+
+Cache cleanup removes files older than 30 days from Xcode DerivedData,
+simulator caches, Gradle build caches and Go build caches; older simulator,
+Gradle and diagnostic logs; unavailable simulators; unreferenced pnpm store
+entries; and Docker build cache older than seven days when Docker is running.
+Xcode Archives, stopped containers, images, volumes, project sources, and npm
+caches are preserved. Shared Homebrew cleanup remains with its prefix owner.
+
+State lives in owner-only `~/.local/state/dotfiles/hygiene.json`. Runs share
+`hygiene.lock` and report outcomes through the update log and existing failure
+notifications. An interrupted run leaves its lock for inspection; verify no
+cleanup process remains before removing that empty directory. The existing
+weekly devbox LaunchAgent invokes the same locked, weekly-gated entrypoint,
+so it does not repeat a completed cleanup.
 
 ## Notifications And Logs
 

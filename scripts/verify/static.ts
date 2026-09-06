@@ -14,7 +14,7 @@ const agentlessSigner = resolve(
 );
 const diskCleanup = resolve(
   repoRoot,
-  "chezmoi/private_dot_local/private_libexec/private_dotfiles/private_executable_disk-cleanup",
+  "scripts/maintenance/cache-cleanup.sh",
 );
 const ghosttyConfig = resolve(
   repoRoot,

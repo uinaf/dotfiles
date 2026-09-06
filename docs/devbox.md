@@ -328,25 +328,19 @@ with on-demand execution, private logs, and no GUI-login requirement.
 
 ## Disk Cleanup
 
-Devbox profiles ship `~/.local/libexec/dotfiles/disk-cleanup` and a per-user
-LaunchAgent that runs it every Sunday at 04:17 local time with low I/O
-priority. It removes only regenerable state for the current user: Xcode
-DerivedData and Archives, unavailable simulators, simulator and Gradle build
-caches older than 30 days, Homebrew downloads, unreferenced pnpm store
-entries, the npm cache, and Docker build cache older than 7 days when the
-Docker daemon is already running. It never touches project checkouts,
-`node_modules`, simulator runtimes, or other users' homes.
+All profiles ship `~/.local/libexec/dotfiles/disk-cleanup`. The six-hour updater
+runs its underlying [host hygiene command](software-updates.md#host-hygiene)
+when weekly cleanup is due. Devboxes retain their Sunday 04:17 LaunchAgent as
+another entrypoint to the same lock and weekly state; headless execution comes
+from the enrolled update LaunchDaemon.
 
-Load the agent once after applying dotfiles, and preview or run it by hand:
-
-```zsh
-launchctl bootstrap "gui/$(id -u)" ~/Library/LaunchAgents/local.dotfiles.disk-cleanup.plist
-~/.local/libexec/dotfiles/disk-cleanup --dry-run
-launchctl kickstart "gui/$(id -u)/local.dotfiles.disk-cleanup"
-tail ~/Library/Logs/dotfiles/disk-cleanup.log
+```sh
+mise run maintenance:hygiene # preview
+mise run maintenance:clean   # apply after checking the updater is idle
 ```
 
-Re-run `bootstrap` after `bootout` when the plist changes.
+The host hygiene guide defines worktree/branch eligibility, grace periods,
+retained data, cache ages, failure reporting, and interrupted-run recovery.
 
 ## Verification
 
