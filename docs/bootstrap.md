@@ -332,6 +332,20 @@ profile=devbox # use personal-devbox for headless personal tools and skills
 ./scripts/bootstrap/brew-bundle.ts "$profile"
 ```
 
+### Topgrade
+
+Developer profiles install Topgrade and manage `~/.config/topgrade.toml`.
+Preview with `topgrade --dry-run`, then run `topgrade` for an interactive
+maintenance pass. The selected steps update Homebrew formulae and casks,
+GitHub CLI extensions, and managed agent skills through `agents:update`.
+Cask updates include applications with built-in updaters. Failures are
+reported without interactive retries; no automatic cleanup is selected.
+
+Runtime pins, Git repositories, macOS updates, and reboots retain their existing
+owners. Shared devbox profiles omit Topgrade's Homebrew steps: the prefix owner
+must use the wrapper below. Installing this configuration does not schedule
+updates; unattended launchd operation requires separate setup and verification.
+
 Run every other Homebrew mutation on a shared devbox through the repo wrapper:
 
 ```zsh
