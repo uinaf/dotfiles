@@ -120,18 +120,21 @@ failed inspection retries at the next update. Successfully cleaned caches
 remain on their weekly interval during those retries. It also supports:
 
 ```sh
-mise run maintenance:hygiene # preview; refreshes Git refs, deletes nothing
+mise run maintenance:hygiene # preview; checks remote refs, deletes nothing
 mise run maintenance:clean   # apply eligible cleanup now
 ```
 
 Repository discovery covers owning checkouts at `~/projects/<repo>` and
-`~/projects/<group>/<repo>`, without following symlinks. It fetches each origin
-and reads its current default branch. It never pulls, rebases, or removes an
-owning checkout. Missing checkouts are not cloned by cleanup.
+`~/projects/<group>/<repo>`, without following symlinks or treating linked
+checkouts as owning clones. It reads each origin's current default branch and
+commit SHA, then uses the commit graph already on disk. Missing history is
+reported and retained for normal repository sync. Cleanup prunes stale
+origin-tracking refs, but never downloads Git objects, pulls, rebases, or
+removes an owning checkout. Missing checkouts are not cloned by cleanup.
 
 Linked worktrees are eligible only below `~/.t3/worktrees`,
 `~/.codex/worktrees`, or `~/.claude/worktrees`. Their HEAD must already be an
-ancestor of the fetched remote default branch. Cleanup preserves:
+ancestor of the current remote default commit. Cleanup preserves:
 
 - Dirty, detached, locked, missing, and non-canonical worktrees.
 - Paths with an open file or working directory held by this user's processes.

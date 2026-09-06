@@ -116,15 +116,19 @@ test("existing upstreams and long-lived branches stay, changed HEAD restarts the
   } finally { f.cleanup(); }
 });
 
-test("dry-run never deletes, failed remote refresh and activity probes fail closed", () => {
+test("dry-run never deletes, failed remote reads and activity probes fail closed", () => {
   const f = fixture();
   try {
     const first = cleanRepository(f.repo, f.roots, {}, week, true, () => [], runner);
     cleanRepository(f.repo, f.roots, first.candidates, 2 * week, false, () => [], runner);
     assert.ok(existsSync(f.tree));
-    const failed: Runner = (cwd, command, args) => args[0] === "fetch" ? { status: 1, stdout: "" } : runner(cwd, command, args);
+    const failed: Runner = (cwd, command, args) => args[0] === "ls-remote" ? { status: 1, stdout: "" } : runner(cwd, command, args);
     assert.throws(() => cleanRepository(f.repo, f.roots, first.candidates, 2 * week, true, () => [], failed));
     assert.throws(() => openFiles(f.root, () => ({ status: 1, stdout: "" })));
+    assert.ok(existsSync(f.tree));
+    const missing: Runner = (cwd, command, args) => args[0] === "cat-file" ? { status: 1, stdout: "" } : runner(cwd, command, args);
+    const skipped = cleanRepository(f.repo, f.roots, first.candidates, 2 * week, true, () => [], missing);
+    assert.equal(skipped.entries[0]?.result, "remote default history missing locally; retained for normal sync");
     assert.ok(existsSync(f.tree));
   } finally { f.cleanup(); }
 });

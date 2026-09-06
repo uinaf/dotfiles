@@ -22,7 +22,7 @@ type Entry = { target: string; result: string };
 
 const run: Runner = (cwd, command, args) => {
   const result = spawnSync(command, args, {
-    cwd, encoding: "utf8", timeout: command === "git" && args[0] === "fetch" ? 180_000 : 60_000,
+    cwd, encoding: "utf8", timeout: 60_000,
     maxBuffer: 32 * 1024 * 1024,
     env: { ...process.env, GIT_TERMINAL_PROMPT: "0", GIT_SSH_COMMAND: "ssh -o BatchMode=yes" },
     stdio: ["ignore", "pipe", "pipe"],
@@ -84,11 +84,12 @@ export function candidates(repo: string, roots: readonly string[], openPaths: re
   // Observe the remote's current default rather than trusting a stale origin/HEAD.
   const remote = git("ls-remote", "--symref", "origin", "HEAD");
   const defaultBranch = /^ref: refs\/heads\/(.+)\tHEAD$/m.exec(remote)?.[1];
-  if (!defaultBranch) throw new Error("remote default branch unavailable");
-  const target = `refs/remotes/origin/${defaultBranch}`;
-  git("fetch", "--no-tags", "origin", `+refs/heads/${defaultBranch}:${target}`);
+  const target = /^([0-9a-f]{40,64})\tHEAD$/m.exec(remote)?.[1];
+  if (!defaultBranch || !target) throw new Error("remote default branch unavailable");
+  if (runner(repo, "git", ["cat-file", "-e", `${target}^{commit}`]).status !== 0) {
+    return { eligible: [], kept: [{ target: repo, result: "remote default history missing locally; retained for normal sync" }] };
+  }
   git("remote", "prune", "origin");
-  git("rev-parse", "--verify", target);
   const worktrees = parseWorktrees(git("worktree", "list", "--porcelain", "-z"));
   const checkedOut = new Set(worktrees.map(worktree => worktree.branch));
   const eligible: Candidate[] = [];
