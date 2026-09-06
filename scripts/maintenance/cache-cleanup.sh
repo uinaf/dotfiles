@@ -10,7 +10,7 @@ for argument in "$@"; do
   case "$argument" in
     --dry-run) dry_run=1 ;;
     -h|--help)
-      echo "Usage: disk-cleanup [--dry-run]"
+      echo "Usage: cache-cleanup.sh [--dry-run]"
       exit 0
       ;;
     *)
@@ -28,7 +28,7 @@ used_kb() {
 }
 
 log() {
-  printf '%s disk-cleanup %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*"
+  printf '%s cache-cleanup %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*"
 }
 
 run() {

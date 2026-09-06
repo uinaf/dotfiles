@@ -11,14 +11,13 @@ Use chezmoi source attributes instead of literal target filenames:
 | Source | Target |
 | --- | --- |
 | `chezmoi/.chezmoidata/profiles.json` | Versioned template data for profile capabilities and composition |
+| `chezmoi/.chezmoiremove` | Retired targets deleted from `$HOME` on apply, currently the former `disk-cleanup` LaunchAgent and shim; `apply-dotfiles.ts` boots a still-loaded retired agent out first |
 | `chezmoi/dot_zshrc.tmpl` | `~/.zshrc`; all profiles set `EDITOR`/`VISUAL` to `vim` |
 | `chezmoi/dot_gitconfig.tmpl` | `~/.gitconfig` |
 | `chezmoi/private_dot_config/mise/config.toml.tmpl` | `~/.config/mise/config.toml` |
 | `chezmoi/private_dot_config/private_dotfiles/profile.tmpl` | `~/.config/dotfiles/profile` |
 | `chezmoi/private_dot_ssh/private_config` | `~/.ssh/config` |
 | `chezmoi/private_dot_local/private_libexec/private_dotfiles/private_executable_git-ssh-sign-agentless` | `~/.local/libexec/dotfiles/git-ssh-sign-agentless` |
-| `chezmoi/private_dot_local/private_libexec/private_dotfiles/private_executable_disk-cleanup.tmpl` | `~/.local/libexec/dotfiles/disk-cleanup` for weekly host hygiene |
-| `chezmoi/private_Library/LaunchAgents/local.dotfiles.disk-cleanup.plist.tmpl` | `~/Library/LaunchAgents/local.dotfiles.disk-cleanup.plist` weekly cache cleanup for devbox profiles |
 | `chezmoi/private_Library/LaunchAgents/local.dotfiles.software-update.plist.tmpl` | Disabled-by-default six-hour updater; explicit enrollment described in [Software Updates](software-updates.md) |
 | `chezmoi/private_dot_claude/modify_private_settings.json` | Selected values inside `~/.claude/settings.json` for developer profiles |
 | `chezmoi/private_dot_config/zed/private_settings.json` | `~/.config/zed/settings.json` for workstation profiles |

@@ -172,9 +172,9 @@ State lives in owner-only `~/.local/state/dotfiles/hygiene.json`. Runs share
 `hygiene.lock` and report outcomes through the update log and existing failure
 notifications. The lock records its owning process; a lock left by a dead or
 pre-reboot process is reclaimed automatically, and a live or ambiguous owner
-fails the run for inspection. The existing weekly devbox LaunchAgent invokes
-the same locked, weekly-gated entrypoint, so it does not repeat a completed
-cleanup.
+fails the run for inspection. This updater is the only scheduler for hygiene;
+the former weekly devbox `disk-cleanup` LaunchAgent is retired and removed on
+apply.
 
 ## Notifications And Logs
 

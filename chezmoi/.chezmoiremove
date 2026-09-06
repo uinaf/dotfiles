@@ -1,0 +1,4 @@
+# Retired targets removed from every profile on apply. Keep entries until every
+# enrolled host has converged past their retirement.
+Library/LaunchAgents/local.dotfiles.disk-cleanup.plist
+.local/libexec/dotfiles/disk-cleanup

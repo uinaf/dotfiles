@@ -88,7 +88,7 @@
         "--test",
         "scripts/bootstrap/apply-dotfiles.test.ts"
       ],
-      "output": "Preexisting-target backups keep only the most recent copy per target"
+      "output": "Preexisting-target backups keep only the most recent copy per target; retired LaunchAgents are booted out idempotently"
     },
     {
       "id": "claude-settings",

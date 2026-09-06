@@ -328,11 +328,12 @@ with on-demand execution, private logs, and no GUI-login requirement.
 
 ## Disk Cleanup
 
-All profiles ship `~/.local/libexec/dotfiles/disk-cleanup`. The six-hour updater
-runs its underlying [host hygiene command](software-updates.md#host-hygiene)
-when weekly cleanup is due. Devboxes retain their Sunday 04:17 LaunchAgent as
-another entrypoint to the same lock and weekly state; headless execution comes
-from the enrolled update LaunchDaemon.
+The six-hour updater runs the [host hygiene command](software-updates.md#host-hygiene)
+on every profile when weekly cleanup is due; headless execution comes from the
+enrolled update LaunchDaemon. The former Sunday `local.dotfiles.disk-cleanup`
+LaunchAgent and its `~/.local/libexec/dotfiles/disk-cleanup` shim are retired:
+applying dotfiles boots the agent out of the GUI session when it is still
+loaded and removes both files.
 
 ```sh
 mise run maintenance:hygiene # preview

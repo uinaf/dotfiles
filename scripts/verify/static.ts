@@ -12,7 +12,7 @@ const agentlessSigner = resolve(
   repoRoot,
   "chezmoi/private_dot_local/private_libexec/private_dotfiles/private_executable_git-ssh-sign-agentless",
 );
-const diskCleanup = resolve(
+const cacheCleanup = resolve(
   repoRoot,
   "scripts/maintenance/cache-cleanup.sh",
 );
@@ -42,7 +42,7 @@ const program = Effect.gen(function*() {
     resolve(repoRoot, "dotfiles"),
     ...(yield* fs.glob("**/*.sh", { root: scriptsRoot })).map((path) => resolve(scriptsRoot, path)),
     agentlessSigner,
-    diskCleanup,
+    cacheCleanup,
   ];
   yield* Effect.forEach(
     shellFiles,
