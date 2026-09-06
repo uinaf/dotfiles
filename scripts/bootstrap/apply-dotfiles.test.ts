@@ -29,6 +29,19 @@ test("only the most recent timestamped backup per target survives pruning", asyn
   ]);
 });
 
+test("the backup written by this run survives pruning even when the host clock is behind", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "dotfiles-backups-"));
+  t.after(() => rm(root, {recursive: true, force: true}));
+  const target = join(root, "config");
+  await writeFile(target, "current");
+  await writeFile(`${target}.backup.20240101010101`, "old");
+  await writeFile(`${target}.backup.20270101010101`, "written by a host whose clock ran ahead");
+  const created = `${target}.backup.20260101010101`; // this run, lexically older than the existing one
+  await writeFile(created, "just written");
+  await Effect.runPromise(pruneOlderBackups(target, created).pipe(Effect.provide(NodeServices.layer)));
+  assert.deepEqual((await readdir(root)).sort(), ["config", "config.backup.20260101010101"]);
+});
+
 test("a single backup and a backup-free target are left untouched", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "dotfiles-backups-"));
   t.after(() => rm(root, { recursive: true, force: true }));

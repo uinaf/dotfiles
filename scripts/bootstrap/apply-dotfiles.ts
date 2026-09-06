@@ -105,15 +105,19 @@ const matchesManagedTarget = Effect.fn("matchesManagedTarget")(function*(
 });
 
 // Every drifted apply creates one timestamped backup, so enrolled hosts
-// accumulate them forever; keep only the most recent backup per target.
-export const pruneOlderBackups = Effect.fn("pruneOlderBackups")(function*(target: string) {
+// accumulate them forever; keep only the most recent backup per target. The
+// backup written by this run is the most recent by definition and is never a
+// prune candidate: timestamps come from the host clock, so a clock behind an
+// existing backup would otherwise prune the file just written.
+export const pruneOlderBackups = Effect.fn("pruneOlderBackups")(function*(target: string, created?: string) {
   const fs = yield* FileSystem.FileSystem;
   const directory = dirname(target);
   const prefix = `${basename(target)}.backup.`;
   const backups = (yield* fs.readDirectory(directory))
     .filter((entry) => entry.startsWith(prefix) && /^\d{14}$/.test(entry.slice(prefix.length)))
+    .filter((entry) => created === undefined || join(directory, entry) !== created)
     .sort();
-  for (const entry of backups.slice(0, -1)) {
+  for (const entry of created === undefined ? backups.slice(0, -1) : backups) {
     yield* fs.remove(join(directory, entry), { recursive: true, force: true });
     yield* Console.log(`removed older backup ${join(directory, entry)}`);
   }
@@ -141,7 +145,7 @@ const backupPath = Effect.fn("backupPath")(function*(
     yield* fs.rename(target, backup);
   }
   yield* Console.log(`backed up ${target} -> ${backup}`);
-  yield* pruneOlderBackups(target);
+  yield* pruneOlderBackups(target, backup);
 });
 
 const replaceAgentPath = Effect.fn("replaceAgentPath")(function*(
