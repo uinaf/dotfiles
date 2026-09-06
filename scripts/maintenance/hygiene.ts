@@ -82,14 +82,17 @@ export function candidates(repo: string, roots: readonly string[], openPaths: re
     throw new Error("standalone owning checkout required");
   }
   // Observe the remote's current default rather than trusting a stale origin/HEAD.
-  const remote = git("ls-remote", "--symref", "origin", "HEAD");
+  const remote = git("ls-remote", "--symref", "origin", "HEAD", "refs/heads/*");
   const defaultBranch = /^ref: refs\/heads\/(.+)\tHEAD$/m.exec(remote)?.[1];
   const target = /^([0-9a-f]{40,64})\tHEAD$/m.exec(remote)?.[1];
   if (!defaultBranch || !target) throw new Error("remote default branch unavailable");
   if (runner(repo, "git", ["cat-file", "-e", `${target}^{commit}`]).status !== 0) {
     return { eligible: [], kept: [{ target: repo, result: "remote default history missing locally; retained for normal sync" }] };
   }
-  git("remote", "prune", "origin");
+  const remoteHeads = new Set(remote.split("\n").flatMap(line => {
+    const match = /^[0-9a-f]{40,64}\trefs\/heads\/(.+)$/.exec(line);
+    return match ? [match[1]] : [];
+  }));
   const worktrees = parseWorktrees(git("worktree", "list", "--porcelain", "-z"));
   const checkedOut = new Set(worktrees.map(worktree => worktree.branch));
   const eligible: Candidate[] = [];
@@ -99,7 +102,9 @@ export function candidates(repo: string, roots: readonly string[], openPaths: re
     const name = branch.replace(/^refs\/heads\//, "");
     if (/^(main|master|develop|dev|production|staging|release)(\/|$)/.test(name)) return true;
     const upstream = git("for-each-ref", "--format=%(upstream)", branch);
-    return Boolean(upstream && runner(repo, "git", ["show-ref", "--verify", "--quiet", upstream]).status === 0);
+    if (remoteHeads.has(name)) return true;
+    if (upstream.startsWith("refs/remotes/origin/")) return remoteHeads.has(upstream.slice("refs/remotes/origin/".length));
+    return Boolean(upstream);
   };
   const worktreeReason = (tree: Worktree): string | undefined => {
     if (tree.path === repo || !roots.some(root => inside(tree.path, root) && tree.path !== root)) return "outside cleanup roots";
@@ -137,6 +142,7 @@ export function cleanRepository(
   apply: boolean, activity: () => string[], runner: Runner = run,
 ) {
   const initial = candidates(repo, roots, activity(), runner);
+  if (apply) checked(runner, repo, "git", ["remote", "prune", "origin"]);
   const next: Record<string, { head: string; since: number }> = {};
   const entries = [...initial.kept];
   for (const candidate of initial.eligible) {

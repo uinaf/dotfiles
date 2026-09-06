@@ -64,7 +64,7 @@ prune_old_files "$HOME/.gradle/daemon" 14
 prune_old_files "$HOME/Library/Caches/go-build" 30
 prune_old_files "$HOME/Library/Logs/DiagnosticReports" 30
 
-if command -v xcrun >/dev/null 2>&1; then
+if command -v xcrun >/dev/null 2>&1 && xcrun --find simctl >/dev/null 2>&1; then
   log "delete unavailable simulators"
   run xcrun simctl delete unavailable
 fi

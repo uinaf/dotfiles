@@ -120,8 +120,11 @@ test("dry-run never deletes, failed remote reads and activity probes fail closed
   const f = fixture();
   try {
     const first = cleanRepository(f.repo, f.roots, {}, week, true, () => [], runner);
+    f.git(f.tree, "push", "-u", "origin", "finished");
+    f.git(f.root, "--git-dir", join(f.root, "remote.git"), "update-ref", "-d", "refs/heads/finished");
     cleanRepository(f.repo, f.roots, first.candidates, 2 * week, false, () => [], runner);
     assert.ok(existsSync(f.tree));
+    assert.equal(f.git(f.repo, "for-each-ref", "--format=%(refname)", "refs/remotes/origin/finished"), "refs/remotes/origin/finished");
     const failed: Runner = (cwd, command, args) => args[0] === "ls-remote" ? { status: 1, stdout: "" } : runner(cwd, command, args);
     assert.throws(() => cleanRepository(f.repo, f.roots, first.candidates, 2 * week, true, () => [], failed));
     assert.throws(() => openFiles(f.root, () => ({ status: 1, stdout: "" })));
