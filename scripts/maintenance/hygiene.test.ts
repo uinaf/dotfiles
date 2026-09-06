@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { chmodSync, existsSync, mkdtempSync, mkdirSync, readFileSync, realpathSync, rmSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
+import { chmodSync, closeSync, existsSync, mkdtempSync, mkdirSync, openSync, readFileSync, realpathSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync, writeSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { cacheCleanup, cacheCleanupTimeoutMs, candidates, cleanRepository, discoverRepositories, openFiles, readState, type Runner } from "./hygiene.ts";
+import { cacheCleanup, cacheCleanupTimeoutMs, candidates, capLogs, cleanRepository, discoverRepositories, openFiles, readState, type Runner } from "./hygiene.ts";
 
 const week = 7 * 86400_000;
 const runner: Runner = (cwd, command, args) => {
@@ -162,6 +162,38 @@ test("inactive and explicitly excluded checkouts need no remote access", () => {
     assert.equal(excluded.entries[0]?.result, "excluded by local dotfiles.hygiene=skip");
     assert.ok(existsSync(f.tree));
   } finally { f.cleanup(); }
+});
+
+test("log capping rewrites the same inode at a line boundary and keeps append descriptors valid", () => {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), "log-cap-")));
+  try {
+    const logs = join(root, "logs");
+    mkdirSync(logs);
+    const cap = 4096;
+    const big = join(logs, "software-update.log");
+    const content = Array.from({ length: 600 }, (_, index) => `line ${String(index).padStart(4, "0")} of the update log`).join("\n") + "\n";
+    writeFileSync(big, content);
+    writeFileSync(join(logs, "homebrew-update.log"), "short\n");
+    writeFileSync(join(logs, "notes.txt"), "x".repeat(cap * 2));
+    symlinkSync(big, join(logs, "linked.log"));
+    const before = statSync(big).ino;
+    const appender = openSync(big, "a"); // simulates launchd's held O_APPEND descriptor
+    const entries = capLogs(logs, cap);
+    assert.deepEqual(entries.map(entry => entry.target), [big]);
+    assert.match(entries[0]!.result, /^capped from \d+ to \d+ bytes$/);
+    const after = statSync(big);
+    assert.equal(after.ino, before, "rotation must not replace the inode");
+    assert.ok(after.size <= cap);
+    const text = readFileSync(big, "utf8");
+    assert.ok(content.endsWith(text), "the retained content must be the log tail");
+    assert.match(text, /^line \d{4} of the update log/, "the tail must start on a line boundary");
+    writeSync(appender, Buffer.from("appended after cap\n"));
+    closeSync(appender);
+    assert.ok(readFileSync(big, "utf8").endsWith("appended after cap\n"));
+    assert.equal(readFileSync(join(logs, "homebrew-update.log"), "utf8"), "short\n");
+    assert.equal(statSync(join(logs, "notes.txt")).size, cap * 2);
+    assert.deepEqual(capLogs(join(root, "missing")), []);
+  } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
 test("process inventory suppresses lsof warning-induced exits but stays fail-closed", () => {

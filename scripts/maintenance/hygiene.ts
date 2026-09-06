@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { spawnSync } from "node:child_process";
-import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync, renameSync, writeFileSync } from "node:fs";
+import { closeSync, existsSync, ftruncateSync, lstatSync, mkdirSync, openSync, readFileSync, readSync, readdirSync, realpathSync, renameSync, writeFileSync, writeSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -217,6 +217,41 @@ export function readState(statePath: string): { state: State; recovered: boolean
   }
 }
 
+export const logCapBytes = 2 * 1024 * 1024;
+
+// launchd opens each job's StandardOutPath/StandardErrorPath with O_APPEND and
+// holds that descriptor for the whole run (the logs append across runs; see
+// docs/software-updates.md). Rotation must therefore reuse the same inode: a
+// rename or unlink would orphan the live descriptor and silently discard all
+// later output. With O_APPEND every write lands at the current end even after
+// truncation, so rewriting the tail in place is safe without an lsof gate; at
+// most the lines appended between the tail read and the truncate are lost.
+export function capLogs(directory: string, cap = logCapBytes): Entry[] {
+  const entries: Entry[] = [];
+  if (!existsSync(directory)) return entries;
+  for (const name of readdirSync(directory)) {
+    if (!name.endsWith(".log")) continue;
+    const path = join(directory, name);
+    try {
+      const info = lstatSync(path);
+      if (!info.isFile() || info.size <= cap) continue;
+      const fd = openSync(path, "r+");
+      try {
+        const tail = Buffer.alloc(cap);
+        const read = readSync(fd, tail, 0, cap, info.size - cap);
+        const newline = tail.indexOf(0x0a);
+        const start = newline >= 0 && newline + 1 < read ? newline + 1 : 0; // drop the leading partial line
+        ftruncateSync(fd, 0);
+        writeSync(fd, tail, start, read - start, 0);
+      } finally { closeSync(fd); }
+      entries.push({ target: path, result: `capped from ${info.size} to ${lstatSync(path).size} bytes` });
+    } catch (error) {
+      entries.push({ target: path, result: `log cap failed: ${error instanceof Error ? error.message : String(error)}` });
+    }
+  }
+  return entries;
+}
+
 export function hygiene(home: string, apply: boolean, scheduled: boolean, now = Date.now()): void {
   const directory = join(home, ".local/state/dotfiles");
   const statePath = join(directory, "hygiene.json");
@@ -254,7 +289,9 @@ export function hygiene(home: string, apply: boolean, scheduled: boolean, now = 
       : { status: 0, stdout: "Cache cleanup is not due." };
     console.log(cache.stdout);
     failed ||= cache.status !== 0;
-    console.log(JSON.stringify({ apply, repositories: reports, cacheExitCode: cache.status }, null, 2));
+    const logs = apply ? capLogs(join(home, "Library/Logs/dotfiles")) : [];
+    failed ||= logs.some(entry => entry.result.startsWith("log cap failed"));
+    console.log(JSON.stringify({ apply, repositories: reports, cacheExitCode: cache.status, logs }, null, 2));
     if (apply) {
       const temporary = `${statePath}.${process.pid}.tmp`;
       writeFileSync(temporary, JSON.stringify({ lastRun: failed ? 0 : now,

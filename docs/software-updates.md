@@ -182,8 +182,10 @@ cleanup.
   depends on the user's notification permissions and Focus settings.
 - Successful and unchanged runs stay silent. Their per-step summaries remain
   in `~/Library/Logs/dotfiles/software-update.log`.
-- The private local log appends across runs. Archive or truncate it while the
-  updater is idle; the scheduler does not rotate it.
+- The private local log appends across runs. The weekly hygiene pass caps each
+  `~/Library/Logs/dotfiles/*.log` to its final 2 MB in place, preserving
+  launchd's open append descriptors. Manual truncation while the updater is
+  idle remains available as a fallback.
 - Use `maintenance:status` to check whether the job ran. Failure notifications
   do not detect a scheduler that never started.
 
