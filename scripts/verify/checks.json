@@ -4,8 +4,8 @@
     {
       "id": "dotfiles-convergence",
       "domain": "services",
-      "command": ["node", "--test", "scripts/maintenance/converge.test.ts", "scripts/bootstrap/install-cursor-agent.test.ts"],
-      "output": "Default-branch convergence, local-work preservation, dependency failures, and unattended profile setup"
+      "command": ["node", "--test", "scripts/maintenance/converge.test.ts", "scripts/lib/lock.test.ts", "scripts/bootstrap/install-cursor-agent.test.ts"],
+      "output": "Default-branch convergence, local-work preservation, lock ownership and reclaim, dependency failures, and unattended profile setup"
     },
     {
       "id": "host-hygiene",

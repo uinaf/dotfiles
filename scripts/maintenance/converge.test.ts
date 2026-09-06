@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import test from "node:test";
-import { converge, syncCheckout } from "./converge.ts";
+import { acquireCheckoutLock, converge, syncCheckout } from "./converge.ts";
 
 function git(cwd: string, ...args: string[]) {
   const result = spawnSync("git", ["-c", "commit.gpgsign=false", "-c", "core.hooksPath=/dev/null", ...args], {
@@ -71,9 +71,38 @@ test("failed fetch preserves the checkout and a held lock prevents a second upda
   assert.throws(() => syncCheckout(repo));
   assert.equal(git(repo, "rev-parse", "HEAD"), before);
   const lock = join(repo, ".git/dotfiles-converge.lock");
-  mkdirSync(lock);
-  assert.throws(() => converge(repo), /lock unavailable/);
+  mkdirSync(lock); // metadata-free lock: the owner is unknown, so it is kept
+  assert.throws(() => converge(repo, { waitMs: 0, log: () => {} }), /lock unavailable/);
   assert.ok(existsSync(lock));
+});
+
+test("a stale checkout lock is reclaimed and a live one is awaited with backoff", t => {
+  const { repo } = fixture(t);
+  const lock = join(repo, ".git/dotfiles-converge.lock");
+  mkdirSync(lock);
+  writeFileSync(join(lock, "owner.json"), `${JSON.stringify({ pid: 4_000_000, bootTime: Date.now() })}\n`);
+  const release = acquireCheckoutLock(repo, { processAlive: () => false, log: () => {} });
+  assert.equal(JSON.parse(readFileSync(join(lock, "owner.json"), "utf8")).pid, process.pid);
+  release();
+  assert.equal(existsSync(lock), false);
+  mkdirSync(lock);
+  writeFileSync(join(lock, "owner.json"), `${JSON.stringify({ pid: 1234, bootTime: 0 })}\n`);
+  let time = 0;
+  const slept: number[] = [];
+  const waited = acquireCheckoutLock(repo, {
+    now: () => time,
+    uptimeMs: () => time,
+    processAlive: () => true,
+    log: () => {},
+    sleep: ms => {
+      slept.push(ms);
+      time += ms;
+      if (time >= 30_000) rmSync(lock, { recursive: true, force: true });
+    },
+  });
+  assert.deepEqual(slept, [5_000, 10_000, 20_000]);
+  waited();
+  assert.equal(existsSync(lock), false);
 });
 
 test("bootstrap failure preserves exit status and releases the lock", t => {

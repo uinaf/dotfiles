@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 
 import { spawnSync } from "node:child_process";
-import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync, renameSync, rmdirSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync, renameSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Schema } from "effect";
+import { acquireDirectoryLock } from "../lib/lock.ts";
 
 const week = 7 * 86400_000;
 const State = Schema.Struct({
@@ -199,9 +200,11 @@ export function hygiene(home: string, apply: boolean, scheduled: boolean, now = 
     return;
   }
   mkdirSync(directory, { recursive: true, mode: 0o700 });
-  const lock = join(directory, "hygiene.lock");
-  try { mkdirSync(lock, { mode: 0o700 }); }
-  catch { throw new Error("hygiene lock exists; check for an active or interrupted cleanup"); }
+  let release: () => void;
+  // A lock left by a dead or pre-reboot process is reclaimed automatically;
+  // a live or ambiguous owner still fails the run for inspection.
+  try { release = acquireDirectoryLock(join(directory, "hygiene.lock")); }
+  catch (cause) { throw new Error("hygiene lock exists; check for an active or interrupted cleanup", { cause }); }
   try {
     const roots = [".t3/worktrees", ".codex/worktrees", ".claude/worktrees"].map(path => join(home, path));
     const next: Record<string, { head: string; since: number }> = {};
@@ -232,7 +235,7 @@ export function hygiene(home: string, apply: boolean, scheduled: boolean, now = 
       renameSync(temporary, statePath);
     }
     if (failed) throw new Error("some hygiene checks failed; inspect the report");
-  } finally { rmdirSync(lock); }
+  } finally { release(); }
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {

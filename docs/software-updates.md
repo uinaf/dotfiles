@@ -100,11 +100,12 @@ apply them. A dirty, ahead, detached, or diverged checkout fails this step and
 keeps local work. Resolve that checkout before requesting another run.
 
 Convergence and the scheduled shared Homebrew wrapper use the same checkout
-lock. A competing run fails visibly and can be retried after the active one
-finishes. After a killed process, inspect the job and its children before
-removing the empty lock directory reported in the log. Failed apply steps are
-retried on the next run; package and configuration changes are not rolled back.
-Topgrade still reports its other independent steps separately.
+lock. A competing run waits up to 15 minutes with logged backoff — boot starts
+both devbox jobs together — and then fails visibly. The lock records its owning
+process; a lock whose recorded owner is dead or predates the current boot is
+reclaimed automatically, while a live or ambiguous owner keeps the lock. Failed
+apply steps are retried on the next run; package and configuration changes are
+not rolled back. Topgrade still reports its other independent steps separately.
 
 This applies the per-user profile installer. Machine provisioning, Git/SSH
 identity enrollment, macOS updates, remote MCP deployment, and service
@@ -169,10 +170,11 @@ caches are preserved. Shared Homebrew cleanup remains with its prefix owner.
 
 State lives in owner-only `~/.local/state/dotfiles/hygiene.json`. Runs share
 `hygiene.lock` and report outcomes through the update log and existing failure
-notifications. An interrupted run leaves its lock for inspection; verify no
-cleanup process remains before removing that empty directory. The existing
-weekly devbox LaunchAgent invokes the same locked, weekly-gated entrypoint,
-so it does not repeat a completed cleanup.
+notifications. The lock records its owning process; a lock left by a dead or
+pre-reboot process is reclaimed automatically, and a live or ambiguous owner
+fails the run for inspection. The existing weekly devbox LaunchAgent invokes
+the same locked, weekly-gated entrypoint, so it does not repeat a completed
+cleanup.
 
 ## Notifications And Logs
 

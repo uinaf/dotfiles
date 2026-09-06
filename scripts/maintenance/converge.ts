@@ -2,9 +2,14 @@
 
 // This entrypoint must run before the checkout's locked dependencies are installed.
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, realpathSync, rmdirSync } from "node:fs";
+import { existsSync, realpathSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { acquireDirectoryLock, type LockOptions } from "../lib/lock.ts";
+
+// Boot starts the devbox update jobs together and the shared Homebrew pass can
+// outlast the per-user stagger, so contenders wait instead of failing a heartbeat.
+const lockWaitMs = 15 * 60_000;
 
 class UpdateFailure extends Error {
   readonly exitCode: number;
@@ -53,17 +58,18 @@ export function syncCheckout(repo: string): string {
   return git("rev-parse", "HEAD");
 }
 
-export function acquireCheckoutLock(repo: string): () => void {
+export function acquireCheckoutLock(repo: string, options: LockOptions = {}): () => void {
   const gitDir = run(repo, "git", ["rev-parse", "--absolute-git-dir"], true);
   const lock = join(gitDir, "dotfiles-converge.lock");
-  try { mkdirSync(lock, { mode: 0o700 }); } catch (cause) {
+  try {
+    return acquireDirectoryLock(lock, { waitMs: lockWaitMs, ...options });
+  } catch (cause) {
     throw new Error(`dotfiles convergence lock unavailable: ${lock}; check for an active or interrupted update`, { cause });
   }
-  return () => rmdirSync(lock);
 }
 
-export function converge(repo: string): void {
-  const release = acquireCheckoutLock(repo);
+export function converge(repo: string, lockOptions: LockOptions = {}): void {
+  const release = acquireCheckoutLock(repo, lockOptions);
   try {
     const revision = syncCheckout(repo);
     console.log(`Converging dotfiles ${revision}`);
