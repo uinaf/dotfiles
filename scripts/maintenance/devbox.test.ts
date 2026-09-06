@@ -74,3 +74,35 @@ test("a consumer cannot enroll the shared-prefix updater", async (t) => {
   assert.match(String(failure), /only the shared Homebrew prefix owner/);
   assert.equal(commands.some((command) => command.endsWith("/launchctl")), false);
 });
+
+test("enrollment works when launchd has a user domain but no GUI domain", async (t) => {
+  const uid = process.getuid?.();
+  assert.ok(uid);
+  const home = await mkdtemp(join(tmpdir(), "dotfiles-headless-update-"));
+  t.after(() => rm(home, { recursive: true, force: true }));
+  const repository = join(home, "repo");
+  await mkdir(join(repository, "scripts/bootstrap"), { recursive: true });
+  await mkdir(join(home, ".config/dotfiles"), { recursive: true });
+  await writeFile(join(home, ".config/dotfiles/profile"), "devbox\n", { mode: 0o600 });
+  await writeFile(join(home, ".config/topgrade.toml"), "", { mode: 0o600 });
+  await writeFile(join(repository, "scripts/bootstrap/brew-devbox.ts"), "", { mode: 0o600 });
+  const calls: string[][] = [];
+  const runner = CommandRunner.of({ run: (command, args = []) => {
+    calls.push([command, ...args]);
+    const noGuiDomain = command === "/bin/launchctl" && args[1]?.startsWith("gui/");
+    return Effect.succeed({ status: noGuiDomain ? 125 : args[0] === "print" ? 113 : 0,
+      stdout: command.endsWith("/brew") ? "/opt/homebrew\n" : "", stderr: "" });
+  } });
+  // Privilege checks see root; every privileged command is intercepted by the runner.
+  t.mock.method(process, "getuid", () => 0, {});
+  await Effect.runPromise(installUpdateJobs({ target: { user: "headless-fixture", uid, group: "staff", home },
+    repository, node: "/fixture/node", namespace: "local.dotfiles", homebrew: false, check: false,
+  }).pipe(Effect.provide(NodeServices.layer), Effect.provideService(CommandRunner, runner)));
+  assert.deepEqual(calls.filter((call) => call[1] === "disable"), [
+    ["/bin/launchctl", "disable", `user/${uid}/local.dotfiles.software-update`],
+  ]);
+  assert.deepEqual(calls.filter((call) => call[1] === "bootstrap"), [
+    ["/bin/launchctl", "bootstrap", "system", "/Library/LaunchDaemons/local.dotfiles.software-update.headless-fixture.plist"],
+  ]);
+  assert.equal(calls.some((call) => call.includes("-k")), false);
+});

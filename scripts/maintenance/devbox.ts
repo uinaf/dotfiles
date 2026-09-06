@@ -113,8 +113,8 @@ export const installUpdateJobs = Effect.fn("installUpdateJobs")(function*(option
     yield* runChecked("/usr/bin/sudo", ["-u", target.user, "-H", "/usr/bin/touch", job.log]);
     yield* runChecked("/usr/bin/sudo", ["-u", target.user, "-H", "/bin/chmod", "0600", job.log]);
   }
-  // Disabled GUI source plists remain inert across future logins.
-  yield* runChecked("/bin/launchctl", ["disable", guiService]);
+  // User and GUI domains share disabled overrides; the user domain also exists without a GUI login.
+  yield* runChecked("/bin/launchctl", ["disable", `user/${target.uid}/local.dotfiles.software-update`]);
   yield* Effect.scoped(Effect.gen(function*() {
     const temporary = yield* fs.makeTempDirectoryScoped({ prefix: "dotfiles-update-jobs." });
     for (const job of states) {
