@@ -207,9 +207,18 @@ export function cleanRepository(
 
 export function readState(statePath: string): { state: State; recovered: boolean } {
   const empty: State = { lastRun: 0, lastCache: 0, candidates: {} };
-  if (!existsSync(statePath)) return { state: empty, recovered: false };
+  let text: string;
   try {
-    return { state: Schema.decodeUnknownSync(Schema.fromJsonString(State))(readFileSync(statePath, "utf8")), recovered: false };
+    text = readFileSync(statePath, "utf8");
+  } catch (error) {
+    // Only a missing file is an empty state. Any other read failure (EACCES,
+    // EIO, EISDIR) must not silently restart grace periods or bypass the
+    // weekly gate, so it propagates and fails the run.
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return { state: empty, recovered: false };
+    throw error;
+  }
+  try {
+    return { state: Schema.decodeUnknownSync(Schema.fromJsonString(State))(text), recovered: false };
   } catch {
     // Undecodable state only restarts every grace period and the cache
     // interval — strictly conservative — instead of failing every later run.
@@ -221,12 +230,17 @@ export const logCapBytes = 2 * 1024 * 1024;
 
 // launchd opens each job's StandardOutPath/StandardErrorPath with O_APPEND and
 // holds that descriptor for the whole run (the logs append across runs; see
-// docs/software-updates.md). Rotation must therefore reuse the same inode: a
-// rename or unlink would orphan the live descriptor and silently discard all
-// later output. With O_APPEND every write lands at the current end even after
-// truncation, so rewriting the tail in place is safe without an lsof gate; at
-// most the lines appended between the tail read and the truncate are lost.
-export function capLogs(directory: string, cap = logCapBytes): Entry[] {
+// docs/software-updates.md). That O_APPEND assumption is empirical: it was
+// verified with lsof against a live job, not taken from documentation.
+// Rotation must reuse the same inode: a rename or unlink would orphan the live
+// descriptor and silently discard all later output. Because writers append,
+// the tail is written back through an O_APPEND descriptor too, so a concurrent
+// append that lands between our truncate and our write is interleaved rather
+// than overwritten (a positional write at offset 0 would clobber it; this is
+// real on the devbox, where one user's updater appends to homebrew-update.log
+// while another user's hygiene caps it). Residual caveat: lines appended
+// between the tail read and the truncate are lost.
+export function capLogs(directory: string, cap = logCapBytes, between: () => void = () => {}): Entry[] {
   const entries: Entry[] = [];
   if (!existsSync(directory)) return entries;
   for (const name of readdirSync(directory)) {
@@ -242,7 +256,9 @@ export function capLogs(directory: string, cap = logCapBytes): Entry[] {
         const newline = tail.indexOf(0x0a);
         const start = newline >= 0 && newline + 1 < read ? newline + 1 : 0; // drop the leading partial line
         ftruncateSync(fd, 0);
-        writeSync(fd, tail, start, read - start, 0);
+        between(); // test hook: a concurrent O_APPEND write landing here must survive
+        const appender = openSync(path, "a");
+        try { writeSync(appender, tail, start, read - start, null); } finally { closeSync(appender); }
       } finally { closeSync(fd); }
       entries.push({ target: path, result: `capped from ${info.size} to ${lstatSync(path).size} bytes` });
     } catch (error) {

@@ -196,6 +196,22 @@ test("log capping rewrites the same inode at a line boundary and keeps append de
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
+test("a concurrent append between truncate and the tail write is interleaved, not overwritten", () => {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), "hygiene-logs-")));
+  try {
+    const cap = 512;
+    const log = join(root, "homebrew-update.log");
+    writeFileSync(log, Array.from({ length: 100 }, (_, index) => `line ${String(index).padStart(3, "0")}`).join("\n") + "\n");
+    const appender = openSync(log, "a"); // the other user's live launchd descriptor
+    const entries = capLogs(root, cap, () => { writeSync(appender, Buffer.from("concurrent append\n")); });
+    closeSync(appender);
+    assert.equal(entries.length, 1);
+    const text = readFileSync(log, "utf8");
+    assert.ok(text.startsWith("concurrent append\n"), `the concurrent line must survive: ${JSON.stringify(text.slice(0, 40))}`);
+    assert.ok(text.endsWith("line 099\n"), "the retained tail follows the concurrent line");
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
 test("process inventory suppresses lsof warning-induced exits but stays fail-closed", () => {
   let seen: string[] = [];
   const paths = openFiles("/fixture", (_cwd, command, args) => {
@@ -205,6 +221,10 @@ test("process inventory suppresses lsof warning-induced exits but stays fail-clo
   });
   assert.equal(seen[0], "-w");
   assert.deepEqual(paths, ["/fixture/file"]);
+  // A warning-free nonzero exit (a real lsof failure) still fails closed.
+  assert.throws(() => openFiles("/fixture", () => ({ status: 1, stdout: "" })), /retained local work/);
+  // No paths at all is indistinguishable from a broken inventory: fail closed.
+  assert.throws(() => openFiles("/fixture", () => ({ status: 0, stdout: "" })), /process activity unavailable/);
 });
 
 test("undecodable hygiene state is treated as empty so cleanup can continue", () => {
@@ -220,6 +240,15 @@ test("undecodable hygiene state is treated as empty so cleanup can continue", ()
     const valid = { lastRun: 5, lastCache: 6, candidates: { key: { head: "a".repeat(40), since: 7 } } };
     writeFileSync(statePath, JSON.stringify(valid));
     assert.deepEqual(readState(statePath), { state: valid, recovered: false });
+    // A directory at the state path is neither missing nor undecodable JSON: it must not bypass the weekly gate.
+    const directoryPath = join(root, "state-directory.json");
+    mkdirSync(directoryPath);
+    assert.throws(() => readState(directoryPath), { code: "EISDIR" });
+    if (process.getuid?.() !== 0) {
+      chmodSync(statePath, 0o000);
+      assert.throws(() => readState(statePath), { code: "EACCES" });
+      chmodSync(statePath, 0o600);
+    }
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
