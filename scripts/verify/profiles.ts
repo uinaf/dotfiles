@@ -31,10 +31,10 @@ const program = Effect.scoped(Effect.gen(function*() {
   for (const profile of ["personal-workstation", "personal-devbox", "devbox"]) {
     assert.equal(requireProfile(model, profile).capabilities.requiresSopsIdentity, true);
   }
-  assert.deepEqual(profileBrewfiles(model, "devbox"), ["Brewfile", "Brewfile.developer", "Brewfile.devbox"]);
-  assert.deepEqual(profileBrewfiles(model, "personal-devbox"), ["Brewfile", "Brewfile.developer", "Brewfile.devbox", "Brewfile.personal"]);
-  assert.deepEqual(profileBrewfiles(model, "workstation"), ["Brewfile", "Brewfile.developer", "Brewfile.workstation"]);
-  assert.deepEqual(profileBrewfiles(model, "personal-workstation"), ["Brewfile", "Brewfile.developer", "Brewfile.workstation", "Brewfile.personal"]);
+  assert.deepEqual(profileBrewfiles(model, "devbox"), ["Brewfile", "Brewfile.devbox"]);
+  assert.deepEqual(profileBrewfiles(model, "personal-devbox"), ["Brewfile", "Brewfile.devbox", "Brewfile.personal"]);
+  assert.deepEqual(profileBrewfiles(model, "workstation"), ["Brewfile", "Brewfile.workstation"]);
+  assert.deepEqual(profileBrewfiles(model, "personal-workstation"), ["Brewfile", "Brewfile.workstation", "Brewfile.personal"]);
   for (const profile of ["personal-devbox", "devbox"]) {
     assert.deepEqual(bundleCheckArgs(model, profile, "Brewfile"), ["bundle", "check", "--no-upgrade", "--file", "Brewfile"]);
   }
@@ -83,8 +83,7 @@ const program = Effect.scoped(Effect.gen(function*() {
   const brewfile = (name: string) => fs.readFileString(join(repoRoot, name));
   const base = yield* brewfile("Brewfile");
   for (const entry of ['brew "gh"', 'cask "google-chrome"']) assert.match(base, new RegExp(`^${entry.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "m"));
-  const developer = yield* brewfile("Brewfile.developer");
-  for (const entry of ['cask "codex"', 'cask "claude-code@latest"', 'cask "uinaf/tap/slopguard"', 'brew "watchman"', 'brew "awscli"']) assert.ok(developer.split("\n").includes(entry));
+  for (const entry of ['cask "codex"', 'cask "claude-code@latest"', 'cask "uinaf/tap/slopguard"', 'brew "watchman"', 'brew "awscli"']) assert.ok(base.split("\n").includes(entry));
   const personal = yield* brewfile("Brewfile.personal");
   for (const entry of ['brew "asc"', 'brew "uinaf/tap/attach"', 'brew "openclaw/tap/crabbox"', 'brew "putdotio/tap/putio-cli"']) assert.ok(personal.split("\n").includes(entry));
   const workstation = yield* brewfile("Brewfile.workstation");

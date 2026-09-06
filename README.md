@@ -38,7 +38,7 @@ optional desktop setup, updates, and troubleshooting.
 
 | Surface | Source of truth |
 | --- | --- |
-| Packages | `Brewfile`, `Brewfile.developer`, and `Brewfile.<profile>` |
+| Packages | `Brewfile` and `Brewfile.<profile>` |
 | Per-user convergence | `./dotfiles`, backed by `chezmoi/`, mise, and profile install steps |
 | Runtimes and CLIs | `chezmoi/private_dot_config/mise/config.toml.tmpl` |
 | Git, SSH, age, and GitHub App setup | `scripts/bootstrap/`, `scripts/secrets/`, and [Identity provisioning](docs/identities.md) |

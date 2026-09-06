@@ -61,10 +61,10 @@ Brewfile order per profile:
 
 | Profile | Layers, in order |
 | --- | --- |
-| `personal-workstation` | `Brewfile`, `Brewfile.developer`, `Brewfile.workstation`, `Brewfile.personal` |
-| `personal-devbox` | `Brewfile`, `Brewfile.developer`, `Brewfile.devbox`, `Brewfile.personal` |
-| `workstation` | `Brewfile`, `Brewfile.developer`, `Brewfile.workstation` |
-| `devbox` | `Brewfile`, `Brewfile.developer`, `Brewfile.devbox` |
+| `personal-workstation` | `Brewfile`, `Brewfile.workstation`, `Brewfile.personal` |
+| `personal-devbox` | `Brewfile`, `Brewfile.devbox`, `Brewfile.personal` |
+| `workstation` | `Brewfile`, `Brewfile.workstation` |
+| `devbox` | `Brewfile`, `Brewfile.devbox` |
 
 - The shared `Brewfile` base includes Chrome and `gh`.
 - `Brewfile.personal` declarations are profile-aware: GUI casks install only for
@@ -72,11 +72,11 @@ Brewfile order per profile:
 
 What each layer supplies:
 
-- `Brewfile.developer`, shared by `personal-workstation`, `personal-devbox`,
+- `Brewfile`, shared by `personal-workstation`, `personal-devbox`,
   `workstation`, and `devbox`: Codex CLI, Claude Code CLI, OpenCode,
   slopguard, slopmachine, GitLab CLI, Watchman, Docker and its credential
   helper, AWS CLI, XcodeGen, `xcodes`, Android command-line tools, and the
-  shell, secret, and network scanning tools.
+  shell, secret, and network scanning tools, plus Mole.
 - Cursor Agent CLI comes from the `install-cursor-agent` install step, not a
   Brewfile.
 - The development runtime set, including mise-managed Ruby, comes from the
@@ -85,7 +85,7 @@ What each layer supplies:
   1Password and its CLI, Slack, ChatGPT, Claude, Cursor, T3 Code, Zed, Ghostty,
   and YubiKey Manager.
 - `Brewfile.personal`, used by both personal profiles: App Store Connect CLI,
-  Attach, Crabbox, Discrawl, Gitcrawl, Pi, putio-cli, and Mole. Only
+  Attach, Crabbox, Discrawl, Gitcrawl, Pi, and putio-cli. Only
   `personal-workstation` also gets personal applications such as Slopwake and
   the Google Cloud CLI, plus `mas`.
 - Developer profiles manage the Codex, Claude Code, OpenCode, and Cursor Agent

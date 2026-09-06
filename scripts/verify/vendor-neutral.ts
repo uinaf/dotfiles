@@ -17,7 +17,7 @@ function allowed(file: string, content: string): boolean {
   switch (file) {
     case "AGENTS.md":
       return content.includes("Do not add `uinaf` or another owner");
-    case "Brewfile.developer":
+    case "Brewfile":
     case "Brewfile.personal":
     case "Brewfile.devbox":
     case "CONTRIBUTING.md":

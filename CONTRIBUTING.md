@@ -56,7 +56,7 @@ pushes require the full local gate.
 
 ## Change the Owning Surface
 
-- Packages: `Brewfile`, `Brewfile.developer`, and `Brewfile.<profile>`.
+- Packages: `Brewfile` and `Brewfile.<profile>`.
 - Dotfiles: tracked source under `chezmoi/`.
 - Repo tasks: `mise.toml`; machine runtime pins:
   `chezmoi/private_dot_config/mise/config.toml.tmpl`.

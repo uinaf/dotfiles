@@ -77,12 +77,12 @@ exit "\${FAKE_BREW_EXIT:-0}"
     return yield* fs.readFileString(bundleLog);
   });
   const devbox = yield* bundle("devbox");
-  assert.equal((devbox.match(/^arg=bundle$/gm) || []).length, 3);
-  assert.equal((devbox.match(/^profile=devbox$/gm) || []).length, 3);
-  for (const file of ["Brewfile", "Brewfile.developer", "Brewfile.devbox"]) assert.ok(devbox.includes(`arg=${join(repoRoot, file)}`));
+  assert.equal((devbox.match(/^arg=bundle$/gm) || []).length, 2);
+  assert.equal((devbox.match(/^profile=devbox$/gm) || []).length, 2);
+  for (const file of ["Brewfile", "Brewfile.devbox"]) assert.ok(devbox.includes(`arg=${join(repoRoot, file)}`));
   const personal = yield* bundle("personal-devbox");
-  assert.equal((personal.match(/^arg=bundle$/gm) || []).length, 4);
-  for (const file of ["Brewfile", "Brewfile.developer", "Brewfile.devbox", "Brewfile.personal"]) assert.ok(personal.includes(`arg=${join(repoRoot, file)}`));
+  assert.equal((personal.match(/^arg=bundle$/gm) || []).length, 3);
+  for (const file of ["Brewfile", "Brewfile.devbox", "Brewfile.personal"]) assert.ok(personal.includes(`arg=${join(repoRoot, file)}`));
   const shared = yield* bundle("devbox", ["--shared-only"]);
   assert.equal((shared.match(/^arg=bundle$/gm) || []).length, 1);
   const cleanup = yield* bundle("devbox", ["--cleanup"]);

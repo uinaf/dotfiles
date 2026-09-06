@@ -88,9 +88,8 @@ mise run audit devbox
 
 - Use Conventional Commits.
 - Keep `Brewfile` limited to capabilities required by every profile, including
-  Chrome and `gh`. Shared coding tools belong in `Brewfile.developer`;
-  role-specific software belongs in
-  `Brewfile.workstation`, `Brewfile.personal`, or `Brewfile.devbox`.
+  Chrome, `gh`, and shared coding and maintenance tools. Role-specific software
+  belongs in `Brewfile.workstation`, `Brewfile.personal`, or `Brewfile.devbox`.
 - Edit dotfiles under `chezmoi/`, not the generated files in `$HOME`.
 - Keep machine-global coding-agent rules and additive skill selection under
   `scripts/agents/`.
