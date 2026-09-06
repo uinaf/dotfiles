@@ -80,7 +80,9 @@ function busy(path: string, openPaths: readonly string[]): boolean {
 }
 
 export function openFiles(home: string, runner: Runner = run): string[] {
-  const output = checked(runner, home, "lsof", ["-n", "-P", "-a", "-u", String(process.getuid?.()), "-F0n"]);
+  // -w suppresses warning-induced nonzero exits (for example unreadable mounts);
+  // real failures still exit nonzero and fail closed below.
+  const output = checked(runner, home, "lsof", ["-w", "-n", "-P", "-a", "-u", String(process.getuid?.()), "-F0n"]);
   const paths = output.split(/[\0\n]/).filter(field => field.startsWith("n/")).map(field => field.slice(1));
   if (paths.length === 0) throw new Error("process activity unavailable; retained local work");
   return paths;

@@ -164,6 +164,17 @@ test("inactive and explicitly excluded checkouts need no remote access", () => {
   } finally { f.cleanup(); }
 });
 
+test("process inventory suppresses lsof warning-induced exits but stays fail-closed", () => {
+  let seen: string[] = [];
+  const paths = openFiles("/fixture", (_cwd, command, args) => {
+    assert.equal(command, "lsof");
+    seen = args;
+    return { status: 0, stdout: "p1\0n/fixture/file\0" };
+  });
+  assert.equal(seen[0], "-w");
+  assert.deepEqual(paths, ["/fixture/file"]);
+});
+
 test("undecodable hygiene state is treated as empty so cleanup can continue", () => {
   const root = realpathSync(mkdtempSync(join(tmpdir(), "hygiene-state-")));
   try {
