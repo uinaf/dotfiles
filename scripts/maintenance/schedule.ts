@@ -22,11 +22,12 @@ export const manageSchedule = Effect.fn("manageSoftwareUpdateSchedule")(function
   const service = `${domain}/${updateLabel}`;
   const plist = join(home, `Library/LaunchAgents/${updateLabel}.plist`);
   const logs = join(home, "Library/Logs/dotfiles");
+  const log = join(logs, "software-update.log");
   const runner = yield* CommandRunner;
   const current = yield* runner.run("launchctl", ["print", service]);
 
   if (action === "status") {
-    yield* Console.log(`Log: ${join(logs, "software-update.log")}`);
+    yield* Console.log(`Log: ${log}`);
     if (current.status !== 0) return yield* fail("software maintenance is not loaded in this GUI session");
     yield* Console.log(current.stdout);
     return;
@@ -35,7 +36,7 @@ export const manageSchedule = Effect.fn("manageSoftwareUpdateSchedule")(function
     if (current.status !== 0) return yield* fail("enable the scheduler first with mise run maintenance:enable");
     // Without -k, kickstart never terminates or replaces an already-running update.
     yield* runChecked("launchctl", ["kickstart", service]);
-    yield* Console.log(`Update requested; launchd keeps one instance. Log: ${join(logs, "software-update.log")}`);
+    yield* Console.log(`Update requested; launchd keeps one instance. Log: ${log}`);
     return;
   }
   if (action === "disable") {

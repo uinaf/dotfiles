@@ -99,11 +99,16 @@ mise run bootstrap:trust-agent-worktrees
   `mise.toml` and `.mise.toml` files near those roots, and is called by
   `scripts/bootstrap/install.ts`.
 
-## Runtime Pins
+Maintenance tasks:
 
-Software maintenance tasks are `maintenance:enable`, `maintenance:disable`,
-`maintenance:update`, and `maintenance:status`. They manage one per-user
-launchd job; see [Software Updates](software-updates.md) for enrollment and scope.
+- `maintenance:check` inventories available updates; `maintenance:verify` also
+  runs a live macOS scan and the full bootstrap check.
+- `maintenance:enable`, `maintenance:disable`, `maintenance:update`, and
+  `maintenance:status` manage the per-user Topgrade job.
+- See [Software updates](software-updates.md) for enrollment, inventory
+  freshness, update scope, and recovery.
+
+## Runtime Pins
 
 When changing `chezmoi/private_dot_config/mise/config.toml.tmpl`:
 

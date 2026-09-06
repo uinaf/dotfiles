@@ -28,8 +28,8 @@ provider credentials must remain independently replaceable.
 | Git authorship metadata | required | required |
 | Provider credentials | identity-scoped | identity-scoped |
 
-- Personal uses the workstation identity policy; personal-devbox uses the
-  devbox identity policy.
+- `personal-workstation` uses the workstation identity policy;
+  `personal-devbox` uses the devbox identity policy.
 - Inbound SSH does not require the user to own a private SSH key. Put an
   administrator's public key in the target user's `authorized_keys`.
 

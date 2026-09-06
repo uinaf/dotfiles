@@ -48,7 +48,7 @@ flag "--format <format>" help="Output format" default="text" {
 run = 'node ./scripts/audit/run.ts "$usage_scope" "$usage_format"'
 
 [tasks."maintenance:check"]
-description = "Collect one freshness-aware read-only maintenance snapshot as JSON"
+description = "Inspect available updates as JSON, refreshing metadata and scan caches"
 run = "node ./scripts/maintenance/check.ts"
 
 [tasks."maintenance:verify"]

@@ -12,8 +12,7 @@ Treat local audit stdout and saved logs as sensitive.
 - Compact `--json` mode exposes aggregate finding counts by rule ID and never
   includes matched secret material.
 - Sanitized locators and rule aggregates use the repository's typed Node
-  tooling. Without Node the scan still fails closed on a non-zero Gitleaks
-  status but omits locators.
+  tooling; run `./dotfiles prepare` before invoking the audit scripts.
 - Other maintained scanners can still include matched material in their own
   prose output. Use `--json` for remote collection, and do not paste raw scanner
   output into issues, pull requests, or chat.
@@ -47,8 +46,8 @@ Run locally before committing security-sensitive setup changes:
 mise run verify
 ```
 
-That command runs the repository secret scan after the complete deterministic
-graph. Run `mise run audit repo` when you only need the secret scanners.
+That command runs the repository secret scan and complete deterministic graph
+in parallel. Run `mise run audit repo` when you only need the secret scanners.
 
 The local Gitleaks scan covers `HEAD`, every local branch, remote-tracking
 branch, and tag. Other transient nonstandard refs are outside that

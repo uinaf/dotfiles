@@ -46,9 +46,11 @@ since the latest `v*` tag:
 | Breaking-change marker | Major |
 | `docs`, `test`, `ci` | None |
 
-The release job creates a tag, generated notes, and a GitHub Release through
-the workflow-scoped `GITHUB_TOKEN`. Release concurrency is non-cancellable so
-a later push cannot interrupt an in-progress release.
+The release job creates a tag, generated notes, and a GitHub Release using a
+short-lived GitHub App installation token scoped to this repository with
+Contents write access. The `release` environment supplies the App credentials.
+Release concurrency is non-cancellable so a later push cannot interrupt an
+in-progress release.
 
 ## Maintenance
 

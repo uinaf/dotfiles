@@ -44,8 +44,9 @@ Claude Code user settings:
   `env` object.
 - User settings are the lowest-precedence Claude Code scope; project, local,
   command-line, and managed settings can override this default.
-- The repository does not manage Claude Code environment values or
-  `~/.claude.json`.
+- The settings template preserves Claude Code environment values. The separate
+  [gateway configurator](devbox.md#opt-in-coding-llm-gateway) manages provider
+  routing and saved-login retirement.
 
 SSH config ownership:
 

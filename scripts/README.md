@@ -10,7 +10,7 @@ task graph; reusable behavior stays here.
 | `audit/` | Run non-destructive repository, host, workstation, and devbox audits. |
 | `bootstrap/` | Install packages and configure dotfiles, Git, coding tools, and host policy. |
 | `lib/` | Shared Effect services and typed automation contracts. |
-| `maintenance/` | Collect freshness-aware read-only maintenance snapshots. |
+| `maintenance/` | Inspect available updates and manage the opt-in Topgrade schedule. |
 | `profiles/` | Strict TypeScript parsing and tests for the canonical profile model. |
 | `secrets/` | Provision SOPS age identities and expose narrow sudo boundaries. |
 | `tizen/` | Install Tizen Studio and manage local certificate/profile archives. |
@@ -45,6 +45,9 @@ server working directory.
 Use `scripts/verify/t3-server-version.ts --host USER@HOST` first for a
 strictly read-only comparison. It emits typed JSON for the workstation app,
 remote installed version, version match, launchd state, and HTTP health.
+
+For recurring updates, on-demand runs, and inventory snapshots, use the
+commands in [Software updates](../docs/software-updates.md).
 
 ## Effect Runtime
 

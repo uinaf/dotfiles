@@ -166,9 +166,6 @@ const LiveScanRecord = Schema.Struct({
   completed_at: IsoInstant,
 });
 
-type GdmfFeed = typeof GdmfFeed.Type;
-type SofaMacOSFeed = typeof SofaMacOSFeed.Type;
-type SofaSafariFeed = typeof SofaSafariFeed.Type;
 type CacheRecord = typeof CacheRecord.Type;
 type LiveScanRecord = typeof LiveScanRecord.Type;
 
@@ -271,7 +268,7 @@ function parseApplicability(result: RawCommandResult, live: boolean): Applicabil
   }
 }
 
-function compareNumericParts(left: string, right: string): number {
+export function compareVersions(left: string, right: string): number {
   const a = left.split(".").map(Number);
   const b = right.split(".").map(Number);
   for (let index = 0; index < Math.max(a.length, b.length); index += 1) {
@@ -279,10 +276,6 @@ function compareNumericParts(left: string, right: string): number {
     if (difference !== 0) return Math.sign(difference);
   }
   return 0;
-}
-
-export function compareVersions(left: string, right: string): number {
-  return compareNumericParts(left, right);
 }
 
 export function compareBuilds(left: string, right: string): number {
@@ -312,36 +305,26 @@ function newest(values: readonly ReleaseBaseline[]): ReleaseBaseline | undefined
   return values.reduce<ReleaseBaseline | undefined>((selected, value) => !selected || compareBaselines(value, selected) > 0 ? value : selected, undefined);
 }
 
-function decodeGdmf(payload: unknown): GdmfFeed {
-  return Schema.decodeUnknownSync(GdmfFeed)(payload);
-}
-
-function decodeSofaMacOS(payload: unknown): SofaMacOSFeed {
-  return Schema.decodeUnknownSync(SofaMacOSFeed)(payload);
-}
-
-function decodeSofaSafari(payload: unknown): SofaSafariFeed {
-  return Schema.decodeUnknownSync(SofaSafariFeed)(payload);
-}
-
 export function selectGdmfBaseline(payload: unknown, deviceIdentifiers: readonly string[]): ReleaseBaseline {
-  const feed = decodeGdmf(payload);
+  const feed = Schema.decodeUnknownSync(GdmfFeed)(payload);
   const identifiers = new Set(deviceIdentifiers.filter(Boolean));
   const candidates = feed.PublicAssetSets.macOS
-    .filter((asset) => asset.SupportedDevices.some((identifier) => identifiers.has(identifier)))
-    .map((asset) => ({
-      version: asset.ProductVersion,
-      build: asset.Build,
-      source: "apple_gdmf" as const,
-      device_match: asset.SupportedDevices.find((identifier) => identifiers.has(identifier))!,
-    }));
+    .flatMap((asset) => {
+      const device = asset.SupportedDevices.find((identifier) => identifiers.has(identifier));
+      return device === undefined ? [] : [{
+        version: asset.ProductVersion,
+        build: asset.Build,
+        source: "apple_gdmf" as const,
+        device_match: device,
+      }];
+    });
   const selected = newest(candidates);
   if (!selected) throw new Error("Apple GDMF is incompatible with this software-update device identifier");
   return selected;
 }
 
 export function selectSofaMacOSBaseline(payload: unknown, modelIdentifier: string): ReleaseBaseline {
-  const feed = decodeSofaMacOS(payload);
+  const feed = Schema.decodeUnknownSync(SofaMacOSFeed)(payload);
   const candidates = feed.OSVersions
     .filter((release) => release.SupportedModels.some((group) => Array.isArray(group.Identifiers)
       ? group.Identifiers.includes(modelIdentifier)
@@ -369,7 +352,7 @@ export function selectSofaSafariBaseline(
   installedVersion: string,
   installedMacOSVersion: string,
 ): ReleaseBaseline {
-  const feed = decodeSofaSafari(payload);
+  const feed = Schema.decodeUnknownSync(SofaSafariFeed)(payload);
   const major = compatibleSafariMajor(installedVersion, installedMacOSVersion);
   const candidates = feed.AppVersions
     .filter((release) => release.AppVersion.match(/\d+/)?.[0] === major)

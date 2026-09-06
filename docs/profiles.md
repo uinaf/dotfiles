@@ -70,28 +70,17 @@ Brewfile order per profile:
 - `Brewfile.personal` declarations are profile-aware: GUI casks install only for
   `personal-workstation`.
 
-What each layer supplies:
+Package declarations live in the Brewfiles; use them for the complete inventory:
 
-- `Brewfile`, shared by `personal-workstation`, `personal-devbox`,
-  `workstation`, and `devbox`: Codex CLI, Claude Code CLI, OpenCode,
-  slopguard, slopmachine, GitLab CLI, Watchman, Docker and its credential
-  helper, AWS CLI, XcodeGen, `xcodes`, Android command-line tools, and the
-  shell, secret, and network scanning tools, plus Mole.
-- Cursor Agent CLI comes from the `install-cursor-agent` install step, not a
-  Brewfile.
-- The development runtime set, including mise-managed Ruby, comes from the
-  `developer` runtime group through `install-runtimes`.
-- `Brewfile.workstation`, used by `personal-workstation` and `workstation`:
-  1Password and its CLI, Slack, ChatGPT, Claude, Cursor, T3 Code, Zed, Ghostty,
-  and YubiKey Manager.
-- `Brewfile.personal`, used by both personal profiles: App Store Connect CLI,
-  Attach, Crabbox, Discrawl, Gitcrawl, Pi, and putio-cli. Only
-  `personal-workstation` also gets personal applications such as Slopwake and
-  the Google Cloud CLI, plus `mas`.
-- Developer profiles manage the Codex, Claude Code, OpenCode, and Cursor Agent
-  CLIs. Personal profiles add Pi, workstation profiles add T3 Code and Zed,
-  and personal workstations add Grok Build. Workstation profiles also add the
-  ChatGPT, Claude, and Cursor desktop apps.
+| Layer | Purpose |
+| --- | --- |
+| [Brewfile](../Brewfile) | Shared development, coding-agent, shell, secret, and maintenance tools, including Mole |
+| [Brewfile.workstation](../Brewfile.workstation) | Interactive desktop applications and workstation tools |
+| [Brewfile.devbox](../Brewfile.devbox) | Remote access and terminal tools |
+| [Brewfile.personal](../Brewfile.personal) | Personal CLI tools for both personal profiles; GUI casks and `mas` only for `personal-workstation` |
+
+Cursor Agent uses the `install-cursor-agent` step. Mise-managed runtimes,
+including Ruby, use the `developer` runtime group through `install-runtimes`.
 
 Runtimes and dotfiles:
 

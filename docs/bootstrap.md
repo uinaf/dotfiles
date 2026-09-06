@@ -188,10 +188,10 @@ Developer profiles also select Claude Fable 5.1 with medium effort and Cursor
 Grok 4.6 High. Personal profiles select Cursor's Fast variant. Grok Build on
 personal workstations defaults to Grok 4.6 through the managed gateway config.
 
-Personal profiles then require the owner-only LLM gateway config, apply it to
-Codex, Claude Code, Cursor Agent, and Grok Build, and retire their saved vendor
-login sessions. Workstation profiles manage the T3 Code, ChatGPT, Claude, and
-Cursor desktop apps.
+Personal profiles require the owner-only
+[LLM gateway config](devbox.md#opt-in-coding-llm-gateway), apply client routing,
+and retire saved vendor logins except those listed in `preservedLogins`.
+Workstation profiles manage the T3 Code, ChatGPT, Claude, and Cursor desktop apps.
 
 The same install step also:
 
@@ -269,44 +269,8 @@ mise run audit host
 mise run audit workstation
 ```
 
-`maintenance:check` emits a versioned, read-only JSON snapshot and runs
-independent inventory probes concurrently. Finite probe deadlines send TERM to
-only the direct child, escalate to KILL after 200 ms, then stop draining output
-after another 200 ms if inherited pipes remain open. Descendants are not
-explicitly signaled; closing inherited pipes can still cause EPIPE or SIGPIPE. Collected output and the direct child's observed exit status are
-preserved, and a deadline remains a timeout even if TERM causes a successful
-exit. The Homebrew probe explicitly runs
-`brew update` before its greedy backlog inventory and reports an incomplete
-snapshot when the refresh fails. Its macOS update inventory reports:
-
-- installed macOS version and build plus the installed Safari version;
-- Apple GDMF and advisory SOFA release baselines with source and freshness;
-- the device's cached applicable backlog from `softwareupdate --list
-  --no-scan`, labeled `cached_previous_scan`;
-- whether a live scan ran, why it ran, and whether applicability is current,
-  unknown, or has updates available.
-
-Apple GDMF responses are cached for 24 hours under
-`~/.cache/dotfiles/macos-updates/`. SOFA requests send an explicit User-Agent.
-Stale, malformed, incompatible, or unavailable sources stay visible in the
-snapshot; cached applicability is never labeled live.
-
-The routine path runs `softwareupdate --list` when upstream is newer, cached
-applicability is non-empty or invalid, fresh applicability cannot otherwise be
-established, or the last successful live scan is at least 24 hours old. The
-successful live-scan timestamp is stored beside the GDMF cache. Request an
-unconditional live scan with:
-
-```zsh
-node ./scripts/maintenance/check.ts --fresh
-```
-
-After maintenance, use `mise run maintenance:verify`; it runs the live scan and
-adds the full bootstrap gate. A live scan has no timeout because the macOS
-client does not document daemon-side cancellation. The inventory never runs
-`softwareupdate --background`, downloads, or installs updates. Run
-`./scripts/verify/bootstrap.ts --profile "$profile" --verbose` only when
-successful command output is needed for diagnosis.
+For snapshot fields, freshness, probe deadlines, and post-update verification,
+see [Check available updates](software-updates.md#check-available-updates).
 
 ## Devbox Mac
 
@@ -332,22 +296,10 @@ profile=devbox # use personal-devbox for headless personal tools and skills
 ./scripts/bootstrap/brew-bundle.ts "$profile"
 ```
 
-### Topgrade
+### Shared Homebrew Updates
 
-Developer profiles install Topgrade and manage `~/.config/topgrade.toml`.
-Preview with `topgrade --dry-run`, then run `topgrade` for an interactive
-maintenance pass. The selected steps update Homebrew formulae and casks,
-GitHub CLI extensions, and managed agent skills through `agents:update`.
-Cask updates include applications with built-in updaters. Failures are
-reported without interactive retries; no automatic cleanup is selected.
-
-Runtime pins, Git repositories, macOS updates, and reboots retain their existing
-owners. Shared devbox profiles omit Topgrade's Homebrew steps: the prefix owner
-must use the wrapper below. The managed LaunchAgent is disabled until explicitly
-enabled. See [Software Updates](software-updates.md) for the six-hour schedule,
-on-demand command, logs, and recovery.
-
-Run every other Homebrew mutation on a shared devbox through the repo wrapper:
+Run Homebrew mutations on a shared devbox as the prefix owner through the repo
+wrapper:
 
 ```zsh
 ./scripts/bootstrap/brew-devbox.ts upgrade
@@ -422,6 +374,10 @@ mise run audit devbox
 ```
 
 ## Updating an Existing Machine
+
+For six-hour and on-demand software updates, enroll the current GUI user through
+[Software updates](software-updates.md#enable-and-use). The procedure below
+refreshes package declarations, runtime pins, and the full per-user setup.
 
 Pull the repo and rerun the relevant profile:
 

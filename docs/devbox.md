@@ -3,8 +3,7 @@
 Devbox automation keeps dedicated Unix users reproducible without making
 secrets or identities part of the public dotfiles repository.
 
-- Personal-devbox uses the devbox operational contract with headless personal
-  tools and skills.
+`personal-devbox` adds headless personal tools and skills to this contract.
 
 Credentials and lifecycle live in [Identity provisioning](identities.md).
 
@@ -22,6 +21,8 @@ Local only:
 - private age identities and owner-only devbox config
 - workspace payloads, product env files, service state, logs, and sockets
 - Codex and Claude authentication, sessions, and trusted paths
+
+Identity isolation:
 
 - Each identity gets its own Unix user, home directory, Git identity, age
   identity, agent homes, workspaces, and service state.
@@ -126,8 +127,8 @@ Create `~/.config/dotfiles/llm-gateway.json` with mode `0600`:
 `credentials.cursor` only with `cursorAgentBin`. An optional
 `preservedLogins` array (values `codex`, `claude`, `cursor`, `grok`) declares
 host-local vendor logins that retirement and `--check` must leave alone; use
-it for a deliberately kept login instead of tolerating a failing check. The values are already-resolved
-opaque strings: this repository does not know or require their source. Both
+it for a login that must remain available. Credential values are already-resolved
+opaque strings; their source stays outside this repository. Both
 `cursorAgentBin` and `grokBin` are optional. The configurators route Codex,
 Claude, and Grok through Gatewai, Cursor through its own API, and OpenCode and
 Pi through Bifrost. Other clients can call the installed credential helper
@@ -145,23 +146,17 @@ with `bifrost`. The gateway configurator then:
 ./scripts/bootstrap/configure-bifrost-clients.ts --check
 ```
 
-- The first enrollment keeps any saved Codex login intact.
-- Generic developer profiles can accept the rollback path before running the
-  separate retirement step.
-- Personal setup runs the retirement step automatically and idempotently.
-- Remove the saved login only in the separate, explicit auth-retirement step
-  after the gateway and rollback path are accepted.
-
-After the gateway has been accepted, retire the three coding-client login
-caches through their supported logout commands and remove Codex's obsolete
-login-method restriction:
+Direct enrollment preserves saved logins. Generic profiles can check the gateway
+and its rollback path before retiring them with the commands below. Personal
+`./dotfiles apply` runs enrollment and retirement together. Both paths respect
+`preservedLogins`.
 
 ```bash
 ./scripts/bootstrap/configure-llm-gateway.ts --retire-auth
 ./scripts/bootstrap/configure-llm-gateway.ts --check
 ```
 
-Retirement is intentionally separate from enrollment:
+Retirement:
 
 - It is idempotent and keeps the owner-only gateway configuration in place.
 - It does not touch GitHub, SSH, OpenClaw, or connector credentials.
@@ -170,6 +165,9 @@ Retirement is intentionally separate from enrollment:
   again before direct use.
 - A complete developer-profile `install.ts` run preserves gateway routing and
   removes any legacy Codex login-method restriction.
+
+OpenCode and Pi:
+
 - Personal setup asks the installed credential helper for the device-scoped
   Bifrost key, writes it to OpenCode's owner-only `bifrost` auth slot, and sets
   `enabled_providers` to only `bifrost`. It converges the same six-model catalog
@@ -248,7 +246,9 @@ Grok Build:
   OpenAI-compatible model catalog and the command-backed gateway bearer. The
   configurator backs up `~/.grok/config.toml` and `~/.grok/auth.json` before
   selecting the gateway, preserves unrelated Grok settings, and never calls
-  `grok logout`. Rollback restores the exact saved config and SpaceXAI session.
+  `grok logout`. Before retirement, rollback restores the saved config and vendor
+  session. Retirement deletes that session backup unless `preservedLogins`
+  includes `grok`.
 
 Rollback restores the exact pre-enrollment Codex config, Claude settings, and
 Cursor command symlinks, then removes the helpers. Saved coding login state is
@@ -316,6 +316,13 @@ remote service structure cannot be established. Completed inspections exit
   values.
 - Retire a competing user LaunchAgent before installing a system service for the
   same process.
+
+## Software Updates
+
+For package updates, use the [shared Homebrew wrapper](bootstrap.md#shared-homebrew-updates)
+as the prefix owner. [Software updates](software-updates.md) covers per-user
+Topgrade enrollment; its GUI LaunchAgent requires a logged-in session and does
+not provide boot-time headless updates.
 
 ## Disk Cleanup
 

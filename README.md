@@ -2,7 +2,7 @@
 
 # uinaf/dotfiles
 
-A vendor-neutral macOS bootstrap framework for workstations, remote coding
+A vendor-neutral macOS bootstrap framework for workstations and remote coding
 users.
 
 The repository manages Homebrew layers, chezmoi source state, mise runtimes,
@@ -38,13 +38,14 @@ optional desktop setup, updates, and troubleshooting.
 
 | Surface | Source of truth |
 | --- | --- |
-| Packages | `Brewfile` and `Brewfile.<profile>` |
+| Packages | `Brewfile` and the [profile layers](docs/profiles.md#software-layers) |
 | Per-user convergence | `./dotfiles`, backed by `chezmoi/`, mise, and profile install steps |
 | Runtimes and CLIs | `chezmoi/private_dot_config/mise/config.toml.tmpl` |
 | Git, SSH, age, and GitHub App setup | `scripts/bootstrap/`, `scripts/secrets/`, and [Identity provisioning](docs/identities.md) |
 | Global coding-agent rules | `chezmoi/`, with optional private start and end fragments under `~/.config/dotfiles/` |
 | Global coding-agent skills | `scripts/agents/`, with personal additions selected by profile |
 | Repository and host checks | `scripts/verify/` and `scripts/audit/` |
+| Software updates and inventory | `scripts/maintenance/` and the [Topgrade setup](docs/software-updates.md) |
 
 Consumer repositories own project dependencies, encrypted payloads, runtime
 services, and repository-local agent instructions. The optional
@@ -53,7 +54,7 @@ standalone starting point for encrypted capability-scoped repositories.
 
 ## Verify
 
-List the verification domains and run the one that owns the change:
+Run the verification domain that owns the change, or the full gate:
 
 ```zsh
 mise run verify:domain config # example; select the owning domain
@@ -72,6 +73,7 @@ mise run verify
 | Need | Guide |
 | --- | --- |
 | Install or update a Mac | [Bootstrap](docs/bootstrap.md) |
+| Schedule software updates or check available updates | [Software updates](docs/software-updates.md) |
 | Choose a per-user role | [User profiles](docs/profiles.md) |
 | Provision age, Git, SSH, or GitHub identity | [Identity provisioning](docs/identities.md) |
 | Configure a devbox, coding LLM gateway, or shared-host service | [Devbox setup](docs/devbox.md) |

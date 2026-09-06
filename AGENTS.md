@@ -13,6 +13,7 @@ machine setup in the repository and private machine state outside it.
 | Change profile packages or role boundaries | [User profiles](docs/profiles.md) |
 | Change age, Git, SSH, GitHub, or recovery behavior | [Identity provisioning](docs/identities.md) |
 | Change shared-host services or secret consumers | [Devbox setup](docs/devbox.md) |
+| Change software updates, scheduling, or inventory | [Software updates](docs/software-updates.md) |
 | Change global agent rules or skills | [Agent setup](docs/agents.md) |
 | Change dotfile source state | [Chezmoi](docs/chezmoi.md) |
 | Change tasks or runtime pins | [Mise](docs/mise.md) |
@@ -98,8 +99,9 @@ mise run audit devbox
 - Keep installed paths, commands, config keys, service labels, and portable
   prose vendor-neutral. Owner names are allowed only for real external
   coordinates such as this repository, a tap, or the security contact.
-- Treat Git tags and GitHub Releases as the version boundary. Do not add a
-  package manifest, checked-in version file, or release bump commit.
+- Treat Git tags and GitHub Releases as the version boundary. Keep
+  `package.json` private and unversioned; it owns repository tooling, not
+  release versions. Do not add a version file or release bump commit.
 - Use proper-case headings and sentence-case prose. Prefer bullets, tables, and
   short labeled lines over paragraphs; keep a paragraph for rationale only. No
   emoji and no marketing copy.
