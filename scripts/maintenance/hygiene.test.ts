@@ -144,6 +144,21 @@ test("repository discovery ignores symlinks and stays within its depth", () => {
   } finally { f.cleanup(); }
 });
 
+test("a checkout with no retirement candidates needs no remote access", () => {
+  const f = fixture();
+  try {
+    f.git(f.repo, "worktree", "remove", f.tree);
+    f.git(f.repo, "branch", "-d", "finished");
+    const offline: Runner = (cwd, command, args) => {
+      if (args[0] === "ls-remote" || args[0] === "remote") throw new Error("unexpected network access");
+      return runner(cwd, command, args);
+    };
+    const result = cleanRepository(f.repo, f.roots, {}, week, true, () => [], offline);
+    assert.deepEqual(result, { entries: [], candidates: {} });
+    assert.ok(existsSync(join(f.repo, "tracked")));
+  } finally { f.cleanup(); }
+});
+
 test("cache cleanup preserves archives and stopped containers, previews without deleting, and reports failures", () => {
   const root = realpathSync(mkdtempSync(join(tmpdir(), "cache-hygiene-")));
   try {
