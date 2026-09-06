@@ -7,13 +7,17 @@ node_version=24.19.0
 if [ "$#" -eq 1 ]; then
   case "$1" in
     -h|--help)
-      printf '%s\n' 'Usage: ./dotfiles prepare | diff|apply|check PROFILE' \
-        'prepare installs repository dependencies without applying a machine profile.'
+      printf '%s\n' 'Usage: ./dotfiles prepare | maintain | diff|apply|check PROFILE' \
+        'prepare installs repository dependencies; maintain converges the stored profile without retiring logins.'
       exit 0
       ;;
     prepare)
       mise --no-config x "node@$node_version" -- corepack pnpm --dir "$repo_root" install --frozen-lockfile
       exit 0
+      ;;
+    maintain)
+      mise --no-config x "node@$node_version" -- corepack pnpm --dir "$repo_root" install --frozen-lockfile
+      exec mise --no-config x "node@$node_version" -- node "$repo_root/scripts/bootstrap/install.ts" --maintenance
       ;;
   esac
 fi

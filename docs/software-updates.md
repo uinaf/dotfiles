@@ -53,7 +53,7 @@ mise run maintenance:status
 
 Applying dotfiles writes a disabled-by-default plist. Explicit enrollment is
 required; there is no chezmoi lifecycle hook that starts updates during apply.
-The job depends on this checkout remaining available, its dependencies already
+The job depends on this checkout remaining available, its bootstrap tools being
 installed, and the user's existing mise/GitHub/agent configuration working in
 a non-interactive session. No shell startup or interactive auth is copied into
 the job.
@@ -82,8 +82,9 @@ The custom `Managed dotfiles` step runs `scripts/maintenance/converge.ts`:
 
 1. Require a clean default branch tracking `origin`, with no local commits or
    unfinished Git operation; fetch and fast-forward without stashing or rebasing.
-2. Install the checkout's locked dependencies and trust its updated mise task
-   configuration, then start the updated installer in a fresh process.
+2. Trust its updated mise tasks and use `./dotfiles maintain` to select the
+   repository's Node pin, install locked dependencies, and start the updated
+   installer in a fresh process.
 3. Install missing Homebrew declarations without cleanup. On shared hosts,
    only the prefix owner installs them; other users check their required packages.
 4. Apply chezmoi configuration with the existing backups, install declared mise

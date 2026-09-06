@@ -125,6 +125,16 @@ test("fresh checkout launcher prepares dependencies without applying a profile",
     assert.equal(readFileSync(log, "utf8"), `--no-config x node@24.19.0 -- corepack pnpm --dir ${root} install --frozen-lockfile\n`);
     const failed = spawnSync("/bin/sh", [join(root, "dotfiles"), "prepare"], { env: { ...env, TEST_EXIT: "23" }, encoding: "utf8" });
     assert.equal(failed.status, 23);
+    writeFileSync(log, "");
+    const maintained = spawnSync("/bin/sh", [join(root, "dotfiles"), "maintain"], { env, encoding: "utf8" });
+    assert.equal(maintained.status, 0, maintained.stderr);
+    assert.equal(readFileSync(log, "utf8"),
+      `--no-config x node@24.19.0 -- corepack pnpm --dir ${root} install --frozen-lockfile\n` +
+      `--no-config x node@24.19.0 -- node ${root}/scripts/bootstrap/install.ts --maintenance\n`);
+    writeFileSync(log, "");
+    const failedMaintenance = spawnSync("/bin/sh", [join(root, "dotfiles"), "maintain"], { env: { ...env, TEST_EXIT: "23" }, encoding: "utf8" });
+    assert.equal(failedMaintenance.status, 23);
+    assert.doesNotMatch(readFileSync(log, "utf8"), /install.ts/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

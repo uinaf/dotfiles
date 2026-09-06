@@ -462,7 +462,8 @@ can hang.
   Cursor's official per-user installer instead of recursively removing
   quarantine attributes from a Homebrew cask.
 
-Unattended per-user convergence uses `install.ts --maintenance` after a guarded
-source update. It installs missing package declarations, applies profile setup,
+Unattended per-user convergence uses `./dotfiles maintain` after a guarded
+source update. The launcher selects the repository's Node pin and prepares its
+dependencies before running `install.ts --maintenance`. It installs missing package declarations, applies profile setup,
 and updates agent assets while preserving saved logins. See
 [Dotfiles convergence](software-updates.md#dotfiles-convergence).

@@ -43,7 +43,9 @@ export function syncCheckout(repo: string): string {
   const before = git("rev-parse", "HEAD");
   git("fetch", "--no-tags", "origin", `+refs/heads/${branch}:${remote}`);
   clean();
-  if (git("rev-parse", "HEAD") !== before) throw new UpdateFailure("dotfiles HEAD changed during fetch; retry when the checkout is idle");
+  if (git("rev-parse", "HEAD") !== before || git("symbolic-ref", "HEAD") !== `refs/heads/${branch}`) {
+    throw new UpdateFailure("dotfiles HEAD or branch changed during fetch; retry when the checkout is idle");
+  }
   git("merge-base", "--is-ancestor", "HEAD", remote);
   git("merge", "--ff-only", "--no-autostash", "--no-edit", remote);
   clean();
@@ -64,10 +66,9 @@ export function converge(repo: string): void {
   try {
     const revision = syncCheckout(repo);
     console.log(`Converging dotfiles ${revision}`);
-    run(repo, "corepack", ["pnpm", "install", "--frozen-lockfile"]);
     run(repo, "mise", ["trust", join(repo, "mise.toml")]);
-    // Start the updated installer in a fresh process with its new dependencies.
-    run(repo, process.execPath, [join(repo, "scripts/bootstrap/install.ts"), "--maintenance"]);
+    // The shell bootstrap selects the new repository Node pin before loading dependencies.
+    run(repo, join(repo, "dotfiles"), ["maintain"]);
     console.log(`Dotfiles converged at ${revision}`);
   } finally {
     release();

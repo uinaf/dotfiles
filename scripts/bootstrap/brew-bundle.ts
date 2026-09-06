@@ -120,6 +120,14 @@ const program = Effect.gen(function*() {
     yield* Console.log("Shared packages checked; the prefix owner's job installs declarations.");
     return;
   }
+  if (args.maintenance) {
+    const checks = yield* Effect.forEach(files, (file) => runHomebrewRaw("brew", ["bundle", "check", "--no-upgrade", "--file", join(repoRoot, file)],
+      { env: { ...external, HOMEBREW_BUNDLE_DOTFILES_PROFILE: profile, HOMEBREW_NO_AUTO_UPDATE: "1" } }));
+    if (checks.every((result) => result.status === 0)) {
+      yield* Console.log("All declared Homebrew packages are installed.");
+      return;
+    }
+  }
   yield* trustTaps(repoRoot, files);
   for (const file of files) {
     const path = join(repoRoot, file);

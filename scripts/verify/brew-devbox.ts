@@ -24,6 +24,7 @@ if [ "\${1:-}" = --prefix ]; then printf '%s\\n' "$FAKE_BREW_PREFIX"; exit 0; fi
 { printf 'umask=%s\\n' "$(umask)"; printf 'no_auto_update=%s\\n' "\${HOMEBREW_NO_AUTO_UPDATE:-}"; [ -z "\${HOMEBREW_BUNDLE_DOTFILES_PROFILE:-}" ] || printf 'profile=%s\\n' "$HOMEBREW_BUNDLE_DOTFILES_PROFILE"; printf 'arg=%s\\n' "$@"; } >> "$FAKE_BREW_LOG"
 if [ -n "\${FAKE_BREW_OUTPUT_DIR:-}" ]; then mkdir "$FAKE_BREW_OUTPUT_DIR/directory"; : > "$FAKE_BREW_OUTPUT_DIR/file"; : > "$FAKE_BREW_OUTPUT_DIR/executable"; chmod a+x "$FAKE_BREW_OUTPUT_DIR/executable"; fi
 if [ "\${1:-}" = bundle ] && [ "\${2:-}" = cleanup ]; then while [ "$#" -gt 0 ]; do if [ "$1" = --file ]; then sed -n -E 's/^((brew|cask|tap) ".*")$/cleanup_entry=\\1/p' "$2" >> "$FAKE_BREW_LOG"; break; fi; shift; done; fi
+if [ "\${1:-}" = bundle ] && [ "\${2:-}" = check ]; then exit "\${FAKE_BREW_CHECK_EXIT:-0}"; fi
 exit "\${FAKE_BREW_EXIT:-0}"
 `, { mode: 0o755 });
   const path = `${bin}:${process.env.PATH || "/usr/bin:/bin"}`;
@@ -98,7 +99,15 @@ exit "\${FAKE_BREW_EXIT:-0}"
   assert.equal((shared.match(/^arg=bundle$/gm) || []).length, 1);
   const maintenance = yield* bundle("personal-devbox", ["--maintenance"]);
   assert.equal((maintenance.match(/^arg=--no-upgrade$/gm) || []).length, 3);
-  assert.doesNotMatch(maintenance, /^arg=cleanup$/m);
+  assert.doesNotMatch(maintenance, /^arg=(cleanup|trust)$/m);
+  assert.equal((maintenance.match(/^arg=check$/gm) || []).length, 3);
+  const missingLog = join(temporary, "missing-packages.log");
+  const missing = yield* execute("scripts/bootstrap/brew-bundle.ts", ["--maintenance", "devbox"], missingLog, { FAKE_BREW_CHECK_EXIT: "1" });
+  assert.equal(missing.status, 0, missing.stderr);
+  const missingCommands = yield* fs.readFileString(missingLog);
+  assert.equal((missingCommands.match(/^arg=--no-upgrade$/gm) || []).length, 4);
+  assert.equal((missingCommands.match(/^arg=check$/gm) || []).length, 2);
+  assert.match(missingCommands, /^umask=0027$/m);
   if (process.getuid?.() !== 0) {
     const consumerLog = join(temporary, "consumer.log");
     const consumer = yield* execute("scripts/bootstrap/brew-bundle.ts", ["--maintenance", "devbox"], consumerLog, { FAKE_BREW_PREFIX: "/" });

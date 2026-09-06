@@ -76,11 +76,16 @@ test("failed fetch preserves the checkout and a held lock prevents a second upda
   assert.ok(existsSync(lock));
 });
 
-test("dependency failure stops apply, preserves exit status, and releases the lock", t => {
-  const { root, repo } = fixture(t);
+test("bootstrap failure preserves exit status and releases the lock", t => {
+  const { root, repo, upstream } = fixture(t);
   const bin = join(root, "bin");
   mkdirSync(bin);
-  writeFileSync(join(bin, "corepack"), "#!/bin/sh\nexit 23\n", { mode: 0o755 });
+  writeFileSync(join(bin, "mise"), "#!/bin/sh\nexit 0\n", { mode: 0o755 });
+  writeFileSync(join(repo, "dotfiles"), "#!/bin/sh\nexit 23\n", { mode: 0o755 });
+  git(repo, "add", "dotfiles");
+  git(repo, "commit", "-m", "bootstrap");
+  git(upstream, "config", "receive.denyCurrentBranch", "updateInstead");
+  git(repo, "push", "origin", "main");
   const previousPath = process.env.PATH;
   process.env.PATH = `${bin}:${previousPath}`;
   t.after(() => { process.env.PATH = previousPath; });
