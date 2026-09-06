@@ -24,7 +24,7 @@ const run: Runner = (cwd, command, args) => {
   const result = spawnSync(command, args, {
     cwd, encoding: "utf8", timeout: 60_000,
     maxBuffer: 32 * 1024 * 1024,
-    env: { ...process.env, GIT_TERMINAL_PROMPT: "0", GIT_SSH_COMMAND: "ssh -o BatchMode=yes" },
+    env: { ...process.env, GIT_TERMINAL_PROMPT: "0", GCM_INTERACTIVE: "never" },
     stdio: ["ignore", "pipe", "pipe"],
   });
   return { status: result.error ? 1 : result.status ?? 1, stdout: result.stdout ?? "" };
@@ -81,6 +81,17 @@ export function candidates(repo: string, roots: readonly string[], openPaths: re
   if (git("rev-parse", "--show-toplevel") !== realpathSync(repo) || !lstatSync(join(repo, ".git")).isDirectory()) {
     throw new Error("standalone owning checkout required");
   }
+  const worktrees = parseWorktrees(git("worktree", "list", "--porcelain", "-z"));
+  const checkedOut = new Set(worktrees.map(worktree => worktree.branch));
+  const refs = git("for-each-ref", "--format=%(refname)%00%(objectname)", "refs/heads").split("\n").filter(Boolean);
+  const longLived = (branch: string) => /^refs\/heads\/(main|master|develop|dev|production|staging|release)(\/|$)/.test(branch);
+  const possibleTree = worktrees.slice(1).some(tree => tree.branch && !longLived(tree.branch) && !tree.locked && !tree.prunable
+    && roots.some(root => tree.path !== root && inside(tree.path, root)));
+  const possibleBranch = refs.some(row => {
+    const [branch] = row.split("\0");
+    return branch && !longLived(branch) && !checkedOut.has(branch) && !busy(repo, openPaths);
+  });
+  if (!possibleTree && !possibleBranch) return { eligible: [], kept: [] };
   // Observe the remote's current default rather than trusting a stale origin/HEAD.
   const remote = git("ls-remote", "--symref", "origin", "HEAD", "refs/heads/*");
   const defaultBranch = /^ref: refs\/heads\/(.+)\tHEAD$/m.exec(remote)?.[1];
@@ -93,14 +104,12 @@ export function candidates(repo: string, roots: readonly string[], openPaths: re
     const match = /^[0-9a-f]{40,64}\trefs\/heads\/(.+)$/.exec(line);
     return match ? [match[1]] : [];
   }));
-  const worktrees = parseWorktrees(git("worktree", "list", "--porcelain", "-z"));
-  const checkedOut = new Set(worktrees.map(worktree => worktree.branch));
   const eligible: Candidate[] = [];
   const kept: Entry[] = [];
   const merged = (head: string) => runner(repo, "git", ["merge-base", "--is-ancestor", head, target]).status === 0;
   const protectedBranch = (branch: string) => {
     const name = branch.replace(/^refs\/heads\//, "");
-    if (/^(main|master|develop|dev|production|staging|release)(\/|$)/.test(name)) return true;
+    if (longLived(branch)) return true;
     const upstream = git("for-each-ref", "--format=%(upstream)", branch);
     if (remoteHeads.has(name)) return true;
     if (upstream.startsWith("refs/remotes/origin/")) return remoteHeads.has(upstream.slice("refs/remotes/origin/".length));
@@ -125,7 +134,6 @@ export function candidates(repo: string, roots: readonly string[], openPaths: re
     if (reason) kept.push({ target: tree.path, result: reason });
     else eligible.push({ kind: "worktree", path: tree.path, branch: tree.branch, head: tree.head });
   }
-  const refs = git("for-each-ref", "--format=%(refname)%00%(objectname)", "refs/heads").split("\n").filter(Boolean);
   for (const row of refs) {
     const [branch, head] = row.split("\0");
     if (!branch || !head || branch === `refs/heads/${defaultBranch}` || checkedOut.has(branch) || protectedBranch(branch)) continue;
@@ -142,7 +150,7 @@ export function cleanRepository(
   apply: boolean, activity: () => string[], runner: Runner = run,
 ) {
   const initial = candidates(repo, roots, activity(), runner);
-  if (apply) checked(runner, repo, "git", ["remote", "prune", "origin"]);
+  if (apply && initial.eligible.length) checked(runner, repo, "git", ["remote", "prune", "origin"]);
   const next: Record<string, { head: string; since: number }> = {};
   const entries = [...initial.kept];
   for (const candidate of initial.eligible) {

@@ -131,6 +131,9 @@ commit SHA, then uses the commit graph already on disk. Missing history is
 reported and retained for normal repository sync. Cleanup prunes stale
 origin-tracking refs, but never downloads Git objects, pulls, rebases, or
 removes an owning checkout. Missing checkouts are not cloned by cleanup.
+Repositories without a possible worktree or branch retirement target skip
+remote checks entirely. Remote access failures retain that repository and
+fail the cleanup run; resolve its normal Git access before retrying.
 
 Linked worktrees are eligible only below `~/.t3/worktrees`,
 `~/.codex/worktrees`, or `~/.claude/worktrees`. Their HEAD must already be an
