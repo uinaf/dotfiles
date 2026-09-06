@@ -177,6 +177,12 @@ const fixturePlist = {
   EnvironmentVariables: { GIT_TERMINAL_PROMPT: "0", PATH: "/Users/fixture/.local/bin:/usr/bin:/bin", NO_COLOR: "1" },
 };
 
+test("plist comparison covers only arguments and environment, never the schedule", () => {
+  const loaded = parseLaunchdPrint(launchdPrintFixture);
+  const rescheduled = { ...fixturePlist, StartCalendarInterval: [{ Hour: 3, Minute: 0 }], WorkingDirectory: "/elsewhere" };
+  assert.deepEqual(comparePlist(loaded, rescheduled), { comparable: true, drift: [] });
+});
+
 test("launchctl print parsing extracts only the job's own arguments and environment", () => {
   const loaded = parseLaunchdPrint(launchdPrintFixture);
   assert.deepEqual(loaded.arguments, fixtureArguments);

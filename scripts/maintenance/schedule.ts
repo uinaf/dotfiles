@@ -48,7 +48,9 @@ export function parseLaunchdPrint(output: string): LoadedJob {
 
 // launchd injects variables (XPC_SERVICE_NAME, OSLogRateLimit) into a loaded
 // job, so the environment check requires every plist variable to be loaded with
-// the same value rather than exact equality.
+// the same value rather than exact equality. Only ProgramArguments and
+// EnvironmentVariables are compared; schedule and working-directory drift is
+// outside this check, and the status message says so.
 export function comparePlist(loaded: LoadedJob, plist: unknown): { comparable: boolean; drift: string[] } {
   const record = typeof plist === "object" && plist !== null ? plist as Record<string, unknown> : undefined;
   const args = record?.ProgramArguments;
@@ -130,7 +132,7 @@ export const manageSchedule = Effect.fn("manageSoftwareUpdateSchedule")(function
         for (const entry of comparison.drift) yield* Console.log(`WARNING: ${entry}`);
         yield* Console.log("Reload required: wait for the job to be idle, then run mise run maintenance:disable and mise run maintenance:enable.");
       } else {
-        yield* Console.log("Loaded job matches the on-disk plist.");
+        yield* Console.log("Loaded job arguments and environment match the on-disk plist (schedule and working directory are not compared).");
       }
     } else {
       yield* Console.log(`WARNING: managed plist missing at ${plist}; apply dotfiles to render it.`);
