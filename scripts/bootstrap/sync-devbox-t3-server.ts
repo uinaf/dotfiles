@@ -1,14 +1,31 @@
 #!/usr/bin/env node
 
-import {execFileSync, spawnSync} from "node:child_process";
-import { Effect } from "effect";
-import {readdirSync} from "node:fs";
-import {dirname, join, resolve} from "node:path";
-import {fileURLToPath} from "node:url";
-import { runMain } from "../lib/program.ts";
+import { NodeServices } from "@effect/platform-node";
+import { Console, Effect, FileSystem, Option } from "effect";
+import { spawnSync } from "node:child_process";
+import { join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { CommandRunner } from "../lib/command.ts";
+import { CliFailure, fail, runMain } from "../lib/program.ts";
+import {
+  parseT3Version,
+  shellQuote,
+  sshTargetPattern,
+  workstationT3Installation,
+  type WorkstationT3Installation,
+} from "../lib/t3-code.ts";
+import { collectT3ServerComparison, type T3ServerComparison } from "../verify/t3-server-version.ts";
 
-const APPLICATIONS_DIRECTORY = "/Applications";
-const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+export {
+  parseT3Version,
+  selectWorkstationT3App,
+  shellQuote,
+  workstationT3Installation,
+  workstationT3Version,
+  type WorkstationT3Installation,
+} from "../lib/t3-code.ts";
+
+const REPO_ROOT = resolve(fileURLToPath(new URL("../..", import.meta.url)));
 const SYNC_BUNDLE_PATHS = [
   "package.json",
   "pnpm-lock.yaml",
@@ -22,25 +39,28 @@ const SYNC_BUNDLE_PATHS = [
   "scripts/secrets/sops-devbox-sudo.ts",
 ] as const;
 
+// Exit codes for --check: drift and unavailability are distinct so callers can
+// tell "install needed" from "could not decide".
+export const exitCodes = { clean: 0, unavailable: 1, drift: 3 } as const;
+
+// Scheduled runs read the target from this owner-only file so the shared
+// Topgrade config stays host-neutral. One line: user@host.
+export const scheduledTargetFile = ".config/dotfiles/t3-server-target";
+
 export type SyncOptions = {
   host: string;
   version?: string;
+  check: boolean;
+  force: boolean;
+  scheduled: boolean;
 };
-
-export function parseT3Version(input: string): string {
-  const packageSpec = input.trim().replace(/^npx\s+/, "");
-  const version = packageSpec.startsWith("t3@")
-    ? packageSpec.slice("t3@".length)
-    : packageSpec;
-  if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/.test(version)) {
-    throw new Error(`expected an exact T3 version, got: ${input}`);
-  }
-  return version;
-}
 
 export function parseArguments(args: readonly string[]): SyncOptions {
   let host = "";
   let version: string | undefined;
+  let check = false;
+  let force = false;
+  let scheduled = false;
 
   for (let index = 0; index < args.length; index += 1) {
     const argument = args[index];
@@ -56,50 +76,30 @@ export function parseArguments(args: readonly string[]): SyncOptions {
         version = parseT3Version(value);
         index += 1;
         break;
+      case "--check":
+        check = true;
+        break;
+      case "--force":
+        force = true;
+        break;
+      case "--scheduled":
+        scheduled = true;
+        break;
       default:
         throw new Error(`unknown argument: ${argument}`);
     }
   }
 
-  if (!/^[A-Za-z0-9._-]+@[A-Za-z0-9._-]+$/.test(host)) {
+  if (scheduled) {
+    if (host || version || check || force) throw new Error("--scheduled takes no other arguments");
+    return {host: "", check: false, force: false, scheduled: true};
+  }
+  if (check && (force || version)) throw new Error("--check cannot be combined with --force or --version");
+  if (!sshTargetPattern.test(host)) {
     throw new Error("--host must be an explicit user@host SSH target");
   }
 
-  return {host, version};
-}
-
-export function selectWorkstationT3App(appNames: readonly string[]): string {
-  const matches = appNames.filter((name) => /^T3 Code(?: \([^)]+\))?\.app$/.test(name));
-  if (matches.includes("T3 Code.app")) return "T3 Code.app";
-  if (matches.length === 1) return matches[0];
-  if (matches.length === 0) throw new Error("missing T3 Code app; pass --version explicitly");
-  throw new Error(`multiple T3 Code apps found; pass --version explicitly: ${matches.sort().join(", ")}`);
-}
-
-export type WorkstationT3Installation = {
-  app: string;
-  version: string;
-};
-
-export function workstationT3Installation(
-  applicationsDirectory = APPLICATIONS_DIRECTORY,
-): WorkstationT3Installation {
-  const app = selectWorkstationT3App(readdirSync(applicationsDirectory));
-  const plist = join(applicationsDirectory, app, "Contents/Info.plist");
-  const version = execFileSync(
-    "/usr/libexec/PlistBuddy",
-    ["-c", "Print :CFBundleShortVersionString", plist],
-    {encoding: "utf8"},
-  );
-  return {app, version: parseT3Version(version)};
-}
-
-export function workstationT3Version(applicationsDirectory = APPLICATIONS_DIRECTORY): string {
-  return workstationT3Installation(applicationsDirectory).version;
-}
-
-export function shellQuote(value: string): string {
-  return `'${value.replaceAll("'", `'\\''`)}'`;
+  return {host, version, check, force, scheduled: false};
 }
 
 export const remoteUpdate = String.raw`set -euo pipefail
@@ -160,51 +160,194 @@ export function createSyncBundle(): Buffer {
   return result.stdout;
 }
 
-export function syncDevboxT3Server(options: SyncOptions): void {
-  const version = options.version ?? workstationT3Version();
-  const remoteCommand = [
+export function installSshArguments(host: string, version: string): readonly string[] {
+  const command = [
     "/bin/bash -c",
     shellQuote(remoteUpdate),
     "--",
     shellQuote(version),
   ].join(" ");
-  const bundle = createSyncBundle();
+  return ["-o", "BatchMode=yes", host, command];
+}
 
-  process.stdout.write(`Syncing T3 Code ${version} to ${options.host}.\n`);
-  const result = spawnSync(
-    "ssh",
-    ["-o", "BatchMode=yes", options.host, remoteCommand],
-    {input: bundle, stdio: ["pipe", "inherit", "inherit"]},
-  );
-  if (result.error) throw result.error;
-  if (result.status !== 0) {
-    throw new Error(
-      `${options.host} T3 Code update failed with status ${result.status ?? "unknown"}`,
-    );
+export type SyncDependencies = {
+  readonly detectWorkstation: () => WorkstationT3Installation;
+  readonly bundle: () => Buffer;
+};
+
+const liveDependencies: SyncDependencies = {
+  detectWorkstation: workstationT3Installation,
+  bundle: createSyncBundle,
+};
+
+export type SyncAction = "checked" | "unchanged" | "installed" | "skipped";
+
+export type SyncReport = {
+  schema_version: 1;
+  target: string;
+  action: SyncAction;
+  requested_version: string | null;
+  comparison: T3ServerComparison | null;
+  reason: string | null;
+};
+
+function report(
+  target: string,
+  action: SyncAction,
+  requested: string | null,
+  comparison: T3ServerComparison | null,
+  reason: string | null = null,
+): SyncReport {
+  return {schema_version: 1, target, action, requested_version: requested, comparison, reason};
+}
+
+export function checkExitCode(comparison: T3ServerComparison): number {
+  if (comparison.status === "incomplete") return exitCodes.unavailable;
+  return comparison.versions_match ? exitCodes.clean : exitCodes.drift;
+}
+
+// Decide whether an install must run. Only a healthy service already at the
+// requested version is left alone; an unloaded or unhealthy service at the
+// same version still reinstalls so the remote verification restarts it.
+export function installRequired(
+  comparison: T3ServerComparison,
+  requested: string,
+  force: boolean,
+): {install: boolean; reason: string} {
+  if (force) return {install: true, reason: "forced"};
+  if (comparison.status === "incomplete") {
+    return {install: false, reason: comparison.error?.message ?? "the devbox could not be inspected"};
   }
-  process.stdout.write(`T3 Code ${version} is healthy on ${options.host}.\n`);
+  if (comparison.server?.version !== requested) {
+    return {install: true, reason: `server runs ${comparison.server?.version ?? "unknown"}, expected ${requested}`};
+  }
+  if (comparison.server.service_state !== "loaded" || comparison.server.health !== "healthy") {
+    return {install: true, reason: `server is at ${requested} but ${comparison.server.service_state} and ${comparison.server.health}`};
+  }
+  return {install: false, reason: `server already runs ${requested} and is healthy`};
 }
 
-function usage(): void {
-  process.stdout.write(`Usage:
-  scripts/bootstrap/sync-devbox-t3-server.ts \\
-    --host USER@HOST \\
-    [--version t3@0.0.35]
+const install = Effect.fn("installDevboxT3Server")(function*(
+  host: string,
+  version: string,
+  dependencies: SyncDependencies,
+) {
+  const runner = yield* CommandRunner;
+  const bundle = yield* Effect.try({
+    try: () => dependencies.bundle(),
+    catch: (error) => new CliFailure({exitCode: 1, message: error instanceof Error ? error.message : String(error)}),
+  });
+  yield* Console.log(`Syncing T3 Code ${version} to ${host}.`);
+  const result = yield* runner.run("ssh", installSshArguments(host, version), {
+    stdin: new Uint8Array(bundle),
+    output: "inherit",
+  }).pipe(Effect.mapError((error) => new CliFailure({exitCode: 1, message: error.message})));
+  if (result.status !== 0) {
+    return yield* fail(`${host} T3 Code update failed with status ${result.status}`, result.status || 1);
+  }
+  yield* Console.log(`T3 Code ${version} is healthy on ${host}.`);
+});
 
-Without --version, reads the installed T3 Code app version. The remote
-server uses the SSH user's home as its working directory.
-`);
+// Compare first; install only on drift, --force, or an unhealthy service.
+export const syncDevboxT3Server = Effect.fn("syncDevboxT3Server")(function*(
+  options: SyncOptions,
+  dependencies: SyncDependencies = liveDependencies,
+) {
+  const comparison = yield* collectT3ServerComparison(options.host, dependencies.detectWorkstation);
+  if (options.check) return report(options.host, "checked", comparison.workstation?.version ?? null, comparison);
+
+  const requested = options.version ?? comparison.workstation?.version;
+  if (!requested) {
+    return report(options.host, "skipped", null, comparison, comparison.error?.message ?? "workstation version unavailable");
+  }
+  const decision = installRequired(comparison, requested, options.force);
+  if (!decision.install) {
+    const action: SyncAction = comparison.status === "incomplete" ? "skipped" : "unchanged";
+    return report(options.host, action, requested, comparison, decision.reason);
+  }
+  yield* install(options.host, requested, dependencies);
+  return report(options.host, "installed", requested, comparison, decision.reason);
+});
+
+// Scheduled entry for the workstation updater: a missing target file or an
+// unreachable devbox is a reported skip so the rest of the update pass
+// continues; only an actual install failure fails the step.
+export const readScheduledTarget = Effect.fn("readScheduledTarget")(function*(home: string, uid: number | undefined) {
+  const fs = yield* FileSystem.FileSystem;
+  const path = join(home, scheduledTargetFile);
+  if (!(yield* fs.exists(path))) return undefined;
+  const link = yield* fs.readLink(path).pipe(Effect.option);
+  const info = yield* fs.stat(path);
+  if (Option.isSome(link) || info.type !== "File" || (info.mode & 0o077) !== 0 ||
+      (uid !== undefined && Option.getOrUndefined(info.uid) !== uid)) {
+    return yield* fail(`${path} must be an owner-only regular file`);
+  }
+  const target = (yield* fs.readFileString(path)).trim();
+  if (!sshTargetPattern.test(target)) return yield* fail(`${path} must contain one user@host SSH target`);
+  return target;
+});
+
+export function usageText(): string {
+  return `Usage:
+  scripts/bootstrap/sync-devbox-t3-server.ts --host USER@HOST [--version t3@0.0.35] [--force]
+  scripts/bootstrap/sync-devbox-t3-server.ts --host USER@HOST --check
+  scripts/bootstrap/sync-devbox-t3-server.ts --scheduled
+
+Without --version, reads the installed T3 Code app version. Installs only when
+the devbox differs from that version, is unloaded or unhealthy, or --force is
+set; a matching healthy server is never restarted. --check compares without
+changing either machine: exit ${exitCodes.clean} when equal, ${exitCodes.drift} on drift, ${exitCodes.unavailable} when the
+comparison is unavailable. --scheduled reads USER@HOST from
+~/${scheduledTargetFile} and reports a skip when it is missing or unreachable.
+The remote server uses the SSH user's home as its working directory.`;
 }
 
-function main(): void {
+function summary(result: SyncReport): string {
+  const local = result.comparison?.workstation?.version ?? "unknown";
+  const remote = result.comparison?.server?.version ?? "unknown";
+  return `T3 Code ${result.action}: workstation ${local}, ${result.target} ${remote}${result.reason ? ` (${result.reason})` : ""}`;
+}
+
+const program = Effect.gen(function*() {
   const args = process.argv.slice(2);
-  if (args[0] === "--help" || args[0] === "-h") {
-    usage();
+  if (args.length === 1 && (args[0] === "--help" || args[0] === "-h")) {
+    yield* Console.log(usageText());
     return;
   }
-  syncDevboxT3Server(parseArguments(args));
-}
+  const options = yield* Effect.try({
+    try: () => parseArguments(args),
+    catch: (error) => new CliFailure({
+      exitCode: 2,
+      message: `${error instanceof Error ? error.message : String(error)}\n${usageText()}`,
+    }),
+  });
+
+  if (options.scheduled) {
+    const target = yield* readScheduledTarget(process.env.HOME || "", process.getuid?.());
+    if (!target) {
+      yield* Console.log(`T3 Code skipped: no ~/${scheduledTargetFile} on this workstation.`);
+      return;
+    }
+    const result = yield* syncDevboxT3Server({...options, host: target});
+    yield* Console.log(summary(result));
+    return;
+  }
+
+  const result = yield* syncDevboxT3Server(options);
+  if (options.check) {
+    yield* Effect.sync(() => {
+      process.stdout.write(`${JSON.stringify(result.comparison)}\n`);
+      process.exitCode = checkExitCode(result.comparison!);
+    });
+    return;
+  }
+  yield* Console.log(summary(result));
+  if (result.action === "skipped") return yield* fail(result.reason ?? "the devbox could not be inspected");
+}).pipe(
+  Effect.provide(CommandRunner.layer),
+  Effect.provide(NodeServices.layer),
+);
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  runMain(Effect.sync(main));
+  runMain(program);
 }

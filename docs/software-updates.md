@@ -33,6 +33,7 @@ These are macOS calendar jobs, following
 | Managed skills/plugins/MCP setup | Update selected skills/plugins and sync MCP registrations through the profile installer |
 | OS upgrades, reboots, remote services | Separate owners; not enabled by this job |
 | Host hygiene | Weekly eligible worktree/branch retirement and aged cache cleanup; implicit Homebrew install cleanup stays disabled |
+| Devbox T3 Code server | Workstation profiles only: install the workstation's T3 Code version on the configured devbox when it drifts |
 
 The job sets `HOMEBREW_NO_UPGRADE_QUIT_CASKS=1` so Homebrew does not quit running
 apps. Vendor installers may still disrupt an app, and running apps may need a
@@ -175,6 +176,32 @@ pre-reboot process is reclaimed automatically, and a live or ambiguous owner
 fails the run for inspection. This updater is the only scheduler for hygiene;
 the former weekly devbox `disk-cleanup` LaunchAgent is retired and removed on
 apply.
+
+## Devbox T3 Code Server
+
+Topgrade's `T3 Code server` command is rendered on workstation profiles only
+and runs `scripts/bootstrap/sync-devbox-t3-server.ts --scheduled`. It reads
+`~/.config/dotfiles/t3-server-target`, an owner-only file containing one
+`user@host` SSH target, compares the installed T3 Code app version with that
+devbox's service, and installs only on drift or an unhealthy service. A
+matching healthy server is never restarted.
+
+The step never fails the update pass for an absent or unreachable devbox: a
+missing target file, a failed SSH connection, or a missing workstation app is
+logged as a skip. Only an actual install failure fails the step. The SSH
+session runs with `BatchMode=yes`, so the workstation's normal non-interactive
+SSH path to the devbox must work without prompts; the job supplies no
+credentials of its own. Devbox profiles never render this command.
+
+Create the target file to enable it:
+
+```sh
+install -m 0600 /dev/null ~/.config/dotfiles/t3-server-target
+printf '%s\n' example@example-devbox > ~/.config/dotfiles/t3-server-target
+```
+
+Remove the file to return to on-demand syncing with
+[`mise run devbox:t3-sync`](devbox.md#system-services).
 
 ## Notifications And Logs
 

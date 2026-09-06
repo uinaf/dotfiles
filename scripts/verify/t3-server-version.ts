@@ -6,13 +6,14 @@ import { fileURLToPath } from "node:url";
 import { CommandRunner, type CommandResult } from "../lib/command.ts";
 import { CliFailure, runMain } from "../lib/program.ts";
 import {
+  exactT3Version,
   shellQuote,
+  sshTargetPattern,
   workstationT3Installation,
   type WorkstationT3Installation,
-} from "../bootstrap/sync-devbox-t3-server.ts";
+} from "../lib/t3-code.ts";
 
-const exactVersion = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
-const Version = Schema.String.pipe(Schema.check(Schema.isPattern(exactVersion)));
+const Version = Schema.String.pipe(Schema.check(Schema.isPattern(exactT3Version)));
 const RemoteErrorCode = Schema.Literals([
   "identity_unavailable",
   "invalid_identity",
@@ -146,7 +147,7 @@ export function parseArguments(args: readonly string[]): T3ServerOptions {
     throw new Error("expected --host USER@HOST");
   }
   const host = args[1];
-  if (!/^[A-Za-z0-9._-]+@[A-Za-z0-9._-]+$/.test(host)) {
+  if (!sshTargetPattern.test(host)) {
     throw new Error("--host must be an explicit user@host SSH target");
   }
   return {host};
@@ -264,9 +265,9 @@ export function evaluateRemoteInspection(
 }
 
 export const collectT3ServerComparison = Effect.fn("collectT3ServerComparison")(
-  function*(target: string) {
+  function*(target: string, detectWorkstation: () => WorkstationT3Installation = workstationT3Installation) {
     const workstationResult = yield* Effect.try({
-      try: () => workstationT3Installation(),
+      try: () => detectWorkstation(),
       catch: (error) => error,
     }).pipe(
       Effect.map((value) => ({ok: true, value}) as const),

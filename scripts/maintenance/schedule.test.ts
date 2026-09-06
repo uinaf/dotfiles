@@ -280,6 +280,14 @@ test("rendered profiles keep updater scope, scheduling, and paths valid", async 
       assert.deepEqual(JSON.parse(selection.slice("only = ".length)), profile.endsWith("devbox")
         ? ["github_cli_extensions", "custom_commands"]
         : ["brew_formula", "brew_cask", "github_cli_extensions", "custom_commands"]);
+      const t3Sync = config.split("\n").find((line) => line.startsWith('"T3 Code server" = '));
+      if (profile.endsWith("devbox")) {
+        assert.equal(t3Sync, undefined, "devbox profiles must never sync a T3 server to another host");
+      } else {
+        assert.ok(t3Sync);
+        assert.equal(JSON.parse(t3Sync.slice('"T3 Code server" = '.length)),
+          `node ${JSON.stringify(repoRoot)}/scripts/bootstrap/sync-devbox-t3-server.ts --scheduled`);
+      }
     }
   } finally {
     await rm(root, { recursive: true, force: true });

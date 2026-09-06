@@ -274,7 +274,7 @@
         "--test",
         "scripts/bootstrap/sync-devbox-t3-server.test.ts"
       ],
-      "output": "Host-only T3 Code target, version parsing, and remote source bundle"
+      "output": "T3 Code drift check, install-only-on-drift policy, scheduled skip, and remote source bundle"
     },
     {
       "id": "t3-server-version",

@@ -18,7 +18,8 @@ export type CommandOptions = {
   readonly cwd?: string;
   readonly env?: Readonly<Record<string, string>>;
   readonly extendEnv?: boolean;
-  readonly stdin?: "ignore" | "inherit";
+  // A byte payload is written to the child's stdin and then closed.
+  readonly stdin?: "ignore" | "inherit" | Uint8Array;
   readonly output?: "capture" | "inherit" | "ignore";
   readonly timeoutMs?: number;
 };
@@ -53,7 +54,7 @@ export class CommandRunner extends Context.Service<CommandRunner, {
               cwd: options.cwd,
               env: options.env,
               extendEnv: options.extendEnv ?? true,
-              stdin: options.stdin ?? "ignore",
+              stdin: options.stdin instanceof Uint8Array ? Stream.make(options.stdin) : options.stdin ?? "ignore",
               stdout: output === "capture" ? "pipe" : output,
               stderr: output === "capture" ? "pipe" : output,
             }),

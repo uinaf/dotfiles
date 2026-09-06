@@ -19,3 +19,7 @@ autoremove = false
 [commands]
 "Managed dotfiles" = {{ printf "node %s/scripts/maintenance/converge.ts" (.chezmoi.sourceDir | dir | quote) | toJson }}
 "Host hygiene" = {{ printf "node %s/scripts/maintenance/hygiene.ts --apply --scheduled" (.chezmoi.sourceDir | dir | quote) | toJson }}
+{{ if $profile.capabilities.workstation -}}
+# Reads the target from ~/.config/dotfiles/t3-server-target; missing or unreachable is a reported skip.
+"T3 Code server" = {{ printf "node %s/scripts/bootstrap/sync-devbox-t3-server.ts --scheduled" (.chezmoi.sourceDir | dir | quote) | toJson }}
+{{ end -}}
