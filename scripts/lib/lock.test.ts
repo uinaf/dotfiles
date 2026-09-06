@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -107,4 +107,52 @@ test("an unreleased lock fails loudly after the wait budget", t => {
   assert.equal(slept.reduce((sum, ms) => sum + ms, 0), 900_000);
   assert.ok(slept.every(ms => ms <= 60_000));
   assert.ok(messages.some(message => message.includes("waiting up to 15 minutes")));
+});
+
+test("two contenders reclaiming the same dead owner yield exactly one holder", t => {
+  // Interleaving: B reads the dead owner metadata, then A reclaims and
+  // acquires before B acts on its verdict. B must not evict A.
+  const lock = fixture(t);
+  mkdirSync(lock);
+  writeFileSync(join(lock, "owner.json"), `${JSON.stringify({ pid: 4_000_000, bootTime: Date.now() })}\n`);
+  const alive = (pid: number) => pid === process.pid;
+  let releaseA: (() => void) | undefined;
+  let injected = false;
+  const probeB = (pid: number) => {
+    if (!injected) {
+      injected = true;
+      releaseA = acquireDirectoryLock(lock, { ...silent, processAlive: alive });
+    }
+    return alive(pid);
+  };
+  assert.throws(() => acquireDirectoryLock(lock, { ...silent, processAlive: probeB }), /held by an active process/);
+  assert.ok(releaseA, "A acquired inside B's judgment window");
+  assert.equal(JSON.parse(readFileSync(join(lock, "owner.json"), "utf8")).pid, process.pid, "A's ownership survives B's reclaim attempt");
+  assert.deepEqual(readdirSync(lock), ["owner.json"], "no reclaim residue is left inside the lock");
+  releaseA!();
+  assert.equal(existsSync(lock), false);
+  const releaseB = acquireDirectoryLock(lock, { ...silent, processAlive: alive });
+  releaseB();
+  assert.equal(existsSync(lock), false);
+});
+
+test("a losing reclaim falls through to the wait path instead of acquiring", t => {
+  const lock = fixture(t);
+  mkdirSync(lock);
+  writeFileSync(join(lock, "owner.json"), `${JSON.stringify({ pid: 4_000_000, bootTime: Date.now() })}\n`);
+  // The owner file vanishes between B's verdict and its rename: another
+  // contender already moved it. B sees ENOENT and waits.
+  let vanished = false;
+  const slept: number[] = [];
+  const release = acquireDirectoryLock(lock, {
+    ...silent,
+    waitMs: 60_000,
+    processAlive: () => {
+      if (!vanished) { vanished = true; rmSync(join(lock, "owner.json")); }
+      return false;
+    },
+    sleep: ms => { slept.push(ms); rmSync(lock, { recursive: true, force: true }); },
+  });
+  assert.deepEqual(slept, [5_000], "the contender waited instead of claiming the owner-less lock");
+  release();
 });

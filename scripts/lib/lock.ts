@@ -1,13 +1,17 @@
 // Cooperative directory locks for unattended maintenance jobs.
 // This module must stay dependency-free: converge.ts acquires its lock before
 // the checkout's locked dependencies are installed.
-import { mkdirSync, readFileSync, rmSync, rmdirSync, writeFileSync } from "node:fs";
+import { linkSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { uptime } from "node:os";
 import { join } from "node:path";
 
 const ownerFileName = "owner.json";
-// os.uptime() rounds independently in each process; only a clearly earlier boot marks a stale owner.
-const bootSkewMs = 120_000;
+// os.uptime() rounds independently in each process and the kernel clock can
+// step (NTP) between the owner's boot-time sample and ours, so only a clearly
+// earlier boot marks a stale owner. Empirical limit: an NTP step larger than
+// this tolerance during boot misclassifies a live owner from the current boot
+// as pre-boot and skips its pid probe.
+const bootSkewMs = 300_000;
 const initialRetryDelayMs = 5_000;
 const maxRetryDelayMs = 60_000;
 
@@ -35,10 +39,10 @@ export function processAlive(pid: number): boolean {
 }
 
 // Fail closed: unreadable, malformed, or partial owner metadata keeps the lock.
-export function lockOwnerAlive(lock: string, probe: LockProbe = {}): boolean {
+function ownerFileAlive(path: string, probe: LockProbe): boolean {
   let metadata: unknown;
   try {
-    metadata = JSON.parse(readFileSync(join(lock, ownerFileName), "utf8"));
+    metadata = JSON.parse(readFileSync(path, "utf8"));
   } catch {
     return true;
   }
@@ -52,8 +56,43 @@ export function lockOwnerAlive(lock: string, probe: LockProbe = {}): boolean {
   return (probe.processAlive ?? processAlive)(pid);
 }
 
+export function lockOwnerAlive(lock: string, probe: LockProbe = {}): boolean {
+  return ownerFileAlive(join(lock, ownerFileName), probe);
+}
+
 function sleepSync(ms: number): void {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+// Take over a lock whose owner looked dead. Ownership transfers by atomically
+// renaming the owner file to a contender-private name inside the lock
+// directory: rename is atomic, so exactly one contender moves a given file and
+// every other one gets ENOENT. The directory itself stays in place, so no
+// mkdir can slip in meanwhile and a lock without an owner file fails closed
+// for other readers. The moved file is re-judged race-free: a contender that
+// judged an owner file which a faster reclaimer has since replaced moves the
+// new holder's live file instead and hands it back through a non-clobbering
+// link. Keeping the private name inside the directory means a holder's
+// recursive release also discards any in-flight hand-back.
+function reclaimOwner(lock: string, probe: LockProbe): "won" | "lost" {
+  const owner = join(lock, ownerFileName);
+  const moved = join(lock, `${ownerFileName}.reclaim.${process.pid}`);
+  try {
+    renameSync(owner, moved);
+  } catch {
+    return "lost";
+  }
+  if (!ownerFileAlive(moved, probe)) {
+    rmSync(moved, { force: true });
+    return "won";
+  }
+  try {
+    linkSync(moved, owner);
+  } catch {
+    // EEXIST: the holder already rewrote its file; ENOENT: the holder released.
+  }
+  rmSync(moved, { force: true });
+  return "lost";
 }
 
 // Create `lock`, recording this process as its owner. A held lock whose recorded
@@ -67,22 +106,34 @@ export function acquireDirectoryLock(lock: string, options: LockOptions = {}): (
   let reclaimed = false;
   let announced = false;
   let delay = initialRetryDelayMs;
+  const owner = join(lock, ownerFileName);
+  const writeOwner = () => {
+    const metadata = { pid: process.pid, bootTime: now() - (options.uptimeMs?.() ?? uptime() * 1000) };
+    try {
+      writeFileSync(owner, `${JSON.stringify(metadata)}\n`, { mode: 0o600 });
+    } catch (cause) {
+      try {
+        rmSync(lock, { recursive: true, force: true });
+      } catch {
+        // Keep the original failure; the owner-less directory stays for inspection.
+      }
+      throw cause;
+    }
+    return () => { rmSync(lock, { recursive: true, force: true }); };
+  };
   for (;;) {
     try {
       mkdirSync(lock, { mode: 0o700 });
     } catch (cause) {
       if ((cause as NodeJS.ErrnoException).code !== "EEXIST") throw cause;
       if (!reclaimed && !lockOwnerAlive(lock, options)) {
-        reclaimed = true;
         log(`reclaiming stale lock left by a dead process: ${lock}`);
-        // A concurrent acquirer can win this race; the next iteration observes either outcome.
-        try {
-          rmSync(join(lock, ownerFileName), { force: true });
-          rmdirSync(lock);
-        } catch {
-          // Raced away or unexpectedly non-empty; the normal contention path decides below.
+        if (reclaimOwner(lock, options) === "won") {
+          reclaimed = true;
+          return writeOwner();
         }
-        continue;
+        // Another contender won the reclaim (and now holds the lock) or the
+        // holder released; the wait path observes either outcome.
       }
       const remaining = deadline - now();
       if (remaining <= 0) throw new Error(`lock is held by an active process: ${lock}`);
@@ -94,21 +145,6 @@ export function acquireDirectoryLock(lock: string, options: LockOptions = {}): (
       delay = Math.min(delay * 2, maxRetryDelayMs);
       continue;
     }
-    const owner = join(lock, ownerFileName);
-    const metadata = { pid: process.pid, bootTime: now() - (options.uptimeMs?.() ?? uptime() * 1000) };
-    try {
-      writeFileSync(owner, `${JSON.stringify(metadata)}\n`, { mode: 0o600 });
-    } catch (cause) {
-      try {
-        rmdirSync(lock);
-      } catch {
-        // Keep the original failure; the empty directory stays for inspection.
-      }
-      throw cause;
-    }
-    return () => {
-      rmSync(owner, { force: true });
-      rmdirSync(lock);
-    };
+    return writeOwner();
   }
 }
