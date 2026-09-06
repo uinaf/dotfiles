@@ -31,6 +31,20 @@ const run: Runner = (cwd, command, args) => {
   return { status: result.error ? 1 : result.status ?? 1, stdout: result.stdout ?? "" };
 };
 
+// Deleting aged caches legitimately takes minutes on a full disk, so the cache
+// pass gets a dedicated generous budget; git and lsof keep the shared 60s timeout.
+export const cacheCleanupTimeoutMs = 30 * 60_000;
+
+export function cacheCleanup(home: string, apply: boolean, spawn: typeof spawnSync = spawnSync): Result {
+  const result = spawn("/bin/sh", [join(import.meta.dirname, "cache-cleanup.sh"), ...apply ? [] : ["--dry-run"]], {
+    cwd: home, encoding: "utf8", timeout: cacheCleanupTimeoutMs,
+    maxBuffer: 32 * 1024 * 1024,
+    env: { ...process.env, GIT_TERMINAL_PROMPT: "0", GCM_INTERACTIVE: "never" },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  return { status: result.error ? 1 : result.status ?? 1, stdout: result.stdout ?? "" };
+}
+
 function checked(runner: Runner, cwd: string, command: string, args: string[]): string {
   const result = runner(cwd, command, args);
   if (result.status !== 0) throw new Error(`${command} ${args[0]} failed; retained local work`);
@@ -223,7 +237,7 @@ export function hygiene(home: string, apply: boolean, scheduled: boolean, now = 
     }
     const cacheDue = !scheduled || now - state.lastCache >= week;
     const cache = cacheDue
-      ? run(home, "/bin/sh", [join(import.meta.dirname, "cache-cleanup.sh"), ...apply ? [] : ["--dry-run"]])
+      ? cacheCleanup(home, apply)
       : { status: 0, stdout: "Cache cleanup is not due." };
     console.log(cache.stdout);
     failed ||= cache.status !== 0;

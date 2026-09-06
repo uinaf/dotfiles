@@ -4,7 +4,7 @@ import { chmodSync, existsSync, mkdtempSync, mkdirSync, readFileSync, realpathSy
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { candidates, cleanRepository, discoverRepositories, openFiles, type Runner } from "./hygiene.ts";
+import { cacheCleanup, cacheCleanupTimeoutMs, candidates, cleanRepository, discoverRepositories, openFiles, type Runner } from "./hygiene.ts";
 
 const week = 7 * 86400_000;
 const runner: Runner = (cwd, command, args) => {
@@ -162,6 +162,21 @@ test("inactive and explicitly excluded checkouts need no remote access", () => {
     assert.equal(excluded.entries[0]?.result, "excluded by local dotfiles.hygiene=skip");
     assert.ok(existsSync(f.tree));
   } finally { f.cleanup(); }
+});
+
+test("cache cleanup runs under its dedicated generous timeout, not the shared 60s one", () => {
+  const captured: { args?: readonly string[]; options?: { timeout?: number } } = {};
+  const spawn = ((_command: string, args: readonly string[], options: { timeout?: number }) => {
+    captured.args = args;
+    captured.options = options;
+    return { status: 0, stdout: "ok", stderr: "", pid: 1, output: [], signal: null, error: undefined };
+  }) as unknown as typeof spawnSync;
+  assert.deepEqual(cacheCleanup("/fixture/home", false, spawn), { status: 0, stdout: "ok" });
+  assert.equal(cacheCleanupTimeoutMs, 30 * 60_000);
+  assert.equal(captured.options?.timeout, cacheCleanupTimeoutMs);
+  assert.equal(captured.args?.[1], "--dry-run");
+  assert.deepEqual(cacheCleanup("/fixture/home", true, spawn), { status: 0, stdout: "ok" });
+  assert.equal(captured.args?.length, 1, "apply mode must not pass --dry-run");
 });
 
 test("cache cleanup preserves archives and stopped containers, previews without deleting, and reports failures", () => {
