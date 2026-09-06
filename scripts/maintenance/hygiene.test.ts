@@ -4,7 +4,7 @@ import { chmodSync, existsSync, mkdtempSync, mkdirSync, readFileSync, realpathSy
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { cacheCleanup, cacheCleanupTimeoutMs, candidates, cleanRepository, discoverRepositories, openFiles, type Runner } from "./hygiene.ts";
+import { cacheCleanup, cacheCleanupTimeoutMs, candidates, cleanRepository, discoverRepositories, openFiles, readState, type Runner } from "./hygiene.ts";
 
 const week = 7 * 86400_000;
 const runner: Runner = (cwd, command, args) => {
@@ -162,6 +162,22 @@ test("inactive and explicitly excluded checkouts need no remote access", () => {
     assert.equal(excluded.entries[0]?.result, "excluded by local dotfiles.hygiene=skip");
     assert.ok(existsSync(f.tree));
   } finally { f.cleanup(); }
+});
+
+test("undecodable hygiene state is treated as empty so cleanup can continue", () => {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), "hygiene-state-")));
+  try {
+    const statePath = join(root, "hygiene.json");
+    const empty = { lastRun: 0, lastCache: 0, candidates: {} };
+    assert.deepEqual(readState(statePath), { state: empty, recovered: false });
+    writeFileSync(statePath, "{ not json");
+    assert.deepEqual(readState(statePath), { state: empty, recovered: true });
+    writeFileSync(statePath, JSON.stringify({ wrong: "shape" }));
+    assert.deepEqual(readState(statePath), { state: empty, recovered: true });
+    const valid = { lastRun: 5, lastCache: 6, candidates: { key: { head: "a".repeat(40), since: 7 } } };
+    writeFileSync(statePath, JSON.stringify(valid));
+    assert.deepEqual(readState(statePath), { state: valid, recovered: false });
+  } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
 test("cache cleanup runs under its dedicated generous timeout, not the shared 60s one", () => {

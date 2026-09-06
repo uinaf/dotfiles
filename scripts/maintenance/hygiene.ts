@@ -203,12 +203,23 @@ export function cleanRepository(
   return { entries, candidates: next };
 }
 
+export function readState(statePath: string): { state: State; recovered: boolean } {
+  const empty: State = { lastRun: 0, lastCache: 0, candidates: {} };
+  if (!existsSync(statePath)) return { state: empty, recovered: false };
+  try {
+    return { state: Schema.decodeUnknownSync(Schema.fromJsonString(State))(readFileSync(statePath, "utf8")), recovered: false };
+  } catch {
+    // Undecodable state only restarts every grace period and the cache
+    // interval — strictly conservative — instead of failing every later run.
+    return { state: empty, recovered: true };
+  }
+}
+
 export function hygiene(home: string, apply: boolean, scheduled: boolean, now = Date.now()): void {
   const directory = join(home, ".local/state/dotfiles");
   const statePath = join(directory, "hygiene.json");
-  const state = existsSync(statePath)
-    ? Schema.decodeUnknownSync(Schema.fromJsonString(State))(readFileSync(statePath, "utf8"))
-    : { lastRun: 0, lastCache: 0, candidates: {} };
+  const { state, recovered } = readState(statePath);
+  if (recovered) console.error(`Hygiene state was undecodable and is treated as empty; grace periods restart: ${statePath}`);
   if (scheduled && now >= state.lastRun && now - state.lastRun < week) {
     console.log("Host hygiene: next weekly run is not due.");
     return;
