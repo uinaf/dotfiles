@@ -186,8 +186,10 @@ cleanup.
   `~/Library/Logs/dotfiles/*.log` to its final 2 MB in place, preserving
   launchd's open append descriptors. Manual truncation while the updater is
   idle remains available as a fallback.
-- Use `maintenance:status` to check whether the job ran. Failure notifications
-  do not detect a scheduler that never started.
+- Use `maintenance:status` to check whether the job ran. It warns when the
+  loaded GUI job differs from the on-disk plist (reload required) and when the
+  receipt is older than two schedule slots while the job is loaded, catching a
+  scheduler that never starts. Failure notifications do not detect either case.
 
 The update wrapper preserves the command's exit code, including failed updates.
 Failure-only notifications are a native
@@ -238,7 +240,8 @@ while another package operation is running.
 
 After changing plist settings: wait for idle, disable, apply dotfiles, then
 enable again. Re-enabling an already loaded job preserves its current process
-and does not silently reload the plist.
+and does not silently reload the plist; `maintenance:status` reports when the
+loaded GUI job and the on-disk plist have drifted apart.
 
 ## Headless Devbox Updates
 
