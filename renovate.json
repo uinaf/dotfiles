@@ -1,4 +1,87 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["github>uinaf/renovate-config"]
+  "extends": [
+    "github>uinaf/renovate-config"
+  ],
+  "packageRules": [
+    {
+      "description": "Keep CI, bootstrap, and installed Node on the same release",
+      "matchPackageNames": [
+        "node"
+      ],
+      "groupName": "Node.js",
+      "rangeStrategy": "bump"
+    },
+    {
+      "description": "Keep repository and installed pnpm together",
+      "matchPackageNames": [
+        "pnpm"
+      ],
+      "groupName": "pnpm"
+    },
+    {
+      "description": "Keep PyYAML install and live verification together",
+      "matchPackageNames": [
+        "PyYAML"
+      ],
+      "groupName": "PyYAML"
+    }
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "npm and pnpm installed by the mise runtime package task",
+      "managerFilePatterns": [
+        "/^chezmoi/\\.chezmoitemplates/mise\\.toml$/"
+      ],
+      "matchStrings": [
+        "(?<depName>npm|pnpm)@(?<currentValue>[0-9][^\\s\"&]+)"
+      ],
+      "datasourceTemplate": "npm"
+    },
+    {
+      "customType": "regex",
+      "description": "PyYAML installed into mise Python",
+      "managerFilePatterns": [
+        "/^chezmoi/\\.chezmoitemplates/mise\\.toml$/"
+      ],
+      "matchStrings": [
+        "(?<depName>PyYAML)==(?<currentValue>[0-9.]+)"
+      ],
+      "datasourceTemplate": "pypi"
+    },
+    {
+      "customType": "regex",
+      "description": "Annotated TypeScript dependency constants",
+      "managerFilePatterns": [
+        "/^scripts/(agents/sync|verify/bootstrap)\\.ts$/"
+      ],
+      "matchStrings": [
+        "// renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)\\s+(?:export )?const [A-Z_]+ = \"(?<currentValue>[^\"]+)\";"
+      ]
+    },
+    {
+      "customType": "regex",
+      "description": "semantic-release action runtime and plugins",
+      "managerFilePatterns": [
+        "/^\\.github/workflows/verify\\.yml$/"
+      ],
+      "matchStrings": [
+        "semantic_version: (?<currentValue>[0-9.]+)"
+      ],
+      "depNameTemplate": "semantic-release",
+      "datasourceTemplate": "npm"
+    },
+    {
+      "customType": "regex",
+      "description": "Exact semantic-release plugin versions",
+      "managerFilePatterns": [
+        "/^\\.github/workflows/verify\\.yml$/"
+      ],
+      "matchStrings": [
+        "\\n +(?<depName>@semantic-release/[a-z-]+|conventional-changelog-conventionalcommits)@(?<currentValue>[0-9.]+)"
+      ],
+      "datasourceTemplate": "npm"
+    }
+  ]
 }

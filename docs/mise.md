@@ -6,9 +6,9 @@ Mise is the contributor interface for repository tasks. Operators use
 This repo uses mise in two scopes:
 
 - Root `mise.toml` defines the repository task graph.
-- `chezmoi/private_dot_config/mise/config.toml.tmpl` defines profile runtime
-  pins, shared CLIs, and trusted generated worktree roots applied to the home
-  config.
+- `chezmoi/.chezmoitemplates/mise.toml` defines profile runtime
+  pins and shared CLIs. The profile template includes it and adds settings
+  such as trusted worktree roots.
 
 Keep task entries as single-command delegations. Parsing, validation, and
 business logic belong in lintable files under `scripts/`.
@@ -112,7 +112,7 @@ Maintenance tasks:
 
 ## Runtime Pins
 
-When changing `chezmoi/private_dot_config/mise/config.toml.tmpl`:
+When changing `chezmoi/.chezmoitemplates/mise.toml`:
 
 1. Confirm which profiles should receive the pin.
 2. Keep exact versions where practical.
@@ -125,11 +125,11 @@ The runtime group shared by `personal-workstation`, `personal-devbox`,
 `workstation`, and `devbox`:
 
 - pins Ruby alongside its other development runtimes
-- installs PyYAML 6.0.3 into the mise-managed Python for bundled Codex skill
+- installs PyYAML into the mise-managed Python for bundled Codex skill
   validation
-- enables Corepack in its Node entry and installs pnpm 12.0.0 as the default
+- enables Corepack and installs pnpm as the default
   outside projects
-- pins npm itself to 12.0.2 through the Node postinstall
+- pins npm itself in the runtime package task
 - declares Playwright CLI as an exact `npm:` backend entry
 
 A project's `packageManager` field remains the repository-owned version source.
@@ -139,8 +139,10 @@ Install and verification:
 
 - `scripts/bootstrap/install.ts` calls `mise install` once for every profile with
   a runtime group, then installs the repository's locked Effect dependencies
-  through that runtime. Mise owns the Node postinstall that pins npm and the
-  stable pnpm default.
+  through that runtime. It then runs the explicit `dotfiles:runtime-packages`
+  mise task for npm, pnpm, and PyYAML, even when no runtime was installed.
+  Package-only pin changes therefore converge without reinstalling Node or
+  Python. Ordinary project installs do not trigger this task.
 - `scripts/verify/bootstrap.ts` checks that rendered mise tools converged and
   that their commands resolve from mise.
 - Independent live-check groups run in parallel and print one success line each.
@@ -155,3 +157,9 @@ inside mise.
 | --- | --- |
 | Login (`-lic`) | Rebuilt through normal login startup |
 | Interactive-only (`-ic`) | Minimal Homebrew and system seed, then interactive startup files, so a parent login shell's ambient PATH is intentionally not reproduced |
+
+Renovate reads the plain TOML runtime list. Repository Node (`.node-version`
+and `package.json`) updates with the profile Node pin; the launcher reads
+`.node-version`. The repository and profile pnpm pins also update together.
+CI rejects drift between these pairs and between PyYAML installation and its
+live verifier. Major upgrades remain manual.

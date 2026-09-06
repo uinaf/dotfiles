@@ -40,7 +40,7 @@ optional desktop setup, updates, and troubleshooting.
 | --- | --- |
 | Packages | `Brewfile` and the [profile layers](docs/profiles.md#software-layers) |
 | Per-user convergence | `./dotfiles`, backed by `chezmoi/`, mise, and profile install steps |
-| Runtimes and CLIs | `chezmoi/private_dot_config/mise/config.toml.tmpl` |
+| Runtimes and CLIs | `chezmoi/.chezmoitemplates/mise.toml` |
 | Git, SSH, age, and GitHub App setup | `scripts/bootstrap/`, `scripts/secrets/`, and [Identity provisioning](docs/identities.md) |
 | Global coding-agent rules | `chezmoi/`, with optional private start and end fragments under `~/.config/dotfiles/` |
 | Global coding-agent skills | `scripts/agents/`, with personal additions selected by profile |

@@ -54,8 +54,12 @@ in-progress release.
 
 ## Maintenance
 
-- Renovate tracks GitHub Actions and mise tools monthly with a seven-day
+- Renovate tracks Actions, repository dependencies, runtime tools, skills CLI,
+  and runtime package pins daily (00:00–06:00 Europe/Istanbul), with a seven-day
   release age through the shared `uinaf/renovate-config` preset.
+- Renovate merges non-major PRs itself after every visible check passes.
+  Majors stay manual. Node, pnpm, and PyYAML pins are grouped across their
+  consumers; the runtime pin check rejects partial updates.
 - Keep third-party Actions and semantic-release plugins hash/version pinned.
   The first-party shared scanner tracks `main` for centrally maintained updates;
   `.github/zizmor.yml` enforces this exception.

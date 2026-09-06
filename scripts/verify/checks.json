@@ -165,9 +165,10 @@
       "command": [
         "node",
         "--test",
-        "scripts/verify/dotfiles.test.ts"
+        "scripts/verify/dotfiles.test.ts",
+        "scripts/verify/runtime-pins.test.ts"
       ],
-      "output": "Validated operator routing for every profile"
+      "output": "Validated operator routing and coordinated runtime pins for every profile"
     },
     {
       "id": "profile-model",

@@ -1,4 +1,4 @@
-# Profile-aware runtime pins live in chezmoi/private_dot_config/mise/config.toml.tmpl.
+# Profile runtime pins live in chezmoi/.chezmoitemplates/mise.toml.
 
 [tasks.verify]
 description = "Run the complete repository gate"

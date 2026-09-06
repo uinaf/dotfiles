@@ -40,7 +40,8 @@ const runStep = Effect.fn("runInstallStep")(function*(step: string, profile: str
     case "install-gh-extensions":
       return yield* execute(step, bootstrap("install-gh-extensions.ts"), []);
     case "install-runtimes":
-      return yield* execute(step, "mise", ["install"]);
+      yield* execute(step, "mise", ["install"]);
+      return yield* execute(step, "mise", ["run", "dotfiles:runtime-packages"]);
     case "install-repository-dependencies":
       return yield* execute(step, "mise", ["exec", "--", "corepack", "pnpm", "--dir", repoRoot, "install", "--frozen-lockfile"]);
     case "configure-codex":

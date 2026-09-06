@@ -14,7 +14,7 @@ gh repo clone uinaf/dotfiles ~/projects/dotfiles
 cd ~/projects/dotfiles
 brew install mise
 ./dotfiles prepare
-export PATH="$(mise --no-config where node@24.19.0)/bin:$PATH"
+export PATH="$(mise --no-config where node@"$(cat .node-version)")/bin:$PATH"
 brew install actionlint chezmoi shellcheck
 mise trust
 mise run verify:domain static
@@ -59,7 +59,7 @@ pushes require the full local gate.
 - Packages: `Brewfile` and `Brewfile.<profile>`.
 - Dotfiles: tracked source under `chezmoi/`.
 - Repo tasks: `mise.toml`; machine runtime pins:
-  `chezmoi/private_dot_config/mise/config.toml.tmpl`.
+  `chezmoi/.chezmoitemplates/mise.toml`.
 - Global agent setup: `scripts/agents/`; repository-local skills remain with
   their consumer.
 - Setup behavior: `scripts/bootstrap/`; verification and audit behavior:

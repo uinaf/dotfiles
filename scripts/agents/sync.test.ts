@@ -14,7 +14,7 @@ import { afterEach, test } from "node:test";
 import { fileURLToPath } from "node:url";
 
 import { readProfileModel } from "../profiles/model.ts";
-import { main, type Runtime } from "./sync.ts";
+import { DEFAULT_SKILLS_CLI_VERSION, main, type Runtime } from "./sync.ts";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const profileModel = readProfileModel(join(repoRoot, "chezmoi/.chezmoidata/profiles.json"));
@@ -288,7 +288,7 @@ test("completes a successful skill sync without Git or rule changes", () => {
   assert.match(runtime.stdout.value, /Done\./);
   assert.equal(
     runtime.calls.find((call) => call.command === "pnpm" && call.args[0] === "dlx")?.args[1],
-    "skills@1.5.7",
+    `skills@${DEFAULT_SKILLS_CLI_VERSION}`,
   );
   assert.equal(runtime.calls.some((call) => call.command === "git"), false);
   assert.equal(readFileSync(join(home, ".claude", "CLAUDE.md"), "utf8"), "existing Claude rules\n");

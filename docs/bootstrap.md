@@ -72,7 +72,7 @@ gh repo clone uinaf/dotfiles ~/projects/dotfiles
 cd ~/projects/dotfiles
 brew install mise
 ./dotfiles prepare
-export PATH="$(mise --no-config where node@24.19.0)/bin:$PATH"
+export PATH="$(mise --no-config where node@"$(cat .node-version)")/bin:$PATH"
 ```
 
 `./dotfiles prepare` installs the pinned Node runtime and locked repository

@@ -112,6 +112,8 @@ test("fresh checkout launcher prepares dependencies without applying a profile",
   const root = mkdtempSync(join(tmpdir(), "dotfiles-prepare-"));
   try {
     cpSync(join(repoRoot, "dotfiles"), join(root, "dotfiles"));
+    const nodeVersion = "24.99.1";
+    writeFileSync(join(root, ".node-version"), `${nodeVersion}\n`);
     const bin = join(root, "bin");
     mkdirSync(bin);
     const log = join(root, "commands");
@@ -119,18 +121,18 @@ test("fresh checkout launcher prepares dependencies without applying a profile",
     const env = { ...process.env, PATH: `${bin}:/usr/bin:/bin`, TEST_LOG: log };
     const help = spawnSync("/bin/sh", [join(root, "dotfiles"), "--help"], { env, encoding: "utf8" });
     assert.equal(help.status, 0, help.stderr);
-    assert.deepEqual((await import("node:fs")).readdirSync(root).sort(), ["bin", "dotfiles"]);
+    assert.deepEqual((await import("node:fs")).readdirSync(root).sort(), [".node-version", "bin", "dotfiles"]);
     const prepared = spawnSync("/bin/sh", [join(root, "dotfiles"), "prepare"], { env, encoding: "utf8" });
     assert.equal(prepared.status, 0, prepared.stderr);
-    assert.equal(readFileSync(log, "utf8"), `--no-config x node@24.19.0 -- corepack pnpm --dir ${root} install --frozen-lockfile\n`);
+    assert.equal(readFileSync(log, "utf8"), `--no-config x node@${nodeVersion} -- corepack pnpm --dir ${root} install --frozen-lockfile\n`);
     const failed = spawnSync("/bin/sh", [join(root, "dotfiles"), "prepare"], { env: { ...env, TEST_EXIT: "23" }, encoding: "utf8" });
     assert.equal(failed.status, 23);
     writeFileSync(log, "");
     const maintained = spawnSync("/bin/sh", [join(root, "dotfiles"), "maintain"], { env, encoding: "utf8" });
     assert.equal(maintained.status, 0, maintained.stderr);
     assert.equal(readFileSync(log, "utf8"),
-      `--no-config x node@24.19.0 -- corepack pnpm --dir ${root} install --frozen-lockfile\n` +
-      `--no-config x node@24.19.0 -- node ${root}/scripts/bootstrap/install.ts --maintenance\n`);
+      `--no-config x node@${nodeVersion} -- corepack pnpm --dir ${root} install --frozen-lockfile\n` +
+      `--no-config x node@${nodeVersion} -- node ${root}/scripts/bootstrap/install.ts --maintenance\n`);
     writeFileSync(log, "");
     const failedMaintenance = spawnSync("/bin/sh", [join(root, "dotfiles"), "maintain"], { env: { ...env, TEST_EXIT: "23" }, encoding: "utf8" });
     assert.equal(failedMaintenance.status, 23);
