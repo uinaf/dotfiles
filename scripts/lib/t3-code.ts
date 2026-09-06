@@ -49,6 +49,24 @@ export function workstationT3Version(applicationsDirectory = APPLICATIONS_DIRECT
   return workstationT3Installation(applicationsDirectory).version;
 }
 
+// Client-side hardening shared by every workstation-to-devbox SSH session:
+// no prompts, no forwarding or multiplexing, strict host keys, bounded
+// connect and keepalive so a hung transport cannot stall an update pass.
+export const sshHardeningArguments: readonly string[] = [
+  "-o", "BatchMode=yes",
+  "-o", "ClearAllForwardings=yes",
+  "-o", "ConnectionAttempts=1",
+  "-o", "ConnectTimeout=10",
+  "-o", "ControlMaster=no",
+  "-o", "ControlPath=none",
+  "-o", "ForwardAgent=no",
+  "-o", "RequestTTY=no",
+  "-o", "ServerAliveCountMax=2",
+  "-o", "ServerAliveInterval=5",
+  "-o", "StrictHostKeyChecking=yes",
+  "-o", "UpdateHostKeys=no",
+];
+
 export function shellQuote(value: string): string {
   return `'${value.replaceAll("'", `'\\''`)}'`;
 }

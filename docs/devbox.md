@@ -291,11 +291,15 @@ The task wraps `scripts/bootstrap/sync-devbox-t3-server.ts`. Pass
 app detection. The sync first runs the read-only inspection below and installs
 only when the server version differs from the workstation, the service is
 unloaded or unhealthy, or `--force` is set. A server already at the target
-version and healthy is left alone; it is never restarted. The install sends
-the tracked installer sources through SSH, uses the remote user's home as the
-server working directory, and leaves no remote bundle behind. It requires an
-explicit SSH user and host; it never discovers or fans out to machines
-implicitly.
+version and healthy is left alone; it is never restarted. The install streams
+the installer sources from the checkout's committed `HEAD` (`git archive`,
+never the working tree) through a hardened, non-interactive SSH session with
+a 15-minute bound, uses the remote user's home as the server working
+directory, and leaves no remote bundle behind. Because the remote runs the
+bundle under `sudo`, a checkout with uncommitted changes to the bundled
+sources is refused; pass `--allow-dirty` to acknowledge that committed `HEAD`
+ships regardless. It requires an explicit SSH user and host; it never
+discovers or fans out to machines implicitly.
 
 `--check` prints the inspection JSON and exits `0` when versions match, `3`
 on drift, and `1` when the comparison is unavailable (workstation app
@@ -303,8 +307,10 @@ missing, SSH transport failure, or an invalid remote service layout).
 
 Scheduled sync: [the six-hour updater](software-updates.md#devbox-t3-code-server)
 runs `--scheduled` on workstation profiles only. It reads the target from
-`~/.config/dotfiles/t3-server-target` (one `user@host` line, mode `0600`) and
-treats a missing file or unreachable devbox as a reported skip.
+`~/.config/dotfiles/t3-server-target` (one `user@host` line, mode `0600`),
+treats a missing file or an unreachable devbox as a reported skip, and fails
+on anything else, including an unpublished checkout: the scheduled install
+additionally requires `HEAD` to be the default branch at `origin`'s tip.
 
 Inspect the same contract without changing either machine:
 

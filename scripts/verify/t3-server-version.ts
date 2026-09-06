@@ -8,6 +8,7 @@ import { CliFailure, runMain } from "../lib/program.ts";
 import {
   exactT3Version,
   shellQuote,
+  sshHardeningArguments,
   sshTargetPattern,
   workstationT3Installation,
   type WorkstationT3Installation,
@@ -155,22 +156,7 @@ export function parseArguments(args: readonly string[]): T3ServerOptions {
 
 export function sshArguments(host: string): readonly string[] {
   const command = ["/bin/bash -c", shellQuote(remoteInspection), "--"].join(" ");
-  return [
-    "-o", "BatchMode=yes",
-    "-o", "ClearAllForwardings=yes",
-    "-o", "ConnectionAttempts=1",
-    "-o", "ConnectTimeout=10",
-    "-o", "ControlMaster=no",
-    "-o", "ControlPath=none",
-    "-o", "ForwardAgent=no",
-    "-o", "RequestTTY=no",
-    "-o", "ServerAliveCountMax=2",
-    "-o", "ServerAliveInterval=5",
-    "-o", "StrictHostKeyChecking=yes",
-    "-o", "UpdateHostKeys=no",
-    host,
-    command,
-  ];
+  return [...sshHardeningArguments, host, command];
 }
 
 function incomplete(

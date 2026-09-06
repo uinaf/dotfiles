@@ -2,14 +2,15 @@
 
 import { NodeServices } from "@effect/platform-node";
 import { Console, Effect, FileSystem, Option } from "effect";
-import { spawnSync } from "node:child_process";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { CommandRunner } from "../lib/command.ts";
+import { CommandRunner, runCommand } from "../lib/command.ts";
+import { defaultBranchFromRemoteHead, dirtyCheckoutReason, unpublishedCheckoutReason } from "../lib/git-checkout.ts";
 import { CliFailure, fail, runMain } from "../lib/program.ts";
 import {
   parseT3Version,
   shellQuote,
+  sshHardeningArguments,
   sshTargetPattern,
   workstationT3Installation,
   type WorkstationT3Installation,
@@ -25,8 +26,8 @@ export {
   type WorkstationT3Installation,
 } from "../lib/t3-code.ts";
 
-const REPO_ROOT = resolve(fileURLToPath(new URL("../..", import.meta.url)));
-const SYNC_BUNDLE_PATHS = [
+export const REPO_ROOT = resolve(fileURLToPath(new URL("../..", import.meta.url)));
+export const SYNC_BUNDLE_PATHS = [
   "package.json",
   "pnpm-lock.yaml",
   "pnpm-workspace.yaml",
@@ -47,12 +48,16 @@ export const exitCodes = { clean: 0, unavailable: 1, drift: 3 } as const;
 // Topgrade config stays host-neutral. One line: user@host.
 export const scheduledTargetFile = ".config/dotfiles/t3-server-target";
 
+// The remote runs the bundle under sudo, so the bundle must come from
+// committed history, never from whatever the working tree holds. Interactive
+// installs from a dirty checkout need --allow-dirty (HEAD is still what ships).
 export type SyncOptions = {
   host: string;
   version?: string;
   check: boolean;
   force: boolean;
   scheduled: boolean;
+  allowDirty: boolean;
 };
 
 export function parseArguments(args: readonly string[]): SyncOptions {
@@ -61,6 +66,7 @@ export function parseArguments(args: readonly string[]): SyncOptions {
   let check = false;
   let force = false;
   let scheduled = false;
+  let allowDirty = false;
 
   for (let index = 0; index < args.length; index += 1) {
     const argument = args[index];
@@ -85,21 +91,24 @@ export function parseArguments(args: readonly string[]): SyncOptions {
       case "--scheduled":
         scheduled = true;
         break;
+      case "--allow-dirty":
+        allowDirty = true;
+        break;
       default:
         throw new Error(`unknown argument: ${argument}`);
     }
   }
 
   if (scheduled) {
-    if (host || version || check || force) throw new Error("--scheduled takes no other arguments");
-    return {host: "", check: false, force: false, scheduled: true};
+    if (host || version || check || force || allowDirty) throw new Error("--scheduled takes no other arguments");
+    return {host: "", check: false, force: false, scheduled: true, allowDirty: false};
   }
-  if (check && (force || version)) throw new Error("--check cannot be combined with --force or --version");
+  if (check && (force || version || allowDirty)) throw new Error("--check cannot be combined with --force, --version, or --allow-dirty");
   if (!sshTargetPattern.test(host)) {
     throw new Error("--host must be an explicit user@host SSH target");
   }
 
-  return {host, version, check, force, scheduled: false};
+  return {host, version, check, force, scheduled: false, allowDirty};
 }
 
 export const remoteUpdate = String.raw`set -euo pipefail
@@ -146,19 +155,62 @@ curl --fail --silent --show-error --max-time 5 \
 printf 'verified %s on %s\n' "$version" "$(hostname)"
 `;
 
-export function createSyncBundle(): Buffer {
-  const result = spawnSync("tar", ["-cf", "-", ...SYNC_BUNDLE_PATHS], {
-    cwd: REPO_ROOT,
-    maxBuffer: 10 * 1024 * 1024,
-  });
-  if (result.error) throw result.error;
+export const gitArchiveArguments = ["-C", REPO_ROOT, "archive", "--format=tar", "HEAD", "--", ...SYNC_BUNDLE_PATHS] as const;
+
+// Bundle the installer sources from committed HEAD, never the working tree.
+export const createSyncBundle = Effect.fn("createSyncBundle")(function*() {
+  const result = yield* runCommand("git", gitArchiveArguments);
   if (result.status !== 0) {
-    throw new Error(
-      `could not bundle T3 Code installer sources: ${result.stderr.toString().trim()}`,
-    );
+    return yield* fail(`could not bundle T3 Code installer sources from HEAD: ${result.stderr.trim()}`);
   }
-  return result.stdout;
+  return result.stdoutBytes ?? new Uint8Array(Buffer.from(result.stdout, "binary"));
+});
+
+export type CheckoutReadiness = {
+  // undefined when the bundled paths have no uncommitted changes.
+  readonly dirty: string | undefined;
+  // undefined when HEAD is the default branch checked out at origin's tip.
+  readonly unpublished: string | undefined;
+};
+
+// Inspect the checkout the bundle comes from. Mirrors converge.ts: clean,
+// default branch, exactly at origin's tip.
+export const inspectCheckout = Effect.fn("inspectCheckout")(function*() {
+  const git = (...args: readonly string[]) => runCommand("git", ["-C", REPO_ROOT, ...args]).pipe(
+    Effect.map((result) => (result.status === 0 ? result.stdout : "")),
+  );
+  const status = yield* runCommand("git", ["-C", REPO_ROOT, "status", "--porcelain", "--", ...SYNC_BUNDLE_PATHS]);
+  if (status.status !== 0) return yield* fail(`could not inspect the dotfiles checkout: ${status.stderr.trim()}`);
+  const remoteHead = yield* git("symbolic-ref", "refs/remotes/origin/HEAD");
+  const branch = defaultBranchFromRemoteHead(remoteHead);
+  const position = {
+    headRef: yield* git("symbolic-ref", "HEAD"),
+    remoteHead,
+    head: yield* git("rev-parse", "HEAD"),
+    remoteTip: branch ? yield* git("rev-parse", `refs/remotes/origin/${branch}`) : "",
+  };
+  return {
+    dirty: dirtyCheckoutReason(status.stdout),
+    unpublished: unpublishedCheckoutReason(position),
+  } satisfies CheckoutReadiness;
+});
+
+// A scheduled install refuses any unpublished source; an interactive one
+// refuses a dirty tree unless --allow-dirty acknowledges that HEAD ships.
+export function checkoutRefusal(readiness: CheckoutReadiness, options: Pick<SyncOptions, "scheduled" | "allowDirty">): string | undefined {
+  if (options.scheduled) {
+    const reason = readiness.dirty ?? readiness.unpublished;
+    return reason ? `scheduled sync refuses an unpublished checkout: ${reason}` : undefined;
+  }
+  if (readiness.dirty && !options.allowDirty) {
+    return `${readiness.dirty}; commit them, or pass --allow-dirty to install committed HEAD anyway`;
+  }
+  return undefined;
 }
+
+// The remote install runs pnpm and the daemon installer; bound it so a hung
+// transport or a stuck sudo prompt cannot stall the update pass forever.
+export const installTimeoutMs = 15 * 60_000;
 
 export function installSshArguments(host: string, version: string): readonly string[] {
   const command = [
@@ -167,17 +219,15 @@ export function installSshArguments(host: string, version: string): readonly str
     "--",
     shellQuote(version),
   ].join(" ");
-  return ["-o", "BatchMode=yes", host, command];
+  return [...sshHardeningArguments, host, command];
 }
 
 export type SyncDependencies = {
   readonly detectWorkstation: () => WorkstationT3Installation;
-  readonly bundle: () => Buffer;
 };
 
 const liveDependencies: SyncDependencies = {
   detectWorkstation: workstationT3Installation,
-  bundle: createSyncBundle,
 };
 
 export type SyncAction = "checked" | "unchanged" | "installed" | "skipped";
@@ -230,17 +280,17 @@ export function installRequired(
 const install = Effect.fn("installDevboxT3Server")(function*(
   host: string,
   version: string,
-  dependencies: SyncDependencies,
+  options: Pick<SyncOptions, "scheduled" | "allowDirty">,
 ) {
   const runner = yield* CommandRunner;
-  const bundle = yield* Effect.try({
-    try: () => dependencies.bundle(),
-    catch: (error) => new CliFailure({exitCode: 1, message: error instanceof Error ? error.message : String(error)}),
-  });
+  const refusal = checkoutRefusal(yield* inspectCheckout(), options);
+  if (refusal) return yield* fail(refusal);
+  const bundle = yield* createSyncBundle();
   yield* Console.log(`Syncing T3 Code ${version} to ${host}.`);
   const result = yield* runner.run("ssh", installSshArguments(host, version), {
-    stdin: new Uint8Array(bundle),
+    stdin: bundle,
     output: "inherit",
+    timeoutMs: installTimeoutMs,
   }).pipe(Effect.mapError((error) => new CliFailure({exitCode: 1, message: error.message})));
   if (result.status !== 0) {
     return yield* fail(`${host} T3 Code update failed with status ${result.status}`, result.status || 1);
@@ -249,6 +299,8 @@ const install = Effect.fn("installDevboxT3Server")(function*(
 });
 
 // Compare first; install only on drift, --force, or an unhealthy service.
+// Only a transport failure is a "skipped" report: the devbox may simply be
+// off. A workstation or remote structure error is a real defect and fails.
 export const syncDevboxT3Server = Effect.fn("syncDevboxT3Server")(function*(
   options: SyncOptions,
   dependencies: SyncDependencies = liveDependencies,
@@ -258,20 +310,25 @@ export const syncDevboxT3Server = Effect.fn("syncDevboxT3Server")(function*(
 
   const requested = options.version ?? comparison.workstation?.version;
   if (!requested) {
-    return report(options.host, "skipped", null, comparison, comparison.error?.message ?? "workstation version unavailable");
+    return yield* fail(comparison.error?.message ?? "workstation version unavailable");
   }
   const decision = installRequired(comparison, requested, options.force);
   if (!decision.install) {
-    const action: SyncAction = comparison.status === "incomplete" ? "skipped" : "unchanged";
-    return report(options.host, action, requested, comparison, decision.reason);
+    if (comparison.status !== "incomplete") return report(options.host, "unchanged", requested, comparison, decision.reason);
+    if (comparison.error?.kind !== "transport") {
+      return yield* fail(`${options.host}: ${decision.reason} (${comparison.error?.code ?? "unknown"})`);
+    }
+    return report(options.host, "skipped", requested, comparison, decision.reason);
   }
-  yield* install(options.host, requested, dependencies);
+  yield* install(options.host, requested, options);
   return report(options.host, "installed", requested, comparison, decision.reason);
 });
 
 // Scheduled entry for the workstation updater: a missing target file or an
 // unreachable devbox is a reported skip so the rest of the update pass
-// continues; only an actual install failure fails the step.
+// continues. An invalid target file, a workstation app that cannot be
+// inspected, an invalid remote service layout, an unpublished checkout, or
+// an install failure fails the step.
 export const readScheduledTarget = Effect.fn("readScheduledTarget")(function*(home: string, uid: number | undefined) {
   const fs = yield* FileSystem.FileSystem;
   const path = join(home, scheduledTargetFile);
@@ -289,7 +346,7 @@ export const readScheduledTarget = Effect.fn("readScheduledTarget")(function*(ho
 
 export function usageText(): string {
   return `Usage:
-  scripts/bootstrap/sync-devbox-t3-server.ts --host USER@HOST [--version t3@0.0.35] [--force]
+  scripts/bootstrap/sync-devbox-t3-server.ts --host USER@HOST [--version t3@0.0.35] [--force] [--allow-dirty]
   scripts/bootstrap/sync-devbox-t3-server.ts --host USER@HOST --check
   scripts/bootstrap/sync-devbox-t3-server.ts --scheduled
 
@@ -298,7 +355,11 @@ the devbox differs from that version, is unloaded or unhealthy, or --force is
 set; a matching healthy server is never restarted. --check compares without
 changing either machine: exit ${exitCodes.clean} when equal, ${exitCodes.drift} on drift, ${exitCodes.unavailable} when the
 comparison is unavailable. --scheduled reads USER@HOST from
-~/${scheduledTargetFile} and reports a skip when it is missing or unreachable.
+~/${scheduledTargetFile} and reports a skip when it is missing or unreachable;
+any other failure fails the step.
+The installer sources ship from committed HEAD of this checkout. A dirty tree
+is refused unless --allow-dirty; --scheduled also requires HEAD to be the
+default branch at origin's tip.
 The remote server uses the SSH user's home as its working directory.`;
 }
 
@@ -342,7 +403,7 @@ const program = Effect.gen(function*() {
     return;
   }
   yield* Console.log(summary(result));
-  if (result.action === "skipped") return yield* fail(result.reason ?? "the devbox could not be inspected");
+  if (result.action === "skipped") return yield* fail(result.reason ?? "the devbox could not be reached");
 }).pipe(
   Effect.provide(CommandRunner.layer),
   Effect.provide(NodeServices.layer),

@@ -5,6 +5,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, realpathSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { defaultBranchFromRemoteHead } from "../lib/git-checkout.ts";
 import { acquireDirectoryLock, type LockOptions } from "../lib/lock.ts";
 
 // Boot starts the devbox update jobs together and the shared Homebrew pass can
@@ -41,8 +42,8 @@ export function syncCheckout(repo: string): string {
   };
   clean();
   const remote = git("symbolic-ref", "refs/remotes/origin/HEAD");
-  const branch = remote.replace(/^refs\/remotes\/origin\//, "");
-  if (remote === branch || git("symbolic-ref", "HEAD") !== `refs/heads/${branch}` ||
+  const branch = defaultBranchFromRemoteHead(remote);
+  if (!branch || git("symbolic-ref", "HEAD") !== `refs/heads/${branch}` ||
       git("rev-parse", "--symbolic-full-name", "@{upstream}") !== remote) {
     throw new UpdateFailure("dotfiles updates require the default branch tracking origin");
   }

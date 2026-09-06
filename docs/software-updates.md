@@ -187,11 +187,20 @@ devbox's service, and installs only on drift or an unhealthy service. A
 matching healthy server is never restarted.
 
 The step never fails the update pass for an absent or unreachable devbox: a
-missing target file, a failed SSH connection, or a missing workstation app is
-logged as a skip. Only an actual install failure fails the step. The SSH
-session runs with `BatchMode=yes`, so the workstation's normal non-interactive
-SSH path to the devbox must work without prompts; the job supplies no
-credentials of its own. Devbox profiles never render this command.
+missing target file or a failed SSH connection is logged as a skip. Everything
+else fails the step so the failure notification surfaces it: an invalid target
+line, a workstation T3 Code app that cannot be inspected, a remote service
+layout that fails the inspection contract (missing, unsafe, or foreign plist,
+wrong entrypoint), an install failure, or an unpublished checkout. The bundle
+the devbox runs under `sudo` is taken from the checkout's committed `HEAD`,
+and the scheduled install refuses to run when the bundled sources have
+uncommitted changes or `HEAD` is not the default branch at `origin`'s tip,
+mirroring the convergence step's own rule. Both SSH sessions (inspection and
+install) run with `BatchMode=yes`, strict host-key checking, no agent or port
+forwarding, no connection multiplexing, and connect/keepalive timeouts; the
+install is additionally bounded to 15 minutes. The workstation's normal
+non-interactive SSH path to the devbox must work without prompts; the job
+supplies no credentials of its own. Devbox profiles never render this command.
 
 Create the target file to enable it:
 

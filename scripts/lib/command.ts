@@ -12,6 +12,8 @@ export type CommandResult = {
   readonly status: number;
   readonly stderr: string;
   readonly stdout: string;
+  // Raw captured stdout for binary payloads (tar archives); absent unless captured.
+  readonly stdoutBytes?: Uint8Array;
 };
 
 export type CommandOptions = {
@@ -66,7 +68,7 @@ export class CommandRunner extends Context.Service<CommandRunner, {
           const stderrFiber = yield* Stream.runForEach(handle.stderr, (chunk) => Effect.sync(() => { stderr.push(chunk); })).pipe(Effect.forkScoped);
           const status = Number(yield* handle.exitCode);
           yield* Effect.all([Fiber.join(stdoutFiber), Fiber.join(stderrFiber)]);
-          return { status, stderr: decode(stderr), stdout: decode(stdout) };
+          return { status, stderr: decode(stderr), stdout: decode(stdout), stdoutBytes: Buffer.concat(stdout.map((chunk) => Buffer.from(chunk))) };
         }).pipe(Effect.scoped);
 
         const bounded = options.timeoutMs === undefined ? execution : execution.pipe(

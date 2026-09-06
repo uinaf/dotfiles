@@ -39,8 +39,8 @@ Headless macOS coding services use
 [Devbox setup](../docs/devbox.md#system-services).
 Use `scripts/bootstrap/sync-devbox-t3-server.ts` on a workstation to converge
 one explicit remote T3 Code server to the workstation's installed version. The
-command streams the installer sources and uses the remote user's home as the
-server working directory.
+command streams the installer sources from committed `HEAD` and uses the
+remote user's home as the server working directory.
 
 Use `scripts/verify/t3-server-version.ts --host USER@HOST` first for a
 strictly read-only comparison. It emits typed JSON for the workstation app,
