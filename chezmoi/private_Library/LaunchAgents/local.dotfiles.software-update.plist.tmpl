@@ -1,0 +1,66 @@
+{{ $topgrade := "/usr/local/bin/topgrade" -}}
+{{ if eq .chezmoi.arch "arm64" -}}
+{{ $topgrade = "/opt/homebrew/bin/topgrade" -}}
+{{ end -}}
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <key>Label</key>
+    <string>local.dotfiles.software-update</string>
+    <key>Disabled</key>
+    <true/>
+    <key>ProgramArguments</key>
+    <array>
+      <string>{{ $topgrade }}</string>
+      <string>--config</string>
+      <string>{{ .chezmoi.homeDir | html }}/.config/topgrade.toml</string>
+      <string>--no-tmux</string>
+      <string>--no-ask-retry</string>
+      <string>--no-self-update</string>
+      <string>--notify-end</string>
+      <string>on_failure</string>
+      <string>--yes</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>{{ .chezmoi.homeDir | html }}</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+      <key>PATH</key>
+      <string>{{ .chezmoi.homeDir | html }}/.local/share/mise/shims:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+      <key>HOMEBREW_NO_UPGRADE_QUIT_CASKS</key>
+      <string>1</string>
+      <key>HOMEBREW_NO_INSTALL_CLEANUP</key>
+      <string>1</string>
+      <key>GIT_TERMINAL_PROMPT</key>
+      <string>0</string>
+      <key>NO_COLOR</key>
+      <string>1</string>
+    </dict>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>StartCalendarInterval</key>
+    <array>
+{{ range $hour := list 0 6 12 18 }}
+      <dict>
+        <key>Hour</key>
+        <integer>{{ $hour }}</integer>
+        <key>Minute</key>
+        <integer>23</integer>
+      </dict>
+{{ end }}
+    </array>
+    <key>ProcessType</key>
+    <string>Background</string>
+    <key>LowPriorityIO</key>
+    <true/>
+    <key>Nice</key>
+    <integer>10</integer>
+    <key>Umask</key>
+    <integer>63</integer>
+    <key>StandardOutPath</key>
+    <string>{{ .chezmoi.homeDir | html }}/Library/Logs/dotfiles/software-update.log</string>
+    <key>StandardErrorPath</key>
+    <string>{{ .chezmoi.homeDir | html }}/Library/Logs/dotfiles/software-update.log</string>
+  </dict>
+</plist>

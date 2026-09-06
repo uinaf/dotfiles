@@ -101,6 +101,10 @@ mise run bootstrap:trust-agent-worktrees
 
 ## Runtime Pins
 
+Software maintenance tasks are `maintenance:enable`, `maintenance:disable`,
+`maintenance:update`, and `maintenance:status`. They manage one per-user
+launchd job; see [Software Updates](software-updates.md) for enrollment and scope.
+
 When changing `chezmoi/private_dot_config/mise/config.toml.tmpl`:
 
 1. Confirm which profiles should receive the pin.

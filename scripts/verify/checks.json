@@ -2,6 +2,12 @@
   "version": 1,
   "checks": [
     {
+      "id": "maintenance-schedule",
+      "domain": "services",
+      "command": ["node", "--test", "scripts/maintenance/schedule.test.ts"],
+      "output": "Opt-in update schedule, shared-prefix isolation, and on-demand serialization"
+    },
+    {
       "id": "static",
       "domain": "static",
       "command": [

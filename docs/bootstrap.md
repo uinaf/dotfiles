@@ -343,8 +343,9 @@ reported without interactive retries; no automatic cleanup is selected.
 
 Runtime pins, Git repositories, macOS updates, and reboots retain their existing
 owners. Shared devbox profiles omit Topgrade's Homebrew steps: the prefix owner
-must use the wrapper below. Installing this configuration does not schedule
-updates; unattended launchd operation requires separate setup and verification.
+must use the wrapper below. The managed LaunchAgent is disabled until explicitly
+enabled. See [Software Updates](software-updates.md) for the six-hour schedule,
+on-demand command, logs, and recovery.
 
 Run every other Homebrew mutation on a shared devbox through the repo wrapper:
 
