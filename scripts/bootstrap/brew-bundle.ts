@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { NodeServices } from "@effect/platform-node";
-import { Console, Effect, FileSystem } from "effect";
+import { Console, Effect, FileSystem, Option } from "effect";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { CommandRunner } from "../lib/command.ts";
@@ -26,15 +26,18 @@ const usage = `Usage:
   scripts/bootstrap/brew-bundle.ts --shared-only PROFILE
   scripts/bootstrap/brew-bundle.ts --print-files PROFILE
   scripts/bootstrap/brew-bundle.ts --cleanup PROFILE
+  scripts/bootstrap/brew-bundle.ts --maintenance PROFILE
 
 Installs the shared base first, then developer and selected profile layers.
---cleanup removes packages outside the complete host contract.`;
+--cleanup removes packages outside the complete host contract.
+--maintenance installs missing declarations without upgrades; shared-prefix consumers only check.`;
 
 type Arguments = {
   readonly profile: string;
   readonly sharedOnly: boolean;
   readonly printFiles: boolean;
   readonly cleanup: boolean;
+  readonly maintenance: boolean;
 };
 
 const parseArguments = Effect.fn("parseBrewBundleArguments")(function*(raw: readonly string[]): Effect.fn.Return<Arguments, CliFailure> {
@@ -42,6 +45,7 @@ const parseArguments = Effect.fn("parseBrewBundleArguments")(function*(raw: read
   let sharedOnly = false;
   let printFiles = false;
   let cleanup = false;
+  let maintenance = false;
   for (let index = 0; index < raw.length; index += 1) {
     const argument = raw[index];
     if (argument === "--profile") {
@@ -55,6 +59,9 @@ const parseArguments = Effect.fn("parseBrewBundleArguments")(function*(raw: read
     } else if (argument === "--print-files") {
       if (printFiles) return yield* fail("duplicate --print-files", 2);
       printFiles = true;
+    } else if (argument === "--maintenance") {
+      if (maintenance) return yield* fail("duplicate --maintenance", 2);
+      maintenance = true;
     } else if (argument === "--cleanup") {
       if (cleanup) return yield* fail("duplicate --cleanup", 2);
       cleanup = true;
@@ -66,8 +73,8 @@ const parseArguments = Effect.fn("parseBrewBundleArguments")(function*(raw: read
       return yield* fail("multiple profiles are unsupported", 2);
     }
   }
-  if (!profile || (cleanup && sharedOnly)) return yield* fail("invalid brew bundle arguments", 2);
-  return { profile, sharedOnly, printFiles, cleanup };
+  if (!profile || (cleanup && (sharedOnly || maintenance))) return yield* fail("invalid brew bundle arguments", 2);
+  return { profile, sharedOnly, printFiles, cleanup, maintenance };
 });
 
 const execute = Effect.fn("executeBrewBundleCommand")(function*(
@@ -101,15 +108,28 @@ const program = Effect.gen(function*() {
   }
   if (!(yield* commandAvailable("brew"))) return yield* fail("brew is required before running this script");
   const external = yield* configureExternalCapabilities(repoRoot, model, profile);
+  let checkOnly = false;
+  if (args.maintenance && profileConfig.capabilities.sharedHomebrew) {
+    const fs = yield* FileSystem.FileSystem;
+    const prefix = (yield* runHomebrewRaw("brew", ["--prefix"])).stdout.trim();
+    checkOnly = Option.getOrUndefined((yield* fs.stat(prefix)).uid) !== process.getuid?.();
+  }
+  if (checkOnly) {
+    for (const file of files) yield* execute("brew", ["bundle", "check", "--no-upgrade", "--file", join(repoRoot, file)],
+      { ...external, HOMEBREW_BUNDLE_DOTFILES_PROFILE: profile, HOMEBREW_NO_AUTO_UPDATE: "1" });
+    yield* Console.log("Shared packages checked; the prefix owner's job installs declarations.");
+    return;
+  }
   yield* trustTaps(repoRoot, files);
   for (const file of files) {
     const path = join(repoRoot, file);
     yield* Console.log(`\n## brew bundle --file ${path}`);
     const env = { ...external, HOMEBREW_BUNDLE_DOTFILES_PROFILE: profile };
+    const bundleArgs = ["bundle", ...(args.maintenance ? ["--no-upgrade"] : []), "--file", path];
     if (profileConfig.capabilities.sharedHomebrew) {
-      yield* execute(process.execPath, [join(repoRoot, "scripts/bootstrap/brew-devbox.ts"), "bundle", "--file", path], env);
+      yield* execute(process.execPath, [join(repoRoot, "scripts/bootstrap/brew-devbox.ts"), ...bundleArgs], env);
     } else {
-      yield* execute("brew", ["bundle", "--file", path], env);
+      yield* execute("brew", bundleArgs, env);
     }
   }
   if (!args.cleanup) return;

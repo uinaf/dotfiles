@@ -96,6 +96,17 @@ exit "\${FAKE_BREW_EXIT:-0}"
   for (const file of ["Brewfile", "Brewfile.devbox", "Brewfile.personal"]) assert.ok(personal.includes(`arg=${join(repoRoot, file)}`));
   const shared = yield* bundle("devbox", ["--shared-only"]);
   assert.equal((shared.match(/^arg=bundle$/gm) || []).length, 1);
+  const maintenance = yield* bundle("personal-devbox", ["--maintenance"]);
+  assert.equal((maintenance.match(/^arg=--no-upgrade$/gm) || []).length, 3);
+  assert.doesNotMatch(maintenance, /^arg=cleanup$/m);
+  if (process.getuid?.() !== 0) {
+    const consumerLog = join(temporary, "consumer.log");
+    const consumer = yield* execute("scripts/bootstrap/brew-bundle.ts", ["--maintenance", "devbox"], consumerLog, { FAKE_BREW_PREFIX: "/" });
+    assert.equal(consumer.status, 0, consumer.stderr);
+    const commands = yield* fs.readFileString(consumerLog);
+    assert.equal((commands.match(/^arg=check$/gm) || []).length, 2);
+    assert.doesNotMatch(commands, /^arg=(trust|upgrade|install)$/m);
+  }
   const cleanup = yield* bundle("devbox", ["--cleanup"]);
   assert.match(cleanup, /^arg=cleanup$/m);
   assert.match(cleanup, /^arg=--force$/m);

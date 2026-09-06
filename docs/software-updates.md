@@ -1,6 +1,6 @@
 # Software Updates
 
-Topgrade updates installed software and managed agent assets. All profiles
+Topgrade updates installed software and converges the enrolled dotfiles checkout. All profiles
 install it and render `~/.config/topgrade.toml`; a per-user LaunchAgent provides
 six-hour and on-demand runs for logged-in macOS users. Devboxes can enroll
 system LaunchDaemons that run as each selected user without a GUI login.
@@ -28,8 +28,10 @@ These are macOS calendar jobs, following
 | Workstation Homebrew | Installed formulae and greedy casks; built-in updater metadata does not exclude an app |
 | Shared devbox Homebrew | Separate system job under the prefix owner, through the [shared wrapper](bootstrap.md#shared-homebrew-updates) |
 | GitHub CLI extensions | Topgrade's extension updater |
-| Managed skills/plugins/MCP setup | Existing `mise run agents:update` task |
-| Runtime pins, source checkouts, OS upgrades, reboots | Separate existing owners; not enabled as Topgrade steps |
+| Dotfiles source and configuration | Fast-forward a clean default branch, install locked dependencies, then apply the selected profile |
+| Runtime versions and declared packages | Install the versions and packages declared by the updated profile |
+| Managed skills/plugins/MCP setup | Update selected skills/plugins and sync MCP registrations through the profile installer |
+| OS upgrades, reboots, remote services | Separate owners; not enabled by this job |
 | Cleanup | Separate maintenance; this job disables implicit Homebrew install cleanup |
 
 The job sets `HOMEBREW_NO_UPGRADE_QUIT_CASKS=1` so Homebrew does not quit running
@@ -73,6 +75,41 @@ does not roll back package changes.
 
 Use `maintenance:update` for serialized runs. A separate `topgrade` or `brew`
 process can overlap the scheduled job.
+
+## Dotfiles Convergence
+
+The custom `Managed dotfiles` step runs `scripts/maintenance/converge.ts`:
+
+1. Require a clean default branch tracking `origin`, with no local commits or
+   unfinished Git operation; fetch and fast-forward without stashing or rebasing.
+2. Install the checkout's locked dependencies and trust its updated mise task
+   configuration, then start the updated installer in a fresh process.
+3. Install missing Homebrew declarations without cleanup. On shared hosts,
+   only the prefix owner installs them; other users check their required packages.
+4. Apply chezmoi configuration with the existing backups, install declared mise
+   versions, refresh repository dependencies, and run the selected profile setup.
+5. Update Cursor Agent, GitHub extension declarations, coding-client settings,
+   global agent rules, skills, plugins, and MCP registrations through their
+   existing installers. Maintenance preserves saved coding-client logins.
+
+The enrolled checkout's default branch is the trusted policy source. Runtime
+versions follow its declarations; the job does not rewrite pins to arbitrary
+latest versions. Source changes must be committed and pushed before a job can
+apply them. A dirty, ahead, detached, or diverged checkout fails this step and
+keeps local work. Resolve that checkout before requesting another run.
+
+Convergence and the scheduled shared Homebrew wrapper use the same checkout
+lock. A competing run fails visibly and can be retried after the active one
+finishes. After a killed process, inspect the job and its children before
+removing the empty lock directory reported in the log. Failed apply steps are
+retried on the next run; package and configuration changes are not rolled back.
+Topgrade still reports its other independent steps separately.
+
+This applies the per-user profile installer. Machine provisioning, Git/SSH
+identity enrollment, macOS updates, remote MCP deployment, and service
+restarts/version changes remain with their explicit owners. Plist changes are
+written to disk; reload an enrolled job with the recovery procedure below to
+activate new launchd settings.
 
 ## Notifications And Logs
 
@@ -127,13 +164,13 @@ when that is the host's established administrator path.
 | Job, under the stored launchd namespace | Command and timing |
 | --- | --- |
 | `local.dotfiles.homebrew-update.<user>` | `brew-devbox.ts --update-software`: refresh metadata, then upgrade unpinned formulae and greedy casks at 00:23, 06:23, 12:23, and 18:23 |
-| `local.dotfiles.software-update.<user>` | Per-user Topgrade, limited to GitHub CLI extensions and custom agent updates; same hours at minute `33 + (uid % 20)` |
+| `local.dotfiles.software-update.<user>` | Per-user Topgrade, limited to GitHub CLI extensions and dotfiles convergence; same hours at minute `33 + (uid % 20)` |
 
 Both jobs run once on enrollment and at boot, so boot runs can overlap across
 users. Each label has one instance. Jobs run with the selected user's home,
 PATH, and existing credentials; they contain no service tokens and supply no
-sudo password. Runtime pins, source pulls, OS updates, and reboots stay outside
-their scope. Re-enrollment retains matching loaded jobs without restarting them.
+sudo password. Dotfiles source and declared runtime changes converge under the
+selected user; OS updates and reboots stay outside their scope. Re-enrollment retains matching loaded jobs without restarting them.
 
 The installer refuses enrollment while that user's GUI updater is loaded, then
 disables its GUI label across logins. `maintenance:enable` refuses to create a

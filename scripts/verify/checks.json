@@ -2,6 +2,12 @@
   "version": 1,
   "checks": [
     {
+      "id": "dotfiles-convergence",
+      "domain": "services",
+      "command": ["node", "--test", "scripts/maintenance/converge.test.ts"],
+      "output": "Default-branch convergence, local-work preservation, dependency failures, and unattended profile setup"
+    },
+    {
       "id": "maintenance-schedule",
       "domain": "services",
       "command": ["node", "--test", "scripts/maintenance/schedule.test.ts", "scripts/maintenance/devbox.test.ts"],

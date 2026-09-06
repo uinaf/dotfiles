@@ -1,6 +1,6 @@
 {{ $profile := includeTemplate "profile" . | fromJson -}}
 [misc]
-# Runtime pins, repository updates, and operating-system upgrades have separate owners.
+# Dotfiles convergence applies declared runtime versions; OS upgrades remain manual.
 {{ if $profile.capabilities.sharedHomebrew -}}
 # Shared Homebrew must use the prefix owner's brew-devbox wrapper.
 only = ["github_cli_extensions", "custom_commands"]
@@ -17,4 +17,4 @@ greedy_cask = true
 autoremove = false
 
 [commands]
-"Managed agent skills" = {{ printf "mise -C %s run agents:update" (.chezmoi.sourceDir | dir | quote) | toJson }}
+"Managed dotfiles" = {{ printf "node %s/scripts/maintenance/converge.ts" (.chezmoi.sourceDir | dir | quote) | toJson }}

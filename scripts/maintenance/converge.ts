@@ -1,0 +1,85 @@
+#!/usr/bin/env node
+
+// This entrypoint must run before the checkout's locked dependencies are installed.
+import { spawnSync } from "node:child_process";
+import { existsSync, mkdirSync, realpathSync, rmdirSync } from "node:fs";
+import { join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+class UpdateFailure extends Error {
+  readonly exitCode: number;
+  constructor(message: string, exitCode = 1) { super(message); this.exitCode = exitCode; }
+}
+
+function run(repo: string, command: string, args: string[], capture = false): string {
+  const result = spawnSync(command, args, {
+    cwd: repo, encoding: "utf8", stdio: capture ? ["ignore", "pipe", "pipe"] : ["ignore", "inherit", "inherit"],
+    env: { ...process.env, GIT_TERMINAL_PROMPT: "0", GIT_SSH_COMMAND: "ssh -o BatchMode=yes",
+      HOMEBREW_NO_INSTALL_CLEANUP: "1", HOMEBREW_NO_UPGRADE_QUIT_CASKS: "1" },
+  });
+  if (result.error) throw result.error;
+  if (result.status !== 0) throw new UpdateFailure(`${command} ${args[0]} failed${capture ? `: ${result.stderr?.trim()}` : ""}`, result.status ?? 1);
+  return result.stdout?.trim() ?? "";
+}
+
+export function syncCheckout(repo: string): string {
+  const git = (...args: string[]) => run(repo, "git", args, true);
+  if (realpathSync(git("rev-parse", "--show-toplevel")) !== realpathSync(repo)) {
+    throw new UpdateFailure("use the root of the enrolled dotfiles checkout");
+  }
+  const clean = () => {
+    if (git("status", "--porcelain", "--untracked-files=all")) throw new UpdateFailure("dotfiles checkout has local changes; commit or resolve them before retrying");
+    for (const state of ["MERGE_HEAD", "CHERRY_PICK_HEAD", "REVERT_HEAD", "rebase-merge", "rebase-apply", "sequencer"]) {
+      if (existsSync(resolve(repo, git("rev-parse", "--git-path", state)))) throw new UpdateFailure("finish the current Git operation before updating dotfiles");
+    }
+  };
+  clean();
+  const remote = git("symbolic-ref", "refs/remotes/origin/HEAD");
+  const branch = remote.replace(/^refs\/remotes\/origin\//, "");
+  if (remote === branch || git("symbolic-ref", "HEAD") !== `refs/heads/${branch}` ||
+      git("rev-parse", "--symbolic-full-name", "@{upstream}") !== remote) {
+    throw new UpdateFailure("dotfiles updates require the default branch tracking origin");
+  }
+  const before = git("rev-parse", "HEAD");
+  git("fetch", "--no-tags", "origin", `+refs/heads/${branch}:${remote}`);
+  clean();
+  if (git("rev-parse", "HEAD") !== before) throw new UpdateFailure("dotfiles HEAD changed during fetch; retry when the checkout is idle");
+  git("merge-base", "--is-ancestor", "HEAD", remote);
+  git("merge", "--ff-only", "--no-autostash", "--no-edit", remote);
+  clean();
+  return git("rev-parse", "HEAD");
+}
+
+export function acquireCheckoutLock(repo: string): () => void {
+  const gitDir = run(repo, "git", ["rev-parse", "--absolute-git-dir"], true);
+  const lock = join(gitDir, "dotfiles-converge.lock");
+  try { mkdirSync(lock, { mode: 0o700 }); } catch (cause) {
+    throw new Error(`dotfiles convergence lock unavailable: ${lock}; check for an active or interrupted update`, { cause });
+  }
+  return () => rmdirSync(lock);
+}
+
+export function converge(repo: string): void {
+  const release = acquireCheckoutLock(repo);
+  try {
+    const revision = syncCheckout(repo);
+    console.log(`Converging dotfiles ${revision}`);
+    run(repo, "corepack", ["pnpm", "install", "--frozen-lockfile"]);
+    run(repo, "mise", ["trust", join(repo, "mise.toml")]);
+    // Start the updated installer in a fresh process with its new dependencies.
+    run(repo, process.execPath, [join(repo, "scripts/bootstrap/install.ts"), "--maintenance"]);
+    console.log(`Dotfiles converged at ${revision}`);
+  } finally {
+    release();
+  }
+}
+
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  try {
+    if (process.argv.length !== 2 || process.getuid?.() === 0) throw new UpdateFailure("run dotfiles convergence as the enrolled user, without arguments");
+    converge(resolve(import.meta.dirname, "../.."));
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exitCode = error instanceof UpdateFailure ? error.exitCode : 1;
+  }
+}

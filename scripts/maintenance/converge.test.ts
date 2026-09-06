@@ -1,0 +1,127 @@
+import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
+import test from "node:test";
+import { converge, syncCheckout } from "./converge.ts";
+
+function git(cwd: string, ...args: string[]) {
+  const result = spawnSync("git", ["-c", "commit.gpgsign=false", "-c", "core.hooksPath=/dev/null", ...args], {
+    cwd, encoding: "utf8", env: { ...process.env, GIT_AUTHOR_NAME: "Fixture", GIT_AUTHOR_EMAIL: "fixture@example.com",
+      GIT_COMMITTER_NAME: "Fixture", GIT_COMMITTER_EMAIL: "fixture@example.com" },
+  });
+  assert.equal(result.status, 0, result.stderr);
+  return result.stdout.trim();
+}
+
+function fixture(t: test.TestContext) {
+  const root = mkdtempSync(join(tmpdir(), "dotfiles-converge."));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const upstream = join(root, "upstream");
+  const repo = join(root, "checkout");
+  mkdirSync(upstream);
+  git(upstream, "init", "-b", "main");
+  writeFileSync(join(upstream, "policy"), "first\n");
+  git(upstream, "add", ".");
+  git(upstream, "commit", "-m", "first");
+  git(root, "clone", upstream, repo);
+  const advance = () => {
+    writeFileSync(join(upstream, "policy"), "second\n");
+    git(upstream, "commit", "-am", "second");
+    return git(upstream, "rev-parse", "HEAD");
+  };
+  return { root, repo, upstream, advance };
+}
+
+test("clean default checkout advances and repeat convergence preserves the revision", t => {
+  const { repo, advance } = fixture(t);
+  const next = advance();
+  assert.equal(syncCheckout(repo), next);
+  assert.equal(readFileSync(join(repo, "policy"), "utf8"), "second\n");
+  assert.equal(syncCheckout(repo), next);
+});
+
+for (const state of ["dirty", "untracked", "branch", "detached", "ahead", "diverged", "rebase"]) {
+  test(`preserves ${state} work without updating the checkout`, t => {
+    const { repo, advance } = fixture(t);
+    if (state !== "ahead") advance();
+    if (state === "dirty") writeFileSync(join(repo, "policy"), "local\n");
+    if (state === "untracked") writeFileSync(join(repo, "notes"), "keep\n");
+    if (state === "branch") git(repo, "checkout", "-b", "feature");
+    if (state === "detached") git(repo, "checkout", "--detach");
+    if (state === "ahead" || state === "diverged") {
+      writeFileSync(join(repo, "policy"), "local\n");
+      git(repo, "commit", "-am", "local work");
+    }
+    if (state === "rebase") mkdirSync(join(repo, ".git/rebase-merge"));
+    const before = git(repo, "rev-parse", "HEAD");
+    const content = readFileSync(join(repo, "policy"), "utf8");
+    assert.throws(() => syncCheckout(repo));
+    assert.equal(git(repo, "rev-parse", "HEAD"), before);
+    assert.equal(readFileSync(join(repo, "policy"), "utf8"), content);
+    if (state === "untracked") assert.equal(readFileSync(join(repo, "notes"), "utf8"), "keep\n");
+  });
+}
+
+test("failed fetch preserves the checkout and a held lock prevents a second updater", t => {
+  const { repo, upstream } = fixture(t);
+  const before = git(repo, "rev-parse", "HEAD");
+  rmSync(upstream, { recursive: true });
+  assert.throws(() => syncCheckout(repo));
+  assert.equal(git(repo, "rev-parse", "HEAD"), before);
+  const lock = join(repo, ".git/dotfiles-converge.lock");
+  mkdirSync(lock);
+  assert.throws(() => converge(repo), /lock unavailable/);
+  assert.ok(existsSync(lock));
+});
+
+test("dependency failure stops apply, preserves exit status, and releases the lock", t => {
+  const { root, repo } = fixture(t);
+  const bin = join(root, "bin");
+  mkdirSync(bin);
+  writeFileSync(join(bin, "corepack"), "#!/bin/sh\nexit 23\n", { mode: 0o755 });
+  const previousPath = process.env.PATH;
+  process.env.PATH = `${bin}:${previousPath}`;
+  t.after(() => { process.env.PATH = previousPath; });
+  assert.throws(() => converge(repo), { exitCode: 23 });
+  assert.equal(existsSync(join(repo, ".git/dotfiles-converge.lock")), false);
+});
+
+for (const failure of [false, true]) {
+  test(`maintenance reuses profile setup with saved logins preserved${failure ? " and stops on failure" : ""}`, t => {
+    const root = mkdtempSync(join(tmpdir(), "dotfiles-install-maintenance."));
+    t.after(() => rmSync(root, { recursive: true, force: true }));
+    const source = resolve(import.meta.dirname, "../..");
+    const log = join(root, "steps");
+    const bin = join(root, "bin");
+    mkdirSync(bin);
+    mkdirSync(join(root, ".config/dotfiles"), { recursive: true });
+    writeFileSync(join(root, ".config/dotfiles/llm-gateway.json"), "{}", { mode: 0o600 });
+    mkdirSync(join(root, "chezmoi/.chezmoidata"), { recursive: true });
+    writeFileSync(join(root, "chezmoi/.chezmoidata/profiles.json"), readFileSync(join(source, "chezmoi/.chezmoidata/profiles.json")));
+    function stub(path: string, name: string) {
+      mkdirSync(resolve(path, ".."), { recursive: true });
+      writeFileSync(path, `#!/bin/sh\nprintf '%s %s\\n' '${name}' "$*" >> "$TEST_LOG"\nexit ${failure && name === "apply-dotfiles.ts" ? 19 : 0}\n`, { mode: 0o755 });
+    }
+    for (const name of ["brew-bundle.ts", "apply-dotfiles.ts", "install-cursor-agent.ts", "trust-agent-worktrees.ts", "install-gh-extensions.ts", "configure-codex.ts", "configure-llm-gateway.ts", "configure-bifrost-clients.ts"]) stub(join(root, "scripts/bootstrap", name), name);
+    for (const name of ["sync.ts", "plugins.ts", "mcps.ts"]) stub(join(root, "scripts/agents", name), name);
+    stub(join(bin, "mise"), "mise");
+    const result = spawnSync(process.execPath, [join(source, "scripts/bootstrap/install.ts"), "--profile", "personal-devbox", "--maintenance"], {
+      encoding: "utf8", env: { ...process.env, HOME: root, DOTFILES_INSTALL_REPO_ROOT: root,
+        LLM_GATEWAY_CONFIG: join(root, ".config/dotfiles/llm-gateway.json"), TEST_LOG: log, PATH: `${bin}:${process.env.PATH}` },
+    });
+    assert.equal(result.status, failure ? 19 : 0, result.stderr);
+    const steps = readFileSync(log, "utf8");
+    assert.match(steps, /^brew-bundle.ts --maintenance personal-devbox$/m);
+    assert.doesNotMatch(steps, /--retire-auth/);
+    if (failure) assert.doesNotMatch(steps, /install-runtimes|mise|sync.ts|configure-codex/);
+    else {
+      assert.match(steps, /^mise install$/m);
+      assert.match(steps, /^configure-llm-gateway.ts $/m);
+      assert.match(steps, /^plugins.ts --profile personal-devbox --update$/m);
+      assert.match(steps, /^sync.ts --profile personal-devbox --update$/m);
+      assert.match(steps, /^mcps.ts --profile personal-devbox$/m);
+    }
+  });
+}

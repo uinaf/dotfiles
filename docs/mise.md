@@ -105,6 +105,8 @@ Maintenance tasks:
   runs a live macOS scan and the full bootstrap check.
 - `maintenance:enable`, `maintenance:disable`, `maintenance:update`, and
   `maintenance:status` manage the per-user Topgrade job.
+- The scheduled custom step fast-forwards dotfiles and runs the profile installer
+  in maintenance mode, including declared runtime versions.
 - See [Software updates](software-updates.md) for enrollment, inventory
   freshness, update scope, and recovery.
 

@@ -14,9 +14,11 @@ const repoRoot = process.env.DOTFILES_INSTALL_REPO_ROOT || sourceRoot;
 const usage = `Usage:
   scripts/bootstrap/install.ts --profile personal-workstation|personal-devbox|workstation|devbox
   scripts/bootstrap/install.ts --print-steps --profile PROFILE
+  scripts/bootstrap/install.ts --maintenance [--profile PROFILE]
 
 Applies per-user dotfiles and runs only the setup steps owned by the selected
-role. An existing ~/.config/dotfiles/profile is used when --profile is omitted.`;
+role. An existing ~/.config/dotfiles/profile is used when --profile is omitted.
+--maintenance also installs declared packages and updates agent assets, preserving saved logins.`;
 
 const execute = Effect.fn("executeInstallCommand")(function*(label: string, command: string, args: readonly string[]) {
   const runner = yield* CommandRunner;
@@ -26,7 +28,7 @@ const execute = Effect.fn("executeInstallCommand")(function*(label: string, comm
   if (result.status !== 0) return yield* fail(`${label} exited ${result.status}`, result.status);
 });
 
-const runStep = Effect.fn("runInstallStep")(function*(step: string, profile: string) {
+const runStep = Effect.fn("runInstallStep")(function*(step: string, profile: string, maintenance: boolean) {
   const bootstrap = (name: string) => resolve(repoRoot, "scripts/bootstrap", name);
   switch (step) {
     case "apply-dotfiles":
@@ -52,6 +54,7 @@ const runStep = Effect.fn("runInstallStep")(function*(step: string, profile: str
         return yield* fail(`personal setup requires an owner-only LLM gateway config: ${path}`);
       }
       yield* execute(step, bootstrap("configure-llm-gateway.ts"), []);
+      if (maintenance) return;
       return yield* execute(`${step} retire auth`, bootstrap("configure-llm-gateway.ts"), ["--retire-auth"]);
     }
     case "configure-bifrost-clients":
@@ -59,7 +62,7 @@ const runStep = Effect.fn("runInstallStep")(function*(step: string, profile: str
       return yield* execute(`${step} check`, bootstrap("configure-bifrost-clients.ts"), ["--check"]);
     case "sync-agents":
       for (const name of ["sync.ts", "plugins.ts", "mcps.ts"]) {
-        yield* execute(`${step} ${name}`, resolve(repoRoot, "scripts/agents", name), ["--profile", profile]);
+        yield* execute(`${step} ${name}`, resolve(repoRoot, "scripts/agents", name), ["--profile", profile, ...(maintenance && name !== "mcps.ts" ? ["--update"] : [])]);
       }
       return;
     default:
@@ -70,6 +73,7 @@ const runStep = Effect.fn("runInstallStep")(function*(step: string, profile: str
 const program = Effect.gen(function*() {
   let profileInput: string | undefined;
   let printSteps = false;
+  let maintenance = false;
   const args = process.argv.slice(2);
   for (let index = 0; index < args.length; index += 1) {
     const argument = args[index];
@@ -83,6 +87,8 @@ const program = Effect.gen(function*() {
       index += 1;
     } else if (argument === "--print-steps") {
       printSteps = true;
+    } else if (argument === "--maintenance") {
+      maintenance = true;
     } else if (argument === "-h" || argument === "--help") {
       yield* Console.log(usage);
       return;
@@ -106,7 +112,8 @@ const program = Effect.gen(function*() {
     yield* Console.log(steps.join("\n"));
     return;
   }
-  yield* Effect.forEach(steps, (step) => runStep(step, profile));
+  if (maintenance) yield* execute("converge packages", resolve(repoRoot, "scripts/bootstrap/brew-bundle.ts"), ["--maintenance", profile]);
+  yield* Effect.forEach(steps, (step) => runStep(step, profile, maintenance));
 }).pipe(
   Effect.provide(CommandRunner.layer),
   Effect.provide(NodeServices.layer),
