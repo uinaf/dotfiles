@@ -18,6 +18,7 @@ export const runUpdate = Effect.fn("runMonitoredUpdate")(function*(
   command: string,
   args: readonly string[],
   send: typeof fetch = fetch,
+  retryWait: Effect.Effect<void> = Effect.sleep("10 seconds"),
 ) {
   const fs = yield* FileSystem.FileSystem;
   const runner = yield* CommandRunner;
@@ -63,17 +64,23 @@ export const runUpdate = Effect.fn("runMonitoredUpdate")(function*(
     })),
   );
   if (destination) {
-    delivery = yield* Effect.tryPromise(async () => {
+    const deliver = Effect.tryPromise(async () => {
       const response = await send(`${destination}${status === 0 ? "" : "/fail"}`, {
         method: "GET", redirect: "error", signal: AbortSignal.timeout(15_000),
       });
       await response.body?.cancel();
       if (!response.ok) throw new Error("heartbeat rejected");
       return "sent" as const;
-    }).pipe(Effect.catch(() => Effect.gen(function*() {
-      yield* Console.error("Update heartbeat delivery failed; the update will not be repeated.");
-      return "failed" as const;
-    })));
+    });
+    delivery = yield* deliver.pipe(
+      // One bounded retry: a transient blip must not page as a missed heartbeat.
+      // The update result is already final, so retrying repeats no package work.
+      Effect.catch(() => retryWait.pipe(Effect.flatMap(() => deliver))),
+      Effect.catch(() => Effect.gen(function*() {
+        yield* Console.error("Update heartbeat delivery failed; the update will not be repeated.");
+        return "failed" as const;
+      })),
+    );
   }
   yield* receipt({ state: "finished", finishedAt: new Date().toISOString(), exitCode: status, heartbeat: delivery });
   return status;

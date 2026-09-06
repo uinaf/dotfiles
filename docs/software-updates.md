@@ -212,7 +212,8 @@ runs independently of launchd. Provision an owner-only regular file at
 
 Each URL must accept GET for success and GET at its `/fail` suffix for failure.
 The wrapper sends only the result, after the entire command finishes. Requests
-time out after 15 seconds and do not follow redirects. Delivery failures remain
+time out after 15 seconds and do not follow redirects; a failed delivery is
+retried once after ten seconds. Delivery failures remain
 visible in the receipt and log without changing the update result or repeating
 package operations. Missing configuration disables external reporting; invalid
 configuration records a delivery failure while updates continue.
