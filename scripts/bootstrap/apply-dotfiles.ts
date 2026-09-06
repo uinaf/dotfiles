@@ -2,7 +2,7 @@
 
 import { NodeServices } from "@effect/platform-node";
 import { Console, DateTime, Effect, FileSystem, Option, Schema } from "effect";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { refreshAgentRules } from "../agents/rules.ts";
 import { CommandRunner } from "../lib/command.ts";
@@ -104,6 +104,21 @@ const matchesManagedTarget = Effect.fn("matchesManagedTarget")(function*(
   return false;
 });
 
+// Every drifted apply creates one timestamped backup, so enrolled hosts
+// accumulate them forever; keep only the most recent backup per target.
+export const pruneOlderBackups = Effect.fn("pruneOlderBackups")(function*(target: string) {
+  const fs = yield* FileSystem.FileSystem;
+  const directory = dirname(target);
+  const prefix = `${basename(target)}.backup.`;
+  const backups = (yield* fs.readDirectory(directory))
+    .filter((entry) => entry.startsWith(prefix) && /^\d{14}$/.test(entry.slice(prefix.length)))
+    .sort();
+  for (const entry of backups.slice(0, -1)) {
+    yield* fs.remove(join(directory, entry), { recursive: true, force: true });
+    yield* Console.log(`removed older backup ${join(directory, entry)}`);
+  }
+});
+
 const backupPath = Effect.fn("backupPath")(function*(
   context: ChezmoiContext,
   target: string,
@@ -126,6 +141,7 @@ const backupPath = Effect.fn("backupPath")(function*(
     yield* fs.rename(target, backup);
   }
   yield* Console.log(`backed up ${target} -> ${backup}`);
+  yield* pruneOlderBackups(target);
 });
 
 const replaceAgentPath = Effect.fn("replaceAgentPath")(function*(
@@ -247,4 +263,6 @@ const program = Effect.gen(function*() {
   Effect.provide(NodeServices.layer),
 );
 
-runMain(program);
+if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
+  runMain(program);
+}
