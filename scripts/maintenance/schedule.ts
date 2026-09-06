@@ -29,6 +29,9 @@ export const manageSchedule = Effect.fn("manageSoftwareUpdateSchedule")(function
 
   if (action === "status") {
     yield* Console.log(`Log: ${log}`);
+    const fs = yield* FileSystem.FileSystem;
+    const receipt = join(home, ".local/state/dotfiles/updates/software-update.json");
+    if (yield* fs.exists(receipt)) yield* Console.log(yield* fs.readFileString(receipt));
     if (current.status !== 0) return yield* fail("software maintenance is not loaded in this GUI session");
     yield* Console.log(current.stdout);
     return;

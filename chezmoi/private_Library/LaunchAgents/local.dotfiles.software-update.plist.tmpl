@@ -12,6 +12,10 @@
     <true/>
     <key>ProgramArguments</key>
     <array>
+      <string>{{ .chezmoi.homeDir | html }}/.local/share/mise/shims/node</string>
+      <string>{{ .chezmoi.sourceDir | dir | html }}/scripts/maintenance/run.ts</string>
+      <string>software-update</string>
+      <string>--</string>
       <string>{{ $topgrade }}</string>
       <string>--config</string>
       <string>{{ .chezmoi.homeDir | html }}/.config/topgrade.toml</string>

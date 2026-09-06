@@ -41,7 +41,9 @@ export function updateJobs(options: UpdateOptions, prefix: string) {
     const log = join(logDirectory, `${service}.log`);
     return { label, log, xml: plistXml({
       label, user: target.user, group: target.group, workingDirectory: repository,
-      stdout: log, stderr: log, arguments: args, keepAlive: false, processType: "Background",
+      stdout: log, stderr: log,
+      arguments: [node, join(repository, "scripts/maintenance/run.ts"), service, "--", ...args],
+      keepAlive: false, processType: "Background",
       environment, calendar: [0, 6, 12, 18].map((hour) => ({ hour, minute })),
     }) };
   });

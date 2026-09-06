@@ -10,7 +10,7 @@
     {
       "id": "maintenance-schedule",
       "domain": "services",
-      "command": ["node", "--test", "scripts/maintenance/schedule.test.ts", "scripts/maintenance/devbox.test.ts"],
+      "command": ["node", "--test", "scripts/maintenance/schedule.test.ts", "scripts/maintenance/devbox.test.ts", "scripts/maintenance/run.test.ts"],
       "output": "Opt-in update schedule, shared-prefix isolation, and on-demand serialization"
     },
     {

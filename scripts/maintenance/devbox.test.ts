@@ -37,7 +37,9 @@ test("system jobs keep Homebrew with its owner and per-user Topgrade headless", 
       assert.equal(plist.StandardOutPath, plist.StandardErrorPath);
       const brewJob = job.label === "local.dotfiles.homebrew-update.example";
       assert.deepEqual(plist.StartCalendarInterval, [0, 6, 12, 18].map((Hour) => ({ Hour, Minute: brewJob ? 23 : 35 })));
-      assert.deepEqual(plist.ProgramArguments, brewJob
+      assert.deepEqual(plist.ProgramArguments.slice(0, 4), ["/fixture/node", join(repository, "scripts/maintenance/run.ts"),
+        brewJob ? "homebrew-update" : "software-update", "--"]);
+      assert.deepEqual(plist.ProgramArguments.slice(4), brewJob
         ? ["/fixture/node", join(repository, "scripts/bootstrap/brew-devbox.ts"), "--update-software"]
         : ["/opt/homebrew/bin/topgrade", "--config", join(target.home, ".config/topgrade.toml"),
           "--only", "github_cli_extensions", "custom_commands", "--no-tmux", "--no-ask-retry",

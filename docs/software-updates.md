@@ -123,9 +123,40 @@ activate new launchd settings.
 - Use `maintenance:status` to check whether the job ran. Failure notifications
   do not detect a scheduler that never started.
 
-launchd records Topgrade's exit code directly, including failed updates.
+The update wrapper preserves the command's exit code, including failed updates.
 Failure-only notifications are a native
 [Topgrade setting](https://github.com/topgrade-rs/topgrade/blob/v17.9.0/config.example.toml).
+
+Each enrolled job writes a private receipt under
+`~/.local/state/dotfiles/updates/<job>.json`, recording start, finish, exit code,
+and heartbeat delivery. `maintenance:status` includes the GUI updater receipt.
+A receipt left in `running` state is not proof that the process is still alive;
+compare it with launchd. The wrapper records no command output or secret URLs.
+
+For an always-on host, an external heartbeat monitor can detect missed or stuck
+runs independently of launchd. Provision an owner-only regular file at
+`~/.config/dotfiles/update-heartbeats.json` with the required job destinations:
+
+```json
+{
+  "software-update": "https://monitor.example/software-heartbeat",
+  "homebrew-update": "https://monitor.example/homebrew-heartbeat"
+}
+```
+
+Each URL must accept GET for success and GET at its `/fail` suffix for failure.
+The wrapper sends only the result, after the entire command finishes. Requests
+time out after 15 seconds and do not follow redirects. Delivery failures remain
+visible in the receipt and log without changing the update result or repeating
+package operations. Missing configuration disables external reporting; invalid
+configuration records a delivery failure while updates continue.
+
+Provision monitors and secret URLs through the owning host infrastructure.
+For six-hour jobs, allow a grace period for update duration and scheduling
+jitter. Do not enroll an intermittently used laptop as an always-on heartbeat;
+normal sleep or power-off would cause false incidents. Native notifications
+and on-demand status remain available there. Reload existing jobs after this
+wrapper changes their plist arguments, using the recovery procedure below.
 
 ## Disable, Reload, And Recover
 
@@ -189,9 +220,9 @@ tail -n 80 ~/Library/Logs/dotfiles/homebrew-update.log
 
 Use `kickstart` without `-k` to preserve an active run. A request acknowledges
 launching, not completion; check the job's state, last exit code, and log.
-Headless jobs use private local logs and launchd exit status. Desktop
-notifications are disabled; external failure delivery needs an owning host
-integration and is not installed by this command.
+Headless jobs use private local logs, receipts, and launchd exit status. Desktop
+notifications are disabled. External delivery uses the optional per-user
+heartbeat file above; this command does not provision monitors or secret URLs.
 
 Add `--check` to the enrollment command to compare installed plist content,
 root:wheel ownership, mode `0644`, and loaded state without changing them.
