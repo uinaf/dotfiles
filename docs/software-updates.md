@@ -135,6 +135,11 @@ Repositories without a possible worktree or branch retirement target skip
 remote checks entirely. Remote access failures retain that repository and
 fail the cleanup run; resolve its normal Git access before retrying.
 
+Exclude an archival checkout while preserving its history with
+`git config --local dotfiles.hygiene skip` in that checkout. It remains visible
+as explicitly excluded in the report. Use
+`git config --local --unset dotfiles.hygiene` to include it again.
+
 Linked worktrees are eligible only below `~/.t3/worktrees`,
 `~/.codex/worktrees`, or `~/.claude/worktrees`. Their HEAD must already be an
 ancestor of the current remote default commit. Cleanup preserves:

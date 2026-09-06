@@ -144,7 +144,7 @@ test("repository discovery ignores symlinks and stays within its depth", () => {
   } finally { f.cleanup(); }
 });
 
-test("a checkout with no retirement candidates needs no remote access", () => {
+test("inactive and explicitly excluded checkouts need no remote access", () => {
   const f = fixture();
   try {
     f.git(f.repo, "worktree", "remove", f.tree);
@@ -156,6 +156,11 @@ test("a checkout with no retirement candidates needs no remote access", () => {
     const result = cleanRepository(f.repo, f.roots, {}, week, true, () => [], offline);
     assert.deepEqual(result, { entries: [], candidates: {} });
     assert.ok(existsSync(join(f.repo, "tracked")));
+    f.git(f.repo, "worktree", "add", "-b", "finished", f.tree);
+    f.git(f.repo, "config", "--local", "dotfiles.hygiene", "skip");
+    const excluded = cleanRepository(f.repo, f.roots, {}, week, true, () => [], offline);
+    assert.equal(excluded.entries[0]?.result, "excluded by local dotfiles.hygiene=skip");
+    assert.ok(existsSync(f.tree));
   } finally { f.cleanup(); }
 });
 

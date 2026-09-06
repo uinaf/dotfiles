@@ -81,6 +81,11 @@ export function candidates(repo: string, roots: readonly string[], openPaths: re
   if (git("rev-parse", "--show-toplevel") !== realpathSync(repo) || !lstatSync(join(repo, ".git")).isDirectory()) {
     throw new Error("standalone owning checkout required");
   }
+  const policy = runner(repo, "git", ["config", "--local", "--get", "dotfiles.hygiene"]);
+  if (policy.status === 0 && policy.stdout.trim() === "skip") {
+    return { eligible: [], kept: [{ target: repo, result: "excluded by local dotfiles.hygiene=skip" }] };
+  }
+  if (policy.status !== 0 && policy.status !== 1) throw new Error("local hygiene policy unavailable");
   const worktrees = parseWorktrees(git("worktree", "list", "--porcelain", "-z"));
   const checkedOut = new Set(worktrees.map(worktree => worktree.branch));
   const refs = git("for-each-ref", "--format=%(refname)%00%(objectname)", "refs/heads").split("\n").filter(Boolean);
