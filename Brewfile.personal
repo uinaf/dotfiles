@@ -62,7 +62,6 @@ if workstation_enabled
   cask "raspberry-pi-imager"
 
   # Media utilities
-  cask "imageoptim"
   cask "the-unarchiver"
   cask "vlc"
 

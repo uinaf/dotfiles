@@ -36,8 +36,11 @@ function allowed(file: string, content: string): boolean {
       ]);
     case ".github/zizmor.yml":
     case ".github/workflows/secrets.yml":
-    case "docs/github-pipelines.md":
       return content.includes("uinaf/.github");
+    case "docs/github-pipelines.md":
+      return containsAny(content, ["uinaf/.github", "uinaf/renovate-config"]);
+    case "renovate.json":
+      return content.includes("github>uinaf/renovate-config");
     case "docs/identities.md":
       return content.includes("github.com/uinaf/sops-vault-template");
     case "docs/agents.md":
