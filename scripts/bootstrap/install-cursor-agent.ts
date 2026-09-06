@@ -15,12 +15,18 @@ const program = Effect.gen(function*() {
   const agentPath = join(home, ".local/bin/cursor-agent");
   const devboxConfig = process.env.DEVBOX_CONFIG || join(home, ".config/dotfiles/devbox.env");
 
-  yield* Console.log("downloading the official Cursor Agent installer");
-  const download = yield* runner.run("curl", ["-fsSL", installerUrl, "-o", installerPath], { output: "inherit" });
-  if (download.status !== 0) return yield* fail(`Cursor Agent download exited ${download.status}`);
-  yield* Console.log(`installing Cursor Agent for ${process.env.USER || "current user"}`);
-  const install = yield* runner.run("bash", [installerPath], { output: "inherit" });
-  if (install.status !== 0) return yield* fail(`Cursor Agent installer exited ${install.status}`);
+  if ((yield* fs.exists(agentPath)) && !process.env.CURSOR_AGENT_INSTALLER_URL) {
+    yield* Console.log("updating installed Cursor Agent");
+    const updated = yield* runner.run(agentPath, ["update"], { output: "inherit" });
+    if (updated.status !== 0) return yield* fail(`Cursor Agent update exited ${updated.status}`, updated.status);
+  } else {
+    yield* Console.log("downloading the official Cursor Agent installer");
+    const download = yield* runner.run("curl", ["-fsSL", installerUrl, "-o", installerPath], { output: "inherit" });
+    if (download.status !== 0) return yield* fail(`Cursor Agent download exited ${download.status}`);
+    yield* Console.log(`installing Cursor Agent for ${process.env.USER || "current user"}`);
+    const install = yield* runner.run("bash", [installerPath], { output: "inherit" });
+    if (install.status !== 0) return yield* fail(`Cursor Agent installer exited ${install.status}`);
+  }
 
   const gatewayState = join(home, ".config/dotfiles/llm-gateway-state.json");
   const legacyGatewayState = join(home, ".config/dotfiles/llm-client-state.json");

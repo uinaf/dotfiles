@@ -226,7 +226,9 @@ Cursor commands:
   compatibility.
 - When Cursor self-updates, the stable launcher follows the new canonical
   vendor symlink while preserving API-key authentication. A later managed
-  installer run reapplies the compatibility commands.
+  apply saves that executable path in the owner-only gateway config before
+  reapplying compatibility commands, preserving the new version. Existing
+  installations use Cursor's native update command.
 - The launcher uses Cursor's in-memory credential store so API-key checks do
   not recreate saved login state.
 

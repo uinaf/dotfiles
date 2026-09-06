@@ -4,7 +4,7 @@
     {
       "id": "dotfiles-convergence",
       "domain": "services",
-      "command": ["node", "--test", "scripts/maintenance/converge.test.ts"],
+      "command": ["node", "--test", "scripts/maintenance/converge.test.ts", "scripts/bootstrap/install-cursor-agent.test.ts"],
       "output": "Default-branch convergence, local-work preservation, dependency failures, and unattended profile setup"
     },
     {

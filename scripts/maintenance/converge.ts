@@ -15,6 +15,7 @@ function run(repo: string, command: string, args: string[], capture = false): st
   const result = spawnSync(command, args, {
     cwd: repo, encoding: "utf8", stdio: capture ? ["ignore", "pipe", "pipe"] : ["ignore", "inherit", "inherit"],
     env: { ...process.env, GIT_TERMINAL_PROMPT: "0", GIT_SSH_COMMAND: "ssh -o BatchMode=yes",
+      PATH: `${process.env.HOME}/.local/bin:${process.env.PATH}`,
       HOMEBREW_NO_INSTALL_CLEANUP: "1", HOMEBREW_NO_UPGRADE_QUIT_CASKS: "1" },
   });
   if (result.error) throw result.error;

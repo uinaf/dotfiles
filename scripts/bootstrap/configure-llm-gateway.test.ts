@@ -240,6 +240,7 @@ rm -f "$HOME/.claude/.credentials.json"
     writeFileSync(updatedCursorBin, `#!/usr/bin/env bash
 case "\${1:-}" in
   models) exit 0 ;;
+  logout) rm -f "$HOME/.cursor/auth.json" ;;
   --version) printf '2026.08.25-3e8eec8\\n' ;;
   *) exit 2 ;;
 esac
@@ -260,6 +261,10 @@ esac
     const repairAfterUpdate = run();
     assert.equal(repairAfterUpdate.status, 0, repairAfterUpdate.stderr);
     for (const command of cursorCommands) assert.equal(lstatSync(command).isSymbolicLink(), false);
+    assert.deepEqual(JSON.parse(readFileSync(gatewayConfig, "utf8")), { ...validConfig, cursorAgentBin: updatedCursorBin });
+    const versionAfterRepair = spawnSync(join(home, ".local/libexec/dotfiles/cursor-agent-api"), ["--version"], { encoding: "utf8", env });
+    assert.equal(versionAfterRepair.status, 0, versionAfterRepair.stderr);
+    assert.equal(versionAfterRepair.stdout.trim(), "2026.08.25-3e8eec8");
 
     const retire = run("--retire-auth");
     assert.equal(retire.status, 0, retire.stderr);

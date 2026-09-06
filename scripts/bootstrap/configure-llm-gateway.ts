@@ -615,6 +615,19 @@ async function run(): Promise<void> {
   atomicCopy(sourceCredential, credentialTarget, 0o700);
   atomicCopy(sourceCodexGatewai, codexGatewaiTarget, 0o700);
   if (config.cursorAgentBin) {
+    const command = join(home, ".local/bin/cursor-agent");
+    if (existsSync(command) && lstatSync(command).isSymbolicLink()) {
+      const target = resolve(dirname(command), readlinkSync(command));
+      const versions = join(home, ".local/share/cursor-agent/versions");
+      if (dirname(dirname(target)) === versions && target.endsWith("/cursor-agent")) {
+        const info = lstatSync(target);
+        if (!info.isFile() || info.uid !== process.getuid?.() || (info.mode & 0o022) !== 0 || (info.mode & 0o100) === 0) {
+          throw new Error("updated Cursor executable must be an owner-controlled vendor file");
+        }
+        config.cursorAgentBin = target;
+        atomicWriteJson(configPath, config);
+      }
+    }
     atomicCopy(sourceCursorAcpAuth, cursorAcpAuthTarget, 0o700);
     for (const target of managedCursorTargets) atomicCopy(sourceCursor, target, 0o700);
   }

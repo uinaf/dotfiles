@@ -157,6 +157,7 @@ test("rendered profiles keep updater scope, scheduling, and paths valid", async 
       assert.equal(job.EnvironmentVariables.HOMEBREW_NO_UPGRADE_QUIT_CASKS, "1");
       assert.equal(job.EnvironmentVariables.HOMEBREW_NO_INSTALL_CLEANUP, "1");
       assert.equal(job.EnvironmentVariables.GIT_TERMINAL_PROMPT, "0");
+      assert.ok(job.EnvironmentVariables.PATH.split(":").includes(join(home, ".local/bin")), "installed user harnesses must be available to scheduled agent sync");
       const config = render(".config/topgrade.toml");
       const selection = config.split("\n").find((line) => line.startsWith("only = "));
       assert.ok(selection);
