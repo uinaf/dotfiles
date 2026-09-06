@@ -5,6 +5,7 @@ import { Console, Effect, FileSystem, Option } from "effect";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { CommandRunner, runChecked } from "../lib/command.ts";
+import { launchdLabel, resolveLaunchdNamespaceContract } from "../lib/launchd.ts";
 import { fail, runMain } from "../lib/program.ts";
 import { readPersistedProfile } from "../profiles/current.ts";
 
@@ -48,6 +49,12 @@ export const manageSchedule = Effect.fn("manageSoftwareUpdateSchedule")(function
 
   const fs = yield* FileSystem.FileSystem;
   yield* readPersistedProfile(join(home, ".config/dotfiles/profile"), uid);
+  const user = (yield* runChecked("id", ["-un", String(uid)])).stdout.trim();
+  const namespace = yield* resolveLaunchdNamespaceContract("", join(home, ".config/dotfiles/launchd-namespace"), uid);
+  const systemLabel = launchdLabel("software-update", user, namespace);
+  if (yield* fs.exists(`/Library/LaunchDaemons/${systemLabel}.plist`)) {
+    return yield* fail(`system updater already enrolled: ${systemLabel}; use its launchctl commands`);
+  }
   const link = yield* fs.readLink(plist).pipe(Effect.option);
   if (Option.isSome(link)) return yield* fail("the managed scheduler plist must not be a symlink");
   const info = yield* fs.stat(plist);

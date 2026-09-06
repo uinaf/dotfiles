@@ -4,7 +4,7 @@ import { NodeServices } from "@effect/platform-node";
 import { Console, Effect, FileSystem, Option, Schema } from "effect";
 import { isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { CommandRunner, runCommand } from "../lib/command.ts";
+import { CommandRunner, runChecked, runCommand } from "../lib/command.ts";
 import {
   launchdLabel,
   parsePendingInstallScripts,
@@ -22,11 +22,15 @@ const usage = `Usage:
 Services:
   --colima           Run the user's colima-ensure script once at system boot.
   --t3-code          Run a pinned T3 Code server at system boot.
+  --software-updates Run per-user Topgrade every six hours and at boot.
+  --homebrew-updates Also update shared Homebrew; requires the prefix owner.
 
 Options:
   --check            Verify the selected LaunchDaemons without changing them.
   --print-labels     Print the generic labels for the selected user and exit.
   --namespace NAME   Stable label namespace; defaults to local.dotfiles.
+  --updates-repository PATH
+                      Target user's persistent dotfiles checkout; required for updates.
   --t3-version VERSION
                       Exact npm T3 Code version; requires --t3-code.
   --t3-working-directory PATH
@@ -44,6 +48,9 @@ const InstallerOptions = Schema.Struct({
   t3WorkingDirectory: Schema.String,
   check: Schema.Boolean,
   printLabels: Schema.Boolean,
+  softwareUpdates: Schema.Boolean,
+  homebrewUpdates: Schema.Boolean,
+  updatesRepository: Schema.String,
 });
 type InstallerOptions = typeof InstallerOptions.Type;
 
@@ -68,6 +75,7 @@ const parseArguments = Effect.fn("parseServiceInstallerArguments")(function*(arg
   const values = {
     user: "", namespace: process.env.DOTFILES_LAUNCHD_NAMESPACE || "",
     colima: false, t3Code: false, t3Version: "", t3WorkingDirectory: "", check: false, printLabels: false,
+    softwareUpdates: false, homebrewUpdates: false, updatesRepository: "",
   };
   const args = [...argv];
   const take = (flag: string): string => {
@@ -82,6 +90,9 @@ const parseArguments = Effect.fn("parseServiceInstallerArguments")(function*(arg
       case "--namespace": values.namespace = take(flag); break;
       case "--colima": values.colima = true; break;
       case "--t3-code": values.t3Code = true; break;
+      case "--software-updates": values.softwareUpdates = true; break;
+      case "--homebrew-updates": values.homebrewUpdates = true; break;
+      case "--updates-repository": values.updatesRepository = take(flag); break;
       case "--t3-version": values.t3Version = take(flag); break;
       case "--t3-working-directory": values.t3WorkingDirectory = take(flag); break;
       case "--check": values.check = true; break;
@@ -98,6 +109,8 @@ const parseArguments = Effect.fn("parseServiceInstallerArguments")(function*(arg
     return yield* fail("--t3-version and --t3-working-directory require --t3-code");
   }
   if (options.t3Code && !options.t3Version) return yield* fail("--t3-code requires --t3-version");
+  if (options.homebrewUpdates && !options.softwareUpdates) return yield* fail("--homebrew-updates requires --software-updates");
+  if (options.softwareUpdates !== Boolean(options.updatesRepository)) return yield* fail("--software-updates requires --updates-repository PATH");
   return options;
 });
 
@@ -145,7 +158,7 @@ const findExecutable = Effect.fn("findServiceExecutable")(function*(target: Targ
 const runAsTarget = Effect.fn("runServiceCommandAsTarget")(function*(target: Target, command: string, args: readonly string[] = []) {
   const uid = process.getuid?.() ?? -1;
   if (uid === target.uid) return yield* checked(command, args);
-  if (uid === 0) return yield* checked("/usr/bin/sudo", ["-u", target.user, "-H", command, ...args]);
+  if (uid === 0) return yield* runChecked("/usr/bin/sudo", ["-u", target.user, "-H", command, ...args], { cwd: target.home });
   return yield* fail(`run this step as root or ${target.user}`);
 });
 
@@ -328,12 +341,21 @@ const program = Effect.gen(function*() {
     return;
   }
   if (process.platform !== "darwin") return yield* fail("this installer supports macOS only");
-  if (!options.colima && !options.t3Code) return yield* fail("select at least one service");
+  if (!options.colima && !options.t3Code && !options.softwareUpdates) return yield* fail("select at least one service");
   const target = yield* resolveTarget(options.user);
   namespace = yield* resolveLaunchdNamespaceContract(options.namespace, join(target.home, ".config/dotfiles/launchd-namespace"), target.uid);
   const context: ServiceContext = { options, target, namespace, labels: labels(target.user, namespace), launchDaemonDir: "/Library/LaunchDaemons" };
   const colima = options.colima ? yield* prepareColima(target) : undefined;
   const t3 = options.t3Code ? yield* resolveT3(context) : undefined;
+  if (options.softwareUpdates) {
+    // Keep update-only dependencies out of the standalone T3 installer bundle.
+    const { installUpdateJobs } = yield* Effect.promise(() => import("../maintenance/devbox.ts"));
+    const node = yield* findExecutable(target, "node");
+    if (!node) return yield* fail(`missing Node for ${target.user}`);
+    const resolvedNode = (yield* runAsTarget(target, node, ["-p", "process.execPath"])).stdout.trim();
+    yield* installUpdateJobs({ target, node: resolvedNode, repository: options.updatesRepository,
+      namespace, homebrew: options.homebrewUpdates, check: options.check });
+  }
   if (options.check) {
     if (colima) yield* checkColima(context, colima);
     if (t3) yield* checkT3(context, t3);

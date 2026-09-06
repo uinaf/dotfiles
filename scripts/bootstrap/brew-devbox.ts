@@ -16,6 +16,8 @@ const program = Effect.gen(function*() {
   if (!(yield* commandAvailable("brew"))) return yield* fail("brew is required before running this script");
   yield* requirePrefixOwner();
   const args = process.argv.slice(2);
+  const updateSoftware = args[0] === "--update-software";
+  if (updateSoftware && args.length !== 1) return yield* fail("Usage: scripts/bootstrap/brew-devbox.ts --update-software", 2);
   if (args[0] === "--repair-shared-readability") {
     if (args.length !== 1) return yield* fail("Usage: scripts/bootstrap/brew-devbox.ts --repair-shared-readability", 2);
     yield* repairSharedReadability();
@@ -23,16 +25,18 @@ const program = Effect.gen(function*() {
     return;
   }
   yield* verifyPrefixPermissions();
-  const previousUmask = yield* Effect.sync(() => process.umask(0o027));
-  const brewed = yield* runHomebrewRaw("brew", args, { output: "inherit" }).pipe(
-    Effect.ensuring(Effect.sync(() => { process.umask(previousUmask); })),
-  );
-  const repaired = yield* repairSharedReadability().pipe(
-    Effect.andThen(verifyPrefixPermissions()),
-    Effect.option,
-  );
-  if (brewed.status !== 0) return yield* fail(`brew exited ${brewed.status}`, brewed.status);
-  if (Option.isNone(repaired)) return yield* fail("Homebrew shared readability repair failed");
+  for (const command of updateSoftware ? [["update"], ["upgrade", "--greedy", "--no-ask"]] : [args]) {
+    const previousUmask = yield* Effect.sync(() => process.umask(0o027));
+    const brewed = yield* runHomebrewRaw("brew", command, { output: "inherit" }).pipe(
+      Effect.ensuring(Effect.sync(() => { process.umask(previousUmask); })),
+    );
+    const repaired = yield* repairSharedReadability().pipe(
+      Effect.andThen(verifyPrefixPermissions()),
+      Effect.option,
+    );
+    if (brewed.status !== 0) return yield* fail(`brew exited ${brewed.status}`, brewed.status);
+    if (Option.isNone(repaired)) return yield* fail("Homebrew shared readability repair failed");
+  }
 }).pipe(
   Effect.provide(CommandRunner.layer),
   Effect.provide(NodeServices.layer),

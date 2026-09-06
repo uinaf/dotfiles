@@ -2,7 +2,8 @@
 
 Topgrade updates installed software and managed agent assets. All profiles
 install it and render `~/.config/topgrade.toml`; a per-user LaunchAgent provides
-six-hour and on-demand runs for logged-in macOS users.
+six-hour and on-demand runs for logged-in macOS users. Devboxes can enroll
+system LaunchDaemons that run as each selected user without a GUI login.
 
 Preview the selected steps with `topgrade --dry-run`. For an interactive run,
 use `topgrade` after checking that the scheduled job is idle.
@@ -25,7 +26,7 @@ These are macOS calendar jobs, following
 | Surface | Update policy |
 | --- | --- |
 | Workstation Homebrew | Installed formulae and greedy casks; built-in updater metadata does not exclude an app |
-| Shared devbox Homebrew | Excluded from this per-user Topgrade job; use the [prefix owner's wrapper](bootstrap.md#shared-homebrew-updates) |
+| Shared devbox Homebrew | Separate system job under the prefix owner, through the [shared wrapper](bootstrap.md#shared-homebrew-updates) |
 | GitHub CLI extensions | Topgrade's extension updater |
 | Managed skills/plugins/MCP setup | Existing `mise run agents:update` task |
 | Runtime pins, source checkouts, OS upgrades, reboots | Separate existing owners; not enabled as Topgrade steps |
@@ -103,9 +104,70 @@ After changing plist settings: wait for idle, disable, apply dotfiles, then
 enable again. Re-enabling an already loaded job preserves its current process
 and does not silently reload the plist.
 
-Headless Unix users without a GUI session need their own host service contract.
-Do not install a duplicate system job for the same user or bypass the shared
-Homebrew owner wrapper to make this GUI LaunchAgent work remotely.
+## Headless Devbox Updates
+
+Prepare each user's persistent dotfiles checkout and dependencies, then apply
+its `personal-devbox` or `devbox` Topgrade config. Install Topgrade once through
+the prefix owner's `brew-devbox.ts install topgrade` command if needed.
+
+As an administrator, enroll the prefix owner with both jobs:
+
+```sh
+sudo node scripts/bootstrap/install-devbox-service-daemons.ts \
+  --user example --software-updates --homebrew-updates \
+  --updates-repository /Users/example/projects/dotfiles
+```
+
+For each other devbox user, omit `--homebrew-updates` and select that user's own
+checkout. The installer requires the selected user to own the checkout and
+profile files; only the Homebrew prefix owner can enroll the shared package job.
+Use the [SOPS-backed sudo helper](devbox.md#sudo-without-a-plaintext-password-file)
+when that is the host's established administrator path.
+
+| Job, under the stored launchd namespace | Command and timing |
+| --- | --- |
+| `local.dotfiles.homebrew-update.<user>` | `brew-devbox.ts --update-software`: refresh metadata, then upgrade unpinned formulae and greedy casks at 00:23, 06:23, 12:23, and 18:23 |
+| `local.dotfiles.software-update.<user>` | Per-user Topgrade, limited to GitHub CLI extensions and custom agent updates; same hours at minute `33 + (uid % 20)` |
+
+Both jobs run once on enrollment and at boot, so boot runs can overlap across
+users. Each label has one instance. Jobs run with the selected user's home,
+PATH, and existing credentials; they contain no service tokens and supply no
+sudo password. Runtime pins, source pulls, OS updates, and reboots stay outside
+their scope. Re-enrollment retains matching loaded jobs without restarting them.
+
+The installer refuses enrollment while that user's GUI updater is loaded, then
+disables its GUI label across logins. `maintenance:enable` refuses to create a
+GUI duplicate while the system plist exists.
+
+Inspect or request a run with the actual installed label:
+
+```sh
+launchctl print system/local.dotfiles.software-update.example
+sudo launchctl kickstart system/local.dotfiles.software-update.example
+sudo launchctl kickstart system/local.dotfiles.homebrew-update.example
+tail -n 80 ~/Library/Logs/dotfiles/software-update.log
+tail -n 80 ~/Library/Logs/dotfiles/homebrew-update.log
+```
+
+Use `kickstart` without `-k` to preserve an active run. A request acknowledges
+launching, not completion; check the job's state, last exit code, and log.
+Headless jobs use private local logs and launchd exit status. Desktop
+notifications are disabled; external failure delivery needs an owning host
+integration and is not installed by this command.
+
+Add `--check` to the enrollment command to compare installed plist content,
+root:wheel ownership, mode `0644`, and loaded state without changing them.
+To reload changed settings, wait for idle, then disable and bootout each affected
+label before rerunning enrollment:
+
+```sh
+sudo launchctl disable system/local.dotfiles.software-update.example
+sudo launchctl bootout system/local.dotfiles.software-update.example
+```
+
+Disabling persists across boots; bootout stops any active run. Leave the job
+disabled to pause updates. To return to a GUI updater, also remove its system
+plist before running `maintenance:enable` as the GUI user.
 
 ## Check Available Updates
 

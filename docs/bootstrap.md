@@ -304,6 +304,7 @@ wrapper:
 ```zsh
 ./scripts/bootstrap/brew-devbox.ts upgrade
 ./scripts/bootstrap/brew-devbox.ts upgrade --cask
+./scripts/bootstrap/brew-devbox.ts --update-software # refresh, then upgrade formulae and greedy casks
 ```
 
 Wrapper contract:
@@ -318,6 +319,9 @@ Wrapper contract:
   writable. Devbox shells also disable implicit Homebrew auto-update.
 - Never changes content owned by another Unix identity.
 - The devbox bundle command uses the wrapper internally.
+
+For six-hour and on-demand execution without a GUI session, use
+[Headless devbox updates](software-updates.md#headless-devbox-updates).
 
 Run these commands once from the owning admin identity, then run the devbox
 bootstrap verification as every Unix identity. Verification disables Homebrew

@@ -69,6 +69,17 @@ exit "\${FAKE_BREW_EXIT:-0}"
   const failed = yield* execute("scripts/bootstrap/brew-devbox.ts", ["failure-path"], directLog, { FAKE_BREW_EXIT: "37" });
   assert.equal(failed.status, 37);
 
+  const updateLog = join(temporary, "update.log");
+  const updated = yield* execute("scripts/bootstrap/brew-devbox.ts", ["--update-software"], updateLog);
+  assert.equal(updated.status, 0, updated.stderr);
+  const updateArgs = (yield* fs.readFileString(updateLog)).split("\n").filter((line) => line.startsWith("arg="));
+  assert.deepEqual(updateArgs, ["arg=update", "arg=upgrade", "arg=--greedy", "arg=--no-ask"]);
+  yield* fs.writeFileString(updateLog, "");
+  const refreshFailed = yield* execute("scripts/bootstrap/brew-devbox.ts", ["--update-software"], updateLog, { FAKE_BREW_EXIT: "37" });
+  assert.equal(refreshFailed.status, 37);
+  assert.doesNotMatch(yield* fs.readFileString(updateLog), /^arg=upgrade$/m);
+  assert.equal((yield* execute("scripts/bootstrap/brew-devbox.ts", ["--update-software", "extra"], updateLog)).status, 2);
+
   const bundle = Effect.fn("runBrewBundleFixture")(function*(profile: string, args: readonly string[] = []) {
     const bundleLog = join(temporary, `${profile}-${args.join("-") || "bundle"}.log`);
     yield* fs.writeFileString(bundleLog, "");

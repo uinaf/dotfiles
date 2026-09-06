@@ -82,6 +82,7 @@ export function plistXml(options: {
   keepAlive?: boolean;
   processType?: string;
   environment?: Readonly<Record<string, string>>;
+  calendar?: readonly { hour: number; minute: number }[];
 }): string {
   const escape = (value: string) => value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
   const item = (key: string, value: string) => `    <key>${key}</key>\n    <string>${escape(value)}</string>`;
@@ -90,6 +91,13 @@ export function plistXml(options: {
     ? `\n    <key>EnvironmentVariables</key>\n    <dict>\n${Object.entries(options.environment).map(([key, value]) => `      <key>${escape(key)}</key>\n      <string>${escape(value)}</string>`).join("\n")}\n    </dict>`
     : "";
   const processType = options.processType ? `\n${item("ProcessType", options.processType)}` : "";
+  const calendar = options.calendar ? `
+    <key>StartCalendarInterval</key>
+    <array>${options.calendar.map(({ hour, minute }) => `
+      <dict><key>Hour</key><integer>${hour}</integer><key>Minute</key><integer>${minute}</integer></dict>`).join("")}
+    </array>
+    <key>LowPriorityIO</key><true/>
+    <key>Nice</key><integer>10</integer>` : "";
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -113,7 +121,7 @@ ${item("StandardErrorPath", options.stderr)}
     <key>ProgramArguments</key>
     <array>
 ${args}
-    </array>${processType}${environment}
+    </array>${processType}${environment}${calendar}
   </dict>
 </plist>
 `;

@@ -320,9 +320,9 @@ remote service structure cannot be established. Completed inspections exit
 ## Software Updates
 
 For package updates, use the [shared Homebrew wrapper](bootstrap.md#shared-homebrew-updates)
-as the prefix owner. [Software updates](software-updates.md) covers per-user
-Topgrade enrollment; its GUI LaunchAgent requires a logged-in session and does
-not provide boot-time headless updates.
+as the prefix owner. [Headless update enrollment](software-updates.md#headless-devbox-updates)
+adds six-hour system jobs for shared packages and each user's Topgrade steps,
+with on-demand execution, private logs, and no GUI-login requirement.
 
 ## Disk Cleanup
 

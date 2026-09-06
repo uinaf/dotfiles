@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { Effect } from "effect";
+import { Effect, FileSystem } from "effect";
 import { NodeServices } from "@effect/platform-node";
 import { CommandRunner } from "../lib/command.ts";
 import { CliFailure } from "../lib/program.ts";
@@ -71,7 +71,7 @@ for (const loaded of [false, true]) {
   });
 }
 
-for (const kind of ["regular", "writable", "symlink"] as const) {
+for (const kind of ["regular", "writable", "symlink", "system"] as const) {
   test(`enrollment checks the ${kind} plist before enabling a job`, async (t) => {
     const uid = process.getuid?.();
     assert.ok(uid, "enrollment requires an unprivileged Unix user");
@@ -91,10 +91,17 @@ for (const kind of ["regular", "writable", "symlink"] as const) {
     let loaded = false;
     const runner = CommandRunner.of({ run: (command, args = []) => {
       calls.push([command, ...args]);
+      if (command === "id") return Effect.succeed({ status: 0, stdout: "fixture", stderr: "" });
       if (args[0] === "bootstrap") loaded = true;
       return Effect.succeed({ status: args[0] === "print" && !loaded ? 113 : 0, stdout: "", stderr: "" });
     } });
-    const operation = manageSchedule("enable", home, uid).pipe(
+    const operation = Effect.gen(function*() {
+      const fs = yield* FileSystem.FileSystem;
+      return yield* manageSchedule("enable", home, uid).pipe(Effect.provideService(FileSystem.FileSystem, {
+        ...fs, exists: (path) => kind === "system" && path === "/Library/LaunchDaemons/local.dotfiles.software-update.fixture.plist"
+          ? Effect.succeed(true) : fs.exists(path),
+      }));
+    }).pipe(
       Effect.provideService(CommandRunner, runner), Effect.provide(NodeServices.layer),
     );
     const service = `gui/${uid}/${updateLabel}`;
@@ -102,6 +109,7 @@ for (const kind of ["regular", "writable", "symlink"] as const) {
       await Effect.runPromise(operation);
       assert.deepEqual(calls, [
         ["launchctl", "print", service],
+        ["id", "-un", String(uid)],
         ["plutil", "-lint", plist],
         ["launchctl", "enable", service],
         ["launchctl", "bootstrap", `gui/${uid}`, plist],
@@ -109,8 +117,9 @@ for (const kind of ["regular", "writable", "symlink"] as const) {
       ]);
     } else {
       const failure = await Effect.runPromise(operation.pipe(Effect.flip));
-      assert.match(String(failure), kind === "symlink" ? /must not be a symlink/ : /owning user/);
-      assert.deepEqual(calls, [["launchctl", "print", service]]);
+      assert.match(String(failure), kind === "system" ? /system updater already enrolled/
+        : kind === "symlink" ? /must not be a symlink/ : /owning user/);
+      assert.deepEqual(calls, [["launchctl", "print", service], ["id", "-un", String(uid)]]);
     }
   });
 }
