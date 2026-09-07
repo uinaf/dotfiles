@@ -101,15 +101,6 @@ run = ["./scripts/agents/sync.ts --update", "./scripts/agents/plugins.ts --updat
 description = "Trust mise configs in generated agent worktrees"
 run = "./scripts/bootstrap/trust-agent-worktrees.ts"
 
-[tasks."devbox:t3-sync"]
-description = "Sync or check the devbox T3 Code server against the workstation app version"
-usage = '''
-arg "<host>" help="Explicit user@host SSH target"
-flag "--check" help="Compare only; exit 0 equal, 3 drift, 1 unavailable"
-flag "--force" help="Reinstall even when the versions already match"
-'''
-run = './scripts/bootstrap/sync-devbox-t3-server.ts --host "$usage_host" ${usage_check:+--check} ${usage_force:+--force}'
-
 [tasks."maintenance:hygiene"]
 description = "Preview host worktree, branch, and cache cleanup"
 run = "node ./scripts/maintenance/hygiene.ts --dry-run"

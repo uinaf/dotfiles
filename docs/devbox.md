@@ -277,42 +277,11 @@ sudo node ./scripts/bootstrap/install-devbox-service-daemons.ts \
   --t3-working-directory /Users/example/projects/example/workspace
 ```
 
-After updating T3 Code on a workstation, sync its exact version to a devbox
-with the portable workstation-side command:
+To move the server to a new T3 Code version, rerun the installer above with
+the new `--t3-version`; a version already installed and healthy is left alone.
+There is no workstation-driven scheduled sync.
 
-```zsh
-mise run devbox:t3-sync example@example-devbox           # install only on drift
-mise run devbox:t3-sync example@example-devbox --check   # compare only
-mise run devbox:t3-sync example@example-devbox --force   # reinstall regardless
-```
-
-The task wraps `scripts/bootstrap/sync-devbox-t3-server.ts`. Pass
-`--version t3@<exact-version>` to the script directly to override workstation
-app detection. The sync first runs the read-only inspection below and installs
-only when the server version differs from the workstation, the service is
-unloaded or unhealthy, or `--force` is set. A server already at the target
-version and healthy is left alone; it is never restarted. The install streams
-the installer sources from the checkout's committed `HEAD` (`git archive`,
-never the working tree) through a hardened, non-interactive SSH session with
-a 15-minute bound, uses the remote user's home as the server working
-directory, and leaves no remote bundle behind. Because the remote runs the
-bundle under `sudo`, a checkout with uncommitted changes to the bundled
-sources is refused; pass `--allow-dirty` to acknowledge that committed `HEAD`
-ships regardless. It requires an explicit SSH user and host; it never
-discovers or fans out to machines implicitly.
-
-`--check` prints the inspection JSON and exits `0` when versions match, `3`
-on drift, and `1` when the comparison is unavailable (workstation app
-missing, SSH transport failure, or an invalid remote service layout).
-
-Scheduled sync: [the six-hour updater](software-updates.md#devbox-t3-code-server)
-runs `--scheduled` on workstation profiles only. It reads the target from
-`~/.config/dotfiles/t3-server-target` (one `user@host` line, mode `0600`),
-treats a missing file or an unreachable devbox as a reported skip, and fails
-on anything else, including an unpublished checkout: the scheduled install
-additionally requires `HEAD` to be the default branch at `origin`'s tip.
-
-Inspect the same contract without changing either machine:
+Inspect the server without changing either machine:
 
 ```zsh
 ./scripts/verify/t3-server-version.ts \
