@@ -1,11 +1,11 @@
 [tools]
 node = "24.19.0"
 bun = "1.4.0"
-python = "3.13"
+python = "3.14.7"
 java = "temurin-21"
 ruby = "4.0.6"
-uv = "0.12.5"
-go = "1.26.6"
+uv = "0.12.7"
+go = "1.27.0"
 "npm:@playwright/cli" = "0.1.18"
 
 [tasks."dotfiles:runtime-packages"]
