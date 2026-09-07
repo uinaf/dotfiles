@@ -2,7 +2,6 @@ import { Effect, FileSystem, Option } from "effect";
 import { fail } from "./program.ts";
 
 const component = /^[A-Za-z0-9._-]+$/;
-const exactVersion = /^[A-Za-z0-9._+-]+$/;
 
 export function resolveLaunchdNamespace(requested = ""): string {
   const namespace = requested || process.env.DOTFILES_LAUNCHD_NAMESPACE || "local.dotfiles";
@@ -16,27 +15,6 @@ export function launchdLabel(service: string, user: string, namespace = ""): str
   if (!service || !component.test(service)) throw new Error("invalid LaunchDaemon service");
   if (!user || !component.test(user)) throw new Error("invalid LaunchDaemon user");
   return `${resolveLaunchdNamespace(namespace)}.${service}.${user}`;
-}
-
-export function validateT3Version(version: string): boolean {
-  return exactVersion.test(version);
-}
-
-export function parsePendingInstallScripts(input: string, approved: ReadonlySet<string>): readonly string[] {
-  const value: unknown = JSON.parse(input);
-  if (typeof value !== "object" || value === null || !("allowScripts" in value) || !Array.isArray(value.allowScripts)) {
-    throw new Error("npm returned an invalid allowScripts list");
-  }
-  const names = [...new Set(value.allowScripts.map((entry) =>
-    typeof entry === "object" && entry !== null && "name" in entry ? entry.name : undefined,
-  ))];
-  if (names.some((name) => typeof name !== "string" || name.length === 0)) {
-    throw new Error("npm returned an invalid install-script package name");
-  }
-  const typed = names as string[];
-  const unexpected = typed.filter((name) => !approved.has(name));
-  if (unexpected.length > 0) throw new Error(`unexpected T3 install scripts: ${unexpected.join(", ")}`);
-  return typed;
 }
 
 export const resolveLaunchdNamespaceContract = Effect.fn("resolveLaunchdNamespaceContract")(function*(

@@ -266,41 +266,24 @@ Install selected boot services from an authorized administrator account. The
 installer creates root-owned system LaunchDaemons that drop privileges to the
 target user.
 
-For a headless T3 Code server, pin the exact npm version and the workspace used
-for project and skill discovery:
+Install a headless T3 Code server as the target user, not as a system daemon,
+so the desktop app can update it in place (`boot-service` self-update):
 
 ```zsh
-sudo node ./scripts/bootstrap/install-devbox-service-daemons.ts \
-  --user example \
-  --t3-code \
-  --t3-version 0.0.35 \
-  --t3-working-directory /Users/example/projects/example/workspace
+npx t3@latest service install --base-dir ~/.t3
+npx t3@latest service status
 ```
 
-To move the server to a new T3 Code version, rerun the installer above with
-the new `--t3-version`; a version already installed and healthy is left alone.
-There is no workstation-driven scheduled sync.
-
-Inspect the server without changing either machine:
-
-```zsh
-./scripts/verify/t3-server-version.ts \
-  --host example@example-devbox
-```
-
-The inspection writes one JSON object. `status` is `clean` when the versions
-match and the service is loaded and healthy, `attention` for version or runtime
-drift, and `incomplete` when workstation detection, SSH transport, or the
-remote service structure cannot be established. Completed inspections exit
-`0`, including drift; incomplete inspections exit `1`.
+The service is a per-user LaunchAgent (`com.t3tools.t3code.service`) that
+starts at login, so the devbox must auto-login that user. Move versions with
+`npx t3@<version> service update`, or from the T3 Code app's environment
+settings once a server update is available. T3 Connect and the relay client
+keep working across updates because `--base-dir` and the environment id are
+unchanged. See the upstream
+[background service](https://github.com/pingdotgg/t3code/blob/main/docs/user/background-service.md)
+doc.
 
 - Use `--colima` only when that target user owns the service.
-- T3 Code versions are installed side by side under
-  `~/.local/share/t3-code/service/`; the plist pins the selected package and
-  the target user's resolved Node executable.
-- On npm 12 or newer, T3 dependencies install with lifecycle scripts disabled.
-  The installer version-pins and rebuilds only `msgpackr-extract` and
-  `node-pty`; any additional install-script dependency fails the update.
 - Use `--check` with the selected service flags for a non-mutating contract
   check.
 - System LaunchDaemons must be root-owned and mode `0644`.

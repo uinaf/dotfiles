@@ -2,17 +2,10 @@
 
 import { NodeServices } from "@effect/platform-node";
 import { Console, Effect, FileSystem, Option, Schema } from "effect";
-import { isAbsolute, join, resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { CommandRunner, runChecked, runCommand } from "../lib/command.ts";
-import {
-  launchdLabel,
-  parsePendingInstallScripts,
-  plistXml,
-  resolveLaunchdNamespace,
-  resolveLaunchdNamespaceContract,
-  validateT3Version,
-} from "../lib/launchd.ts";
+import { launchdLabel, plistXml, resolveLaunchdNamespace, resolveLaunchdNamespaceContract } from "../lib/launchd.ts";
 import { CliFailure, fail, runMain } from "../lib/program.ts";
 
 const repoRoot = resolve(fileURLToPath(new URL("../..", import.meta.url)));
@@ -21,7 +14,6 @@ const usage = `Usage:
 
 Services:
   --colima           Run the user's colima-ensure script once at system boot.
-  --t3-code          Run a pinned T3 Code server at system boot.
   --software-updates Run per-user Topgrade every six hours and at boot.
   --homebrew-updates Also update shared Homebrew; requires the prefix owner.
 
@@ -31,21 +23,16 @@ Options:
   --namespace NAME   Stable label namespace; defaults to local.dotfiles.
   --updates-repository PATH
                       Target user's persistent dotfiles checkout; required for updates.
-  --t3-version VERSION
-                      Exact npm T3 Code version; requires --t3-code.
-  --t3-working-directory PATH
-                      Server working directory; defaults to the user's home.
 
 The installer must run as root on macOS. It creates root-owned system
-LaunchDaemons that drop privileges to the selected user.`;
+LaunchDaemons that drop privileges to the selected user. A T3 Code server is
+not a system daemon: install it as the user with \`t3 service install\` so the
+desktop app can update it.`;
 
 const InstallerOptions = Schema.Struct({
   user: Schema.NonEmptyString,
   namespace: Schema.String,
   colima: Schema.Boolean,
-  t3Code: Schema.Boolean,
-  t3Version: Schema.String,
-  t3WorkingDirectory: Schema.String,
   check: Schema.Boolean,
   printLabels: Schema.Boolean,
   softwareUpdates: Schema.Boolean,
@@ -59,22 +46,13 @@ type ServiceContext = {
   readonly options: InstallerOptions;
   readonly target: Target;
   readonly namespace: string;
-  readonly labels: { readonly colima: string; readonly t3: string };
+  readonly labels: { readonly colima: string };
   readonly launchDaemonDir: string;
 };
-type T3Service = {
-  readonly node: string;
-  readonly npm: string;
-  readonly npmMajor: number;
-  readonly workingDirectory: string;
-  readonly serviceDirectory: string;
-  readonly entrypoint: string;
-};
-
 const parseArguments = Effect.fn("parseServiceInstallerArguments")(function*(argv: readonly string[]) {
   const values = {
     user: "", namespace: process.env.DOTFILES_LAUNCHD_NAMESPACE || "",
-    colima: false, t3Code: false, t3Version: "", t3WorkingDirectory: "", check: false, printLabels: false,
+    colima: false, check: false, printLabels: false,
     softwareUpdates: false, homebrewUpdates: false, updatesRepository: "",
   };
   const args = [...argv];
@@ -89,12 +67,9 @@ const parseArguments = Effect.fn("parseServiceInstallerArguments")(function*(arg
       case "--user": values.user = take(flag); break;
       case "--namespace": values.namespace = take(flag); break;
       case "--colima": values.colima = true; break;
-      case "--t3-code": values.t3Code = true; break;
       case "--software-updates": values.softwareUpdates = true; break;
       case "--homebrew-updates": values.homebrewUpdates = true; break;
       case "--updates-repository": values.updatesRepository = take(flag); break;
-      case "--t3-version": values.t3Version = take(flag); break;
-      case "--t3-working-directory": values.t3WorkingDirectory = take(flag); break;
       case "--check": values.check = true; break;
       case "--print-labels": values.printLabels = true; break;
       case "-h": case "--help": yield* Console.log(usage); return undefined;
@@ -105,10 +80,6 @@ const parseArguments = Effect.fn("parseServiceInstallerArguments")(function*(arg
     Effect.mapError((error) => new CliFailure({ exitCode: 1, message: error.message })),
   );
   if (!/^[A-Za-z0-9._-]+$/.test(options.user)) return yield* fail(`unsupported user name: ${options.user}`);
-  if (!options.t3Code && (options.t3Version || options.t3WorkingDirectory)) {
-    return yield* fail("--t3-version and --t3-working-directory require --t3-code");
-  }
-  if (options.t3Code && !options.t3Version) return yield* fail("--t3-code requires --t3-version");
   if (options.homebrewUpdates && !options.softwareUpdates) return yield* fail("--homebrew-updates requires --software-updates");
   if (options.softwareUpdates !== Boolean(options.updatesRepository)) return yield* fail("--software-updates requires --updates-repository PATH");
   return options;
@@ -138,7 +109,6 @@ const resolveTarget = Effect.fn("resolveServiceTarget")(function*(user: string) 
 function labels(user: string, namespace: string) {
   return {
     colima: launchdLabel("colima", user, namespace),
-    t3: launchdLabel("t3-code", user, namespace),
   };
 }
 
@@ -169,18 +139,6 @@ const checkJob = Effect.fn("checkLaunchdJob")(function*(context: ServiceContext,
   const status = yield* run("/bin/launchctl", ["print", `system/${label}`]);
   if (status.status !== 0) return yield* fail(`${label} is not loaded`);
   yield* Console.log(`ok ${label} loaded for ${context.target.user}`);
-});
-
-const healthT3 = Effect.fn("checkT3Health")(function*(context: ServiceContext) {
-  for (let attempt = 1; attempt <= 30; attempt += 1) {
-    const result = yield* run("/usr/bin/curl", ["--fail", "--silent", "--show-error", "--max-time", "2", "http://127.0.0.1:3773/"]);
-    if (result.status === 0) {
-      yield* Console.log(`ok ${context.labels.t3} HTTP health for ${context.target.user}`);
-      return;
-    }
-    yield* Effect.sleep("1 second");
-  }
-  return yield* fail(`${context.labels.t3} did not become healthy on http://127.0.0.1:3773/`);
 });
 
 const bootout = Effect.fn("bootoutLaunchdJob")(function*(label: string) {
@@ -252,81 +210,6 @@ const installColima = Effect.fn("installColimaService")(function*(context: Servi
   yield* checkColima(context, colima);
 });
 
-const resolveT3 = Effect.fn("resolveT3Service")(function*(context: ServiceContext) {
-  const { target, options } = context;
-  if (!validateT3Version(options.t3Version)) return yield* fail("T3 Code version must be one exact npm version");
-  const workingDirectory = options.t3WorkingDirectory || target.home;
-  if (!isAbsolute(workingDirectory)) return yield* fail("T3 Code working directory must be an absolute path");
-  const fs = yield* FileSystem.FileSystem;
-  const workingInfo = yield* fs.stat(workingDirectory).pipe(Effect.option);
-  if (Option.isNone(workingInfo) || workingInfo.value.type !== "Directory") return yield* fail(`missing T3 Code working directory: ${workingDirectory}`);
-  const node = yield* findExecutable(target, "node");
-  const npm = yield* findExecutable(target, "npm");
-  if (!node) return yield* fail(`missing Node for ${target.user}`);
-  if (!npm) return yield* fail(`missing npm for ${target.user}`);
-  const resolvedNode = (yield* runAsTarget(target, node, ["-p", "process.execPath"])).stdout.trim();
-  if (!isAbsolute(resolvedNode) || !(yield* executable(resolvedNode))) return yield* fail(`resolved Node is not executable: ${resolvedNode}`);
-  const npmVersion = (yield* runAsTarget(target, npm, ["--version"])).stdout.trim();
-  const npmMajor = Number(npmVersion.split(".")[0]);
-  if (!Number.isInteger(npmMajor)) return yield* fail(`unsupported npm version: ${npmVersion}`);
-  const serviceDirectory = join(target.home, ".local/share/t3-code/service", options.t3Version);
-  return { node: resolvedNode, npm, npmMajor, workingDirectory, serviceDirectory,
-    entrypoint: join(serviceDirectory, "node_modules/t3/dist/bin.mjs") };
-});
-
-const inspectPendingScripts = Effect.fn("inspectT3InstallScripts")(function*(context: ServiceContext, t3: T3Service) {
-  const result = yield* runAsTarget(context.target, t3.npm, ["install-scripts", "ls", "--prefix", t3.serviceDirectory, "--json"]);
-  return yield* Effect.try({
-    try: () => parsePendingInstallScripts(result.stdout, new Set(["msgpackr-extract", "node-pty"])),
-    catch: (error) => new CliFailure({ exitCode: 1, message: error instanceof Error ? error.message : String(error) }),
-  });
-});
-
-const prepareT3 = Effect.fn("prepareT3Service")(function*(context: ServiceContext, t3: T3Service, temporary: string) {
-  yield* runAsTarget(context.target, "/usr/bin/install", ["-d", "-m", "0755", t3.serviceDirectory]);
-  const fs = yield* FileSystem.FileSystem;
-  let storedVersion = "";
-  const packageJson = join(t3.serviceDirectory, "package.json");
-  if (yield* fs.exists(packageJson)) {
-    const result = yield* runAsTarget(context.target, t3.node, ["-e", "try { process.stdout.write(require(process.argv[1]).dependencies?.t3 ?? '') } catch {}", packageJson]);
-    storedVersion = result.stdout;
-  }
-  if (storedVersion !== context.options.t3Version || !(yield* fs.exists(t3.entrypoint))) {
-    const args = ["install", "--prefix", t3.serviceDirectory, "--save-exact", "--no-audit", "--no-fund"];
-    if (t3.npmMajor >= 12) args.push("--ignore-scripts");
-    args.push(`t3@${context.options.t3Version}`);
-    yield* runAsTarget(context.target, t3.npm, args);
-  }
-  if (!(yield* fs.exists(t3.entrypoint))) return yield* fail("T3 Code package has no server entrypoint");
-  if (t3.npmMajor >= 12) {
-    const pending = yield* inspectPendingScripts(context, t3);
-    if (pending.length > 0) yield* runAsTarget(context.target, t3.npm, ["install-scripts", "approve", ...pending, "--prefix", t3.serviceDirectory]);
-    yield* runAsTarget(context.target, t3.npm, ["rebuild", "msgpackr-extract", "node-pty", "--prefix", t3.serviceDirectory, "--strict-allow-scripts", "--no-audit", "--no-fund"]);
-    const remaining = yield* inspectPendingScripts(context, t3);
-    if (remaining.length > 0) return yield* fail(`T3 Code install scripts remain blocked: ${remaining.join(", ")}`);
-  }
-  const logDirectory = join(context.target.home, "Library/Logs/t3-code");
-  yield* runAsTarget(context.target, "/usr/bin/install", ["-d", "-m", "0755", logDirectory]);
-  const plist = join(temporary, `${context.labels.t3}.plist`);
-  yield* writePlist(plist, plistXml({ label: context.labels.t3, user: context.target.user, group: context.target.group,
-    workingDirectory: t3.workingDirectory, stdout: join(logDirectory, "server.log"), stderr: join(logDirectory, "server-error.log"),
-    arguments: [t3.node, t3.entrypoint, "serve", "--base-dir", join(context.target.home, ".t3")], processType: "Background",
-    environment: { HOME: context.target.home, LOGNAME: context.target.user,
-      PATH: `${context.target.home}/.local/bin:${context.target.home}/.local/share/mise/shims:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin`,
-      SHELL: "/bin/zsh", USER: context.target.user } }));
-  yield* checked("/usr/bin/install", ["-o", context.target.user, "-g", context.target.group, "-m", "0644", plist, join(t3.serviceDirectory, `${context.labels.t3}.plist`)]);
-  return plist;
-});
-
-const checkT3 = Effect.fn("checkT3Service")(function*(context: ServiceContext, t3: T3Service) {
-  yield* checkJob(context, context.labels.t3);
-  const result = yield* checked("/usr/bin/plutil", ["-extract", "ProgramArguments.1", "raw", join(context.launchDaemonDir, `${context.labels.t3}.plist`)]);
-  if (result.stdout.trim() !== t3.entrypoint) return yield* fail(`${context.labels.t3} does not use T3 Code ${context.options.t3Version}`);
-  const fs = yield* FileSystem.FileSystem;
-  if (!(yield* fs.exists(t3.entrypoint))) return yield* fail(`missing T3 Code entrypoint: ${t3.entrypoint}`);
-  yield* healthT3(context);
-});
-
 const program = Effect.gen(function*() {
   const options = yield* parseArguments(process.argv.slice(2));
   if (!options) return;
@@ -337,18 +220,17 @@ const program = Effect.gen(function*() {
       if (Option.isSome(target)) namespace = yield* resolveLaunchdNamespaceContract(options.namespace, join(target.value.home, ".config/dotfiles/launchd-namespace"), target.value.uid);
     }
     const output = labels(options.user, namespace);
-    yield* Console.log(`${output.colima}\n${output.t3}`);
+    yield* Console.log(output.colima);
     return;
   }
   if (process.platform !== "darwin") return yield* fail("this installer supports macOS only");
-  if (!options.colima && !options.t3Code && !options.softwareUpdates) return yield* fail("select at least one service");
+  if (!options.colima && !options.softwareUpdates) return yield* fail("select at least one service");
   const target = yield* resolveTarget(options.user);
   namespace = yield* resolveLaunchdNamespaceContract(options.namespace, join(target.home, ".config/dotfiles/launchd-namespace"), target.uid);
   const context: ServiceContext = { options, target, namespace, labels: labels(target.user, namespace), launchDaemonDir: "/Library/LaunchDaemons" };
   const colima = options.colima ? yield* prepareColima(target) : undefined;
-  const t3 = options.t3Code ? yield* resolveT3(context) : undefined;
   if (options.softwareUpdates) {
-    // Keep update-only dependencies out of the standalone T3 installer bundle.
+    // Keep update-only dependencies out of the standalone installer path.
     const { installUpdateJobs } = yield* Effect.promise(() => import("../maintenance/devbox.ts"));
     const node = yield* findExecutable(target, "node");
     if (!node) return yield* fail(`missing Node for ${target.user}`);
@@ -358,18 +240,14 @@ const program = Effect.gen(function*() {
   }
   if (options.check) {
     if (colima) yield* checkColima(context, colima);
-    if (t3) yield* checkT3(context, t3);
     return;
   }
   if ((process.getuid?.() ?? -1) !== 0) return yield* fail("run this installer as root");
   yield* Effect.scoped(Effect.gen(function*() {
     const fs = yield* FileSystem.FileSystem;
     const temporary = yield* fs.makeTempDirectoryScoped({ directory: process.env.TMPDIR || "/tmp", prefix: "dotfiles-service-daemons." });
-    let t3Plist: string | undefined;
-    if (t3) t3Plist = yield* prepareT3(context, t3, temporary);
     yield* persistNamespace(context);
     if (colima) yield* installColima(context, temporary, colima);
-    if (t3 && t3Plist) { yield* installJob(context, t3Plist, context.labels.t3); yield* healthT3(context); }
   }));
   yield* Console.log("devbox service daemon installation ok");
 }).pipe(Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer));

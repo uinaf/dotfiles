@@ -37,11 +37,8 @@ tests.
 Headless macOS coding services use
 `scripts/bootstrap/install-devbox-service-daemons.ts`; see
 [Devbox setup](../docs/devbox.md#system-services).
-Use `scripts/verify/t3-server-version.ts --host USER@HOST` for a strictly
-read-only comparison of one remote T3 Code server against the workstation app.
-It emits typed JSON for the workstation app, remote installed version, version
-match, launchd state, and HTTP health. Updating the server is done from the
-T3 Code app itself or by rerunning the installer with a new `--t3-version`.
+A devbox T3 Code server is installed and updated by T3 Code itself
+(`t3 service install`); see [Devbox setup](../docs/devbox.md#system-services).
 
 For recurring updates, on-demand runs, and inventory snapshots, use the
 commands in [Software updates](../docs/software-updates.md).
