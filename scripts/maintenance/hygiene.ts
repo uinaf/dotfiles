@@ -26,7 +26,7 @@ const run: Runner = (cwd, command, args) => {
   const result = spawnSync(command, args, {
     cwd, encoding: "utf8", timeout: 60_000,
     maxBuffer: 32 * 1024 * 1024,
-    env: { ...process.env, GIT_TERMINAL_PROMPT: "0", GCM_INTERACTIVE: "never" },
+    env: { ...process.env, GIT_TERMINAL_PROMPT: "0", GCM_INTERACTIVE: "never", GIT_OPTIONAL_LOCKS: "0" },
     stdio: ["ignore", "pipe", "pipe"],
   });
   return { status: result.error ? 1 : result.status ?? 1, stdout: result.stdout ?? "" };
@@ -194,6 +194,15 @@ export function cleanRepository(
       entries.push({ target: candidate.path, result: "state changed; retained" });
       continue;
     }
+    if (candidate.kind === "worktree") {
+      const gitDirectory = checked(runner, candidate.path, "git", ["rev-parse", "--absolute-git-dir"]);
+      const changedAt = Math.max(lastChanged(candidate.path), lastChanged(gitDirectory));
+      if (now - changedAt < week) {
+        next[key] = { head: candidate.head, since: now };
+        entries.push({ target: candidate.path, result: "changed within seven days; grace period restarted" });
+        continue;
+      }
+    }
     const args = candidate.kind === "worktree"
       ? ["worktree", "remove", candidate.path]
       : ["branch", "-d", "--", candidate.branch.replace(/^refs\/heads\//, "")];
@@ -204,6 +213,30 @@ export function cleanRepository(
     if (result.status === 0) delete next[key];
   }
   return { entries, candidates: next };
+}
+
+export function lastChanged(root: string): number {
+  const pending = [root];
+  let latest = 0;
+  let visited = 0;
+  while (pending.length > 0) {
+    const path = pending.pop();
+    if (path === undefined) break;
+    if (++visited > 100_000) throw new Error("worktree activity inspection limit exceeded; retained local work");
+    const info = lstatSync(path);
+    latest = Math.max(latest, info.mtimeMs, info.ctimeMs, info.birthtimeMs);
+    if (info.isDirectory()) {
+      for (const entry of readdirSync(path, { withFileTypes: true })) {
+        // Dependency contents are regenerable; the directory itself still
+        // records installs/removals without scanning an entire package store.
+        if (entry.name === "node_modules" && entry.isDirectory()) {
+          const dependency = lstatSync(join(path, entry.name));
+          latest = Math.max(latest, dependency.mtimeMs, dependency.ctimeMs, dependency.birthtimeMs);
+        } else pending.push(join(path, entry.name));
+      }
+    }
+  }
+  return latest;
 }
 
 export function readState(statePath: string): { state: State; recovered: boolean } {

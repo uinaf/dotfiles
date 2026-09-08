@@ -4,9 +4,10 @@ import { chmodSync, closeSync, existsSync, mkdtempSync, mkdirSync, openSync, rea
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { cacheCleanup, cacheCleanupTimeoutMs, candidates, capLogs, cleanRepository, discoverRepositories, hygiene, openFiles, readState, type Runner } from "./hygiene.ts";
+import { cacheCleanup, cacheCleanupTimeoutMs, candidates, capLogs, cleanRepository, discoverRepositories, hygiene, lastChanged, openFiles, readState, type Runner } from "./hygiene.ts";
 
 const week = 7 * 86400_000;
+const baseline = Date.now();
 
 test("applied hygiene retains successive reports when stdout is not redirected", t => {
   const home = mkdtempSync(join(tmpdir(), "hygiene-log-"));
@@ -27,7 +28,7 @@ test("applied hygiene retains successive reports when stdout is not redirected",
   assert.equal(readFileSync(path, "utf8"), log, "weekly skips do not append");
 });
 const runner: Runner = (cwd, command, args) => {
-  const result = spawnSync(command, args, { cwd, encoding: "utf8", env: { ...process.env, GIT_CONFIG_NOSYSTEM: "1" } });
+  const result = spawnSync(command, args, { cwd, encoding: "utf8", env: { ...process.env, GIT_CONFIG_NOSYSTEM: "1", GIT_OPTIONAL_LOCKS: "0" } });
   return { status: result.status ?? 1, stdout: result.stdout ?? "" };
 };
 
@@ -60,13 +61,13 @@ function fixture() {
 test("clean merged worktree waits seven days, is removed without force, then its branch is separately eligible", () => {
   const f = fixture();
   try {
-    const first = cleanRepository(f.repo, f.roots, {}, week, true, () => [], runner);
+    const first = cleanRepository(f.repo, f.roots, {}, baseline + week, true, () => [], runner);
     assert.ok(existsSync(f.tree));
-    const second = cleanRepository(f.repo, f.roots, first.candidates, 2 * week, true, () => [], runner);
+    const second = cleanRepository(f.repo, f.roots, first.candidates, baseline + 2 * week, true, () => [], runner);
     assert.equal(existsSync(f.tree), false);
     assert.ok(second.entries.some(entry => entry.result === "removed"));
-    const branch = cleanRepository(f.repo, f.roots, {}, 3 * week, true, () => [], runner);
-    cleanRepository(f.repo, f.roots, branch.candidates, 4 * week, true, () => [], runner);
+    const branch = cleanRepository(f.repo, f.roots, {}, baseline + 3 * week, true, () => [], runner);
+    cleanRepository(f.repo, f.roots, branch.candidates, baseline + 4 * week, true, () => [], runner);
     assert.equal(f.git(f.repo, "for-each-ref", "--format=%(refname)", "refs/heads/finished"), "");
     assert.ok(existsSync(f.repo));
   } finally { f.cleanup(); }
@@ -94,6 +95,69 @@ test("dirty, ignored, locked, active and detached worktrees are retained", () =>
   } finally { f.cleanup(); }
 });
 
+test("a recreated worktree cannot inherit an old HEAD's elapsed grace period", () => {
+  const f = fixture();
+  try {
+    const now = Date.now();
+    const first = cleanRepository(f.repo, f.roots, {}, now - 2 * week, true, () => [], runner);
+    f.git(f.repo, "worktree", "remove", f.tree);
+    f.git(f.repo, "worktree", "add", f.tree, "finished");
+    const second = cleanRepository(f.repo, f.roots, first.candidates, now, true, () => [], runner);
+    assert.ok(existsSync(f.tree));
+    assert.ok(second.entries.some(entry => entry.result === "changed within seven days; grace period restarted"));
+    assert.equal(Object.values(second.candidates)[0]?.since, now);
+    cleanRepository(f.repo, f.roots, second.candidates, now + week + 1000, true, () => [], runner);
+    assert.equal(existsSync(f.tree), false);
+  } finally { f.cleanup(); }
+});
+
+for (const target of ["nested file", "Git index"] as const) {
+  test(`recent ${target} activity protects a clean worktree with unchanged HEAD`, () => {
+    const f = fixture();
+    try {
+      mkdirSync(join(f.tree, "nested"));
+      writeFileSync(join(f.tree, "nested/file"), "content\n");
+      f.git(f.tree, "add", ".");
+      f.git(f.tree, "commit", "-m", "nested file");
+      f.git(f.tree, "push", "origin", "HEAD:main");
+      const now = Date.now() + 2 * week;
+      const first = cleanRepository(f.repo, f.roots, {}, now - week, true, () => [], runner);
+      const path = target === "nested file" ? join(f.tree, "nested/file")
+        : join(f.git(f.tree, "rev-parse", "--absolute-git-dir"), "index");
+      utimesSync(path, new Date(now - 1000), new Date(now - 1000));
+      const second = cleanRepository(f.repo, f.roots, first.candidates, now, true, () => [], runner);
+      assert.ok(existsSync(f.tree));
+      assert.ok(second.entries.some(entry => entry.result.includes("changed within seven days")));
+      assert.equal(f.git(f.tree, "status", "--porcelain"), "");
+    } finally { f.cleanup(); }
+  });
+}
+
+test("activity inspection does not follow symlinks and fails on missing paths", () => {
+  const f = fixture();
+  try {
+    const outside = join(f.root, "outside");
+    writeFileSync(outside, "outside");
+    const future = Date.now() + 10 * week;
+    utimesSync(outside, new Date(future), new Date(future));
+    symlinkSync(outside, join(f.tree, "link"));
+    assert.ok(lastChanged(f.tree) < future);
+    assert.throws(() => lastChanged(join(f.root, "missing")), { code: "ENOENT" });
+  } finally { f.cleanup(); }
+});
+
+test("unavailable worktree activity retains an otherwise removable tree", () => {
+  const f = fixture();
+  try {
+    const now = Date.now() + 2 * week;
+    const first = cleanRepository(f.repo, f.roots, {}, now - week, true, () => [], runner);
+    const unavailable: Runner = (cwd, command, args) => args.includes("--absolute-git-dir")
+      ? { status: 0, stdout: join(f.root, "missing") } : runner(cwd, command, args);
+    assert.throws(() => cleanRepository(f.repo, f.roots, first.candidates, now, true, () => [], unavailable));
+    assert.ok(existsSync(f.tree));
+  } finally { f.cleanup(); }
+});
+
 test("unmerged commits survive even when their remote branch is gone", () => {
   const f = fixture();
   try {
@@ -108,9 +172,9 @@ test("unmerged commits survive even when their remote branch is gone", () => {
 test("activity arriving at removal time cancels eligibility", () => {
   const f = fixture();
   try {
-    const first = cleanRepository(f.repo, f.roots, {}, week, true, () => [], runner);
+    const first = cleanRepository(f.repo, f.roots, {}, baseline + week, true, () => [], runner);
     let checks = 0;
-    const second = cleanRepository(f.repo, f.roots, first.candidates, 2 * week, true,
+    const second = cleanRepository(f.repo, f.roots, first.candidates, baseline + 2 * week, true,
       () => ++checks === 1 ? [] : [f.tree], runner);
     assert.ok(existsSync(f.tree));
     assert.equal(Object.keys(second.candidates).length, 0);
@@ -124,13 +188,13 @@ test("existing upstreams and long-lived branches stay, changed HEAD restarts the
     f.git(f.repo, "branch", "release/stable");
     assert.equal(candidates(f.repo, f.roots, [], runner).eligible.length, 0);
     f.git(f.repo, "push", "origin", "--delete", "finished");
-    const first = cleanRepository(f.repo, f.roots, {}, week, true, () => [], runner);
+    const first = cleanRepository(f.repo, f.roots, {}, baseline + week, true, () => [], runner);
     writeFileSync(join(f.tree, "tracked"), "more merged work\n");
     f.git(f.tree, "commit", "-am", "more work");
     f.git(f.tree, "push", "origin", "HEAD:main");
-    const second = cleanRepository(f.repo, f.roots, first.candidates, 2 * week, true, () => [], runner);
+    const second = cleanRepository(f.repo, f.roots, first.candidates, baseline + 2 * week, true, () => [], runner);
     assert.ok(existsSync(f.tree));
-    assert.equal(Object.values(second.candidates)[0]?.since, 2 * week);
+    assert.equal(Object.values(second.candidates)[0]?.since, baseline + 2 * week);
     assert.equal(f.git(f.repo, "for-each-ref", "--format=%(refname)", "refs/heads/release/stable"), "refs/heads/release/stable");
   } finally { f.cleanup(); }
 });
@@ -138,18 +202,18 @@ test("existing upstreams and long-lived branches stay, changed HEAD restarts the
 test("dry-run never deletes, failed remote reads and activity probes fail closed", () => {
   const f = fixture();
   try {
-    const first = cleanRepository(f.repo, f.roots, {}, week, true, () => [], runner);
+    const first = cleanRepository(f.repo, f.roots, {}, baseline + week, true, () => [], runner);
     f.git(f.tree, "push", "-u", "origin", "finished");
     f.git(f.root, "--git-dir", join(f.root, "remote.git"), "update-ref", "-d", "refs/heads/finished");
-    cleanRepository(f.repo, f.roots, first.candidates, 2 * week, false, () => [], runner);
+    cleanRepository(f.repo, f.roots, first.candidates, baseline + 2 * week, false, () => [], runner);
     assert.ok(existsSync(f.tree));
     assert.equal(f.git(f.repo, "for-each-ref", "--format=%(refname)", "refs/remotes/origin/finished"), "refs/remotes/origin/finished");
     const failed: Runner = (cwd, command, args) => args[0] === "ls-remote" ? { status: 1, stdout: "" } : runner(cwd, command, args);
-    assert.throws(() => cleanRepository(f.repo, f.roots, first.candidates, 2 * week, true, () => [], failed));
+    assert.throws(() => cleanRepository(f.repo, f.roots, first.candidates, baseline + 2 * week, true, () => [], failed));
     assert.throws(() => openFiles(f.root, () => ({ status: 1, stdout: "" })));
     assert.ok(existsSync(f.tree));
     const missing: Runner = (cwd, command, args) => args[0] === "cat-file" ? { status: 1, stdout: "" } : runner(cwd, command, args);
-    const skipped = cleanRepository(f.repo, f.roots, first.candidates, 2 * week, true, () => [], missing);
+    const skipped = cleanRepository(f.repo, f.roots, first.candidates, baseline + 2 * week, true, () => [], missing);
     assert.equal(skipped.entries[0]?.result, "remote default history missing locally; retained for normal sync");
     assert.ok(existsSync(f.tree));
   } finally { f.cleanup(); }
@@ -172,12 +236,12 @@ test("inactive and explicitly excluded checkouts need no remote access", () => {
       if (args[0] === "ls-remote" || args[0] === "remote") throw new Error("unexpected network access");
       return runner(cwd, command, args);
     };
-    const result = cleanRepository(f.repo, f.roots, {}, week, true, () => [], offline);
+    const result = cleanRepository(f.repo, f.roots, {}, baseline + week, true, () => [], offline);
     assert.deepEqual(result, { entries: [], candidates: {} });
     assert.ok(existsSync(join(f.repo, "tracked")));
     f.git(f.repo, "worktree", "add", "-b", "finished", f.tree);
     f.git(f.repo, "config", "--local", "dotfiles.hygiene", "skip");
-    const excluded = cleanRepository(f.repo, f.roots, {}, week, true, () => [], offline);
+    const excluded = cleanRepository(f.repo, f.roots, {}, baseline + week, true, () => [], offline);
     assert.equal(excluded.entries[0]?.result, "excluded by local dotfiles.hygiene=skip");
     assert.ok(existsSync(f.tree));
   } finally { f.cleanup(); }

@@ -154,12 +154,21 @@ ancestor of the current remote default commit. Cleanup preserves:
   (`main`, `master`, `develop`, `dev`, `production`, `staging`, `release/*`).
 
 A candidate must have the same HEAD at two eligible observations at least seven
-days apart. Cleanup refreshes the remote, Git state, locks, and process activity
+days apart. Worktrees must additionally have no filesystem changes within seven
+days: creation, modification, and metadata-change timestamps across the tree
+and its private Git directory are checked. Recent changes restart the grace
+period even when HEAD is unchanged. Dependency directories are checked without
+walking their contents; symlinks are not followed. Unreadable paths or an
+inventory exceeding 100,000 entries retain the worktree. Git inspection disables
+optional index writes so cleanup does not count its own status checks as work.
+Cleanup refreshes the remote, Git state, locks, and process activity
 again before removal. It uses `git worktree remove` and `git branch -d` without
 force. Branches checked out anywhere and the remote default branch stay; after
 a worktree is removed, its branch begins its own grace period. This is an
 observed grace period, not a record of all activity between runs. Use
-`git worktree lock <path>` to retain a worktree deliberately.
+`git worktree lock --reason "active agent task" <path>` to retain a worktree
+deliberately, including read-only work that filesystem timestamps cannot detect.
+Unlock it with `git worktree unlock <path>` only when that task is finished.
 
 Cache cleanup removes files older than 30 days from Xcode DerivedData,
 simulator caches, Gradle build caches and Go build caches; older simulator,
