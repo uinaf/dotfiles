@@ -26,11 +26,11 @@ export function updateJobs(options: UpdateOptions, prefix: string) {
   };
   const definitions = [
     ...(options.homebrew ? [{
-      service: "homebrew-update", minute: 23,
+      service: "homebrew-update", minute: 0,
       args: [node, join(repository, "scripts/bootstrap/brew-devbox.ts"), "--update-software"],
     }] : []),
     {
-      service: "software-update", minute: 33 + target.uid % 20,
+      service: "software-update", minute: 5 * (1 + target.uid % 10),
       args: [join(prefix, "bin/topgrade"), "--config", join(target.home, ".config/topgrade.toml"),
         "--only", "github_cli_extensions", "custom_commands", "--no-tmux", "--no-ask-retry",
         "--no-self-update", "--notify-end", "never", "--yes"],

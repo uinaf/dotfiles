@@ -144,8 +144,10 @@ sudo node scripts/bootstrap/install-devbox-service-daemons.ts \
 - Only the Homebrew prefix owner gets `--homebrew-updates`; omit it for others.
   Each user must own their checkout/profile. Add `--check` for read-only validation.
 - Disable the user's GUI updater before enrollment. System and GUI enrollment
-  reject duplicates. Jobs run on enrollment/boot and every six hours; per-user
-  jobs are staggered after the shared Homebrew job.
+  reject duplicates. Jobs run on enrollment/boot and every six hours.
+- Homebrew starts at `:00`. Per-user jobs use five-minute slots from `:05` to
+  `:50`, selected by `5 × (1 + UID % 10)`; UIDs 502 and 503 run at `:15` and
+  `:20`. Slots stagger starts, without waiting for earlier jobs to finish.
 - Use the actual installed labels; `kickstart` without `-k` preserves active runs:
 
 ```sh
