@@ -57,9 +57,20 @@ in-progress release.
 - Renovate tracks Actions, repository dependencies, runtime tools, skills CLI,
   and runtime package pins daily (00:00–06:00 Europe/Istanbul), with a seven-day
   release age through the shared `uinaf/renovate-config` preset.
-- Renovate merges non-major PRs itself after every visible check passes.
-  Majors stay manual. Node, pnpm, and PyYAML pins are grouped across their
-  consumers; the runtime pin check rejects partial updates.
+- GitHub auto-merges eligible Renovate PRs with squash after the required
+  `Repository checks`, `scan / Gitleaks`, `scan / TruffleHog`,
+  `scan / Actionlint`, and `scan / Zizmor` checks pass. The repository opts into
+  `platformAutomerge` so merges do not wait for another hosted Renovate run.
+  Add new voting checks to the required-check ruleset when introducing them.
+- The required-check ruleset targets the default branch and accepts checks
+  from GitHub Actions. It does not require an up-to-date branch. Repository
+  admins retain verified direct pushes through a bypass scoped to this
+  ruleset; Renovate has no bypass. The existing signature, deletion, and
+  force-push rules remain separate.
+- The shared preset's strict release-age filter prevents young updates from
+  entering PRs. Majors and digest-only updates stay manual. Node, pnpm, and
+  PyYAML pins are grouped across their consumers; the runtime pin check
+  rejects partial updates. Frozen-lockfile installation gates artifact updates.
 - Keep third-party Actions and semantic-release plugins hash/version pinned.
   The first-party shared scanner tracks `main` for centrally maintained updates;
   `.github/zizmor.yml` enforces this exception.

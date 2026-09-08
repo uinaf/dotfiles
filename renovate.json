@@ -3,6 +3,7 @@
   "extends": [
     "github>uinaf/renovate-config"
   ],
+  "platformAutomerge": true,
   "packageRules": [
     {
       "description": "Keep CI, bootstrap, and installed Node on the same release",
