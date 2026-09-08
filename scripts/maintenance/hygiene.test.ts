@@ -4,9 +4,28 @@ import { chmodSync, closeSync, existsSync, mkdtempSync, mkdirSync, openSync, rea
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { cacheCleanup, cacheCleanupTimeoutMs, candidates, capLogs, cleanRepository, discoverRepositories, openFiles, readState, type Runner } from "./hygiene.ts";
+import { cacheCleanup, cacheCleanupTimeoutMs, candidates, capLogs, cleanRepository, discoverRepositories, hygiene, openFiles, readState, type Runner } from "./hygiene.ts";
 
 const week = 7 * 86400_000;
+
+test("applied hygiene retains successive reports when stdout is not redirected", t => {
+  const home = mkdtempSync(join(tmpdir(), "hygiene-log-"));
+  t.after(() => rmSync(home, { recursive: true, force: true }));
+  const directory = join(home, ".local/state/dotfiles");
+  mkdirSync(directory, { recursive: true });
+  const now = Date.now();
+  for (let pass = 0; pass < 2; pass++) {
+    writeFileSync(join(directory, "hygiene.json"), JSON.stringify({ lastRun: 0, lastCache: now, candidates: {} }));
+    hygiene(home, true, true, now + pass);
+  }
+  const path = join(home, `Library/Logs/dotfiles/hygiene-${new Date(now).toISOString().slice(0, 10)}.log`);
+  const log = readFileSync(path, "utf8");
+  assert.equal(log.match(/"startedAt"/g)?.length, 2);
+  assert.equal(log.match(/Cache cleanup is not due/g)?.length, 2);
+  assert.equal(statSync(path).mode & 0o777, 0o600);
+  hygiene(home, true, true, now + 2);
+  assert.equal(readFileSync(path, "utf8"), log, "weekly skips do not append");
+});
 const runner: Runner = (cwd, command, args) => {
   const result = spawnSync(command, args, { cwd, encoding: "utf8", env: { ...process.env, GIT_CONFIG_NOSYSTEM: "1" } });
   return { status: result.status ?? 1, stdout: result.stdout ?? "" };

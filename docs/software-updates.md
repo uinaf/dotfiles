@@ -182,7 +182,22 @@ apply.
   depends on the user's notification permissions and Focus settings.
 - Successful and unchanged runs stay silent. Their per-step summaries remain
   in `~/Library/Logs/dotfiles/software-update.log`.
-- The private local log appends across runs. The weekly hygiene pass caps each
+- Each updater also appends JSON start/finish records to
+  `~/Library/Logs/dotfiles/<job>-history-YYYY-MM-DD.log`, including timestamps, exit code,
+  and heartbeat outcome. These records also delimit runs in the main log.
+- Applied hygiene passes, including manual runs, append timestamped repository
+  removal/retention reports and cache output to
+  `~/Library/Logs/dotfiles/hygiene-YYYY-MM-DD.log`. Previews and weekly skips do not append.
+  Cache disk-use deltas include other concurrent disk activity, so they are not
+  exact reclaimed-byte measurements.
+- Before each update, the wrapper archives the preceding run's output with a
+  timestamp and truncates the active log in place, preserving launchd's open
+  descriptor. Dated logs retain today and the preceding six UTC calendar days;
+  updates and applied hygiene prune older dated files. Expiry happens on the
+  next maintenance run, not while the machine is asleep. The active log remains
+  available until its next update. Existing undated output is archived on the
+  first updated run, using its last-modified time.
+- The weekly hygiene pass also caps each
   `~/Library/Logs/dotfiles/*.log` to its final 2 MB in place, preserving
   launchd's open append descriptors. Manual truncation while the updater is
   idle remains available as a fallback.
@@ -200,6 +215,18 @@ Each enrolled job writes a private receipt under
 and heartbeat delivery. `maintenance:status` includes the GUI updater receipt.
 A receipt left in `running` state is not proof that the process is still alive;
 compare it with launchd. The wrapper records no command output or secret URLs.
+
+Inspect retained run results and cleanup details without running maintenance:
+
+```sh
+tail -n 20 ~/Library/Logs/dotfiles/software-update-history-*.log
+tail -n 100 ~/Library/Logs/dotfiles/hygiene-*.log
+```
+
+History starts with the updated wrapper's next invocation; earlier runs are not
+backfilled. The seven-day retention and weekly 2 MB cap apply to dated logs, so
+counts describe retained history, not lifetime totals. No launchd reload is
+needed when only these scripts change.
 
 For an always-on host, an external heartbeat monitor can detect missed or stuck
 runs independently of launchd. Provision an owner-only regular file at

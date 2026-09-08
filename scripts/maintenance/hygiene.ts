@@ -7,6 +7,7 @@ import { join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Schema } from "effect";
 import { acquireDirectoryLock } from "../lib/lock.ts";
+import { dailyLog } from "./logs.ts";
 
 const week = 7 * 86400_000;
 const State = Schema.Struct({
@@ -307,8 +308,11 @@ export function hygiene(home: string, apply: boolean, scheduled: boolean, now = 
     failed ||= cache.status !== 0;
     const logs = apply ? capLogs(join(home, "Library/Logs/dotfiles")) : [];
     failed ||= logs.some(entry => entry.result.startsWith("log cap failed"));
-    console.log(JSON.stringify({ apply, repositories: reports, cacheExitCode: cache.status, logs }, null, 2));
+    const report = JSON.stringify({ startedAt: new Date(now).toISOString(), finishedAt: new Date().toISOString(),
+      apply, repositories: reports, cacheExitCode: cache.status, logs }, null, 2);
+    console.log(report);
     if (apply) {
+      writeFileSync(dailyLog(home, "hygiene", now), `${cache.stdout}\n${report}\n`, { flag: "a", mode: 0o600 });
       const temporary = `${statePath}.${process.pid}.tmp`;
       writeFileSync(temporary, JSON.stringify({ lastRun: failed ? 0 : now,
         lastCache: cacheDue && cache.status === 0 ? now : state.lastCache, candidates: next }), { mode: 0o600 });

@@ -6,6 +6,7 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { CommandRunner } from "../lib/command.ts";
 import { fail, runMain } from "../lib/program.ts";
+import { dailyLog, rotateUpdateLog } from "./logs.ts";
 
 const Job = Schema.Literals(["software-update", "homebrew-update"]);
 type Job = typeof Job.Type;
@@ -27,10 +28,19 @@ export const runUpdate = Effect.fn("runMonitoredUpdate")(function*(
   const path = join(directory, `${job}.json`);
   const configPath = join(home, ".config/dotfiles/update-heartbeats.json");
   let delivery: Delivery = "not-configured";
+  yield* Effect.try(() => rotateUpdateLog(home, job)).pipe(
+    Effect.catch(() => Console.error("Could not rotate update logs; updates will continue.")),
+  );
   const receipt = Effect.fn("writeUpdateReceipt")(function*(fields: Record<string, unknown>) {
+    const record = `${JSON.stringify({ version: 1, job, startedAt, ...fields })}\n`;
+    yield* Console.log(`Update receipt: ${record.trim()}`);
+    yield* Effect.gen(function*() {
+      const history = yield* Effect.try(() => dailyLog(home, `${job}-history`));
+      yield* fs.writeFileString(history, record, { flag: "a", mode: 0o600 });
+    }).pipe(Effect.catch(() => Console.error("Could not append update history; inspect the update log.")));
     yield* fs.makeDirectory(directory, { recursive: true, mode: 0o700 });
     const temporary = `${path}.${process.pid}.tmp`;
-    yield* fs.writeFileString(temporary, `${JSON.stringify({ version: 1, job, startedAt, ...fields })}\n`, { mode: 0o600 });
+    yield* fs.writeFileString(temporary, record, { mode: 0o600 });
     yield* fs.rename(temporary, path);
   }, Effect.catch(() => Console.error("Could not write update receipt; inspect launchd and the update log.")));
 
