@@ -6,6 +6,11 @@
   "platformAutomerge": true,
   "packageRules": [
     {
+      "description": "Hold the changelog preset for release-notes-generator 14; newer presets require writer 9 and must be upgraded together",
+      "matchPackageNames": ["conventional-changelog-conventionalcommits"],
+      "allowedVersions": "10.2.1"
+    },
+    {
       "description": "Keep CI, bootstrap, and installed Node on the same release",
       "matchPackageNames": [
         "node"

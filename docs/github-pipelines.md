@@ -74,5 +74,9 @@ in-progress release.
 - Keep third-party Actions and semantic-release plugins hash/version pinned.
   The first-party shared scanner tracks `main` for centrally maintained updates;
   `.github/zizmor.yml` enforces this exception.
+- Hold `conventional-changelog-conventionalcommits` at `10.2.1` while using
+  `@semantic-release/release-notes-generator` 14. Newer presets require writer 9
+  and fail during release-note rendering. Upgrade these together after proving
+  note generation; pull-request checks do not execute the release job.
 - Keep `.releaserc.json` aligned with the table above.
 - Verify workflow changes on GitHub before closing them.
