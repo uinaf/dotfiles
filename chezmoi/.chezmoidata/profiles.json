@@ -100,10 +100,6 @@
           {
             "packageType": "cask",
             "name": "uinaf/tap/slopguard"
-          },
-          {
-            "packageType": "cask",
-            "name": "uinaf/tap/slopmachine"
           }
         ]
       },
@@ -139,10 +135,6 @@
           {
             "packageType": "cask",
             "name": "uinaf/tap/slopguard"
-          },
-          {
-            "packageType": "cask",
-            "name": "uinaf/tap/slopmachine"
           }
         ]
       }

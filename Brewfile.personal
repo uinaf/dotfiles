@@ -21,7 +21,6 @@ tap "putdotio/tap", trusted: true
 
 # Personal development tools
 cask "uinaf/tap/slopguard"
-cask "uinaf/tap/slopmachine"
 brew "asc"
 brew "uinaf/tap/attach"
 brew "openclaw/tap/crabbox"

@@ -79,7 +79,7 @@ const program = Effect.scoped(Effect.gen(function*() {
   assert.equal((yield* validate("workstation", { MANAGED_TOOL_EXIT: "23" }).pipe(Effect.option))._tag, "None");
   delete process.env.MANAGED_TOOL_EXIT;
 
-  const agentCapabilities = [command("cask", "uinaf/tap/slopguard", ["version"]), command("cask", "uinaf/tap/slopmachine", ["version"])];
+  const agentCapabilities = [command("cask", "uinaf/tap/slopguard", ["version"])];
   yield* write(agentCapabilities);
   for (const profile of ["workstation", "devbox"]) {
     assert.deepEqual(yield* validate(profile), {});
@@ -87,7 +87,7 @@ const program = Effect.scoped(Effect.gen(function*() {
     delete process.env.MANAGED_TOOL_EXIT;
   }
   for (const profile of ["personal-workstation", "personal-devbox"]) {
-    assert.equal((yield* validate(profile)).HOMEBREW_BUNDLE_CASK_SKIP, "uinaf/tap/slopguard uinaf/tap/slopmachine");
+    assert.equal((yield* validate(profile)).HOMEBREW_BUNDLE_CASK_SKIP, "uinaf/tap/slopguard");
   }
   yield* write([command("cask", "uinaf/tap/slopwake", ["version"])]);
   assert.equal((yield* validate().pipe(Effect.option))._tag, "None");

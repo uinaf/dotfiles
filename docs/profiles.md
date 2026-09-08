@@ -73,8 +73,8 @@ Profiles can accept packages supplied by another trusted installer:
 - Unknown/duplicate entries, failed probes, unsafe permissions, and signature
   mismatches fail setup. Ambient Homebrew Bundle skip variables are rejected.
 
-Only personal profiles install `uinaf/tap` and its `slopguard` and `slopmachine`
-casks. On `workstation` and `devbox`, supply these commands through an authorized
-installer; live verification still requires `slopguard version` and
-`slopmachine version` to pass. Their cask names are accepted in the external
-capability file without trusting or installing the personal tap.
+Only personal profiles install `uinaf/tap` and its `slopguard` cask. On
+`workstation` and `devbox`, supply `slopguard` through an authorized installer;
+live verification still requires `slopguard version` to pass. Its cask name is
+accepted in the external capability file without trusting or installing the
+personal tap.
