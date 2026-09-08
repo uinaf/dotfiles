@@ -10,6 +10,7 @@ import { acquireDirectoryLock } from "../lib/lock.ts";
 import { dailyLog } from "./logs.ts";
 
 const week = 7 * 86400_000;
+const gracePeriod = 3 * 86400_000;
 const State = Schema.Struct({
   lastRun: Schema.Number,
   lastCache: Schema.Number,
@@ -181,9 +182,9 @@ export function cleanRepository(
     const old = previous[key];
     const since = old?.head === candidate.head && old.since <= now ? old.since : now;
     next[key] = { head: candidate.head, since };
-    if (!apply || now - since < week) {
+    if (!apply || now - since < gracePeriod) {
       entries.push({ target: candidate.kind === "branch" ? candidate.branch : candidate.path,
-        result: now - since < week ? "eligible; seven-day grace period" : "would remove" });
+        result: now - since < gracePeriod ? "eligible; three-day grace period" : "would remove" });
       continue;
     }
     // Refresh remote, Git state, locks, and live activity immediately before removal.
@@ -197,9 +198,9 @@ export function cleanRepository(
     if (candidate.kind === "worktree") {
       const gitDirectory = checked(runner, candidate.path, "git", ["rev-parse", "--absolute-git-dir"]);
       const changedAt = Math.max(lastChanged(candidate.path), lastChanged(gitDirectory));
-      if (now - changedAt < week) {
+      if (now - changedAt < gracePeriod) {
         next[key] = { head: candidate.head, since: now };
-        entries.push({ target: candidate.path, result: "changed within seven days; grace period restarted" });
+        entries.push({ target: candidate.path, result: "changed within three days; grace period restarted" });
         continue;
       }
     }

@@ -153,8 +153,8 @@ ancestor of the current remote default commit. Cleanup preserves:
 - Branches with an existing upstream and conventional long-lived branches
   (`main`, `master`, `develop`, `dev`, `production`, `staging`, `release/*`).
 
-A candidate must have the same HEAD at two eligible observations at least seven
-days apart. Worktrees must additionally have no filesystem changes within seven
+A candidate must have the same HEAD at two eligible observations at least three
+days apart. Worktrees must additionally have no filesystem changes within three
 days: creation, modification, and metadata-change timestamps across the tree
 and its private Git directory are checked. Recent changes restart the grace
 period even when HEAD is unchanged. Dependency directories are checked without
