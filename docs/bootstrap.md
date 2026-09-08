@@ -82,6 +82,23 @@ Power configuration disables sleep while plugged in and leaves battery settings
 unchanged. Spotlight configuration disables indexing on mounted volumes without
 removing existing index data.
 
+### Spotlight Policy
+
+Developer profile checks require Spotlight indexing to be disabled by default.
+If indexing is intentional, omit the `configure-spotlight.ts` setup step and
+skip its verification with:
+
+```zsh
+DOTFILES_SKIP_SPOTLIGHT_CHECK=1 ./dotfiles check "$profile"
+```
+
+For subsequent checks, export `DOTFILES_SKIP_SPOTLIGHT_CHECK=1` in your
+machine-local [`~/.config/dotfiles/zshenv.local`](chezmoi.md#local-overrides).
+Checks report the policy as skipped and leave indexing unchanged. `apply` does
+not configure Spotlight. An explicit
+`./scripts/bootstrap/configure-spotlight.ts` still disables indexing and verifies
+the result, even with this flag set.
+
 ### Workstation Options
 
 - Install licensed Berkeley Mono Variable manually; Ghostty falls back to Menlo.

@@ -17,14 +17,11 @@ cask "google-chrome"
 
 # Taps
 tap "teamookla/speedtest", trusted: true
-tap "uinaf/tap", trusted: true
 
 # Coding agents
 cask "codex"
 cask "claude-code@latest"
 brew "opencode"
-cask "uinaf/tap/slopguard"
-cask "uinaf/tap/slopmachine"
 
 # Development CLI
 brew "topgrade"

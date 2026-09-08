@@ -58,17 +58,23 @@ For `workstation`, enroll one when SOPS decryption is needed:
 
 ## Externally Managed Homebrew Capabilities
 
-A workstation can accept packages supplied by another trusted installer:
+Profiles can accept packages supplied by another trusted installer:
 
 - Create `~/.config/dotfiles/external-homebrew.plist`: a regular XML plist,
   owned by the user, without group/other write access.
 - Use version `1` and a `capabilities` array following the
   [schema](../scripts/lib/homebrew.ts) and
   [examples](../scripts/verify/external-homebrew.ts). Entries must name packages
-  declared by the selected profile.
+  declared in the selected profile's Brewfiles or `externalHomebrew` list.
 - `command`: absolute executable owned by root or the user, without group/other
   write access; up to three literal arguments for a safe execution probe.
 - `bundle`: absolute nonsymlinked app bundle, exact bundle identifier and signing
   team, and valid strict signature.
 - Unknown/duplicate entries, failed probes, unsafe permissions, and signature
   mismatches fail setup. Ambient Homebrew Bundle skip variables are rejected.
+
+Only personal profiles install `uinaf/tap` and its `slopguard` and `slopmachine`
+casks. On `workstation` and `devbox`, supply these commands through an authorized
+installer; live verification still requires `slopguard version` and
+`slopmachine version` to pass. Their cask names are accepted in the external
+capability file without trusting or installing the personal tap.

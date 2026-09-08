@@ -89,10 +89,14 @@ exit "\${FAKE_BREW_EXIT:-0}"
     return yield* fs.readFileString(bundleLog);
   });
   const devbox = yield* bundle("devbox");
+  assert.equal(devbox.includes("arg=uinaf/tap\n"), false);
+  assert.equal((yield* bundle("workstation")).includes("arg=uinaf/tap\n"), false);
   assert.equal((devbox.match(/^arg=bundle$/gm) || []).length, 2);
   assert.equal((devbox.match(/^profile=devbox$/gm) || []).length, 2);
   for (const file of ["Brewfile", "Brewfile.devbox"]) assert.ok(devbox.includes(`arg=${join(repoRoot, file)}`));
   const personal = yield* bundle("personal-devbox");
+  assert.ok(personal.includes("arg=uinaf/tap\n"));
+  assert.ok((yield* bundle("personal-workstation")).includes("arg=uinaf/tap\n"));
   assert.equal((personal.match(/^arg=bundle$/gm) || []).length, 3);
   for (const file of ["Brewfile", "Brewfile.devbox", "Brewfile.personal"]) assert.ok(personal.includes(`arg=${join(repoRoot, file)}`));
   const shared = yield* bundle("devbox", ["--shared-only"]);

@@ -11,7 +11,10 @@ const usage = `Usage:
 Disables Spotlight indexing on all mounted macOS volumes.
 
 This is a deliberate sudo step because mdutil changes system indexing policy.
-It does not delete existing Spotlight index data.`;
+It does not delete existing Spotlight index data.
+
+Set DOTFILES_SKIP_SPOTLIGHT_CHECK=1 to skip --check when indexing is intentional.
+This does not affect an explicit configuration run.`;
 
 const checkPolicy = Effect.fn("checkSpotlightPolicy")(function*() {
   const runner = yield* CommandRunner;
@@ -41,6 +44,10 @@ const program = Effect.gen(function*() {
   }
   if (process.platform !== "darwin") return yield* fail("configure-spotlight is macOS-only");
   if (checkOnly) {
+    if (process.env.DOTFILES_SKIP_SPOTLIGHT_CHECK === "1") {
+      yield* Console.log("skipped Spotlight indexing policy check (DOTFILES_SKIP_SPOTLIGHT_CHECK=1)");
+      return;
+    }
     yield* checkPolicy();
     return;
   }

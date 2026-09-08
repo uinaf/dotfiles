@@ -14,6 +14,10 @@ const SkillLayer = Schema.Literals(["developer", "workstation", "devbox", "perso
 const ProfileConfig = Schema.Struct({
   capabilities: Capabilities,
   brewfiles: Schema.NonEmptyArray(Schema.NonEmptyString),
+  externalHomebrew: Schema.optionalKey(Schema.Array(Schema.Struct({
+    packageType: Schema.Literals(["brew", "cask"]),
+    name: Schema.NonEmptyString,
+  }))),
   runtimeGroup: Schema.Literals(["developer", "none"]),
   skillLayers: Schema.Array(SkillLayer),
   installSteps: Schema.NonEmptyArray(Schema.NonEmptyString),

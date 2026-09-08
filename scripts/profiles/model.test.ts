@@ -85,6 +85,15 @@ test("TypeScript rejects malformed, unsupported, missing, and wrong-type data", 
   assert.throws(() => requireProfile(model, "constructor"), /unknown profile/);
 });
 
+test("external Homebrew declarations reject malformed entries in both consumers", () => {
+  for (const externalHomebrew of [null, "slopguard", ["slopguard"], [{ packageType: "tap", name: "example/tap" }], [{ packageType: "cask", name: "" }], [{ packageType: "cask", name: "example", extra: true }]]) {
+    const model = rawModel();
+    model.profileModel.profiles.workstation.externalHomebrew = externalHomebrew;
+    assert.throws(() => parseProfileModel(JSON.stringify(model)));
+    assert.notEqual(renderProfile("workstation", model.profileModel).status, 0);
+  }
+});
+
 test("Brewfile gates GUI casks on the workstation capability", () => {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-profile-brewfile-"));
   const fixtureModelPath = join(root, "chezmoi/.chezmoidata/profiles.json");
@@ -108,12 +117,12 @@ test("Brewfile gates GUI casks on the workstation capability", () => {
     const personalDevbox = model.profileModel.profiles["personal-devbox"]?.capabilities as Record<string, unknown>;
     personalDevbox.workstation = false;
     writeFileSync(fixtureModelPath, JSON.stringify(model));
-    assert.deepEqual(listCasks("personal-devbox"), []);
+    assert.deepEqual(listCasks("personal-devbox").sort(), ["slopguard", "slopmachine"]);
 
     const personalWorkstation = model.profileModel.profiles["personal-workstation"]?.capabilities as Record<string, unknown>;
     personalWorkstation.workstation = true;
     writeFileSync(fixtureModelPath, JSON.stringify(model));
-    assert.ok(listCasks("personal-workstation").length > 0);
+    assert.ok(listCasks("personal-workstation").includes("firefox"));
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

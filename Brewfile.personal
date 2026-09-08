@@ -15,10 +15,13 @@ workstation_enabled = capabilities.fetch("workstation")
 raise "profile workstation capability must be boolean" unless [true, false].include?(workstation_enabled)
 
 # Taps
+tap "uinaf/tap", trusted: true
 tap "openclaw/tap", trusted: true
 tap "putdotio/tap", trusted: true
 
 # Personal development tools
+cask "uinaf/tap/slopguard"
+cask "uinaf/tap/slopmachine"
 brew "asc"
 brew "uinaf/tap/attach"
 brew "openclaw/tap/crabbox"

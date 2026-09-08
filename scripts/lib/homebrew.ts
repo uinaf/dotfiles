@@ -180,6 +180,11 @@ const declared = Effect.fn("externalHomebrewEntryDeclared")(function*(
       env: { HOMEBREW_BUNDLE_DOTFILES_PROFILE: profile, HOMEBREW_NO_AUTO_UPDATE: "1" },
     });
     if (listed.status === 0 && listed.stdout.split("\n").includes(name)) return true;
+    if (listed.status === 0 && name.includes("/") && listed.stdout.split("\n").includes(basename(name))) {
+      const fs = yield* FileSystem.FileSystem;
+      const contents = yield* fs.readFileString(join(repoRoot, file));
+      if (contents.split("\n").some((line) => line.trim() === `${packageType} "${name}"`)) return true;
+    }
   }
   return false;
 });
@@ -260,7 +265,9 @@ export const configureExternalCapabilities = Effect.fn("configureExternalHomebre
   const seen = new Set<string>();
   const skips: Record<string, string[]> = { HOMEBREW_BUNDLE_BREW_SKIP: [], HOMEBREW_BUNDLE_CASK_SKIP: [] };
   for (const capability of config.capabilities) {
-    if (!(yield* declared(repoRoot, profileBrewfiles(model, profile), profile, capability.packageType, capability.name))) {
+    const externalOnly = requireProfile(model, profile).externalHomebrew?.some((entry) =>
+      entry.packageType === capability.packageType && entry.name === capability.name) ?? false;
+    if (!externalOnly && !(yield* declared(repoRoot, profileBrewfiles(model, profile), profile, capability.packageType, capability.name))) {
       return yield* fail(`invalid external Homebrew capability: ${capability.packageType} ${capability.name} is not declared by profile ${profile}`);
     }
     const key = `${capability.packageType}|${capability.name}`;
@@ -272,7 +279,7 @@ export const configureExternalCapabilities = Effect.fn("configureExternalHomebre
     } else {
       yield* validateBundle(capability.name, capability.path, capability.bundleIdentifier, capability.teamIdentifier);
     }
-    skips[capability.packageType === "brew" ? "HOMEBREW_BUNDLE_BREW_SKIP" : "HOMEBREW_BUNDLE_CASK_SKIP"]?.push(capability.name);
+    if (!externalOnly) skips[capability.packageType === "brew" ? "HOMEBREW_BUNDLE_BREW_SKIP" : "HOMEBREW_BUNDLE_CASK_SKIP"]?.push(capability.name);
     yield* Console.log(`validated external ${capability.packageType} ${capability.name}`);
   }
   return Object.fromEntries(Object.entries(skips).filter(([, values]) => values.length > 0).map(([key, values]) => [key, values.join(" ")]));

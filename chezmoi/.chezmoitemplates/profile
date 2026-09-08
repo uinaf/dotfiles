@@ -8,8 +8,21 @@
 {{- fail "profile model profiles must be an object" -}}
 {{- end -}}
 {{- range $name, $candidate := .profileModel.profiles -}}
-{{- if or (not (kindIs "map" $candidate)) (ne (len $candidate) 5) -}}
+{{- if or (not (kindIs "map" $candidate)) (ne (len (omit $candidate "externalHomebrew")) 5) -}}
 {{- fail (printf "profile %s must contain capabilities, brewfiles, runtimeGroup, skillLayers, and installSteps" $name) -}}
+{{- end -}}
+{{- if hasKey $candidate "externalHomebrew" -}}
+{{- if not (kindIs "slice" $candidate.externalHomebrew) -}}
+{{- fail (printf "profile %s externalHomebrew must be an array" $name) -}}
+{{- end -}}
+{{- range $entry := $candidate.externalHomebrew -}}
+{{- if not (kindIs "map" $entry) -}}
+{{- fail (printf "profile %s externalHomebrew entry must be an object" $name) -}}
+{{- end -}}
+{{- if or (ne (len $entry) 2) (not (has $entry.packageType (list "brew" "cask"))) (not (kindIs "string" $entry.name)) (empty $entry.name) -}}
+{{- fail (printf "profile %s externalHomebrew entry is invalid" $name) -}}
+{{- end -}}
+{{- end -}}
 {{- end -}}
 {{- if or (not (kindIs "map" $candidate.capabilities)) (ne (len $candidate.capabilities) 6) -}}
 {{- fail (printf "profile %s capabilities have an invalid shape" $name) -}}

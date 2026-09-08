@@ -227,6 +227,12 @@
       "output": "Atomic Chrome Local State updates and malformed-input preservation"
     },
     {
+      "id": "spotlight-policy",
+      "domain": "profiles",
+      "command": ["node", "--test", "scripts/bootstrap/configure-spotlight.test.ts"],
+      "output": "Strict Spotlight policy verification, explicit opt-out, and command isolation"
+    },
+    {
       "id": "mise-path",
       "domain": "profiles",
       "command": [

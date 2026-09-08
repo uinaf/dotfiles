@@ -72,6 +72,9 @@ function allowed(file: string, content: string): boolean {
     case "scripts/agents/sync.test.ts":
       return containsAny(content, ["uinaf/agents", "uinaf/skills", "uinaf/agent-skills", "uinaf/attach", "uinaf/design", "uinaf-design"]);
     case "scripts/verify/profiles.ts":
+    case "scripts/verify/brew-devbox.ts":
+    case "scripts/verify/external-homebrew.ts":
+    case "chezmoi/.chezmoidata/profiles.json":
       return content.includes("uinaf/tap");
     default:
       return false;
