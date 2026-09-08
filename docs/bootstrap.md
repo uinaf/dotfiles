@@ -1,90 +1,39 @@
 # Bootstrap Guide
 
-Use this guide when installing or refreshing a Mac from this repository.
-
-The repo has four per-user profiles:
-
-- `workstation` for a portable human-operated development Mac.
-- `personal-workstation` for a workstation plus personal packages and skills.
-- `personal-devbox` for a devbox plus headless personal tools and skills.
-- `devbox` for a remote coding identity on an SSH-first host.
-
-The role contract and host/user boundary are defined in
-[User profiles](profiles.md). Run commands from the repo root unless a step
-says otherwise.
-
-Cursor:
-
-- Cursor Agent CLI is required for `personal-workstation`, `personal-devbox`,
-  `workstation`, and `devbox`, and is installed by
-  `./scripts/bootstrap/install.ts`.
-- Cursor desktop belongs to the workstation Homebrew layer.
-- Devbox shells use Cursor's owner-local file credential store because SSH
-  sessions cannot depend on an unlocked macOS login keychain.
-
-SOPS and age:
-
-- Keep the SOPS and age CLIs in the portable Homebrew baseline.
-- Require a per-user SOPS age identity only for profiles and workflows that
-  decrypt encrypted material: `personal-devbox`, `devbox`, and any
-  vault or sudo consumer.
-- Portable `workstation` and `personal-workstation` boots can pass readiness
-  without an identity; decryption stays fail-closed until one is provisioned.
-- When you do create an identity, follow
-  [Identity provisioning](identities.md), back it up through an approved human
-  recovery system, and verify the restored recipient before protecting live
-  ciphertext.
+Run commands from the repository root as the target Unix user. Choose a
+[profile](profiles.md): `workstation`, `personal-workstation`, `devbox`, or
+`personal-devbox`.
 
 ## First-Time Prerequisites
 
-Install Apple Command Line Tools:
+Install Apple Command Line Tools and Homebrew:
 
 ```zsh
 xcode-select --install
-```
-
-Install Homebrew:
-
-```zsh
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 ```
 
-Install the minimum tools needed to clone the repo on a workstation Mac:
+Install the clone tools, authenticate, and prepare the checkout:
 
 ```zsh
-brew install git gh
+brew install git gh mise
 gh auth login
-```
-
-On a shared devbox, scope the owner-only umask directly because the repo
-wrapper is not available until after this first clone:
-
-```zsh
-(umask 0027; brew install git gh)
-gh auth login
-```
-
-Clone the repo:
-
-```zsh
 mkdir -p ~/projects
 gh repo clone uinaf/dotfiles ~/projects/dotfiles
 cd ~/projects/dotfiles
-brew install mise
 ./dotfiles prepare
 export PATH="$(mise --no-config where node@"$(cat .node-version)")/bin:$PATH"
 ```
 
-`./dotfiles prepare` installs the pinned Node runtime and locked repository
-dependencies before any TypeScript entrypoint runs. It does not apply a profile.
+On a shared devbox, run the initial `brew install` as the prefix owner inside
+`(umask 0027; brew install git gh mise)`. Use the [shared wrapper](#shared-homebrew-updates)
+for subsequent mutations.
 
-Trust this checkout after the bundle step and before `mise tasks` or `mise run ...`.
+`prepare` installs the pinned Node runtime and locked repository dependencies.
 
-## Gitless First Fetch
+### Gitless First Fetch
 
-Use this only when a fresh Mac cannot run `git` or `gh` yet. macOS ships enough
-tools to fetch a public GitHub archive, which lets a human or agent inspect the
-bootstrap files before running anything:
+If Git is unavailable, fetch an archive to inspect and bootstrap:
 
 ```zsh
 mkdir -p ~/projects
@@ -95,375 +44,126 @@ mv ~/projects/dotfiles-main ~/projects/dotfiles
 cd ~/projects/dotfiles
 ```
 
-Before running TypeScript scripts from this archive, install Homebrew and run
-`brew install mise`, then `./dotfiles prepare` and export the Node `PATH`
-shown in the clone steps above.
+Install Homebrew and mise, then run `prepare` and the Node `PATH` export above.
+Once Git and `gh` work, move the archive aside and clone into a fresh directory
+before using Git updates or contribution commands.
 
-Archive checkouts are disposable:
+## Apply a Profile
 
-- Reading docs and running the first public bootstrap scripts is supported.
-  `scripts/bootstrap/install.ts` can install files from an archive checkout.
-- After Homebrew, `git`, and `gh` are installed, replace the archive with a real
-  clone so updates, diffs, hooks, and contribution checks work normally:
-
-```zsh
-cd ~/projects
-mv dotfiles dotfiles.archive.$(date +%Y%m%d%H%M%S)
-gh repo clone uinaf/dotfiles dotfiles
-cd dotfiles
-```
-
-Do not run identity, signing-key, or secret setup from guessed values just
-because the repo was fetched this way. Keep using the selected
-profile steps below.
-
-## Human Workstation Macs
-
-Use `workstation` for the portable developer baseline or when another trusted
-system owns selected software. Use `personal-workstation` when this repository
-should also own the personal package and skill layers.
-
-Install Homebrew dependencies:
+Before applying a personal profile, provision the owner-only
+[LLM gateway config](devbox.md#opt-in-coding-llm-gateway). Personal setup retires
+saved coding-client logins except those listed in `preservedLogins`.
 
 ```zsh
-profile=workstation # use personal-workstation for the personal layers
+profile=workstation # or personal-workstation, devbox, personal-devbox
 ./scripts/bootstrap/brew-bundle.ts "$profile"
-```
-
-The script trusts each third-party tap declared in the selected Brewfiles
-(`brew trust`) before bundling; Homebrew versions without trust enforcement
-skip the step.
-
-For externally supplied Brewfile entries, or a managed Homebrew that refuses
-tap trust, configure the local validation contract in
-[User profiles](profiles.md#externally-managed-homebrew-capabilities).
-
-On `personal-workstation` only, remove bundled Mac App Store apps this setup
-does not use:
-
-```zsh
-./scripts/app-store/personal.ts
-```
-
-This uses `mas`, which discovers installed apps through Spotlight, and may ask
-for the local account password during uninstall.
-
-Install optional shell customization:
-
-```zsh
-sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
-```
-
-Fonts and terminal:
-
-- Editor and terminal defaults prefer `Berkeley Mono Variable`.
-- This repo does not install that font because it is licensed; ask the human to
-  provide and install it when available.
-- Ghostty falls back to `Menlo`, which ships with macOS and needs no extra font
-  package.
-- The managed Ghostty config enables its `ssh-env` and `ssh-terminfo` shell
-  integration features.
-- Interactive SSH connections install Ghostty's terminfo entry on the remote
-  host when possible, and fall back to `xterm-256color` when installation is
-  unavailable. See
-  [Ghostty SSH integration](https://ghostty.org/docs/features/ssh).
-
-`./scripts/bootstrap/install.ts` uses Codex's config API to update selected
-defaults in `~/.codex/config.toml`:
-
-- Removes the legacy `forced_login_method` setting so each identity can use its
-  active ChatGPT session or an explicitly configured API provider without the
-  bootstrap overriding that choice.
-- Selects GPT-6 Astra with medium reasoning effort.
-- Enables Fast mode for personal profiles. Standard profiles leave the service
-  tier and Fast mode keys absent.
-- Preserves unrelated settings and formatting.
-- Does not manage Codex auth tokens, sessions, approvals, or app state.
-
-The typed edit list in `scripts/bootstrap/configure-codex.ts` is the source of
-truth; the bootstrap client sends it through Codex's native writer as one
-atomic update.
-
-Developer profiles also select Claude Fable 5.1 with medium effort and Cursor
-Grok 4.6 High. Personal profiles select Cursor's Fast variant. Grok Build on
-personal workstations defaults to Grok 4.6 through the managed gateway config.
-
-Personal profiles require the owner-only
-[LLM gateway config](devbox.md#opt-in-coding-llm-gateway), apply client routing,
-and retire saved vendor logins except those listed in `preservedLogins`.
-Workstation profiles manage the T3 Code, ChatGPT, Claude, and Cursor desktop apps.
-
-The same install step also:
-
-- Installs or updates GitHub's official `github/gh-stack` extension through
-  `gh extension install --force`. GitHub CLI authentication and other
-  extensions remain machine-local.
-- Applies mise's trusted Codex and Claude worktree roots and runs the agent
-  worktree mise trust helper. Use the matching task in
-  [Mise tasks](mise.md#task-namespaces) to refresh local trust after new
-  worktrees are created.
-- Runs the machine-global instruction and additive skill sync described in
-  [Agent setup](agents.md).
-
-Remote Codex connections are also manual user config. If the machine should use
-them, ask the human to add this to `~/.codex/config.toml`:
-
-```toml
-[features]
-remote_connections = true
-```
-
-Apply dotfiles and configure local state:
-
-```zsh
-profile=workstation # use personal-workstation for the personal layers
 mise trust
 ./dotfiles diff "$profile"
 ./dotfiles apply "$profile"
-# Optional for workstation/personal-workstation; required for secret-consuming profiles:
-# ./scripts/secrets/configure-sops-age-identity.ts
 ./scripts/bootstrap/configure-git.ts --profile "$profile"
+```
+
+- Configure [Git authorship and local SSH keys](identities.md#developer-git-and-ssh)
+  from explicit operator values.
+- Every profile except `workstation` requires a
+  [backed-up SOPS age identity](identities.md#sops-age-identity).
+  `workstation` needs one when it consumes secrets.
+- For externally supplied Homebrew packages or refused tap trust, configure
+  [external capabilities](profiles.md#externally-managed-homebrew-capabilities).
+
+Run these host-wide steps once from the administrator account:
+
+```zsh
 ./scripts/bootstrap/configure-power.ts --profile "$profile"
 ./scripts/bootstrap/configure-spotlight.ts
 ```
 
-What each step does:
+Power configuration disables sleep while plugged in and leaves battery settings
+unchanged. Spotlight configuration disables indexing on mounted volumes without
+removing existing index data.
 
-- The installer applies the profile's dotfiles, installs its mise runtimes, then
-  configures the remaining integrations.
-- The developer mise config pins Node, enables the stable Corepack-managed pnpm
-  default, and installs exact shared npm and Playwright CLI versions. Vite+
-  stays repository-local.
-- The dotfile step applies the repo-local chezmoi source state from `chezmoi/`.
-  Preview the whole per-user flow with `./dotfiles diff "$profile"`.
-- The power step disables system, display, and disk sleep only while the Mac is
-  plugged in. Battery settings stay under macOS defaults so laptops still sleep
-  normally when unplugged. It prompts for sudo; `./dotfiles apply` remains a
-  user-level convergence step.
-- `configure-spotlight.ts` is the same host-wide baseline for workstation and
-  devbox Macs: it disables indexing on mounted volumes without deleting existing
-  index data.
+### Workstation Options
 
-Chrome Lens is disabled for every profile through `defaults write
-com.google.Chrome` policies (`SearchContentSharingSettings`,
-`LensOverlaySettings`, `LensRegionSearchEnabled`, `LensDesktopNTPSearchEnabled`);
-the old `chrome://flags` override for the "Ask Google" chip expired in Chrome 145.
-Vertical tabs remain a Local State flag. Quit Chrome first, then:
+- Install licensed Berkeley Mono Variable manually; Ghostty falls back to Menlo.
+- On `personal-workstation`, run `./scripts/app-store/personal.ts` to remove
+  the unused bundled App Store apps; uninstall may prompt for a password.
+- Quit Chrome before running `./scripts/bootstrap/configure-chrome.ts` to apply
+  Lens policies and the vertical-tabs setting.
+- For simulators, SDKs, and signing certificates, follow
+  [Mobile and TV development](mobile-and-tv-development.md).
 
-```zsh
-./scripts/bootstrap/configure-chrome.ts
-```
+### Devbox Options
 
-### Git Identity
-
-Configure explicit authorship, local SSH signing, and GitHub SSH authentication
-through the developer flow in [Identity provisioning](identities.md#developer-git-and-ssh).
-Keep the private key owner-only and outside this repository.
-
-Verify:
-
-```zsh
-mise run maintenance:check
-./dotfiles check "$profile"
-mise run audit host
-mise run audit workstation
-```
-
-For snapshot fields, freshness, probe deadlines, and post-update verification,
-see [Check available updates](software-updates.md#check-available-updates).
-
-## Devbox Mac
-
-Use `devbox` for the standard shared-host contract. Use `personal-devbox` for
-the same host shape plus additive headless personal tools and skills.
-
-The human owner profile may opt into the compact desktop baseline. It is not
-part of the shared agent-user bootstrap:
+Follow [Devbox setup](devbox.md) for services and secret consumers. The logged-in
+owner may apply the optional desktop baseline:
 
 ```zsh
 ./scripts/bootstrap/configure-desktop.ts
 ./scripts/verify/bootstrap.ts --profile devbox --desktop
 ```
 
-This keeps the built-in black system wallpaper, hidden desktop icons and
-widgets, an auto-hiding compact Dock, no recent apps, and Google Chrome as the
-only persistent Dock app. Run it only from the logged-in owner account.
+### Verify
 
-Install shared plus devbox Homebrew dependencies:
-
-```zsh
-profile=devbox # use personal-devbox for headless personal tools and skills
-./scripts/bootstrap/brew-bundle.ts "$profile"
-```
-
-### Shared Homebrew Updates
-
-Run Homebrew mutations on a shared devbox as the prefix owner through the repo
-wrapper:
-
-```zsh
-./scripts/bootstrap/brew-devbox.ts upgrade
-./scripts/bootstrap/brew-devbox.ts upgrade --cask
-./scripts/bootstrap/brew-devbox.ts --update-software # refresh, then upgrade formulae and greedy casks
-```
-
-Wrapper contract:
-
-- Requires the current Unix user to own the Homebrew prefix.
-- Scopes an owner-write, group-read umask to the Homebrew child process. The
-  caller's shell umask is unchanged.
-- Restores group read and traverse permissions while removing group write from
-  prefix-owner-owned content, including macOS symlinks, after every attempted
-  mutation and preserves Homebrew's exit status.
-- Refuses mutations when any prefix content has another owner or remains group
-  writable. Devbox shells also disable implicit Homebrew auto-update.
-- Never changes content owned by another Unix identity.
-- The devbox bundle command uses the wrapper internally.
-
-For six-hour and on-demand execution without a GUI session, use
-[Headless devbox updates](software-updates.md#headless-devbox-updates).
-
-Run these commands once from the owning admin identity, then run the devbox
-bootstrap verification as every Unix identity. Verification disables Homebrew
-auto-update so a read-only package check cannot mutate the shared checkout.
-
-Apply dotfiles:
-
-```zsh
-mise trust
-./dotfiles diff "$profile"
-./dotfiles apply "$profile"
-./scripts/secrets/configure-sops-age-identity.ts
-./scripts/bootstrap/configure-power.ts --profile "$profile"
-./scripts/bootstrap/configure-spotlight.ts
-```
-
-What each step does:
-
-- The installer applies the developer runtime pins before typed agent sync.
-  Mise installs Node, the stable Corepack-managed pnpm default, and exact shared
-  npm and Playwright CLI versions. Vite+ stays repository-local.
-- The power step keeps plugged-in devboxes awake for agents, remote access, and
-  always-on dashboards. It leaves battery settings untouched and prompts for
-  sudo instead of hiding system changes inside `install.ts`.
-- The Spotlight step is the same host-wide baseline used by workstation Macs.
-
-Configure local Git identity from explicit values. Do not invent these for the
-user. On headless devboxes, prefer a human-provisioned local SSH key file over
-GUI SSH agents:
-
-```zsh
-GIT_USER_NAME='Devbox Name' \
-GIT_USER_EMAIL='devbox@example.com' \
-GIT_SIGNING_KEY="$HOME/.ssh/devbox-key" \
-  ./scripts/bootstrap/configure-git.ts --profile "$profile" --non-interactive
-```
-
-See [Developer Git and SSH](identities.md#developer-git-and-ssh) for key
-requirements, separate authentication keys, and the managed GitHub SSH block.
-
-If the devbox runs long-lived workspace or agent services, follow
-[Devbox setup](devbox.md). Provision and back up the dedicated SOPS age
-identity, keep plaintext out of default shells and service configuration, and
-let each workspace own its narrow SOPS consumers.
-
-Verify each devbox user:
+Run as each intended Unix user:
 
 ```zsh
 mise run maintenance:check
 ./dotfiles check "$profile"
 mise run audit host
+```
+
+For workstations, also run `mise run audit workstation`. For devbox profiles:
+
+```zsh
 ./scripts/verify/devbox-services.ts
 mise run audit devbox
 ```
 
+## Shared Homebrew Updates
+
+The prefix owner must use the wrapper for shared-devbox mutations:
+
+```zsh
+./scripts/bootstrap/brew-devbox.ts upgrade
+./scripts/bootstrap/brew-devbox.ts upgrade --cask
+./scripts/bootstrap/brew-devbox.ts --update-software
+```
+
+It confines the owner-write/group-read umask to Homebrew, repairs owner-owned
+content after attempted mutations, and refuses foreign-owned or group-writable
+prefix content. The devbox bundle command uses it internally.
+
+Enroll [headless updates](software-updates.md#headless-devbox-updates) for
+scheduled execution without a GUI session.
+
 ## Updating an Existing Machine
 
-For six-hour and on-demand software updates, enroll the current GUI user through
-[Software updates](software-updates.md#enable-and-use). The procedure below
-refreshes package declarations, runtime pins, and the full per-user setup.
-
-Pull the repo and rerun the relevant profile:
+Refresh the checkout, review the selected profile, then converge it:
 
 ```zsh
 cd ~/projects/dotfiles
 git pull --ff-only
-profile=workstation # use personal-workstation for the personal layers
+profile=workstation # select the installed profile
 ./scripts/bootstrap/brew-bundle.ts "$profile"
 mise trust
 ./dotfiles diff "$profile"
 ./dotfiles apply "$profile"
-# Optional for workstation/personal-workstation; required for personal-devbox/devbox:
-./scripts/secrets/configure-sops-age-identity.ts
-./scripts/bootstrap/configure-power.ts --profile "$profile"
-./scripts/bootstrap/configure-spotlight.ts
 ./dotfiles check "$profile"
 ```
 
-Use the target Unix user's `personal-devbox` or `devbox` role instead when
-appropriate, and keep the age-identity step for those profiles.
-
-## Mobile and TV Development
-
-Xcode tvOS simulators, Android SDK, Android TV system images, CocoaPods, and
-Fastlane are per-machine state set up by hand. See
-[Mobile and TV development](mobile-and-tv-development.md) for the manual steps.
-
-## Tizen
-
-Tizen certificates, profiles, archives, and device keys are local secrets.
-They do not belong in Git.
-
-Helpers live under `scripts/tizen/`:
-
-```zsh
-./scripts/tizen/install.ts
-./scripts/tizen/pack.ts
-./scripts/tizen/restore.ts
-./scripts/tizen/restore-from-1password.ts
-```
-
-`scripts/tizen/install.ts` verifies `tizen`, `sdb`, and
-`package-manager-cli show-info`. It skips package catalog listing by default;
-use `--show-pkgs` only when needed because Samsung's extension catalog download
-can hang.
+Personal `apply` also retires unpreserved coding-client logins. Unattended
+[convergence](software-updates.md#dotfiles-convergence) uses `./dotfiles maintain`,
+which preserves saved logins. For package-only refreshes, use
+[Software updates](software-updates.md).
 
 ## Troubleshooting
 
-- If `brew bundle check` fails, run the matching `brew-bundle.ts` profile and
-  retry verification.
-- If the `brew bundle drift` verification fails, packages are installed that no
-  profile layer declares (usually casks dropped from a Brewfile, which
-  `brew bundle` never uninstalls). Run
-  `./scripts/bootstrap/brew-bundle.ts --cleanup <profile>` to remove them.
-  Shared devbox prefixes compare and clean against the personal-devbox layers
-  so one Unix user cannot remove another active profile's packages.
-- If historical prefix-owner content has incorrect group permissions, run
-  `brew-devbox.ts --repair-shared-readability` as the prefix owner, then retry
-  verification. The repair is owner-scoped; reassign content owned by another
-  identity to the prefix owner through the host's approved administrator path.
-- If `chezmoi` is missing, rerun `./scripts/bootstrap/brew-bundle.ts` for the
-  correct profile before `./dotfiles apply <profile>`.
-- If Git reports dubious ownership under `/opt/homebrew`, rerun
-  `configure-git.ts` for the correct profile.
-- If `git@github.com` fails on a devbox profile but the key is present, rerun
-  `configure-git.ts --profile devbox --non-interactive` (or use
-  `personal-devbox`) with
-  `GIT_SIGNING_KEY` or `GIT_SSH_IDENTITY_FILE` pointing at the owner-only local
-  private key file.
-- If shared env access is missing over SSH, check the SOPS recipient and
-  deployment identity in [Devbox setup](devbox.md) instead of exporting service
-  tokens in shell startup.
-- If `codex` is not installed yet for a developer-profile user, install the
-  developer Homebrew layer before rerunning `./dotfiles apply <profile>`.
-- If macOS Gatekeeper blocks an embedded Cursor Agent `.node` module, remove a
-  Homebrew `cursor-cli` cask installation and run
-  `./scripts/bootstrap/install-cursor-agent.ts`. The repo intentionally uses
-  Cursor's official per-user installer instead of recursively removing
-  quarantine attributes from a Homebrew cask.
-
-Unattended per-user convergence uses `./dotfiles maintain` after a guarded
-source update. The launcher selects the repository's Node pin and prepares its
-dependencies before running `install.ts --maintenance`. It installs missing package declarations, applies profile setup,
-and updates agent assets while preserving saved logins. See
-[Dotfiles convergence](software-updates.md#dotfiles-convergence).
+| Failure | Recovery |
+| --- | --- |
+| Missing packages or `chezmoi` | Rerun `brew-bundle.ts` with the selected profile. |
+| Homebrew drift | Review and run `./scripts/bootstrap/brew-bundle.ts --cleanup <profile>`. This removes undeclared packages; shared devboxes use the personal-devbox package union. |
+| Shared prefix permissions | Run `./scripts/bootstrap/brew-devbox.ts --repair-shared-readability` as the prefix owner. Foreign-owned content needs an administrator to correct ownership. |
+| Git dubious ownership under `/opt/homebrew` | Rerun `configure-git.ts` with the selected profile. |
+| GitHub SSH authentication | Check the local key and rerun [Git configuration](identities.md#developer-git-and-ssh). |
+| Secret access over SSH | Check the deployment recipient and encrypted repository policy in [Identity provisioning](identities.md). |
+| Gatekeeper blocks a Cursor Agent `.node` module | Remove the Homebrew `cursor-cli` cask and run `./scripts/bootstrap/install-cursor-agent.ts` for the per-user vendor installation. |

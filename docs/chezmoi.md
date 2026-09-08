@@ -1,84 +1,14 @@
 # Chezmoi Source State
 
-This repo uses chezmoi for public-safe dotfile source state. Chezmoi owns files
-under `chezmoi/` and applies them to `$HOME` through
-`scripts/bootstrap/apply-dotfiles.ts`.
-
-## Source Layout
-
-Use chezmoi source attributes instead of literal target filenames:
-
-| Source | Target |
-| --- | --- |
-| `chezmoi/.chezmoidata/profiles.json` | Versioned template data for profile capabilities and composition |
-| `chezmoi/.chezmoiremove` | Retired targets deleted from `$HOME` on apply, currently the former `disk-cleanup` LaunchAgent and shim; `apply-dotfiles.ts` boots a still-loaded retired agent out first |
-| `chezmoi/dot_zshrc.tmpl` | `~/.zshrc`; all profiles set `EDITOR`/`VISUAL` to `vim` |
-| `chezmoi/dot_gitconfig.tmpl` | `~/.gitconfig` |
-| `chezmoi/private_dot_config/mise/config.toml.tmpl` | `~/.config/mise/config.toml` |
-| `chezmoi/private_dot_config/private_dotfiles/profile.tmpl` | `~/.config/dotfiles/profile` |
-| `chezmoi/private_dot_ssh/private_config` | `~/.ssh/config` |
-| `chezmoi/private_dot_local/private_libexec/private_dotfiles/private_executable_git-ssh-sign-agentless` | `~/.local/libexec/dotfiles/git-ssh-sign-agentless` |
-| `chezmoi/private_Library/LaunchAgents/local.dotfiles.software-update.plist.tmpl` | Disabled-by-default six-hour updater; explicit enrollment described in [Software Updates](software-updates.md) |
-| `chezmoi/private_dot_claude/modify_private_settings.json` | Selected values inside `~/.claude/settings.json` for developer profiles |
-| `chezmoi/private_dot_config/zed/private_settings.json` | `~/.config/zed/settings.json` for workstation profiles |
-| `chezmoi/private_dot_config/zed/private_keymap.json` | `~/.config/zed/keymap.json` for workstation profiles |
-| `chezmoi/private_Library/private_Application Support/com.mitchellh.ghostty/private_config` | `~/Library/Application Support/com.mitchellh.ghostty/config` for workstation profiles |
-| `chezmoi/private_AGENTS.md.tmpl` | `~/AGENTS.md`, remotely owned shared rules composed with optional start and end Markdown fragments |
-| `chezmoi/private_dot_claude/symlink_CLAUDE.md` | `~/.claude/CLAUDE.md` link to `~/AGENTS.md` |
-| `chezmoi/private_dot_codex/symlink_AGENTS.md` | `~/.codex/AGENTS.md` link to `~/AGENTS.md` |
-
-The `private_` attribute is used for parent config directories and files that
-should land as owner-only local config.
-
-Profile differences:
-
-- Personal-workstation and workstation manage Ghostty and Zed settings.
-- All four developer profiles share GitHub authentication, outbound SSH,
-  signing-helper, and allowed-signers sources.
-
-Claude Code user settings:
-
-- All four developer profiles set `permissions.defaultMode=auto`.
-- The modify template preserves every other setting, including the complete
-  `env` object.
-- User settings are the lowest-precedence Claude Code scope; project, local,
-  command-line, and managed settings can override this default.
-- The settings template preserves Claude Code environment values. The separate
-  [gateway configurator](devbox.md#opt-in-coding-llm-gateway) manages provider
-  routing and saved-login retirement.
-
-SSH config ownership:
-
-- The developer SSH entrypoint is exclusively Chezmoi-managed.
-- Host-specific directives belong in `~/.ssh/config.local`.
-- Tools that support a configurable output path should own a fragment under
-  `~/.ssh/config.d/*.conf`.
-- Tools with a fixed generated path receive a stable managed include. For
-  example, Colima owns and regenerates `~/.colima/ssh_config` as its virtual
-  machines start and stop.
-- Do not preserve arbitrary mutations to `~/.ssh/config`: route each writer to
-  its own included file so unexpected changes remain visible as drift.
-
-Use attributes deliberately:
-
-- `dot_` maps to a leading dot.
-- `private_` sets restrictive permissions for target files and directories.
-- `executable_` is only for target files that must be executable.
-- `.tmpl` is only for real host, user, or OS branching. Keep templates small
-  and avoid secrets unless values are fetched at apply time from an approved
-  external secret source.
+Edit tracked files under [chezmoi/](../chezmoi/).
+[Profile data](../chezmoi/.chezmoidata/profiles.json) selects their targets;
+[apply-dotfiles.ts](../scripts/bootstrap/apply-dotfiles.ts) handles preview,
+backups, and apply. Package installation belongs to Homebrew and runtime pins
+to [mise](mise.md#runtime-pins).
 
 ## Workflow
 
-Operators preview and apply the full per-user flow through the root command:
-
-```zsh
-mise trust
-./dotfiles diff workstation
-./dotfiles apply workstation
-```
-
-Contributors changing chezmoi source use the repository task interface:
+For source-only changes, substitute the intended profile:
 
 ```zsh
 mise trust
@@ -86,73 +16,49 @@ mise run dotfiles:diff workstation
 mise run dotfiles:apply workstation
 ```
 
-`./dotfiles apply` delegates to `scripts/bootstrap/install.ts`, which applies
-the same source before running the remaining profile install steps. Developer
-previews and applies first refresh the ignored machine-local rule cache at
-`${XDG_STATE_HOME:-~/.local/state}/dotfiles/agent-rules.md` from the ordered
-remote sources. `DOTFILES_AGENT_RULES_OFFLINE=1` skips fetching and requires an
-existing valid cache.
+- `./dotfiles apply <profile>` also runs the remaining
+  [bootstrap steps](bootstrap.md).
+- Both preview and apply refresh [agent rules](agents.md#global-rules),
+  including during a dry run.
+- The wrapper backs up conflicting files and links before force-applying,
+  keeping only the newest backup per target.
+- Global agent rule files are replaced without backups; private text belongs
+  in [rule fragments](agents.md#global-rules).
 
-For normal edits:
-
-1. Edit the source file under `chezmoi/`.
-2. Preview with `mise run dotfiles:diff <profile>`.
-3. If changing bootstrap behavior, test in a temporary destination:
-
-```zsh
-tmp_dest="$(mktemp -d /tmp/dotfiles-chezmoi-apply.XXXXXX)"
-agent_rules="${XDG_STATE_HOME:-$HOME/.local/state}/dotfiles/agent-rules.md"
-template_data="$(jq -nc --arg agentRulesPath "$agent_rules" \
-  --arg dotfilesProfile workstation '$ARGS.named')"
-chezmoi --source "$PWD/chezmoi" --destination "$tmp_dest" \
-  --override-data "$template_data" --force apply
-find "$tmp_dest" -maxdepth 4 -type f -o -type l | sort
-rm -rf "$tmp_dest"
-```
-
-For permission-sensitive paths, verify modes with:
+For changes to apply behavior, run the isolated fixtures rather than applying
+to your home:
 
 ```zsh
-stat -f '%OLp %N' "$path"
+mise run verify:domain config
+mise run verify:domain profiles
+node scripts/verify/home-fixture.ts
 ```
 
-## Boundaries
+## Local Overrides
 
-- Edit files under `chezmoi/`, not generated files in `$HOME`.
-- Keep `chezmoi.toml`, `~/.config/dotfiles/agents.start.md`,
-  `~/.config/dotfiles/agents.end.md`, `~/.config/dotfiles/zshenv.local`, local
-  data files, hostnames, identities, vault names, item names, tokens, private
-  keys, and generated env files out of Git.
-- `~/.zshenv` sources `~/.config/dotfiles/zshenv.local` when that path is a
-  readable regular file. Use it for machine-specific exports the shared
-  zshenv must not own. Chezmoi ignores this path; create it manually and keep
-  it owner-only (`0600`); symlinks are ignored. Example: if 1Password's SSH
-  agent is `SSH_AUTH_SOCK`, set `TELEPORT_ADD_KEYS_TO_AGENT=no` there instead
-  of changing the shared `zshenv`. Keep service tokens and secret values out
-  of shell startup.
-- Prefer public-safe templates and local-only config over checked-in secret
-  references.
-- Do not use `exact_` at `$HOME` scope.
-- Do not add `run_`, `run_once_`, or `run_onchange_` scripts unless the repo
-  explicitly needs that lifecycle and the docs explain it.
-- Do not use `chezmoi add` against the live home directory when migrating
-  already tracked repo files. Prefer repo-local edits or `git mv` so history
-  and review stay clear.
-- Keep macOS GUI state, App Store auth, 1Password sessions, Tailscale node
-  identity, Tizen secrets, and local secret-manager auth state in the existing
-  explicit scripts or manual setup docs.
+| Path | Use |
+| --- | --- |
+| `~/.ssh/config.local` | Host-specific SSH directives |
+| `~/.ssh/config.d/*.conf` | Fragments written by other tools |
+| `~/.config/dotfiles/zshenv.local` | Machine-specific, non-secret shell exports |
+| `~/.config/dotfiles/agents.start.md`, `agents.end.md` | Private agent rules |
 
-## Package and Runtime Layers
+- SSH includes Colima's generated `~/.colima/ssh_config`. Route writers to
+  their own fragments rather than modifying `~/.ssh/config`.
+- Create `zshenv.local` manually with mode `0600`. The shell reads it only as
+  a readable regular file; symlinks at the file or its `dotfiles` directory
+  are ignored. Keep service tokens out of shell startup.
+- `TELEPORT_ADD_KEYS_TO_AGENT=no` can prevent Teleport from adding keys to an
+  incompatible SSH agent.
+- The [Claude settings modifier](../chezmoi/private_dot_claude/modify_private_settings.json)
+  changes selected defaults while preserving other fields, including `env`.
+  Provider routing belongs to the [gateway configurator](devbox.md#opt-in-coding-llm-gateway).
 
-Chezmoi applies dotfiles only. Homebrew Bundle remains the package layer, and
-mise remains the runtime/tool-version layer. Do not duplicate package lists into
-chezmoi scripts unless there is a concrete idempotency reason.
+## Source Boundaries
 
-## Wrapper Expectations
-
-Keep `scripts/bootstrap/apply-dotfiles.ts` non-interactive and preserve:
-
-- `--dry-run` and `--verbose`.
-- Backups for pre-existing local files before `--force apply`.
-- `mise run verify:domain config` and `mise run verify:domain profiles` when
-  wrapper behavior changes.
+- Keep private identities, host data, credentials, and local overrides out of Git.
+- Use `private_` for owner-only files and directories.
+- Do not use `exact_` at home-directory scope or import live app/auth state with
+  `chezmoi add`.
+- Add lifecycle scripts only when an explicit bootstrap requirement needs them;
+  keep package lists and runtime installation in their existing owners.

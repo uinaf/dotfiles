@@ -106,5 +106,5 @@ description = "Preview host worktree, branch, and cache cleanup"
 run = "node ./scripts/maintenance/hygiene.ts --dry-run"
 
 [tasks."maintenance:clean"]
-description = "Apply eligible host cleanup with a seven-day Git grace period"
+description = "Apply eligible host cleanup with a three-day Git grace period"
 run = "node ./scripts/maintenance/hygiene.ts --apply"

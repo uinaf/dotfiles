@@ -1,95 +1,38 @@
-![dotfiles — vendor-neutral macOS bootstrap for every role.](https://uinaf.dev/og/banner/dotfiles.png)
+![dotfiles — macOS bootstrap for workstations and remote coding users.](https://uinaf.dev/og/banner/dotfiles.png)
 
 # uinaf/dotfiles
 
-A vendor-neutral macOS bootstrap framework for workstations and remote coding
-users.
+macOS setup for one Unix user: packages, shell and Git defaults, runtimes,
+coding agents, and maintenance. Private identities and secrets stay outside Git.
 
-The repository manages Homebrew layers, chezmoi source state, mise runtimes,
-Git and SSH defaults, coding-agent setup, and verification scripts. Installed
-paths and interfaces use generic `dotfiles` names; private identities and
-secret values remain local or in an approved recovery system.
+## Start
 
-## Choose a Profile
-
-- Profiles apply to one Unix user.
-- Host-wide Homebrew, power, Spotlight, Tailscale, and LaunchDaemon state still
-  requires an authorized administrator.
-- Choose the profile and software layers in [User profiles](docs/profiles.md)
-  before configuring one or more users on a Mac.
-
-## Install
-
-Install Apple Command Line Tools and Homebrew, then clone the repository:
+- New Mac: follow [Bootstrap](docs/bootstrap.md).
+- Choose a [profile](docs/profiles.md); use it in place of `workstation` below.
+- On a configured Mac, preview changes before applying them:
 
 ```zsh
-brew install git gh
-gh auth login
-mkdir -p ~/projects
-gh repo clone uinaf/dotfiles ~/projects/dotfiles
 cd ~/projects/dotfiles
+./dotfiles diff workstation
+./dotfiles apply workstation
+./dotfiles check workstation
 ```
 
-Then follow the [Bootstrap guide](docs/bootstrap.md). It owns the canonical
-per-profile command sequences plus first-machine prerequisites, devbox and
-optional desktop setup, updates, and troubleshooting.
+Homebrew packages, identities, and host settings have separate bootstrap steps.
 
-## Managed Surfaces
+## Guides
 
-| Surface | Source of truth |
+| Task | Guide |
 | --- | --- |
-| Packages | `Brewfile` and the [profile layers](docs/profiles.md#software-layers) |
-| Per-user convergence | `./dotfiles`, backed by `chezmoi/`, mise, and profile install steps |
-| Runtimes and CLIs | `chezmoi/.chezmoitemplates/mise.toml` |
-| Git, SSH, age, and GitHub App setup | `scripts/bootstrap/`, `scripts/secrets/`, and [Identity provisioning](docs/identities.md) |
-| Global coding-agent rules | `chezmoi/`, with optional private start and end fragments under `~/.config/dotfiles/` |
-| Global coding-agent skills | `scripts/agents/`, with personal additions selected by profile |
-| Repository and host checks | `scripts/verify/` and `scripts/audit/` |
-| Software updates and inventory | `scripts/maintenance/` and the [Topgrade setup](docs/software-updates.md) |
+| Choose packages and a user role | [Profiles](docs/profiles.md) |
+| Set up age, Git, SSH, and recovery | [Identities](docs/identities.md) |
+| Configure shared-host services | [Devbox](docs/devbox.md) |
+| Update software or clean old worktrees | [Maintenance](docs/software-updates.md) |
+| Configure coding agents | [Agents](docs/agents.md) |
+| Edit managed files | [Chezmoi](docs/chezmoi.md) |
+| Change runtime pins or find tasks | [Mise](docs/mise.md) |
+| Audit a repository or Mac | [Security audits](docs/security-audits.md) |
+| Install mobile and TV tooling | [Mobile and TV development](docs/mobile-and-tv-development.md) |
+| Change this repository | [Contributing](CONTRIBUTING.md) |
 
-Consumer repositories own project dependencies, encrypted payloads, runtime
-services, and repository-local agent instructions. The optional
-[SOPS vault template](https://github.com/uinaf/sops-vault-template) provides a
-standalone starting point for encrypted capability-scoped repositories.
-
-## Verify
-
-Run the verification domain that owns the change, or the full gate:
-
-```zsh
-mise run verify:domain config # example; select the owning domain
-mise run verify:fast
-mise run verify
-```
-
-- `verify:fast` runs the deterministic graph.
-- `verify` also scans full Git history.
-- CI always runs the deterministic graph.
-- Live profile and host checks live in [Mise](docs/mise.md#task-namespaces)
-  and [Security audits](docs/security-audits.md).
-
-## Documentation
-
-| Need | Guide |
-| --- | --- |
-| Install or update a Mac | [Bootstrap](docs/bootstrap.md) |
-| Schedule software updates or check available updates | [Software updates](docs/software-updates.md) |
-| Choose a per-user role | [User profiles](docs/profiles.md) |
-| Provision age, Git, SSH, or GitHub identity | [Identity provisioning](docs/identities.md) |
-| Configure a devbox, coding LLM gateway, or shared-host service | [Devbox setup](docs/devbox.md) |
-| Apply global coding-agent rules or sync skills | [Agent setup](docs/agents.md) |
-| Edit chezmoi source state | [Chezmoi](docs/chezmoi.md) |
-| Use repo tasks, run local proof, or change runtime pins | [Mise](docs/mise.md) |
-| Understand Actions and releases | [GitHub pipelines](docs/github-pipelines.md) |
-| Run security checks | [Security audits](docs/security-audits.md) |
-| Build mobile and TV apps | [Mobile and TV development](docs/mobile-and-tv-development.md) |
-| Find script entrypoints | [Scripts](scripts/README.md) |
-
-## Contributing
-
-See [Contributing](CONTRIBUTING.md) for setup and verification expectations.
-Report vulnerabilities through the private path in [Security](SECURITY.md).
-
-## License
-
-MIT. See [License](LICENSE).
+[Security reporting](SECURITY.md) · [MIT license](LICENSE)

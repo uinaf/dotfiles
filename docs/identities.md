@@ -1,48 +1,17 @@
 # Identity Provisioning
 
-This repository provisions human identities. A deployment binds an identity
-to one Unix user on one host. Credentials grant specific capabilities to that
-deployment; a profile only selects software and defaults.
+Provision credentials per Unix user and host. Keep age, SSH, GitHub, and provider
+credentials independently replaceable; profiles select software, not access.
 
-```text
-Identity: example-developer
-└── Deployment: example-developer@example-host
-    ├── Unix user
-    ├── age identity
-    ├── optional SSH identity
-    ├── Git authorship
-    └── scoped provider credentials
-```
-
-Do not create one master credential for an identity. Age, SSH, GitHub, and
-provider credentials must remain independently replaceable.
-
-## Capability Policy
-
-| Capability | Workstation | Devbox |
-| --- | --- | --- |
-| Age identity | optional until secrets are consumed | required |
-| SSH private identity | required | required |
-| Human GitHub login | expected | expected |
-| Git signing identity | required | required |
-| Git authorship metadata | required | required |
-| Provider credentials | identity-scoped | identity-scoped |
-
-- `personal-workstation` uses the workstation identity policy;
-  `personal-devbox` uses the devbox identity policy.
-- Inbound SSH does not require the user to own a private SSH key. Put an
-  administrator's public key in the target user's `authorized_keys`.
+All developer profiles require explicit Git authorship and local SSH signing.
+Every profile except `workstation` requires a SOPS age identity; `workstation`
+needs one when it consumes encrypted secrets.
 
 ## Developer Git and SSH
 
-`workstation`, `personal-workstation`, `personal-devbox`, and `devbox` users
-require explicit Git authorship and an owner-only, unencrypted local SSH private
-key for unattended commit signing. Agent-backed, encrypted, and public-key-only
-signing paths are unsupported.
-
-If the key comes from a human recovery system, export it in OpenSSH format
-without a passphrase, save it outside this repository, derive its public key,
-and lock down both files:
+Provide an owner-only, unencrypted local SSH private key for unattended signing.
+Export recovery keys in OpenSSH format without a passphrase and save them
+outside this repository:
 
 ```zsh
 chmod 0600 ~/.ssh/developer_ed25519
@@ -50,7 +19,7 @@ ssh-keygen -y -f ~/.ssh/developer_ed25519 > ~/.ssh/developer_ed25519.pub
 chmod 0644 ~/.ssh/developer_ed25519.pub
 ```
 
-Configure authorship and signing from explicit operator values:
+Use explicit operator values:
 
 ```zsh
 profile=workstation
@@ -61,164 +30,91 @@ GIT_SSH_IDENTITY_FILE="$HOME/.ssh/developer_ed25519" \
   ./scripts/bootstrap/configure-git.ts --profile "$profile" --non-interactive
 ```
 
-- `GIT_SSH_IDENTITY_FILE` may point to a different local key.
-- GitHub registers authentication and signing keys separately; add the public key
-  for each role the deployment uses.
-- The configurator writes authorship and signing state to `~/.gitconfig.local`.
-- When SSH authentication is configured, it also writes a managed
-  `~/.ssh/github.config` block that selects the local key and disables ambient
-  agent identities and key additions for `github.com`.
-- Keep unrelated directives in `~/.ssh/config.local`.
-- Move aside an unmanaged `~/.ssh/github.config` or any other
-  `Host github.com` block before running the configurator.
+- Authentication may use a different key through `GIT_SSH_IDENTITY_FILE`.
+- Register public keys with GitHub separately for authentication and signing.
+- Authorship and signing go in `~/.gitconfig.local`; the managed GitHub SSH block
+  goes in `~/.ssh/github.config` and disables ambient agent identities.
+- Keep unrelated SSH directives in `~/.ssh/config.local`. Move aside conflicting
+  `Host github.com` blocks or an unmanaged `~/.ssh/github.config` before setup.
+- Inbound SSH needs the administrator's public key in `authorized_keys`, not a
+  private key on the target user.
 
 ## SOPS Age Identity
 
-Age calls the private decryption key an **identity** and its derived public
-encryption address a **recipient**.
+An age **identity** is the private decryption key; its public address is the
+**recipient**. After installing the profile's Homebrew packages:
 
-- Secret-consuming deployments (`personal-devbox`, `devbox`, and
-  vault or sudo consumers) require one general SOPS age identity per managed
-  Unix user.
-- Portable `workstation` and `personal-workstation` profiles keep the SOPS CLI
-  without an identity until they decrypt encrypted material.
-- Keep sudo-specific age identities separate: they protect a different
-  capability and have a different rotation lifecycle.
-
-Install the selected profile's Homebrew layers, then provision the identity
-when the deployment will decrypt secrets:
-
-```sh
+```zsh
 ./scripts/secrets/configure-sops-age-identity.ts
+./scripts/secrets/configure-sops-age-identity.ts --check
+./scripts/secrets/configure-sops-age-identity.ts --print-recipient
 ```
 
-The command is idempotent:
+- Provisioning creates a missing key and proves a SOPS round trip.
+- Identity file: `0600`; parent directory: `0700`.
+- `--check` makes no changes; `--print-recipient` outputs only the public recipient.
 
-- Creates an identity only when one does not exist.
-- Sets owner-only permissions and derives the public recipient.
-- Proves a real SOPS encrypt/decrypt round trip.
-- Never prints the private identity.
-
-SOPS' native default paths are used:
-
-| Platform | Private identity path |
+| Platform | Default identity path |
 | --- | --- |
 | macOS | `~/Library/Application Support/sops/age/keys.txt` |
 | Linux | `~/.config/sops/age/keys.txt` |
 
-`XDG_CONFIG_HOME` changes the config root. Set `SOPS_AGE_KEY_FILE` only when an
-explicit owner-only path is required. Check an existing identity without
-creating or repairing it:
+`XDG_CONFIG_HOME` changes the config root; `SOPS_AGE_KEY_FILE` selects an explicit
+owner-only file. Keep the [sudo identity](devbox.md#sudo-without-a-plaintext-password-file)
+separate from this general identity.
 
-```sh
-./scripts/secrets/configure-sops-age-identity.ts --check
-```
+Before protecting live ciphertext:
 
-Print only the safe public recipient for a registry or SOPS policy:
+1. [Back up and verify recovery](#back-up-and-verify-recovery).
+2. Give the encrypted repository owner only the public `age1...` recipient.
+3. Add it to that repository's `.sops.yaml` and run `sops updatekeys` on each
+   affected encrypted file.
+4. Prove the deployment can decrypt its authorized payloads.
 
-```sh
-./scripts/secrets/configure-sops-age-identity.ts --print-recipient
-```
-
-Provisioning is complete only after the private identity has a verified human
-recovery copy and the owning encrypted repository has authorized its public
-recipient:
-
-1. Generate or check the local identity with the commands above.
-2. Back up and verify the private identity using the recovery procedure below.
-3. Give only the public `age1...` recipient to the encrypted repository owner.
-4. Add that recipient to the repository's `.sops.yaml` and update the affected
-   encrypted files with `sops updatekeys`.
-5. Prove the deployment can decrypt only the payloads it should consume.
-
-Repository membership alone never grants decryption. Git access controls who
-can fetch ciphertext; the recipient policy controls which age identities can
-decrypt it.
+Git access permits fetching ciphertext; the recipient policy permits decryption.
 
 ## Back Up and Verify Recovery
 
-Generation and recovery registration are one provisioning operation. Keep one
-human-controlled recovery item per deployment, not one password-manager item
-per private file. Attach independently replaceable credentials as separately
-labeled files in that item:
+Keep one human-controlled recovery item per deployment, with separately labeled
+attachments for the general age identity, any sudo age identity, SSH key, and
+applicable account recovery material. Record public recipients, creation dates,
+and local paths. Unattended workloads must not access the recovery system.
 
-- general age identity
-- sudo-specific age identity when the deployment uses unattended sudo
-- SSH private key only when the deployment initiates outbound SSH
-- account recovery material when the operator's policy permits it
+Before using a new age identity:
 
-Do not merge the credentials into one private key or paste their values into a
-note. The item is an inventory and recovery boundary; each attached credential
-keeps its own scope and rotation lifecycle.
+1. Attach its private identity file to the recovery item.
+2. Restore the attachment to an owner-only temporary path.
+3. Run `age-keygen -y /path/to/restored-keys.txt` and compare the recipient with
+   `./scripts/secrets/configure-sops-age-identity.ts --print-recipient`.
+4. Verify other attachments against their own live source or public identity.
+5. Remove restored temporary copies.
 
-Before using a new general SOPS age identity for live ciphertext:
-
-1. Create or select the deployment's recovery item.
-2. Attach the general SOPS age identity file and record the deployment name,
-   public recipient, creation date, and local path.
-3. Restore that general SOPS age identity attachment to an owner-only temporary
-   path and run `age-keygen -y /path/to/restored-keys.txt`.
-4. Confirm the restored general age recipient exactly matches
-   `configure-sops-age-identity.ts --print-recipient`.
-5. Validate each other applicable attachment against its own live source or
-   derive and compare its public identity without exposing the private value.
-6. Remove the temporary restored copies.
-
-Do not print or paste the private identity into shell history, logs, issues,
-pull requests, chat, or repository files. Routine unattended workloads must
-not have access to the human recovery system.
+Keep private keys, tokens, and decrypted files out of Git, logs, shell history,
+chat, and issue or pull-request bodies. Store files as attachments rather than
+pasting private values into recovery notes.
 
 ## Encrypted Secret Repositories
 
-Consumer repositories own their `.sops.yaml`, encrypted payloads, runtime
-wrapper, and recipient policy. This dotfiles repo owns only the portable tools,
-identity provisioning, and local verification.
+Each consumer owns its `.sops.yaml`, encrypted payloads, wrappers, and recipient
+policy. Dotfiles supplies tools and local identity verification. The optional
+[SOPS vault template](https://github.com/uinaf/sops-vault-template) is a starting
+point for a private vault: replace its example recipients and run its
+`mise run verify` before use.
 
-For a new vault, the optional
-[SOPS vault template](https://github.com/uinaf/sops-vault-template) provides a
-small standalone starting point with recipient policy, safe create/edit
-commands, and verification:
-
-1. Create a private repository from the template.
-2. Replace its example recipients with the public recovery and deployment
-   recipients.
-3. Run `mise run verify`.
-
-The generated repository owns its copied scripts and policy; it does not depend
-on this dotfiles repository or the template after creation.
-
-Safe repository state may include:
-
-- public age recipients and SSH fingerprints
-- GitHub App slug, App ID, and installation ID
-- Git author name and email
-- SOPS-encrypted files and `.sops.yaml`
-
-Never commit:
-
-- age private identities
-- SSH private keys
-- GitHub App private keys
-- provider tokens or decrypted dotenv files
-- password-manager item references tied to a private environment
-
-Prefer one provider credential per identity. If a credential must be shared,
-encrypt the shared file only to the explicitly approved identity recipients
-and the human recovery recipient. Repository read access controls availability
-and integrity; the SOPS recipient set controls who can decrypt.
+Prefer a separate provider credential per identity. Shared credentials need an
+explicit recipient set and human recovery recipient. Public recipients,
+fingerprints, Git authorship, GitHub App IDs, and ciphertext may be tracked;
+private keys, provider tokens, plaintext env files, and private recovery-item
+references may not.
 
 ## Move or Retire a Deployment
 
-Create a new age identity when an identity moves to another host. Do not copy
-the old deployment's private identity.
+Create a new age identity for a new host:
 
-1. Generate and back up the new deployment identity.
-2. Add its public recipient to the owning repository's `.sops.yaml`.
-3. Run `sops updatekeys --yes path/to/secrets.sops.yaml` for each affected
-   file.
-4. Prove the new deployment can decrypt its files and cannot decrypt sibling
-   identity files.
+1. Provision and verify its recovery copy.
+2. Add the new recipient to the owning `.sops.yaml`.
+3. Run `sops updatekeys --yes path/to/secrets.sops.yaml` for affected files.
+4. Prove access to its own payloads and exclusion from sibling identities' files.
 5. Remove the old recipient and update the encrypted files again.
-6. Rotate the underlying secrets before retiring the old deployment because
-   old Git revisions remain decryptable by the old identity.
-7. Remove the old local identity and archive its recovery item.
+6. Rotate underlying secrets: old Git revisions remain decryptable by the old key.
+7. Remove the retired local identity and archive its recovery item.

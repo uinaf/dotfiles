@@ -1,190 +1,74 @@
 # User Profiles
 
-Profiles describe the role of one Unix user. They do not describe the whole
-host and they are not a security boundary by themselves.
+Profiles configure one Unix user; host permissions provide isolation.
 
-## Roles
+## Choose a Profile
 
-| Profile | Intended user | Default capability |
+| Profile | Role | Homebrew layers after [Brewfile](../Brewfile) |
 | --- | --- | --- |
-| `workstation` | Interactive human on a laptop or desktop | Portable development, human authentication, and local containers |
-| `personal-workstation` | Owner-operated personal laptop or desktop | Workstation capabilities plus personal applications, tools, skills, and preferences |
-| `personal-devbox` | Owner-operated remote coding identity | Devbox capabilities plus headless personal tools, skills, and preferences |
-| `devbox` | Remote coding identity on an SSH-first host | Coding agents, Git/GitHub, SDKs, containers, and verification tools |
+| `workstation` | Human laptop or desktop | [Workstation](../Brewfile.workstation) |
+| `personal-workstation` | Personal desktop apps and tools | [Workstation](../Brewfile.workstation), [personal](../Brewfile.personal) |
+| `devbox` | Human-operated SSH coding identity | [Devbox](../Brewfile.devbox) |
+| `personal-devbox` | Personal headless tools and skills | [Devbox](../Brewfile.devbox), [personal](../Brewfile.personal) |
 
-This repository configures one human's macOS environment. Unattended agent
-identities are hosted elsewhere; the hosting configuration owns their runtime,
-capability packages, GitHub App identity, and credential helper.
-
-- Choose `workstation` when another trusted system may supply or govern
-  software.
-- Choose `personal-workstation` when this repository should own the full personal
-  workstation contract.
-- Choose `personal-devbox` for an owner-operated devbox that should receive the
-  additive personal formulas and skills without GUI casks.
+- [profiles.json](../chezmoi/.chezmoidata/profiles.json) owns capabilities,
+  runtimes, [skill layers](agents.md), and install steps. Brewfiles own packages.
+- Personal GUI casks and `mas` install only for `personal-workstation`.
+- The selected role is stored in `~/.config/dotfiles/profile` and checked during
+  verification.
 
 ## Host and User Boundaries
 
-- Homebrew, Tailscale, power policy, Spotlight, and system LaunchDaemons can be
-  host-wide on macOS. Run those changes once from an authorized host
-  administrator.
-- Applying a per-user profile must not imply that the user owns or may mutate
-  every host-wide dependency.
-- Shared devbox Homebrew is owner-write and consumer-read-only. Devbox shells
-  disable implicit Homebrew auto-update, and bootstrap verification rejects
-  foreign-owned or group-writable prefix content. Bootstrap verifies installed
-  package presence without using per-user metadata for upgrade freshness;
-  maintenance inventory owns freshness checks.
-- The role is stored in `~/.config/dotfiles/profile`. Per-user verification
-  checks that the selected role matches this marker.
-- Shared software visibility is not isolation. Enforce isolation with Unix
-  ownership and groups, scoped machine identities, filesystem permissions, and
-  service configuration.
-
-## Software Layers
-
-[`chezmoi/.chezmoidata/profiles.json`](../chezmoi/.chezmoidata/profiles.json)
-is the versioned source of truth for profile capabilities, Brewfile order,
-runtime groups, skill layers, and per-user install steps. Three consumers read
-it directly:
-
-| Consumer | How it reads the file |
-| --- | --- |
-| Chezmoi | as template data |
-| TypeScript | Effect Schema boundary in `scripts/profiles/model.ts` |
-| Homebrew | `Brewfile.personal` gates casks on profile capabilities |
-
-Each consumer rejects unsupported versions, unknown profiles, missing fields,
-and wrong value types.
-
-Brewfile order per profile:
-
-| Profile | Layers, in order |
-| --- | --- |
-| `personal-workstation` | `Brewfile`, `Brewfile.workstation`, `Brewfile.personal` |
-| `personal-devbox` | `Brewfile`, `Brewfile.devbox`, `Brewfile.personal` |
-| `workstation` | `Brewfile`, `Brewfile.workstation` |
-| `devbox` | `Brewfile`, `Brewfile.devbox` |
-
-- The shared `Brewfile` base includes Chrome and `gh`.
-- `Brewfile.personal` declarations are profile-aware: GUI casks install only for
-  `personal-workstation`.
-
-Package declarations live in the Brewfiles; use them for the complete inventory:
-
-| Layer | Purpose |
-| --- | --- |
-| [Brewfile](../Brewfile) | Shared development, coding-agent, shell, secret, and maintenance tools, including Mole |
-| [Brewfile.workstation](../Brewfile.workstation) | Interactive desktop applications and workstation tools |
-| [Brewfile.devbox](../Brewfile.devbox) | Remote access and terminal tools |
-| [Brewfile.personal](../Brewfile.personal) | Personal CLI tools for both personal profiles; GUI casks and `mas` only for `personal-workstation` |
-
-Cursor Agent uses the `install-cursor-agent` step. Mise-managed runtimes,
-including Ruby, use the `developer` runtime group through `install-runtimes`.
-
-Runtimes and dotfiles:
-
-- Developer-profile install flows apply machine-global instructions through
-  chezmoi and sync additive skills from `scripts/agents/`; see
-  [Agent setup](agents.md).
-- Both workstation profiles manage Zed settings and keymap through chezmoi.
-  All profiles set `EDITOR`/`VISUAL` to `vim`. Zed stays a thin editor: vim
-  on, AI off, telemetry off, and collaboration chrome hidden.
-
-## Identity Policy
-
-[Identity provisioning](identities.md) is the source of truth for age, Git,
-SSH, GitHub App, recovery, and deployment lifecycle.
-
-- `workstation`, `personal-workstation`, `personal-devbox`, and `devbox` users
-  configure explicit human authorship and local signing.
-- Identity values remain operator input and are never tracked.
+- An authorized administrator owns host-wide Homebrew, Tailscale, power,
+  Spotlight, and LaunchDaemon changes.
+- Shared devbox Homebrew is owner-write, consumer-read-only. Other users check
+  package presence; they do not update the prefix.
+- Use Unix ownership, groups, filesystem permissions, and scoped identities for
+  isolation. Shared package visibility does not provide it.
+- Unattended runtime packages and machine credentials belong to the hosting
+  configuration. Profiles here enroll human-operated macOS users.
+- [Identity provisioning](identities.md) owns authorship, signing, SSH, age, and
+  recovery. Identity values remain untracked operator input.
 
 ## Apply a Profile
 
-Run Homebrew changes from the authorized host administrator:
-
-```zsh
-./scripts/bootstrap/brew-bundle.ts personal-workstation
-./scripts/bootstrap/brew-bundle.ts personal-devbox
-./scripts/bootstrap/brew-bundle.ts workstation
-./scripts/bootstrap/brew-bundle.ts devbox
-```
-
-Then run the per-user setup as the target Unix user:
+Choose one role; run Homebrew setup as its authorized administrator:
 
 ```zsh
 profile=workstation
+./scripts/bootstrap/brew-bundle.ts "$profile"
+```
+
+As the target Unix user:
+
+```zsh
 mise trust
 ./dotfiles diff "$profile"
 ./dotfiles apply "$profile"
-# Optional until this machine decrypts vault or other SOPS material:
-# ./scripts/secrets/configure-sops-age-identity.ts
-./dotfiles check "$profile"
+./scripts/bootstrap/configure-git.ts --profile "$profile"
 ```
 
-- Use `profile=personal-workstation` for the personal workstation composition,
-  or `profile=personal-devbox` for the personal devbox composition. The
-  remaining steps are identical.
-- Secret-consuming profiles (`personal-devbox` and `devbox`) still
-  require the age-identity step before bootstrap verification.
-
-Configure the human Git identity separately:
+All profiles except `workstation` require an age identity before verification.
+For `workstation`, enroll one when SOPS decryption is needed:
 
 ```zsh
-./scripts/bootstrap/configure-git.ts --profile "$profile"
+./scripts/secrets/configure-sops-age-identity.ts
+./dotfiles check "$profile"
 ```
 
 ## Externally Managed Homebrew Capabilities
 
-A workstation can accept a formula or cask from another trusted installer
-without pretending Homebrew owns it. Create
-`~/.config/dotfiles/external-homebrew.plist` as a regular XML property list
-owned by the current user and not writable by group or other users.
+A workstation can accept packages supplied by another trusted installer:
 
-The root dictionary has version `1` and a `capabilities` array. Each capability
-names a selected-profile entry and either a command or app-bundle validator:
-
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>version</key>
-  <integer>1</integer>
-  <key>capabilities</key>
-  <array>
-    <dict>
-      <key>packageType</key><string>brew</string>
-      <key>name</key><string>git</string>
-      <key>validator</key><string>command</string>
-      <key>path</key><string>/usr/bin/git</string>
-      <key>arguments</key>
-      <array><string>--version</string></array>
-    </dict>
-    <dict>
-      <key>packageType</key><string>cask</string>
-      <key>name</key><string>google-chrome</string>
-      <key>validator</key><string>bundle</string>
-      <key>path</key><string>/Applications/Google Chrome.app</string>
-      <key>bundleIdentifier</key><string>com.google.Chrome</string>
-      <key>teamIdentifier</key><string>TEAM_IDENTIFIER</string>
-    </dict>
-  </array>
-</dict>
-</plist>
-```
-
-| Validator | Requirements |
-| --- | --- |
-| `command` | Absolute executable path owned by the current user or root, not writable by group or other users. Runs up to three literal arguments. Use it when a safe version or health probe can prove that endpoint policy permits execution |
-| `bundle` | Absolute nonsymlinked app bundle, exact bundle identifier, exact signing team, and a valid strict code signature |
-
-Enforcement in `brew-bundle.ts` and bootstrap verification:
-
-- Ambient Homebrew Bundle skip variables are rejected.
-- macOS `plutil` lints the file and enforces root, version, record, field, and
-  value types before setting a formula or cask skip list.
-- Unknown entries, duplicates, failed commands, signature mismatches, unsafe
-  permissions, and unreadable files fail closed.
-- Delimiters, whitespace, and Unicode are normal plist string content.
+- Create `~/.config/dotfiles/external-homebrew.plist`: a regular XML plist,
+  owned by the user, without group/other write access.
+- Use version `1` and a `capabilities` array following the
+  [schema](../scripts/lib/homebrew.ts) and
+  [examples](../scripts/verify/external-homebrew.ts). Entries must name packages
+  declared by the selected profile.
+- `command`: absolute executable owned by root or the user, without group/other
+  write access; up to three literal arguments for a safe execution probe.
+- `bundle`: absolute nonsymlinked app bundle, exact bundle identifier and signing
+  team, and valid strict signature.
+- Unknown/duplicate entries, failed probes, unsafe permissions, and signature
+  mismatches fail setup. Ambient Homebrew Bundle skip variables are rejected.

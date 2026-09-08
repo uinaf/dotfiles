@@ -1,78 +1,35 @@
 # Contributing
 
-## Setup
+## Prepare
 
-This is a public macOS bootstrap framework. Keep changes portable and keep
-machine identity, credentials, app state, and project checkouts local.
-
-Install the prerequisites and clone the repository:
+- Install the [Mac prerequisites](docs/bootstrap.md) and clone the repo.
+- In a new checkout or worktree:
 
 ```zsh
-brew install git gh
-gh auth login
-gh repo clone uinaf/dotfiles ~/projects/dotfiles
-cd ~/projects/dotfiles
-brew install mise
+brew install mise actionlint chezmoi shellcheck
 ./dotfiles prepare
 export PATH="$(mise --no-config where node@"$(cat .node-version)")/bin:$PATH"
-brew install actionlint chezmoi shellcheck
 mise trust
-mise run verify:domain static
 ```
 
-For a new agent worktree on a prepared Mac, run `./dotfiles prepare`, then
-`mise trust` and the focused verification domain. This installs repository
-dependencies without applying dotfiles or changing the machine profile.
-
-Use the [Bootstrap guide](docs/bootstrap.md) for a different profile or a Mac
-that does not yet have Homebrew, Git, or GitHub CLI.
+`prepare` installs repository dependencies without applying a machine profile.
 
 ## Verify
 
-List the domains and run the focused check that owns the change:
-
 ```zsh
-mise run verify:domain config # example; select the owning domain
-mise run verify:fast
-mise run verify
+mise run verify:domain config # choose the affected domain
+mise run verify:fast          # all deterministic checks
+mise run verify               # also scan Git history for secrets
 ```
 
-- `verify:fast` runs every deterministic check in parallel; CI runs the same
-  graph on pull requests and manual dispatch.
-- `verify` also runs the local full-history secret scan. Run it before direct
-  pushes; push workflows only evaluate releases and do not verify the tree.
-- Live bootstrap checks inspect the active home directory. Run them only when the
-  current machine should satisfy that profile.
+- Domains: [mise.toml](mise.toml). Checks: [checks.json](scripts/verify/checks.json).
+- Run live profile checks and [audits](docs/security-audits.md) only on the intended Mac or user.
+- The optional [pre-push hook](scripts/verify/install-pre-push-hook.ts) checks outgoing commits for whitespace and conflict markers; it does not run tests.
 
-Optionally install the commit-hygiene pre-push hook:
+## Deliver
 
-```zsh
-./scripts/verify/install-pre-push-hook.ts
-```
-
-It checks only outgoing commit objects for whitespace and conflict-marker
-errors. It does not replace verification; pull requests use CI, while direct
-pushes require the full local gate.
-
-## Change the Owning Surface
-
-- Packages: `Brewfile` and `Brewfile.<profile>`.
-- Dotfiles: tracked source under `chezmoi/`.
-- Repo tasks: `mise.toml`; machine runtime pins:
-  `chezmoi/.chezmoitemplates/mise.toml`.
-- Global agent setup: `scripts/agents/`; repository-local skills remain with
-  their consumer.
-- Setup behavior: `scripts/bootstrap/`; verification and audit behavior:
-  `scripts/verify/` and `scripts/audit/`.
-
-Read the matching guide from the [documentation map](README.md#documentation)
-before changing a contract. Keep one-machine preferences local, in
-`~/.config/dotfiles/zshenv.local`, or in a fork.
-
-## Pull Requests
-
-- Use Conventional Commits. Commit types drive the tag-only release policy in
-  [GitHub pipelines](docs/github-pipelines.md).
-- Keep pull requests focused and include the verification performed.
-- Update the owning guide when a command, path, profile, or security boundary
-  changes.
+- Use Conventional Commits; update the [owning guide](README.md#guides) when behavior changes.
+- PRs run verification and scans. Direct pushes require `mise run verify` locally; push workflows only evaluate releases.
+- GitHub auto-merges eligible Renovate PRs after required CI passes. Add new mandatory checks to the ruleset; adding a workflow alone does not block merges. Admins retain direct pushes.
+- Git tags own release versions; keep `package.json` private and unversioned. Commit rules: [.releaserc.json](.releaserc.json).
+- PR CI does not exercise the [release job](.github/workflows/verify.yml). Prove release-tool compatibility before updating its pins; holds live in [renovate.json](renovate.json).

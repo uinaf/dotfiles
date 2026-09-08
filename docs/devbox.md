@@ -1,341 +1,162 @@
 # Devbox Setup
 
-Devbox automation keeps dedicated Unix users reproducible without making
-secrets or identities part of the public dotfiles repository.
+- Start with [Bootstrap](bootstrap.md) and [Identity provisioning](identities.md).
+- Isolate each identity in its own Unix user, home, credentials, and service state.
+- `personal-devbox` adds personal tools and gateway routing.
 
-`personal-devbox` adds headless personal tools and skills to this contract.
+## Local Configuration
 
-Credentials and lifecycle live in [Identity provisioning](identities.md).
+Optional per-user settings live in `~/.config/dotfiles/devbox.env`, mode `0600`:
 
-## Boundaries
+```sh
+DEVBOX_USER=example
+```
 
-Tracked here:
-
-- portable profile packages and shared shell defaults
-- public-safe Git, SSH, SOPS, launchd, and supervisor tooling
-- profile contracts, audit scripts, and verification
-
-Local only:
-
-- Git identities, signing keys, GitHub authorization, and browser sessions
-- private age identities and owner-only devbox config
-- workspace payloads, product env files, service state, logs, and sockets
-- Codex and Claude authentication, sessions, and trusted paths
-
-Identity isolation:
-
-- Each identity gets its own Unix user, home directory, Git identity, age
-  identity, agent homes, workspaces, and service state.
-- Provision GitHub and outbound SSH capabilities only when that identity needs
-  them.
-- Grant cross-context access explicitly and temporarily.
-
-## Secret Model
-
-- SOPS ciphertext belongs in a private capability-scoped vault repository.
-- Each Unix identity has a dedicated age identity at the standard SOPS path,
-  with the private key mode `0600` and parent directory mode `0700`.
-- Back that identity up through an approved human recovery system before
-  encrypting live secrets.
-- Repository access grants ciphertext access; the SOPS recipient list grants
-  decryption. Both are required.
-- Product repos should consume env vars, owner-only prepared files, or CI
-  secrets instead of containing secret-manager clients.
-
-Provision or verify the age identity with the commands in
-[Identity provisioning](identities.md#sops-age-identity).
+- Resolve SOPS secrets only in the consuming process. Keep plaintext tokens out
+  of shell startup, plists, and supervisor configuration.
+- Human GitHub access uses personal SSH keys; unattended access should use
+  repository-scoped GitHub App tokens over HTTPS and a separate commit identity.
 
 ## Sudo Without a Plaintext Password File
 
-An identity that needs unattended narrow sudo commands can store
-`SUDO_PASSWORD_AGE` inside its SOPS payload. The inner age ciphertext uses the
-dedicated sudo age identity, while SOPS controls access to the outer payload.
-
-Configure these owner-only paths in `~/.config/dotfiles/devbox.env`:
+Store `SUDO_PASSWORD_AGE` in the user's SOPS payload. Encrypt that inner value to
+a dedicated sudo age identity. Add these paths to the owner-only local config:
 
 ```sh
 SOPS_SUDO_SECRET_FILE="$HOME/projects/example/vault/secrets/identity/user-sudo.sops.json"
 SUDO_AGE_IDENTITY_FILE="$HOME/.config/dotfiles/sudo-age-identity.txt"
 ```
 
-Run a fixed command directly or allow a child process to make its own narrow
-sudo calls:
+Run a fixed command, or leave the child unprivileged while allowing its own sudo
+calls:
 
-```bash
-node scripts/secrets/sops-devbox-sudo.ts -- /bin/launchctl kickstart -k system/example.service
-node scripts/secrets/sops-devbox-sudo.ts --nested -- /path/to/service-restart.sh
+```zsh
+./scripts/secrets/sops-devbox-sudo.ts -- /bin/launchctl kickstart -k system/example.service
+./scripts/secrets/sops-devbox-sudo.ts --nested -- /path/to/service-restart.sh
 ```
 
-The password exists only in the askpass process. Keep the sudoers allowlist as
-the primary authorization boundary and use the nested mode only when the child
-command itself must stay unprivileged.
-
-## GitHub and SSH
-
-- Human devbox users may keep their own GitHub account and SSH signing key.
-- Unattended identities should use a repository-scoped GitHub App installation
-  token and a separate commit identity.
-- Git author metadata is not an authorization mechanism. HTTPS push and GitHub
-  API operations use the short-lived App token.
-- Devbox Git repositories normally use SSH remotes for human identities.
-- `configure-git.ts --profile devbox` (or `personal-devbox`) writes a
-  `Host github.com` override in `~/.ssh/github.config` when the signing key is a
-  local path.
-
-## Local Contract
-
-Optional per-user service settings live outside Git at
-`~/.config/dotfiles/devbox.env` with mode `0600`:
-
-```sh
-DEVBOX_USER=example
-```
-
-Do not create broad workspace env bundles or load secrets in shell startup.
+The password is decrypted in the askpass process. A narrow sudoers allowlist
+remains the authorization boundary.
 
 ## Opt-In Coding LLM Gateway
 
-Developer-profile users may route Codex and Claude Code through a private LLM
-gateway and run Cursor Agent with an identity-owned API key.
-
-- Generic developer profiles opt in with an owner-only local configuration
-  file. Personal profiles require that file and apply the gateway during normal
-  setup.
-- Personal setup retires saved vendor sessions automatically and idempotently.
-- It stores no secrets in shell startup, Codex configuration, or Claude
-  settings. Resolved credentials live only in the owner-only local gateway
-  configuration and client-native owner-only stores.
-
-Create `~/.config/dotfiles/llm-gateway.json` with mode `0600`:
+Personal profiles require `~/.config/dotfiles/llm-gateway.json`, mode `0600`.
+Standard profiles can enroll explicitly. Obtain resolved credentials from the
+owning private system and use the version 3 schema:
 
 ```json
 {
   "version": 3,
   "credentials": {
     "gatewai": "<resolved Gatewai key>",
-    "bifrost": "<resolved Bifrost key>",
-    "cursor": "<resolved Cursor key>"
+    "bifrost": "<resolved Bifrost key>"
   },
   "gatewaiBaseUrl": "https://gatewai.example/v1",
-  "bifrostBaseUrl": "https://bifrost.example/v1",
-  "cursorAgentBin": "/Users/example/.local/share/cursor-agent/versions/2026.08.11-e8db854/cursor-agent",
-  "grokBin": "/opt/homebrew/bin/grok"
+  "bifrostBaseUrl": "https://bifrost.example/v1"
 }
 ```
 
-`credentials.gatewai` and `credentials.bifrost` are required. Configure
-`credentials.cursor` only with `cursorAgentBin`. An optional
-`preservedLogins` array (values `codex`, `claude`, `cursor`, `grok`) declares
-host-local vendor logins that retirement and `--check` must leave alone; use
-it for a login that must remain available. Credential values are already-resolved
-opaque strings; their source stays outside this repository. Both
-`cursorAgentBin` and `grokBin` are optional. The configurators route Codex,
-Claude, and Grok through Gatewai, Cursor through its own API, and OpenCode and
-Pi through Bifrost. Other clients can call the installed credential helper
-with `bifrost`. The gateway configurator then:
+| Optional field | Use |
+| --- | --- |
+| `cursorAgentBin` + `credentials.cursor` | Configure together; the binary must be Cursor's versioned vendor executable, not a managed launcher. |
+| `grokBin` | Absolute path to the Grok executable. |
+| `preservedLogins` | Client names whose saved logins must survive retirement: `codex`, `claude`, `cursor`, `grok`. |
 
-- installs owner-only process helpers
-- backs up the current Codex and Claude settings once
-- uses Codex's native atomic config writer to select a command-authenticated
-  Responses provider
+- Gatewai: Codex, Claude, optional Grok.
+- Bifrost: OpenCode and Pi. Cursor uses its own API key.
+- Credentials stay in owner-only configuration or client stores.
 
-```bash
+```zsh
 ./scripts/bootstrap/configure-llm-gateway.ts
 ./scripts/bootstrap/configure-llm-gateway.ts --check
 ./scripts/bootstrap/configure-bifrost-clients.ts
 ./scripts/bootstrap/configure-bifrost-clients.ts --check
 ```
 
-Direct enrollment preserves saved logins. Generic profiles can check the gateway
-and its rollback path before retiring them with the commands below. Personal
-`./dotfiles apply` runs enrollment and retirement together. Both paths respect
-`preservedLogins`.
+- Explicit enrollment and `./dotfiles maintain` preserve saved logins.
+- Personal `./dotfiles apply` retires them, respecting `preservedLogins`.
+- To retire after checking explicit enrollment:
 
-```bash
+```zsh
 ./scripts/bootstrap/configure-llm-gateway.ts --retire-auth
 ./scripts/bootstrap/configure-llm-gateway.ts --check
 ```
 
-Retirement:
+### Client Troubleshooting
 
-- It is idempotent and keeps the owner-only gateway configuration in place.
-- It does not touch GitHub, SSH, OpenClaw, or connector credentials.
-- Rollback after retirement restores the pre-gateway client configuration but
-  cannot restore deleted login credentials. Authenticate each coding client
-  again before direct use.
-- A complete developer-profile `install.ts` run preserves gateway routing and
-  removes any legacy Codex login-method restriction.
+- **Codex:** `codex login status` can report `Not logged in` with working
+  command-based gateway auth. A live check is
+  `echo ok | codex exec --ephemeral --skip-git-repo-check -` (uses provider quota).
+  Harnesses using `--ignore-user-config` must launch
+  `~/.local/libexec/dotfiles/codex-gatewai` to retain gateway routing.
+- **Claude:** enrollment refuses conflicting `ANTHROPIC_API_KEY`,
+  `ANTHROPIC_AUTH_TOKEN`, Bedrock, or Vertex settings. Resolve those deliberately
+  before retrying.
+- **Cursor:** point integrations such as T3 Code at
+  `~/.local/libexec/dotfiles/cursor-agent-api`. Cursor self-updates can replace
+  the compatibility commands in `~/.local/bin`; the stable launcher follows the
+  vendor executable. It blocks browser login/logout and checks API-key health
+  through `status`, `whoami`, and `about`.
+- **OpenCode/Pi:** `configure-bifrost-clients.ts` converges the Bifrost catalog
+  and credentials. OpenCode enables only the `bifrost` provider.
 
-OpenCode and Pi:
+### Rollback
 
-- Personal setup asks the installed credential helper for the device-scoped
-  Bifrost key, writes it to OpenCode's owner-only `bifrost` auth slot, and sets
-  `enabled_providers` to only `bifrost`. It converges the same six-model catalog
-  in OpenCode and Pi, including context and output limits. Other settings,
-  providers, and inactive credentials remain untouched; direct `opencode` and
-  `opencode-go` auth slots remain absent.
-
-Codex after retirement:
-
-- `codex login status` reports `Not logged in` by design: authentication flows
-  through the `model_providers.*.auth` credential command in `config.toml`,
-  not a saved login or `OPENAI_API_KEY`.
-- The Gatewai provider sends Codex's `X-OpenAI-Actor-Authorization: local-proxy`
-  compatibility marker so the client exposes its local image-generation tool
-  while the credential command remains the authentication boundary.
-- The Gatewai provider enables Codex's persistent Responses WebSocket
-  transport to the proxy. Native upstream reuse also requires WebSockets on
-  the proxy's selected Codex credential.
-- Do not diagnose a "missing" Codex credential from `codex login status` or
-  environment variables. Verify with a live call instead:
-  `echo ok | codex exec --ephemeral --skip-git-repo-check -`.
-- Child processes that launch `codex` inherit this configuration as long as
-  they preserve `HOME`/`CODEX_HOME`. Harnesses that pass
-  `--ignore-user-config` drop the gateway provider from `config.toml`; for
-  those, point the harness at the installed
-  `~/.local/libexec/dotfiles/codex-gatewai` launcher (for example
-  `CODEX_BIN=~/.local/libexec/dotfiles/codex-gatewai`). It re-injects the
-  gateway provider as CLI `-c` overrides, resolves its paths from its own
-  install location so a redirected `HOME` cannot break it, and keeps secrets
-  out of the environment and argument list.
-
-Claude Code:
-
-- Receives `ANTHROPIC_BASE_URL` and `apiKeyHelper` in its existing user
-  settings; every unrelated setting remains in place.
-- Keeps its saved Claude login; enrollment alone does not remove it.
-- Fails enrollment when the settings already define `ANTHROPIC_API_KEY`,
-  `ANTHROPIC_AUTH_TOKEN`, Bedrock, or Vertex selection, because those values
-  take precedence over the gateway helper. Remove that conflict deliberately
-  before enrollment instead of silently routing around it.
-
-Cursor commands:
-
-- The stable API-key launcher lives at
-  `~/.local/libexec/dotfiles/cursor-agent-api`. Point clients that accept an
-  explicit binary path, including T3 Code, at that absolute path.
-- The configurator records the exact installer-managed symlink targets, then
-  replaces `~/.local/bin/cursor-agent` and `~/.local/bin/agent` with the API-key
-  launcher. Cursor can replace those paths again during a self-update, so they
-  are compatibility commands rather than the durable integration point.
-- Managed login and non-interactive zsh shells include `~/.local/bin` in `PATH`,
-  while interactive zsh aliases `cursor-agent` to the stable launcher.
-- `cursorAgentBin` must therefore point to Cursor's versioned vendor executable,
-  never one of those launcher paths.
-- The standalone `~/.local/bin/cursor-agent-api` path remains available for
-  compatibility.
-- When Cursor self-updates, the stable launcher follows the new canonical
-  vendor symlink while preserving API-key authentication. A later managed
-  apply saves that executable path in the owner-only gateway config before
-  reapplying compatibility commands, preserving the new version. Existing
-  installations use Cursor's native update command.
-- The launcher uses Cursor's in-memory credential store so API-key checks do
-  not recreate saved login state.
-
-Launcher behavior:
-
-- Blocks `login` and `logout` while enabled, so a help or diagnostic command
-  cannot start browser authentication.
-- Reports API-key health through `status`, `whoami`, and `about` after a provider
-  model check, including a synthetic `api-key@local` identity for tools that
-  parse `agent about`.
-- Acknowledges ACP `authenticate` locally, so clients that always send
-  `cursor_login` do not start a browser flow.
-
-Grok Build:
-
-- When `grokBin` is configured, the normal `grok` command uses Gatewai's
-  OpenAI-compatible model catalog and the command-backed gateway bearer. The
-  configurator backs up `~/.grok/config.toml` and `~/.grok/auth.json` before
-  selecting the gateway, preserves unrelated Grok settings, and never calls
-  `grok logout`. Before retirement, rollback restores the saved config and vendor
-  session. Retirement deletes that session backup unless `preservedLogins`
-  includes `grok`.
-
-Rollback restores the exact pre-enrollment Codex config, Claude settings, and
-Cursor command symlinks, then removes the helpers. Saved coding login state is
-untouched unless the separate `--retire-auth` operation was run:
-
-```bash
+```zsh
 ./scripts/bootstrap/configure-llm-gateway.ts --rollback
 ```
 
+- Restores saved client configuration and Cursor symlinks; removes helpers.
+- Deleted logins cannot be restored. Authenticate retired clients again before
+  direct use.
+
 ## System Services
 
-Install selected boot services from an authorized administrator account. The
-installer creates root-owned system LaunchDaemons that drop privileges to the
-target user.
+Install Colima's boot service from an authorized administrator account for the
+user who owns Colima:
 
-Install a headless T3 Code server as the target user, not as a system daemon,
-so the desktop app can update it in place (`boot-service` self-update):
+```zsh
+sudo ./scripts/bootstrap/install-devbox-service-daemons.ts --user example --colima
+sudo ./scripts/bootstrap/install-devbox-service-daemons.ts --user example --colima --check
+```
+
+- Root-owned LaunchDaemon, mode `0644`, running as the target user.
+- Retire competing user LaunchAgents before installation.
+- Reference owner-only wrappers or files; never embed secrets.
+
+Install T3 Code as its target user so the desktop app can update the service:
 
 ```zsh
 npx t3@latest service install --base-dir ~/.t3
 npx t3@latest service status
 ```
 
-The service is a per-user LaunchAgent (`com.t3tools.t3code.service`) that
-starts at login, so the devbox must auto-login that user. Move versions with
-`npx t3@<version> service update`, or from the T3 Code app's environment
-settings once a server update is available. T3 Connect and the relay client
-keep working across updates because `--base-dir` and the environment id are
-unchanged. See the upstream
-[background service](https://github.com/pingdotgg/t3code/blob/main/docs/user/background-service.md)
-doc.
+Keep the user logged in and the Mac awake; the LaunchAgent stops at logout.
+Keep `--base-dir` stable across updates; see the upstream
+[background service guide](https://github.com/pingdotgg/t3code/blob/main/docs/user/background-service.md).
 
-- Use `--colima` only when that target user owns the service.
-- Use `--check` with the selected service flags for a non-mutating contract
-  check.
-- System LaunchDaemons must be root-owned and mode `0644`.
-- They may reference owner-only files and wrappers but must never embed secret
-  values.
-- Retire a competing user LaunchAgent before installing a system service for the
-  same process.
+## Software Updates and Cleanup
 
-## Software Updates
+Use the [shared Homebrew wrapper](bootstrap.md#shared-homebrew-updates) as the
+prefix owner. [Headless update enrollment](software-updates.md#headless-devbox-updates)
+runs shared packages and per-user updates without a GUI login.
 
-For package updates, use the [shared Homebrew wrapper](bootstrap.md#shared-homebrew-updates)
-as the prefix owner. [Headless update enrollment](software-updates.md#headless-devbox-updates)
-adds six-hour system jobs for shared packages and each user's Topgrade steps,
-with on-demand execution, private logs, and no GUI-login requirement.
+[Host hygiene](software-updates.md#host-hygiene) runs when due during updates:
 
-## Disk Cleanup
-
-The six-hour updater runs the [host hygiene command](software-updates.md#host-hygiene)
-on every profile when weekly cleanup is due; headless execution comes from the
-enrolled update LaunchDaemon. The former Sunday `local.dotfiles.disk-cleanup`
-LaunchAgent and its `~/.local/libexec/dotfiles/disk-cleanup` shim are retired:
-applying dotfiles boots the agent out of the GUI session when it is still
-loaded and removes both files.
-
-```sh
+```zsh
 mise run maintenance:hygiene # preview
-mise run maintenance:clean   # apply after checking the updater is idle
+mise run maintenance:clean   # apply with the updater idle
 ```
-
-The host hygiene guide defines worktree/branch eligibility, grace periods,
-retained data, cache ages, failure reporting, and interrupted-run recovery.
 
 ## Verification
 
-Run each check as the intended Unix identity:
+Run as the intended Unix user:
 
-```bash
-./dotfiles check devbox
+```zsh
+./dotfiles check devbox # use personal-devbox for that profile
 ./scripts/verify/devbox-services.ts
 mise run audit devbox --format json
 ```
 
-Use `./dotfiles check personal-devbox` for the bootstrap check on an
-owner-operated personal devbox. The service verification and audit commands
-are unchanged.
-
-| Gate | Checks |
-| --- | --- |
-| `./dotfiles check <profile>` | Selected profile packages and shared config |
-| `./scripts/verify/devbox-services.ts` | Age identity, local config, and launchd boundary |
-| `mise run audit devbox` | Stale secret-looking files, Git and GitHub identity, SSH permissions, project privacy, Tailscale health, and local service state |
-
-Treat prose audit output as sensitive because scanners may include matched
-material. Prefer `--json` for remote collection and summarize findings by
-detector, path, and line number.
+Audit prose can contain secrets. Collect JSON and report detector, path, and
+line without copying matched values.
