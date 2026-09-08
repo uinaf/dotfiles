@@ -2,7 +2,7 @@
   "name": "portable-macos-dotfiles",
   "private": true,
   "type": "module",
-  "packageManager": "pnpm@12.1.0",
+  "packageManager": "pnpm@12.2.1",
   "engines": {
     "node": ">=24.20.0"
   },
