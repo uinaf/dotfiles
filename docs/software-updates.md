@@ -39,6 +39,9 @@ Prefix these commands with `mise run`.
 
 ## Dotfiles Convergence
 
+- Playwright CLI stays on `0.1.18`: `0.1.19` dropped npm trusted-publisher
+  metadata and provenance. Remove its Renovate hold after a reviewed release
+  restores that evidence; keep Mise's trust policy enabled.
 - [Convergence](../scripts/maintenance/converge.ts) requires a clean default
   branch tracking `origin`, with no local commits or unfinished Git operations.
   Dirty, ahead, detached, or diverged checkouts retain local work and fail.
