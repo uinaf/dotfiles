@@ -19,17 +19,23 @@ const RpcMessage = Schema.Struct({
 type Scalar = boolean | null | number | string | readonly string[] | Readonly<Record<string, string>>;
 export type ConfigEdit = { keyPath: string; value: Scalar; mergeStrategy: "replace" | "upsert" };
 
-export function managedEdits(personal: boolean): ConfigEdit[] {
+export function managedEdits(): ConfigEdit[] {
   return [
     { keyPath: "forced_login_method", value: null, mergeStrategy: "replace" },
     { keyPath: "model", value: "gpt-6-astra", mergeStrategy: "upsert" },
     { keyPath: "model_reasoning_effort", value: "medium", mergeStrategy: "upsert" },
-    personal
-      ? { keyPath: "service_tier", value: "fast", mergeStrategy: "upsert" }
-      : { keyPath: "service_tier", value: null, mergeStrategy: "replace" },
-    personal
-      ? { keyPath: "features.fast_mode", value: true, mergeStrategy: "upsert" }
-      : { keyPath: "features.fast_mode", value: null, mergeStrategy: "replace" },
+    // Fast mode bills at 2x the model's rates for output speed alone. Long
+    // agentic sessions are dominated by cached-input reads, so the premium buys
+    // nothing measurable and doubles the largest line on the bill.
+    { keyPath: "service_tier", value: null, mergeStrategy: "replace" },
+    { keyPath: "features.fast_mode", value: null, mergeStrategy: "replace" },
+    // Token-budget context, history notes, and the new_context tool. Without
+    // these a long session rides a full context window and re-sends it every
+    // turn; Codex 0.153+ lets the model account for remaining capacity instead.
+    { keyPath: "features.context_management.experimental_mode", value: true, mergeStrategy: "upsert" },
+    // Spawned workers inherit the parent's effort otherwise, which is far more
+    // than a bounded delegated task needs.
+    { keyPath: "agents.default_subagent_reasoning_effort", value: "low", mergeStrategy: "upsert" },
     { keyPath: "features.goals", value: true, mergeStrategy: "upsert" },
     { keyPath: "features.memories", value: false, mergeStrategy: "upsert" },
   ];
@@ -96,8 +102,8 @@ export async function writeConfigEdits(edits: readonly ConfigEdit[]): Promise<st
   return configPath;
 }
 
-export async function configure(personal: boolean): Promise<string> {
-  return writeConfigEdits(managedEdits(personal));
+export async function configure(): Promise<string> {
+  return writeConfigEdits(managedEdits());
 }
 
 if (import.meta.main) {
@@ -109,9 +115,11 @@ if (import.meta.main) {
     }
     const profile = yield* resolveProfile(profileIndex === 0 ? args[1] : undefined);
     const model = yield* readProfileModelEffect(profileModelFile());
-    const personal = requireProfile(model, profile).capabilities.personal;
+    // Still validated so an unknown profile fails loudly, even though every
+    // profile now gets the same Codex defaults.
+    requireProfile(model, profile);
     const configPath = yield* Effect.tryPromise({
-      try: () => configure(personal),
+      try: () => configure(),
       catch: (error) => error,
     });
     yield* Console.log(`configured Codex defaults in ${configPath}`);
