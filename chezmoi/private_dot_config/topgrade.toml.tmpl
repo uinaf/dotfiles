@@ -13,7 +13,11 @@ no_self_update = true
 notify_end = "on_failure"
 
 [brew]
-greedy_cask = true
+# Casks that self-update are left to their own updaters. Upgrading them here
+# needs the running app quit, which the scheduled job forbids, so greedy_cask
+# failed the whole step on whatever happened to be open (google-drive).
+# greedy_latest still covers `version :latest` casks, which brew must manage.
+greedy_latest = true
 autoremove = false
 
 [commands]
