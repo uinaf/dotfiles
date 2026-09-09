@@ -33,9 +33,6 @@ export function managedEdits(): ConfigEdit[] {
     // these a long session rides a full context window and re-sends it every
     // turn; Codex 0.153+ lets the model account for remaining capacity instead.
     { keyPath: "features.context_management.experimental_mode", value: true, mergeStrategy: "upsert" },
-    // Spawned workers inherit the parent's effort otherwise, which is far more
-    // than a bounded delegated task needs.
-    { keyPath: "agents.default_subagent_reasoning_effort", value: "low", mergeStrategy: "upsert" },
     { keyPath: "features.goals", value: true, mergeStrategy: "upsert" },
     { keyPath: "features.memories", value: false, mergeStrategy: "upsert" },
   ];

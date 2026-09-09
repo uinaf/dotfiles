@@ -30,7 +30,6 @@ function assertDefaults(contents: string): void {
   assert.doesNotMatch(features, /^fast_mode\s*=/m);
   assert.match(contents, /^\[features\.context_management\]$/m);
   assert.match(contents.split(/^\[features\.context_management\][ \t]*$/m)[1].split(/^\[/m)[0], /^experimental_mode = true$/m);
-  assert.match(contents.split(/^\[agents\][ \t]*$/m)[1].split(/^\[/m)[0], /^default_subagent_reasoning_effort = "low"$/m);
 }
 
 test("installed Codex removes forced login, preserves unrelated config, and is idempotent", { skip: !codexInstalled }, () => {
