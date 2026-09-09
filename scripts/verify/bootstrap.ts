@@ -5,7 +5,7 @@ import { Console, Effect, FileSystem } from "effect";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { CommandRunner } from "../lib/command.ts";
-import { bundleCheckArgs, bundleDrift, configureExternalCapabilities, profileBrewfiles, runHomebrewRaw, verifyPrefixPermissions } from "../lib/homebrew.ts";
+import { brewfilePath, bundleCheckArgs, bundleDrift, configureExternalCapabilities, profileBrewfiles, runHomebrewRaw, verifyPrefixPermissions, withLocalBrewfile } from "../lib/homebrew.ts";
 import { fail, runMain } from "../lib/program.ts";
 import { checkMiseDoctor, runCleanZsh } from "../lib/shell-probe.ts";
 import { resolveProfile } from "../profiles/current.ts";
@@ -100,12 +100,12 @@ const program = Effect.gen(function*() {
   });
   const homebrew = Effect.gen(function*() {
     const external = yield* configureExternalCapabilities(repoRoot, model, profile);
-    for (const file of profileBrewfiles(model, profile)) {
-      const result = yield* runHomebrewRaw("brew", bundleCheckArgs(model, profile, join(repoRoot, file)), { env: { ...external, HOMEBREW_BUNDLE_DOTFILES_PROFILE: profile, HOMEBREW_NO_AUTO_UPDATE: "1" } });
-      if (result.status !== 0) return yield* fail(`missing Homebrew dependencies from ${file}`);
+    for (const file of yield* withLocalBrewfile(repoRoot, profileBrewfiles(model, profile))) {
+      const result = yield* runHomebrewRaw("brew", bundleCheckArgs(model, profile, brewfilePath(repoRoot, file)), { env: { ...external, HOMEBREW_BUNDLE_DOTFILES_PROFILE: profile, HOMEBREW_NO_AUTO_UPDATE: "1" } });
+      if (result.status !== 0) return yield* fail(`missing Homebrew dependencies from ${file}${result.stderr.trim() ? `\n${result.stderr.trim()}` : ""}`);
     }
     const drift = yield* bundleDrift(repoRoot, model, profile);
-    if (drift.trim()) return yield* fail(`installed Homebrew packages drift from the profile manifests:\n${drift}`);
+    if (drift.trim()) return yield* fail(`installed Homebrew packages drift from the profile manifests and local Brewfile:\n${drift}`);
     if (config.capabilities.devbox) yield* verifyPrefixPermissions();
   });
   const configuration = Effect.gen(function*() {

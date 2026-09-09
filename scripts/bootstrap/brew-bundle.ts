@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { CommandRunner } from "../lib/command.ts";
 import { CliFailure, fail, runMain } from "../lib/program.ts";
 import {
+  brewfilePath,
   commandAvailable,
   cleanupFiles,
   cleanupProfile,
@@ -16,6 +17,7 @@ import {
   removeComposedBrewfile,
   runHomebrewRaw,
   trustTaps,
+  withLocalBrewfile,
 } from "../lib/homebrew.ts";
 import { normalizeProfile, profileModelFile } from "../profiles/current.ts";
 import { readProfileModelEffect, requireProfile } from "../profiles/model.ts";
@@ -28,7 +30,8 @@ const usage = `Usage:
   scripts/bootstrap/brew-bundle.ts --cleanup PROFILE
   scripts/bootstrap/brew-bundle.ts --maintenance PROFILE
 
-Installs the shared base first, then developer and selected profile layers.
+Installs the shared base first, then the selected profile layers and an optional
+gitignored Brewfile.local. --shared-only skips both.
 --cleanup removes packages outside the complete host contract.
 --maintenance installs missing declarations without upgrades; shared-prefix consumers only check.`;
 
@@ -101,9 +104,9 @@ const program = Effect.gen(function*() {
   );
   const model = yield* readProfileModelEffect(profileModelFile());
   const profileConfig = requireProfile(model, profile);
-  const files = args.sharedOnly ? ["Brewfile"] : [...profileBrewfiles(model, profile)];
+  const files = args.sharedOnly ? ["Brewfile"] : yield* withLocalBrewfile(repoRoot, profileBrewfiles(model, profile));
   if (args.printFiles) {
-    for (const file of files) yield* Console.log(join(repoRoot, file));
+    for (const file of files) yield* Console.log(brewfilePath(repoRoot, file));
     return;
   }
   if (!(yield* commandAvailable("brew"))) return yield* fail("brew is required before running this script");
@@ -115,13 +118,13 @@ const program = Effect.gen(function*() {
     checkOnly = Option.getOrUndefined((yield* fs.stat(prefix)).uid) !== process.getuid?.();
   }
   if (checkOnly) {
-    for (const file of files) yield* execute("brew", ["bundle", "check", "--no-upgrade", "--file", join(repoRoot, file)],
+    for (const file of files) yield* execute("brew", ["bundle", "check", "--no-upgrade", "--file", brewfilePath(repoRoot, file)],
       { ...external, HOMEBREW_BUNDLE_DOTFILES_PROFILE: profile, HOMEBREW_NO_AUTO_UPDATE: "1" });
     yield* Console.log("Shared packages checked; the prefix owner's job installs declarations.");
     return;
   }
   if (args.maintenance) {
-    const checks = yield* Effect.forEach(files, (file) => runHomebrewRaw("brew", ["bundle", "check", "--no-upgrade", "--file", join(repoRoot, file)],
+    const checks = yield* Effect.forEach(files, (file) => runHomebrewRaw("brew", ["bundle", "check", "--no-upgrade", "--file", brewfilePath(repoRoot, file)],
       { env: { ...external, HOMEBREW_BUNDLE_DOTFILES_PROFILE: profile, HOMEBREW_NO_AUTO_UPDATE: "1" } }));
     if (checks.every((result) => result.status === 0)) {
       yield* Console.log("All declared Homebrew packages are installed.");
@@ -130,7 +133,7 @@ const program = Effect.gen(function*() {
   }
   yield* trustTaps(repoRoot, files);
   for (const file of files) {
-    const path = join(repoRoot, file);
+    const path = brewfilePath(repoRoot, file);
     yield* Console.log(`\n## brew bundle --file ${path}`);
     const env = { ...external, HOMEBREW_BUNDLE_DOTFILES_PROFILE: profile };
     const bundleArgs = ["bundle", ...(args.maintenance ? ["--no-upgrade"] : []), "--file", path];
@@ -141,7 +144,7 @@ const program = Effect.gen(function*() {
     }
   }
   if (!args.cleanup) return;
-  const composed = yield* composeBrewfile(repoRoot, cleanupFiles(model, profile));
+  const composed = yield* composeBrewfile(repoRoot, yield* withLocalBrewfile(repoRoot, cleanupFiles(model, profile)));
   yield* Effect.gen(function*() {
     yield* trustTaps(repoRoot, [composed]);
     yield* Console.log(`\n## brew bundle cleanup --force (composed ${profile} host contract)`);

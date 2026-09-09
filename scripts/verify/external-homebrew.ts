@@ -39,8 +39,9 @@ const program = Effect.scoped(Effect.gen(function*() {
     yield* fs.writeFileString(config, xml(capabilities), { mode: 0o600 });
     yield* fs.chmod(config, 0o600);
   });
+  const local = join(temporary, "Brewfile.local");
   const validate = Effect.fn("validateExternalHomebrewFixture")(function*(profile = "workstation", extra: Readonly<Record<string, string>> = {}) {
-    Object.assign(process.env, { DOTFILES_EXTERNAL_HOMEBREW_FILE: config, MANAGED_TOOL_LOG: log, ...extra });
+    Object.assign(process.env, { DOTFILES_EXTERNAL_HOMEBREW_FILE: config, DOTFILES_BREWFILE_LOCAL: join(temporary, "missing/Brewfile.local"), MANAGED_TOOL_LOG: log, ...extra });
     for (const key of ["HOMEBREW_BUNDLE_BREW_SKIP", "HOMEBREW_BUNDLE_CASK_SKIP", "HOMEBREW_BUNDLE_TAP_SKIP", "HOMEBREW_BUNDLE_MAS_SKIP"]) if (!(key in extra)) delete process.env[key];
     return yield* configureExternalCapabilities(repoRoot, model, profile);
   });
@@ -59,6 +60,10 @@ const program = Effect.scoped(Effect.gen(function*() {
   assert.equal((yield* validate("personal-devbox").pipe(Effect.option))._tag, "None");
   yield* write([command("brew", "not-declared", ["--version"])]);
   assert.equal((yield* validate().pipe(Effect.option))._tag, "None");
+  yield* fs.writeFileString(local, 'brew "not-declared"\n', { mode: 0o600 });
+  assert.equal((yield* validate("workstation", { DOTFILES_BREWFILE_LOCAL: local })).HOMEBREW_BUNDLE_BREW_SKIP, "not-declared");
+  yield* fs.chmod(local, 0o666);
+  assert.equal((yield* validate("workstation", { DOTFILES_BREWFILE_LOCAL: local }).pipe(Effect.option))._tag, "None");
   yield* write([command("brew", "git", ["--version"])]);
   yield* fs.chmod(config, 0o666);
   assert.equal((yield* validate().pipe(Effect.option))._tag, "None");

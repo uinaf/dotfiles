@@ -24,8 +24,6 @@ function assertDefaults(contents: string): void {
   assert.doesNotMatch(root, /^forced_login_method\s*=/m);
   assert.match(features, /^goals = true$/m);
   assert.match(features, /^memories = false$/m);
-  // Fast mode is cleared on every profile: its 2x rate buys output speed that
-  // a cached-input-dominated agent session cannot use.
   assert.doesNotMatch(root, /^service_tier\s*=/m);
   assert.doesNotMatch(features, /^fast_mode\s*=/m);
   assert.match(contents, /^\[features\.context_management\]$/m);

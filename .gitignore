@@ -15,3 +15,4 @@ chezmoi.toml
 **/.config/dotfiles/zshenv.local
 /chezmoi/*dot_config/*dotfiles/*zshenv.local*
 Brewfile.composed.*
+Brewfile.local

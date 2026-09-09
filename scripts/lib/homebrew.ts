@@ -89,6 +89,35 @@ export function profileBrewfiles(model: ProfileModel, profile: string): readonly
   return requireProfile(model, profile).brewfiles;
 }
 
+export function brewfilePath(repoRoot: string, file: string): string {
+  return isAbsolute(file) ? file : join(repoRoot, file);
+}
+
+// The optional local layer is trusted Ruby evaluated by Homebrew Bundle, so the
+// checkout owner must own it and nobody else may write it.
+export const localBrewfile = Effect.fn("localBrewfile")(function*(repoRoot: string) {
+  const path = process.env.DOTFILES_BREWFILE_LOCAL || join(repoRoot, "Brewfile.local");
+  const fs = yield* FileSystem.FileSystem;
+  const link = yield* fs.readLink(path).pipe(Effect.option);
+  const exists = yield* fs.exists(path);
+  if (!exists && Option.isNone(link)) return Option.none<string>();
+  const info = yield* fs.stat(path).pipe(Effect.option);
+  if (Option.isSome(link) || Option.isNone(info) || info.value.type !== "File") {
+    return yield* fail(`invalid local Brewfile: ${path} must be a regular file`);
+  }
+  if (Option.getOrUndefined(info.value.uid) !== process.getuid?.()) return yield* fail(`unsafe local Brewfile: ${path} must be owned by the current user`);
+  if ((info.value.mode & 0o022) !== 0) return yield* fail(`unsafe local Brewfile: ${path} must not be group or world writable`);
+  yield* fs.access(path, { readable: true }).pipe(
+    Effect.mapError(() => new CliFailure({ exitCode: 1, message: `invalid local Brewfile: ${path} must be readable` })),
+  );
+  return Option.some(path);
+});
+
+export const withLocalBrewfile = Effect.fn("withLocalBrewfile")(function*(repoRoot: string, files: readonly string[]) {
+  const local = yield* localBrewfile(repoRoot);
+  return Option.isSome(local) ? [...files, local.value] : files;
+});
+
 export function bundleCheckArgs(model: ProfileModel, profile: string, file: string): readonly string[] {
   const installedOnly = requireProfile(model, profile).capabilities.sharedHomebrew ? ["--no-upgrade"] : [];
   return ["bundle", "check", ...installedOnly, "--file", file];
@@ -97,8 +126,8 @@ export function bundleCheckArgs(model: ProfileModel, profile: string, file: stri
 export const composeBrewfile = Effect.fn("composeBrewfile")(function*(repoRoot: string, files: readonly string[]) {
   const fs = yield* FileSystem.FileSystem;
   const composed = yield* fs.makeTempFile({ directory: repoRoot, prefix: "Brewfile.composed." });
-  const contents = yield* Effect.forEach(files, (file) => fs.readFileString(join(repoRoot, file)));
-  yield* fs.writeFileString(composed, contents.join(""));
+  const contents = yield* Effect.forEach(files, (file) => fs.readFileString(brewfilePath(repoRoot, file)));
+  yield* fs.writeFileString(composed, contents.map((content) => content.endsWith("\n") ? content : `${content}\n`).join(""));
   return composed;
 });
 
@@ -122,8 +151,7 @@ export function cleanupProfile(model: ProfileModel, profile: string): string {
 }
 
 export const bundleDrift = Effect.fn("homebrewBundleDrift")(function*(repoRoot: string, model: ProfileModel, profile: string) {
-  const fs = yield* FileSystem.FileSystem;
-  const composed = yield* composeBrewfile(repoRoot, cleanupFiles(model, profile));
+  const composed = yield* composeBrewfile(repoRoot, yield* withLocalBrewfile(repoRoot, cleanupFiles(model, profile)));
   const result = yield* runRaw("brew", ["bundle", "cleanup", "--file", composed], {
     env: {
       HOMEBREW_BUNDLE_DOTFILES_PROFILE: cleanupProfile(model, profile),
@@ -176,13 +204,13 @@ const declared = Effect.fn("externalHomebrewEntryDeclared")(function*(
 ) {
   const flag = packageType === "brew" ? "--formula" : "--cask";
   for (const file of files) {
-    const listed = yield* runRaw("brew", ["bundle", "list", flag, "--file", join(repoRoot, file)], {
+    const listed = yield* runRaw("brew", ["bundle", "list", flag, "--file", brewfilePath(repoRoot, file)], {
       env: { HOMEBREW_BUNDLE_DOTFILES_PROFILE: profile, HOMEBREW_NO_AUTO_UPDATE: "1" },
     });
     if (listed.status === 0 && listed.stdout.split("\n").includes(name)) return true;
     if (listed.status === 0 && name.includes("/") && listed.stdout.split("\n").includes(basename(name))) {
       const fs = yield* FileSystem.FileSystem;
-      const contents = yield* fs.readFileString(join(repoRoot, file));
+      const contents = yield* fs.readFileString(brewfilePath(repoRoot, file));
       if (contents.split("\n").some((line) => line.trim() === `${packageType} "${name}"`)) return true;
     }
   }
@@ -262,13 +290,14 @@ export const configureExternalCapabilities = Effect.fn("configureExternalHomebre
   const first = (yield* fs.readFileString(path)).split(/\r?\n/, 1)[0];
   if (!first?.startsWith("<?xml ")) return yield* fail(`invalid external Homebrew capability: ${path} must be an XML property list`);
   const config = yield* parsePlist(path);
+  const files = yield* withLocalBrewfile(repoRoot, profileBrewfiles(model, profile));
   const seen = new Set<string>();
   const skips: Record<string, string[]> = { HOMEBREW_BUNDLE_BREW_SKIP: [], HOMEBREW_BUNDLE_CASK_SKIP: [] };
   for (const capability of config.capabilities) {
     const externalOnly = requireProfile(model, profile).externalHomebrew?.some((entry) =>
       entry.packageType === capability.packageType && entry.name === capability.name) ?? false;
-    if (!externalOnly && !(yield* declared(repoRoot, profileBrewfiles(model, profile), profile, capability.packageType, capability.name))) {
-      return yield* fail(`invalid external Homebrew capability: ${capability.packageType} ${capability.name} is not declared by profile ${profile}`);
+    if (!externalOnly && !(yield* declared(repoRoot, files, profile, capability.packageType, capability.name))) {
+      return yield* fail(`invalid external Homebrew capability: ${capability.packageType} ${capability.name} is not declared by profile ${profile} or the local Brewfile`);
     }
     const key = `${capability.packageType}|${capability.name}`;
     if (seen.has(key)) return yield* fail(`invalid external Homebrew capability: duplicate ${key}`);

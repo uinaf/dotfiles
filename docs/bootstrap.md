@@ -68,6 +68,8 @@ mise trust
 - Every profile except `workstation` requires a
   [backed-up SOPS age identity](identities.md#sops-age-identity).
   `workstation` needs one when it consumes secrets.
+- For machine-specific Homebrew packages, add a gitignored
+  [local Brewfile](profiles.md#local-homebrew-additions).
 - For externally supplied Homebrew packages or refused tap trust, configure
   [external capabilities](profiles.md#externally-managed-homebrew-capabilities).
 
@@ -178,7 +180,7 @@ which preserves saved logins. For package-only refreshes, use
 | Failure | Recovery |
 | --- | --- |
 | Missing packages or `chezmoi` | Rerun `brew-bundle.ts` with the selected profile. |
-| Homebrew drift | Review and run `./scripts/bootstrap/brew-bundle.ts --cleanup <profile>`. This removes undeclared packages; shared devboxes use the personal-devbox package union. |
+| Homebrew drift | Keep intentional machine-specific packages in a [local Brewfile](profiles.md#local-homebrew-additions), then review and run `./scripts/bootstrap/brew-bundle.ts --cleanup <profile>`. This removes undeclared packages; shared devboxes use the personal-devbox package union. |
 | Shared prefix permissions | Run `./scripts/bootstrap/brew-devbox.ts --repair-shared-readability` as the prefix owner. Foreign-owned content needs an administrator to correct ownership. |
 | Git dubious ownership under `/opt/homebrew` | Rerun `configure-git.ts` with the selected profile. |
 | GitHub SSH authentication | Check the local key and rerun [Git configuration](identities.md#developer-git-and-ssh). |

@@ -28,8 +28,10 @@ if [ "\${1:-}" = bundle ] && [ "\${2:-}" = check ]; then exit "\${FAKE_BREW_CHEC
 exit "\${FAKE_BREW_EXIT:-0}"
 `, { mode: 0o755 });
   const path = `${bin}:${process.env.PATH || "/usr/bin:/bin"}`;
+  // Fixtures never read the operator's checkout-local Brewfile.
+  const missingLocal = join(temporary, "missing/Brewfile.local");
   const execute = (script: string, args: readonly string[], log: string, extra: Readonly<Record<string, string>> = {}, home = process.env.HOME || temporary) => runner.run(process.execPath, [join(repoRoot, script), ...args], {
-    env: { HOME: home, PATH: path, FAKE_BREW_LOG: log, FAKE_BREW_PREFIX: prefix, DOTFILES_EXTERNAL_HOMEBREW_FILE: external, ...extra },
+    env: { HOME: home, PATH: path, FAKE_BREW_LOG: log, FAKE_BREW_PREFIX: prefix, DOTFILES_EXTERNAL_HOMEBREW_FILE: external, DOTFILES_BREWFILE_LOCAL: missingLocal, ...extra },
   });
   const repairDirectory = join(prefix, "private-directory");
   const repairFile = join(prefix, "private-file");
@@ -127,6 +129,53 @@ exit "\${FAKE_BREW_EXIT:-0}"
   assert.equal((yield* fs.glob("Brewfile.composed.*", { root: repoRoot })).length, 0);
   assert.equal((yield* execute("scripts/bootstrap/brew-bundle.ts", ["--cleanup", "--shared-only", "devbox"], directLog)).status, 2);
   assert.equal((yield* execute("scripts/bootstrap/brew-bundle.ts", ["--shared-only"], directLog)).status, 2);
+
+  const local = join(temporary, "Brewfile.local");
+  yield* fs.writeFileString(local, 'brew "local-tool"\ncask "local-app"', { mode: 0o600 });
+  const withLocal = Effect.fn("runLocalBrewfileFixture")(function*(profile: string, args: readonly string[] = [], extra: Readonly<Record<string, string>> = {}) {
+    const localLog = join(temporary, `local-${profile}-${args.join("-") || "bundle"}.log`);
+    yield* fs.writeFileString(localLog, "");
+    const result = yield* execute("scripts/bootstrap/brew-bundle.ts", [...args, profile], localLog, { DOTFILES_BREWFILE_LOCAL: local, ...extra });
+    return { result, log: yield* fs.readFileString(localLog) };
+  });
+  const printed = yield* withLocal("devbox", ["--print-files"]);
+  assert.equal(printed.result.status, 0, printed.result.stderr);
+  assert.deepEqual(printed.result.stdout.trim().split("\n"), [join(repoRoot, "Brewfile"), join(repoRoot, "Brewfile.devbox"), local]);
+  const localInstall = yield* withLocal("devbox");
+  assert.equal(localInstall.result.status, 0, localInstall.result.stderr);
+  assert.equal((localInstall.log.match(/^arg=bundle$/gm) || []).length, 3);
+  assert.ok(localInstall.log.indexOf(`arg=${local}\n`) > localInstall.log.indexOf(`arg=${join(repoRoot, "Brewfile.devbox")}\n`));
+  const localShared = yield* withLocal("devbox", ["--shared-only"]);
+  assert.equal(localShared.result.status, 0, localShared.result.stderr);
+  assert.equal((localShared.log.match(/^arg=bundle$/gm) || []).length, 1);
+  assert.equal(localShared.log.includes(local), false);
+  const localMaintenance = yield* withLocal("devbox", ["--maintenance"]);
+  assert.equal(localMaintenance.result.status, 0, localMaintenance.result.stderr);
+  assert.equal((localMaintenance.log.match(/^arg=check$/gm) || []).length, 3);
+  assert.ok(localMaintenance.log.includes(`arg=${local}`));
+  const localCleanup = yield* withLocal("devbox", ["--cleanup"]);
+  assert.equal(localCleanup.result.status, 0, localCleanup.result.stderr);
+  assert.match(localCleanup.log, /^cleanup_entry=brew "pi-coding-agent"$/m);
+  assert.match(localCleanup.log, /^cleanup_entry=brew "local-tool"$/m);
+  assert.match(localCleanup.log, /^cleanup_entry=cask "local-app"$/m);
+  assert.equal((yield* fs.glob("Brewfile.composed.*", { root: repoRoot })).length, 0);
+  yield* fs.chmod(local, 0o644);
+  const worldReadable = yield* withLocal("devbox");
+  assert.equal(worldReadable.result.status, 0, worldReadable.result.stderr);
+  yield* fs.chmod(local, 0o666);
+  const writableLocal = yield* withLocal("devbox");
+  assert.equal(writableLocal.result.status, 1);
+  assert.match(writableLocal.result.stderr, /unsafe local Brewfile: .* must not be group or world writable/);
+  assert.equal(writableLocal.log.includes("arg=bundle"), false);
+  yield* fs.chmod(local, 0o600);
+  const localLink = join(temporary, "Brewfile.local.link");
+  yield* fs.symlink(local, localLink);
+  const linked = yield* withLocal("devbox", [], { DOTFILES_BREWFILE_LOCAL: localLink });
+  assert.equal(linked.result.status, 1);
+  assert.match(linked.result.stderr, /invalid local Brewfile: .* must be a regular file/);
+  const directory = yield* withLocal("devbox", [], { DOTFILES_BREWFILE_LOCAL: temporary });
+  assert.equal(directory.result.status, 1);
+  assert.match(directory.result.stderr, /invalid local Brewfile: .* must be a regular file/);
   yield* Console.log("ok shared Homebrew mutations require the prefix owner and verification stays read-only");
 }).pipe(Effect.catchCause((cause) => fail(Cause.pretty(cause))), Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer)));
 runMain(program);

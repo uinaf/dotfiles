@@ -24,14 +24,13 @@ export function managedEdits(): ConfigEdit[] {
     { keyPath: "forced_login_method", value: null, mergeStrategy: "replace" },
     { keyPath: "model", value: "gpt-6-astra", mergeStrategy: "upsert" },
     { keyPath: "model_reasoning_effort", value: "medium", mergeStrategy: "upsert" },
-    // Fast mode bills at 2x the model's rates for output speed alone. Long
-    // agentic sessions are dominated by cached-input reads, so the premium buys
-    // nothing measurable and doubles the largest line on the bill.
+    // Fast mode bills at 2x the model's rates for output speed only.
     { keyPath: "service_tier", value: null, mergeStrategy: "replace" },
     { keyPath: "features.fast_mode", value: null, mergeStrategy: "replace" },
-    // Token-budget context, history notes, and the new_context tool. Without
-    // these a long session rides a full context window and re-sends it every
-    // turn; Codex 0.153+ lets the model account for remaining capacity instead.
+    // Inert on this setup, kept for when it stops being: Codex enables context
+    // management only for ChatGPT-authenticated sessions, and CLIProxyAPI
+    // strips context_management before forwarding because Codex upstream
+    // rejects it. Both must change before this key does anything.
     { keyPath: "features.context_management.experimental_mode", value: true, mergeStrategy: "upsert" },
     { keyPath: "features.goals", value: true, mergeStrategy: "upsert" },
     { keyPath: "features.memories", value: false, mergeStrategy: "upsert" },
