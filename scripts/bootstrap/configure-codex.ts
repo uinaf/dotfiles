@@ -27,6 +27,11 @@ export function managedEdits(): ConfigEdit[] {
     { keyPath: "service_tier", value: null, mergeStrategy: "replace" },
     { keyPath: "features.fast_mode", value: null, mergeStrategy: "replace" },
     { keyPath: "features.context_management.experimental_mode", value: true, mergeStrategy: "upsert" },
+    // Every wait_agent poll re-sends the parent context. Codex defaults the
+    // floor to 10 s and the default to 30 s; two minutes cuts empty polls
+    // without stopping a worker from returning early on completion.
+    { keyPath: "features.multi_agent_v2.min_wait_timeout_ms", value: 120000, mergeStrategy: "upsert" },
+    { keyPath: "features.multi_agent_v2.default_wait_timeout_ms", value: 120000, mergeStrategy: "upsert" },
     { keyPath: "features.goals", value: true, mergeStrategy: "upsert" },
     { keyPath: "features.memories", value: false, mergeStrategy: "upsert" },
   ];

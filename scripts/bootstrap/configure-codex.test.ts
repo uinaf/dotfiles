@@ -28,6 +28,10 @@ function assertDefaults(contents: string): void {
   assert.doesNotMatch(features, /^fast_mode\s*=/m);
   assert.match(contents, /^\[features\.context_management\]$/m);
   assert.match(contents.split(/^\[features\.context_management\][ \t]*$/m)[1].split(/^\[/m)[0], /^experimental_mode = true$/m);
+  const multiAgent = contents.split(/^\[features\.multi_agent_v2\][ \t]*$/m)[1]?.split(/^\[/m)[0];
+  assert.ok(multiAgent, "native config writer must create the multi_agent_v2 table");
+  assert.match(multiAgent, /^min_wait_timeout_ms = 120000$/m);
+  assert.match(multiAgent, /^default_wait_timeout_ms = 120000$/m);
 }
 
 test("installed Codex removes forced login, preserves unrelated config, and is idempotent", { skip: !codexInstalled }, () => {
