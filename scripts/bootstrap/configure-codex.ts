@@ -24,13 +24,8 @@ export function managedEdits(): ConfigEdit[] {
     { keyPath: "forced_login_method", value: null, mergeStrategy: "replace" },
     { keyPath: "model", value: "gpt-6-astra", mergeStrategy: "upsert" },
     { keyPath: "model_reasoning_effort", value: "medium", mergeStrategy: "upsert" },
-    // Fast mode bills at 2x the model's rates for output speed only.
     { keyPath: "service_tier", value: null, mergeStrategy: "replace" },
     { keyPath: "features.fast_mode", value: null, mergeStrategy: "replace" },
-    // Inert on this setup, kept for when it stops being: Codex enables context
-    // management only for ChatGPT-authenticated sessions, and CLIProxyAPI
-    // strips context_management before forwarding because Codex upstream
-    // rejects it. Both must change before this key does anything.
     { keyPath: "features.context_management.experimental_mode", value: true, mergeStrategy: "upsert" },
     { keyPath: "features.goals", value: true, mergeStrategy: "upsert" },
     { keyPath: "features.memories", value: false, mergeStrategy: "upsert" },
@@ -111,8 +106,6 @@ if (import.meta.main) {
     }
     const profile = yield* resolveProfile(profileIndex === 0 ? args[1] : undefined);
     const model = yield* readProfileModelEffect(profileModelFile());
-    // Still validated so an unknown profile fails loudly, even though every
-    // profile now gets the same Codex defaults.
     requireProfile(model, profile);
     const configPath = yield* Effect.tryPromise({
       try: () => configure(),
