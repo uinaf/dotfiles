@@ -172,7 +172,7 @@ export const manageSchedule = Effect.fn("manageSoftwareUpdateSchedule")(function
   yield* runChecked("launchctl", ["enable", service]);
   if (current.status !== 0) yield* runChecked("launchctl", ["bootstrap", domain, plist]);
   yield* runChecked("launchctl", ["print", service]);
-  yield* Console.log("Software maintenance enabled: every six hours at :23 local time and on login/load.");
+  yield* Console.log("Software maintenance enabled: every six hours on the hour, local time, and on login/load.");
   if (current.status === 0) yield* Console.log("Existing job retained. To load changed plist settings, disable then enable after updates finish.");
 });
 

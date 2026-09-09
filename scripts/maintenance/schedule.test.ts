@@ -269,7 +269,7 @@ test("rendered profiles keep updater scope, scheduling, and paths valid", async 
       assert.equal(job.Disabled, true, "applying dotfiles alone must not enroll a scheduler");
       assert.equal(job.RunAtLoad, true);
       assert.equal(job.KeepAlive, undefined, "failures must not spin in a restart loop");
-      assert.deepEqual(job.StartCalendarInterval, [0, 6, 12, 18].map((Hour) => ({ Hour, Minute: 23 })));
+      assert.deepEqual(job.StartCalendarInterval, [0, 6, 12, 18].map((Hour) => ({ Hour, Minute: 0 })));
       assert.deepEqual(job.ProgramArguments, [
         join(home, ".local/share/mise/shims/node"), join(repoRoot, "scripts/maintenance/run.ts"), "software-update", "--",
         process.arch === "arm64" ? "/opt/homebrew/bin/topgrade" : "/usr/local/bin/topgrade",
