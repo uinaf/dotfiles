@@ -31,7 +31,7 @@ const program = Effect.gen(function*() {
     return;
   }
   yield* verifyPrefixPermissions();
-  for (const command of updateSoftware ? [["update"], ["upgrade", "--greedy", "--no-ask"]] : [args]) {
+  for (const command of updateSoftware ? [["developer", "off"], ["update"], ["upgrade", "--greedy", "--no-ask"]] : [args]) {
     const previousUmask = yield* Effect.sync(() => process.umask(0o027));
     const brewed = yield* runHomebrewRaw("brew", command, { output: "inherit" }).pipe(
       Effect.ensuring(Effect.sync(() => { process.umask(previousUmask); })),

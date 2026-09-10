@@ -76,7 +76,7 @@ exit "\${FAKE_BREW_EXIT:-0}"
   const updated = yield* execute("scripts/bootstrap/brew-devbox.ts", ["--update-software"], updateLog);
   assert.equal(updated.status, 0, updated.stderr);
   const updateArgs = (yield* fs.readFileString(updateLog)).split("\n").filter((line) => line.startsWith("arg="));
-  assert.deepEqual(updateArgs, ["arg=update", "arg=upgrade", "arg=--greedy", "arg=--no-ask"]);
+  assert.deepEqual(updateArgs, ["arg=developer", "arg=off", "arg=update", "arg=upgrade", "arg=--greedy", "arg=--no-ask"]);
   yield* fs.writeFileString(updateLog, "");
   const refreshFailed = yield* execute("scripts/bootstrap/brew-devbox.ts", ["--update-software"], updateLog, { FAKE_BREW_EXIT: "37" });
   assert.equal(refreshFailed.status, 37);

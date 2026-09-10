@@ -50,6 +50,10 @@ Prefix these commands with `mise run`.
   Runtime versions follow declarations; saved coding-client logins are preserved.
 - Shared Homebrew is updated only by its prefix owner. Other users check package
   presence. See [shared Homebrew updates](bootstrap.md#shared-homebrew-updates).
+- The update job runs `brew developer off` first. Any `brew audit` or other
+  developer command silently enables developer mode, which makes `brew update`
+  track Homebrew `main` instead of stable tags; an untagged sandbox commit hung
+  unattended builds on the devbox in September 2026.
 - Convergence and shared Homebrew serialize through a checkout lock, waiting up
   to 15 minutes. Dead/pre-boot owners are reclaimed; live or ambiguous owners
   retain the lock.
