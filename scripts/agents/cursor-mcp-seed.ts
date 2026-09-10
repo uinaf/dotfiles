@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -17,9 +17,11 @@ the one for --from DIR) into the entry for TARGET_DIR (default: cwd). Tokens
 are refreshed per copy and the server accepts reuse of the refresh token, so
 the source entry keeps working.`;
 
-// Mirrors Cursor's project slug: leading slash dropped, "/" -> "-", "." -> "-dot-".
+// Mirrors Cursor's project slug: real path, leading slash dropped, "/" -> "-",
+// "." -> "-dot-". macOS /tmp resolves to /private/tmp, as Cursor records it.
 export function cursorProjectSlug(directory: string): string {
-  return resolve(directory).replace(/^\//, "").replace(/\./g, "-dot-").replace(/\//g, "-");
+  const path = existsSync(directory) ? realpathSync(directory) : resolve(directory);
+  return path.replace(/^\//, "").replace(/\./g, "-dot-").replace(/\//g, "-");
 }
 
 function newestAuthFile(projectsRoot: string): string | undefined {
