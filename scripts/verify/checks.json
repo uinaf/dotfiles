@@ -345,6 +345,18 @@
       "output": "Declarative MCP server convergence across coding-agent harnesses"
     },
     {
+      "id": "agent-doctor",
+      "domain": "agents",
+      "command": [
+        "node",
+        "--test",
+        "scripts/agents/doctor.test.ts",
+        "scripts/agents/grok-mcp-login.test.ts",
+        "scripts/agents/cursor-mcp-seed.test.ts"
+      ],
+      "output": "Per-harness MCP auth reporting, Grok credential-store writes, and Cursor per-project token seeding"
+    },
+    {
       "id": "gh-extensions",
       "domain": "agents",
       "command": [

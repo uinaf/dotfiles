@@ -2,5 +2,4 @@
 # Run through brew-bundle.ts to include the shared Brewfile first.
 
 # Remote devbox CLIs
-brew "tmux"
 brew "tailscale"

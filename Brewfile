@@ -11,6 +11,7 @@ brew "mise"
 brew "direnv"
 brew "btop"
 brew "ripgrep"
+brew "tmux"
 
 # Shared browser
 cask "google-chrome"

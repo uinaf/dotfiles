@@ -29,7 +29,7 @@ mise run verify               # deterministic checks plus full-history secret sc
 | Task | Guide |
 | --- | --- |
 | `dotfiles:diff`, `dotfiles:apply` | [Edit dotfiles](chezmoi.md#workflow) |
-| `agents:sync`, `agents:update` | [Agent selections](agents.md#skill-sync) |
+| `agents:sync`, `agents:update`, `agents:doctor` | [Agent selections](agents.md#skill-sync) |
 | `maintenance:*` | [Software updates](software-updates.md) |
 | `audit` | [Security audits](security-audits.md) |
 

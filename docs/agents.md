@@ -93,11 +93,28 @@ Each sync keeps an ignored `scripts/agents/{skills,plugins,mcps}.lock.json`:
 - MCP entries set `name`, an HTTPS `url`, and optional `harnesses`.
 - Sync preserves unrelated Cursor and OpenCode config fields.
 
-If Codex reports that configuration succeeded but login did not finish, run:
+Executor and other OAuth servers expire their sessions per harness. Check
+every installed harness at once and get the repair command per row:
 
 ```zsh
-codex mcp login <server-name>
+mise run agents:doctor
 ```
+
+| Harness | Re-authenticate |
+| --- | --- |
+| Claude Code | `claude mcp login <server>` (`--no-browser` over SSH) |
+| Codex | `codex mcp login <server>` |
+| Cursor | `cursor-agent mcp login <server>` in the project directory; tokens are per project, so seed a new checkout or worktree with `./scripts/agents/cursor-mcp-seed.ts` |
+| OpenCode | `opencode mcp auth <server>` |
+| Grok | `./scripts/agents/grok-mcp-login.ts <server>` (writes Grok 1.0.25's credential format; the TUI path is `/mcps`, select, `i`) |
+
+Over SSH the callback port stays on the remote host: run the login under
+`ssh -t` (Claude and Codex need a TTY) and forward the printed loopback port
+with `ssh -L PORT:127.0.0.1:PORT` before opening the URL locally.
+
+The doctor also reports Grok installation drift: every profile installs the
+`grok-build` cask, so an npm global or a `~/.grok/bin` self-updater copy is
+removed rather than kept.
 
 ## Verify
 

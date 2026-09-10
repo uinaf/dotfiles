@@ -97,6 +97,10 @@ run = ["./scripts/agents/sync.ts", "./scripts/agents/plugins.ts", "./scripts/age
 description = "Update selected global coding-agent skills and plugins, then sync MCP servers"
 run = ["./scripts/agents/sync.ts --update", "./scripts/agents/plugins.ts --update", "./scripts/agents/mcps.ts"]
 
+[tasks."agents:doctor"]
+description = "Report MCP authentication state per harness with the repair command"
+run = "./scripts/agents/doctor.ts"
+
 [tasks."bootstrap:trust-agent-worktrees"]
 description = "Trust mise configs in generated agent worktrees"
 run = "./scripts/bootstrap/trust-agent-worktrees.ts"
