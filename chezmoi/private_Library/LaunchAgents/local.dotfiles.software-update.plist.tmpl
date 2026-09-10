@@ -12,7 +12,10 @@
     <true/>
     <key>ProgramArguments</key>
     <array>
-      <string>{{ .chezmoi.homeDir | html }}/.local/share/mise/shims/node</string>
+      <!-- macOS App Management keys on the executing binary's code signature. The
+           mise shim is the ad-hoc signed mise binary, so every mise release became a
+           new TCC entry. The real Node binary carries a stable Developer ID. -->
+      <string>{{ .chezmoi.homeDir | html }}/.local/share/mise/installs/node/latest/bin/node</string>
       <string>{{ .chezmoi.sourceDir | dir | html }}/scripts/maintenance/run.ts</string>
       <string>software-update</string>
       <string>--</string>
