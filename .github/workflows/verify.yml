@@ -10,8 +10,7 @@ on:
 permissions: {}
 
 jobs:
-  repository:
-    name: Repository checks
+  verify:
     # PR/manual checks use macOS because static.ts needs plutil. Direct pushes
     # require mise run verify locally; a green release job does not prove tests.
     if: ${{ github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' }}
