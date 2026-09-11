@@ -379,6 +379,30 @@ function assertInstalledFile(source: string, target: string): void {
   if ((statSync(target).mode & 0o777) !== 0o700) throw new Error(`installed helper mode drifted: ${target}`);
 }
 
+export function resolveOnPath(name: string, pathValue: string): string | null {
+  for (const directory of pathValue.split(":")) {
+    if (!directory || !isAbsolute(directory)) continue;
+    const candidate = join(directory, name);
+    try {
+      const info = statSync(candidate);
+      if (info.isFile() && (info.mode & 0o111) !== 0) return candidate;
+    } catch {
+      continue;
+    }
+  }
+  return null;
+}
+
+// The vendor CLI answers --version and --help identically whether or not it can
+// authenticate, so only the resolved file proves which launcher callers reach.
+function assertPathResolvesToLauncher(source: string, pathValue: string): void {
+  const resolved = resolveOnPath("cursor-agent", pathValue);
+  if (!resolved) throw new Error("cursor-agent does not resolve on PATH");
+  if (!readFileSync(resolved).equals(readFileSync(source))) {
+    throw new Error(`cursor-agent resolves to ${resolved}, which is not the managed API-key launcher`);
+  }
+}
+
 async function run(): Promise<void> {
   const args = process.argv.slice(2);
   const mode = args.length === 0 ? "apply" : args.length === 1 && ["--check", "--retire-auth", "--rollback"].includes(args[0]) ? args[0].slice(2) : "invalid";
@@ -397,9 +421,13 @@ async function run(): Promise<void> {
   const cursorAcpAuthTarget = join(home, ".local/libexec/dotfiles/cursor-acp-api-key-auth");
   const cursorApiTarget = join(home, ".local/libexec/dotfiles/cursor-agent-api");
   const cursorApiCompatibilityTarget = join(home, ".local/bin/cursor-agent-api");
+  // Cursor's installer rewrites ~/.local/bin/cursor-agent on every self-update, so
+  // that name is unreliable between an update and the next convergence. This
+  // directory is fronted on PATH and the vendor never writes to it.
+  const cursorShimTarget = join(home, ".local/libexec/dotfiles/bin/cursor-agent");
   const cursorCommandTargets = [join(home, ".local/bin/cursor-agent"), join(home, ".local/bin/agent")];
   const cursorAuth = join(home, ".cursor/auth.json");
-  const managedCursorTargets = [cursorApiTarget, cursorApiCompatibilityTarget, ...cursorCommandTargets];
+  const managedCursorTargets = [cursorApiTarget, cursorApiCompatibilityTarget, cursorShimTarget, ...cursorCommandTargets];
   const grokHome = join(home, ".grok");
   const grokConfig = join(grokHome, "config.toml");
   const grokAuth = join(grokHome, "auth.json");
@@ -432,6 +460,7 @@ async function run(): Promise<void> {
     rmSync(cursorAcpAuthTarget, { force: true });
     rmSync(cursorApiTarget, { force: true });
     rmSync(cursorApiCompatibilityTarget, { force: true });
+    rmSync(cursorShimTarget, { force: true });
     if (state.cursorCommands.length > 0) restoreCursorCommands(state.cursorCommands);
     if (state.grokEnabled) {
       if (state.grokConfigExisted) {
@@ -483,6 +512,7 @@ async function run(): Promise<void> {
     if (config.cursorAgentBin) {
       assertInstalledFile(sourceCursorAcpAuth, cursorAcpAuthTarget);
       for (const target of managedCursorTargets) assertInstalledFile(sourceCursor, target);
+      assertPathResolvesToLauncher(sourceCursor, process.env.PATH || "");
     }
     if (config.grokBin) {
       const originalGrokConfig = state.grokConfigExisted

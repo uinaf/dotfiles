@@ -57,6 +57,15 @@ fi
 
 typeset -U path PATH
 
+# Dotfiles-owned agent launchers outrank the vendor commands in ~/.local/bin that
+# Cursor rewrites on self-update. An alias would cover interactive calls only and
+# hide that drift from every tool that spawns cursor-agent by name.
+dotfiles_launchers="$HOME/.local/libexec/dotfiles/bin"
+if [ -d "$dotfiles_launchers" ]; then
+  path=("$dotfiles_launchers" ${path:#$dotfiles_launchers})
+fi
+unset dotfiles_launchers
+
 # brew shellenv above re-fronts Homebrew ahead of the login-shell mise shims,
 # and interactive command shells (zsh -ic) never fire the activation hook that
 # would repair PATH. Keep the shims ahead of Homebrew.
@@ -68,12 +77,6 @@ fi
 
 # User binaries
 path+=("$HOME/.local/bin")
-
-# Cursor owns and replaces ~/.local/bin/cursor-agent during self-update. Keep
-# interactive calls on the dotfiles-owned API-key launcher that survives it.
-if [ -x "$HOME/.local/libexec/dotfiles/cursor-agent-api" ]; then
-  alias cursor-agent="$HOME/.local/libexec/dotfiles/cursor-agent-api"
-fi
 
 # Prefer the Android Studio SDK when present. Headless developer profiles use
 # the Homebrew command-line-tools SDK root instead.

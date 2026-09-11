@@ -92,11 +92,16 @@ owning private system and use the version 3 schema:
 - **Claude:** enrollment refuses conflicting `ANTHROPIC_API_KEY`,
   `ANTHROPIC_AUTH_TOKEN`, Bedrock, or Vertex settings. Resolve those deliberately
   before retrying.
-- **Cursor:** point integrations such as T3 Code at
-  `~/.local/libexec/dotfiles/cursor-agent-api`. Cursor self-updates can replace
-  the compatibility commands in `~/.local/bin`; the stable launcher follows the
-  vendor executable. It blocks browser login/logout and checks API-key health
-  through `status`, `whoami`, and `about`.
+- **Cursor:** `cursor-agent` resolves from `~/.local/libexec/dotfiles/bin`, which
+  is fronted on `PATH` and never written by the vendor. Cursor self-updates
+  replace the commands in `~/.local/bin`; the stable launcher follows the vendor
+  executable. Point integrations that take an explicit path at
+  `~/.local/libexec/dotfiles/cursor-agent-api`. It blocks browser login/logout
+  and checks API-key health through `status`, `whoami`, and `about`. `--version`
+  and `--help` pass through unauthenticated, so only `--check` proves which
+  launcher `PATH` reaches.
+- **`agent`:** ambiguous and never resolved by dotfiles. Both Cursor and the Grok
+  cask install it; Homebrew wins on `PATH`. Call `cursor-agent` or `grok`.
 - **OpenCode/Pi:** `configure-bifrost-clients.ts` converges the Bifrost catalog
   and credentials. OpenCode enables only the `bifrost` provider.
 

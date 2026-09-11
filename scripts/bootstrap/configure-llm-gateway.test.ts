@@ -16,6 +16,7 @@ import {
   gatewayEdits,
   grokGatewaySettings,
   parseGatewayConfig,
+  resolveOnPath,
 } from "./configure-llm-gateway.ts";
 import { codexInstalled, fixturePath, script, validConfig } from "./llm-gateway-fixture.ts";
 
@@ -76,6 +77,11 @@ test("gateway config is strict and provider edits use command-backed Responses a
     /versioned vendor executable/,
   );
 
+  assert.equal(resolveOnPath("cursor-agent", ""), null);
+  assert.equal(resolveOnPath("cursor-agent", "relative/bin"), null);
+  assert.equal(resolveOnPath("definitely-not-a-command", "/usr/bin:/bin"), null);
+  assert.equal(resolveOnPath("sh", "/nonexistent::/bin"), "/bin/sh");
+
   assert.match(grokGatewaySettings("[ui]\ntheme = \"dark\"\n", config.gatewaiBaseUrl, "/helper"), /models_base_url = "https:\/\/gatewai\.example\/v1"/);
   assert.match(grokGatewaySettings("", config.gatewaiBaseUrl, "/helper"), /auth_provider_command = "\/helper gatewai"/);
   assert.throws(
@@ -94,6 +100,9 @@ test("apply preserves login state, explicit retirement clears it, and rollback r
   const claudeSettingsPath = join(home, ".claude/settings.json");
   const cursorBin = join(home, ".local/share/cursor-agent/versions/test/cursor-agent");
   const cursorCommands = [join(home, ".local/bin/cursor-agent"), join(home, ".local/bin/agent")];
+  const launcherDir = join(home, ".local/libexec/dotfiles/bin");
+  const launcherCommand = join(launcherDir, "cursor-agent");
+  const decoyDir = join(root, "decoy");
   const originalCursorTargets = ["../share/cursor-agent/versions/test/cursor-agent", "../share/cursor-agent/versions/test/cursor-agent"];
   const originalCodex = '# retained\nforced_login_method = "chatgpt"\n';
   const originalAuth = '{"tokens":"saved-login-state"}\n';
@@ -146,7 +155,7 @@ rm -f "$HOME/.claude/.credentials.json"
       HOME: home,
       CODEX_HOME: codexHome,
       LLM_GATEWAY_CONFIG: gatewayConfig,
-      PATH: fixturePath(bin),
+      PATH: [launcherDir, fixturePath(bin)].join(":"),
     };
     const run = (...args: string[]) => spawnSync(script, args, { encoding: "utf8", env });
 
@@ -182,6 +191,9 @@ rm -f "$HOME/.claude/.credentials.json"
     assert.deepEqual(state.cursorCommands.map((command) => command.target), originalCursorTargets);
     assert.equal(statSync(join(home, ".local/libexec/dotfiles/cursor-acp-api-key-auth")).mode & 0o777, 0o700);
     assert.equal(statSync(join(home, ".local/libexec/dotfiles/cursor-agent-api")).mode & 0o777, 0o700);
+    assert.equal(statSync(launcherCommand).mode & 0o777, 0o700);
+    assert.equal(lstatSync(launcherCommand).isSymbolicLink(), false);
+    assert.equal(resolveOnPath("cursor-agent", env.PATH), launcherCommand);
     const bifrostCredential = spawnSync(join(home, ".local/libexec/dotfiles/llm-gateway-credential"), ["bifrost"], {
       encoding: "utf8",
       env,
@@ -199,6 +211,7 @@ rm -f "$HOME/.claude/.credentials.json"
     for (const command of [
       join(home, ".local/libexec/dotfiles/cursor-agent-api"),
       join(home, ".local/bin/cursor-agent-api"),
+      launcherCommand,
       ...cursorCommands,
     ]) {
       const cursorStatus = spawnSync(command, ["status"], { encoding: "utf8", env });
@@ -235,6 +248,15 @@ rm -f "$HOME/.claude/.credentials.json"
       assert.doesNotMatch(readFileSync(acpLog, "utf8"), /"method":"authenticate"/);
     }
 
+    mkdirSync(decoyDir, { recursive: true });
+    writeFileSync(join(decoyDir, "cursor-agent"), "#!/usr/bin/env bash\nexit 0\n", { mode: 0o700 });
+    const shadowedCheck = spawnSync(script, ["--check"], {
+      encoding: "utf8",
+      env: { ...env, PATH: [decoyDir, env.PATH].join(":") },
+    });
+    assert.notEqual(shadowedCheck.status, 0);
+    assert.match(shadowedCheck.stderr, /is not the managed API-key launcher/);
+
     const updatedCursorBin = join(home, ".local/share/cursor-agent/versions/updated/cursor-agent");
     mkdirSync(dirname(updatedCursorBin), { recursive: true });
     writeFileSync(updatedCursorBin, `#!/usr/bin/env bash
@@ -249,6 +271,26 @@ esac
       rmSync(command, { force: true });
       symlinkSync(updatedCursorBin, command);
     }
+    // The self-updater has just replaced ~/.local/bin/cursor-agent with a vendor
+    // symlink. Callers that resolve the name from PATH must still reach the
+    // launcher during the window before the next convergence repairs it.
+    const homeLocalBin = join(home, ".local/bin");
+    const shimmedPath = [launcherDir, homeLocalBin, fixturePath(bin)].join(":");
+    const shimmed = resolveOnPath("cursor-agent", shimmedPath);
+    assert.equal(shimmed, launcherCommand);
+    assert.ok(shimmed);
+    const shimmedStatus = spawnSync(shimmed, ["status"], { encoding: "utf8", env });
+    assert.equal(shimmedStatus.status, 0, shimmedStatus.stderr);
+    assert.equal(shimmedStatus.stdout.trim(), "API key authenticated");
+
+    const unshimmedPath = [homeLocalBin, fixturePath(bin)].join(":");
+    const unshimmed = resolveOnPath("cursor-agent", unshimmedPath);
+    assert.equal(unshimmed, join(homeLocalBin, "cursor-agent"));
+    assert.ok(unshimmed);
+    const unshimmedStatus = spawnSync(unshimmed, ["status"], { encoding: "utf8", env });
+    assert.notEqual(unshimmedStatus.status, 0);
+    assert.notEqual(unshimmedStatus.stdout.trim(), "API key authenticated");
+
     const stableAfterUpdate = spawnSync(join(home, ".local/libexec/dotfiles/cursor-agent-api"), ["about", "--format", "json"], {
       encoding: "utf8",
       env,
@@ -300,6 +342,7 @@ esac
     assert.equal(readFileSync(claudeSettingsPath, "utf8"), originalClaudeSettings);
     assert.equal(existsSync(join(home, ".local/bin/cursor-agent-api")), false);
     assert.equal(existsSync(join(home, ".local/libexec/dotfiles/cursor-agent-api")), false);
+    assert.equal(existsSync(launcherCommand), false);
     assert.equal(existsSync(join(home, ".local/libexec/dotfiles/cursor-acp-api-key-auth")), false);
     assert.equal(existsSync(join(home, ".local/libexec/dotfiles/llm-gateway-credential")), false);
     for (const [index, command] of cursorCommands.entries()) {

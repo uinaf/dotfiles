@@ -10,6 +10,16 @@ typeset -U path PATH
 # interactive .zshrc sessions. Agent harnesses inherit this login-shell PATH.
 path+=("$HOME/.local/bin")
 
+# Cursor's installer replaces ~/.local/bin/cursor-agent with a vendor symlink on
+# every self-update, so that name is a logged-out vendor CLI until the next
+# convergence. This directory holds dotfiles-owned agent launchers only and the
+# vendor never writes to it; keep it ahead of ~/.local/bin.
+dotfiles_launchers="$HOME/.local/libexec/dotfiles/bin"
+if [ -d "$dotfiles_launchers" ]; then
+  path=("$dotfiles_launchers" ${path:#$dotfiles_launchers})
+fi
+unset dotfiles_launchers
+
 # Add mise shims for login/non-interactive shells. Full interactive activation
 # runs near the end of .zshrc after PATH edits.
 if command -v mise >/dev/null 2>&1; then
