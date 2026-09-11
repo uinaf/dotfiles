@@ -2,7 +2,7 @@
 
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readlinkSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, copyFileSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readlinkSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import test from "node:test";
@@ -99,11 +99,14 @@ test("apply preserves login state, explicit retirement clears it, and rollback r
   const gatewayConfig = join(configDir, "llm-gateway.json");
   const claudeSettingsPath = join(home, ".claude/settings.json");
   const cursorBin = join(home, ".local/share/cursor-agent/versions/test/cursor-agent");
-  const cursorCommands = [join(home, ".local/bin/cursor-agent"), join(home, ".local/bin/agent")];
+  const cursorCommands = [join(home, ".local/bin/cursor-agent")];
+  // Cursor's installer ships this name too, but Homebrew's Grok cask wins on PATH
+  // and dotfiles must leave it exactly as the vendor left it.
+  const agentCommand = join(home, ".local/bin/agent");
   const launcherDir = join(home, ".local/libexec/dotfiles/bin");
   const launcherCommand = join(launcherDir, "cursor-agent");
   const decoyDir = join(root, "decoy");
-  const originalCursorTargets = ["../share/cursor-agent/versions/test/cursor-agent", "../share/cursor-agent/versions/test/cursor-agent"];
+  const originalCursorTargets = ["../share/cursor-agent/versions/test/cursor-agent"];
   const originalCodex = '# retained\nforced_login_method = "chatgpt"\n';
   const originalAuth = '{"tokens":"saved-login-state"}\n';
   const originalClaudeAuth = '{"oauth":"saved-login-state"}\n';
@@ -144,6 +147,7 @@ case "\${1:-}" in
 esac
 `, { mode: 0o700 });
     for (const [index, command] of cursorCommands.entries()) symlinkSync(originalCursorTargets[index], command);
+    symlinkSync("../share/cursor-agent/versions/test/cursor-agent", agentCommand);
     writeFileSync(join(bin, "claude"), `#!/usr/bin/env bash
 set -euo pipefail
 [ "\${1:-}" = auth ] && [ "\${2:-}" = logout ] || exit 2
@@ -185,10 +189,12 @@ rm -f "$HOME/.claude/.credentials.json"
       assert.equal(lstatSync(command).isSymbolicLink(), false);
       assert.equal(statSync(command).mode & 0o777, 0o700);
     }
-    const state = JSON.parse(readFileSync(join(configDir, "llm-gateway-state.json"), "utf8")) as { version: number; authRetired: boolean; cursorCommands: Array<{ target: string }> };
-    assert.equal(state.version, 6);
+    const state = JSON.parse(readFileSync(join(configDir, "llm-gateway-state.json"), "utf8")) as { version: number; authRetired: boolean; cursorCommands: Array<{ path: string; target: string }> };
+    assert.equal(state.version, 7);
     assert.equal(state.authRetired, false);
     assert.deepEqual(state.cursorCommands.map((command) => command.target), originalCursorTargets);
+    assert.deepEqual(state.cursorCommands.map((command) => command.path), cursorCommands);
+    assert.equal(lstatSync(agentCommand).isSymbolicLink(), true);
     assert.equal(statSync(join(home, ".local/libexec/dotfiles/cursor-acp-api-key-auth")).mode & 0o777, 0o700);
     assert.equal(statSync(join(home, ".local/libexec/dotfiles/cursor-agent-api")).mode & 0o777, 0o700);
     assert.equal(statSync(launcherCommand).mode & 0o777, 0o700);
@@ -308,6 +314,41 @@ esac
     assert.equal(versionAfterRepair.status, 0, versionAfterRepair.stderr);
     assert.equal(versionAfterRepair.stdout.trim(), "2026.08.25-3e8eec8");
 
+    // A host enrolled under version 6 converges. The `agent` copy it installed is
+    // unreachable behind Homebrew's Grok cask, so convergence removes it and the
+    // state stops claiming the name.
+    const statePath = join(configDir, "llm-gateway-state.json");
+    const downgradeToV6 = () => {
+      const current = JSON.parse(readFileSync(statePath, "utf8")) as { cursorCommands: Array<{ path: string; target: string }> };
+      writeFileSync(statePath, `${JSON.stringify({
+        ...current,
+        version: 6,
+        cursorCommands: [...current.cursorCommands, { path: agentCommand, target: originalCursorTargets[0] }],
+      }, null, 2)}\n`, { mode: 0o600 });
+    };
+
+    downgradeToV6();
+    rmSync(agentCommand, { force: true });
+    copyFileSync(join(home, ".local/libexec/dotfiles/cursor-agent-api"), agentCommand);
+    chmodSync(agentCommand, 0o700);
+    const migrate = run();
+    assert.equal(migrate.status, 0, migrate.stderr);
+    const migrated = JSON.parse(readFileSync(statePath, "utf8")) as { version: number; cursorCommands: Array<{ path: string }> };
+    assert.equal(migrated.version, 7);
+    assert.deepEqual(migrated.cursorCommands.map((command) => command.path), cursorCommands);
+    assert.equal(existsSync(agentCommand), false);
+    assert.equal(run("--check").status, 0);
+
+    // The same migration on a host whose installer has already restored its own
+    // symlink leaves that vendor file alone.
+    downgradeToV6();
+    symlinkSync(originalCursorTargets[0], agentCommand);
+    const migrateVendor = run();
+    assert.equal(migrateVendor.status, 0, migrateVendor.stderr);
+    assert.equal((JSON.parse(readFileSync(statePath, "utf8")) as { version: number }).version, 7);
+    assert.equal(lstatSync(agentCommand).isSymbolicLink(), true);
+    assert.equal(readlinkSync(agentCommand), originalCursorTargets[0]);
+
     const retire = run("--retire-auth");
     assert.equal(retire.status, 0, retire.stderr);
     assert.equal(existsSync(join(codexHome, "auth.json")), false);
@@ -349,6 +390,8 @@ esac
       assert.equal(lstatSync(command).isSymbolicLink(), true);
       assert.equal(readlinkSync(command), originalCursorTargets[index]);
     }
+    assert.equal(lstatSync(agentCommand).isSymbolicLink(), true);
+    assert.equal(readlinkSync(agentCommand), "../share/cursor-agent/versions/test/cursor-agent");
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

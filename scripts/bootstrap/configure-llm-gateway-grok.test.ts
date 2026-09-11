@@ -77,7 +77,7 @@ printf "%s\\n" "$*"
       cursorCommands: unknown[];
       grokEnabled: boolean;
     };
-    assert.equal(state.version, 6);
+    assert.equal(state.version, 7);
     assert.deepEqual(state.cursorCommands, []);
     assert.equal(state.grokEnabled, true);
     const check = run("--check");

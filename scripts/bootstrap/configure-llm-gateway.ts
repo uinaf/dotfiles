@@ -58,7 +58,9 @@ type ClientStateV6 = {
   grokAuthBackupPath: string | null;
 };
 
-type ClientState = ClientStateV6;
+type ClientStateV7 = Omit<ClientStateV6, "version"> & { version: 7 };
+
+type ClientState = ClientStateV6 | ClientStateV7;
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const sourceCredential = join(repoRoot, "scripts/agents/llm-gateway-credential.sh");
@@ -243,7 +245,7 @@ function readState(path: string): ClientState {
   if (!isRecord(value)) {
     throw new Error("LLM gateway state has an invalid shape");
   }
-  const v6 = value.version === 6 && exactKeys(value, [
+  const versioned = (value.version === 6 || value.version === 7) && exactKeys(value, [
     "version",
     "codexConfigExisted",
     "codexBackupPath",
@@ -257,11 +259,14 @@ function readState(path: string): ClientState {
     "grokAuthExisted",
     "grokAuthBackupPath",
   ]);
-  if (!v6) throw new Error("LLM gateway state has an invalid shape; roll back and re-enroll pre-v6 hosts");
+  if (!versioned) throw new Error("LLM gateway state has an invalid shape; roll back and re-enroll pre-v6 hosts");
   if (typeof value.codexConfigExisted !== "boolean" || !(value.codexBackupPath === null || typeof value.codexBackupPath === "string")) {
     throw new Error("LLM gateway state has invalid values");
   }
-  if (!Array.isArray(value.cursorCommands) || ![0, 2].includes(value.cursorCommands.length)) {
+  // Version 6 also managed the ambiguous `agent` name; version 7 manages only
+  // `cursor-agent`.
+  const expectedCommands = value.version === 6 ? [0, 2] : [0, 1];
+  if (!Array.isArray(value.cursorCommands) || !expectedCommands.includes(value.cursorCommands.length)) {
     throw new Error("LLM gateway state has invalid Cursor commands");
   }
   for (const command of value.cursorCommands) {
@@ -425,7 +430,14 @@ async function run(): Promise<void> {
   // that name is unreliable between an update and the next convergence. This
   // directory is fronted on PATH and the vendor never writes to it.
   const cursorShimTarget = join(home, ".local/libexec/dotfiles/bin/cursor-agent");
-  const cursorCommandTargets = [join(home, ".local/bin/cursor-agent"), join(home, ".local/bin/agent")];
+  const cursorCommandTargets = [join(home, ".local/bin/cursor-agent")];
+  // Cursor's installer also claims ~/.local/bin/agent, but the Grok cask ships the
+  // same name from Homebrew and wins on PATH, so the copy installed here was never
+  // reachable. Dotfiles no longer resolves the ambiguous name; state version 7
+  // drops it and removes the artifact version 6 left behind.
+  const retiredCursorCommandTarget = join(home, ".local/bin/agent");
+  const stateCommandTargets = (state: ClientState): string[] =>
+    state.version === 6 ? [...cursorCommandTargets, retiredCursorCommandTarget] : cursorCommandTargets;
   const cursorAuth = join(home, ".cursor/auth.json");
   const managedCursorTargets = [cursorApiTarget, cursorApiCompatibilityTarget, cursorShimTarget, ...cursorCommandTargets];
   const grokHome = join(home, ".grok");
@@ -442,7 +454,7 @@ async function run(): Promise<void> {
       return;
     }
     const state = readState(statePath);
-    assertStateCursorCommands(state, cursorCommandTargets, state.cursorCommands.length > 0);
+    assertStateCursorCommands(state, stateCommandTargets(state), state.cursorCommands.length > 0);
     if (state.codexConfigExisted) {
       if (!state.codexBackupPath || !existsSync(state.codexBackupPath)) throw new Error("Codex rollback backup is missing");
       atomicCopy(state.codexBackupPath, codexConfig, 0o600);
@@ -497,7 +509,7 @@ async function run(): Promise<void> {
   if (mode === "check" || mode === "retire-auth") {
     if (!existsSync(statePath) || !ownerOnly(statePath)) throw new Error("LLM gateway state is missing or not owner-only");
     const state = readState(statePath);
-    assertStateCursorCommands(state, cursorCommandTargets, Boolean(config.cursorAgentBin));
+    assertStateCursorCommands(state, stateCommandTargets(state), Boolean(config.cursorAgentBin));
     assertInstalledFile(sourceCredential, credentialTarget);
     assertInstalledFile(sourceCodexGatewai, codexGatewaiTarget);
     const overridesProbe = spawnSync(codexGatewaiTarget, ["--gateway-overrides"], {
@@ -599,7 +611,7 @@ async function run(): Promise<void> {
       authRetired: true,
       grokAuthExisted: retireGrok ? false : state.grokAuthExisted,
       grokAuthBackupPath: retireGrok ? null : state.grokAuthBackupPath,
-    } satisfies ClientStateV6);
+    } satisfies ClientState);
     process.stdout.write(state.authRetired
       ? "retired returned coding vendor login state; gateway routing remains configured\n"
       : `retired saved Codex, Claude${config.cursorAgentBin ? ", Cursor" : ""}, and Grok vendor logins; gateway routing remains configured\n`);
@@ -621,7 +633,7 @@ async function run(): Promise<void> {
       ? captureOptionalBackup(grokAuth, grokAuthBackupPath, "Grok auth")
       : { existed: false, backupPath: null };
     atomicWriteJson(statePath, {
-      version: 6,
+      version: 7,
       codexConfigExisted: codexExisted,
       codexBackupPath: codexExisted ? codexBackupPath : null,
       cursorCommands,
@@ -633,12 +645,26 @@ async function run(): Promise<void> {
       grokConfigBackupPath: grokConfigState.backupPath,
       grokAuthExisted: grokAuthState.existed,
       grokAuthBackupPath: grokAuthState.backupPath,
-    } satisfies ClientStateV6);
+    } satisfies ClientStateV7);
   } else {
     const state = readState(statePath);
-    assertStateCursorCommands(state, cursorCommandTargets, Boolean(config.cursorAgentBin));
+    assertStateCursorCommands(state, stateCommandTargets(state), Boolean(config.cursorAgentBin));
     if (state.grokEnabled !== Boolean(config.grokBin)) {
       throw new Error("Grok enrollment changed; roll back before changing the client set");
+    }
+    if (state.version === 6) {
+      // Remove only the launcher copy this repository installed; a vendor symlink
+      // that the installer has since restored is left to its owner.
+      if (existsSync(retiredCursorCommandTarget)
+        && !lstatSync(retiredCursorCommandTarget).isSymbolicLink()
+        && readFileSync(retiredCursorCommandTarget).equals(readFileSync(sourceCursor))) {
+        rmSync(retiredCursorCommandTarget, { force: true });
+      }
+      atomicWriteJson(statePath, {
+        ...state,
+        version: 7,
+        cursorCommands: state.cursorCommands.filter((command) => command.path !== retiredCursorCommandTarget),
+      } satisfies ClientStateV7);
     }
   }
 
