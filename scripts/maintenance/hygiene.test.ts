@@ -75,7 +75,7 @@ test("clean merged worktree waits three days, is removed without force, then its
   } finally { f.cleanup(); }
 });
 
-test("dirty, ignored, locked, active and detached worktrees are retained", () => {
+test("dirty, ignored, locked and active worktrees are retained", () => {
   const f = fixture();
   try {
     writeFileSync(join(f.tree, "untracked"), "keep");
@@ -92,8 +92,22 @@ test("dirty, ignored, locked, active and detached worktrees are retained", () =>
     f.git(f.repo, "worktree", "lock", f.tree);
     assert.equal(candidates(f.repo, f.roots, [], runner).eligible.length, 0);
     f.git(f.repo, "worktree", "unlock", f.tree);
+    assert.equal(candidates(f.repo, f.roots, [], runner).eligible.length, 1);
+  } finally { f.cleanup(); }
+});
+
+// A detached worktree has no branch to protect, so remote-default ancestry is
+// the only thing standing between it and removal.
+test("a detached worktree is removable once merged and retained while it is not", () => {
+  const f = fixture();
+  try {
     f.git(f.tree, "checkout", "--detach");
-    assert.ok(candidates(f.repo, f.roots, [], runner).kept.some(entry => entry.result.includes("detached")));
+    assert.equal(candidates(f.repo, f.roots, [], runner).eligible.some(item => item.path === f.tree), true);
+
+    f.git(f.tree, "commit", "--allow-empty", "-m", "unpushed work");
+    assert.ok(candidates(f.repo, f.roots, [], runner).kept
+      .some(entry => entry.target === f.tree && entry.result.startsWith("HEAD not in remote default")));
+    assert.equal(candidates(f.repo, f.roots, [], runner).eligible.some(item => item.path === f.tree), false);
   } finally { f.cleanup(); }
 });
 
@@ -141,6 +155,29 @@ test("scheduled hygiene reports a stray worktree beside its owning clone", () =>
     assert.ok(log.includes("repo-stray"), "the stray worktree appears in the report");
     assert.ok(log.includes("HEAD not in remote default"), "with the reason it was retained");
     assert.ok(existsSync(stray), "unpushed work is never removed");
+  } finally { f.cleanup(); }
+});
+
+// Eligibility is judged against the remote default, `git branch -d` against
+// local HEAD. A lagging checkout makes them disagree on every run.
+test("a branch merged upstream but absent from a lagging local HEAD names the cause", () => {
+  const f = fixture();
+  try {
+    f.git(f.repo, "checkout", "-b", "done");
+    f.git(f.repo, "commit", "--allow-empty", "-m", "landed upstream");
+    f.git(f.repo, "push", "origin", "done:main");
+    f.git(f.repo, "checkout", "main");
+    f.git(f.repo, "fetch", "origin");
+
+    const first = cleanRepository(f.repo, f.roots, {}, baseline + gracePeriod, true, () => [], runner);
+    const second = cleanRepository(f.repo, f.roots, first.candidates, baseline + 2 * gracePeriod, true, () => [], runner);
+    assert.ok(second.entries.some(entry => entry.target === "refs/heads/done"
+      && entry.result === "local default branch is behind the remote; pull before removal"));
+    assert.equal(f.git(f.repo, "rev-parse", "--verify", "refs/heads/done").length, 40);
+
+    f.git(f.repo, "merge", "--ff-only", "origin/main");
+    const third = cleanRepository(f.repo, f.roots, second.candidates, baseline + 3 * gracePeriod, true, () => [], runner);
+    assert.ok(third.entries.some(entry => entry.target === "refs/heads/done" && entry.result === "removed"));
   } finally { f.cleanup(); }
 });
 

@@ -141,10 +141,14 @@ export function candidates(repo: string, roots: readonly string[], openPaths: re
   };
   const worktreeReason = (tree: Worktree): string | undefined => {
     if (tree.path === repo || !roots.some(root => inside(tree.path, root) && tree.path !== root)) return "outside cleanup roots";
-    if (tree.locked || tree.prunable || !tree.branch) return "locked, missing, or detached worktree";
+    if (tree.locked || tree.prunable) return "locked or missing worktree";
     if (!existsSync(tree.path) || lstatSync(tree.path).isSymbolicLink() || realpathSync(tree.path) !== tree.path) return "non-canonical worktree path";
-    if (tree.branch === `refs/heads/${defaultBranch}`) return "default branch";
-    if (protectedBranch(tree.branch)) return "long-lived branch or existing upstream";
+    // A detached worktree has no branch to protect; merged() below is what proves
+    // its HEAD is already in the remote default and nothing unique is lost.
+    if (tree.branch) {
+      if (tree.branch === `refs/heads/${defaultBranch}`) return "default branch";
+      if (protectedBranch(tree.branch)) return "long-lived branch or existing upstream";
+    }
     if (busy(tree.path, openPaths)) return "active process or open file";
     if (unfinished(tree.path, runner)) return "unfinished Git operation";
     if (checked(runner, tree.path, "git", ["status", "--porcelain", "--untracked-files=all"])) return "dirty worktree";
@@ -209,8 +213,15 @@ export function cleanRepository(
       : ["branch", "-d", "--", candidate.branch.replace(/^refs\/heads\//, "")];
     // No force flags: Git rechecks dirty/locked worktrees and checked-out branches.
     const result = runner(repo, "git", args);
+    // Eligibility is judged against the remote default, but `git branch -d`
+    // judges against local HEAD. A lagging checkout makes them disagree forever,
+    // so say which one to fix instead of reporting an opaque refusal.
+    const behind = result.status !== 0 && candidate.kind === "branch"
+      && runner(repo, "git", ["merge-base", "--is-ancestor", candidate.head, "HEAD"]).status !== 0;
     entries.push({ target: candidate.kind === "branch" ? candidate.branch : candidate.path,
-      result: result.status === 0 ? "removed" : "Git refused removal; retained" });
+      result: result.status === 0 ? "removed"
+        : behind ? "local default branch is behind the remote; pull before removal"
+        : "Git refused removal; retained" });
     if (result.status === 0) delete next[key];
   }
   return { entries, candidates: next };

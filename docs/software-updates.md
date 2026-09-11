@@ -73,11 +73,15 @@ Prefix these commands with `mise run`.
 - Removal requires HEAD ancestry to the remote default and two observations of
   the same HEAD at least **three days apart**. Worktrees also need three days
   without filesystem changes, including their private Git directory.
-- Retains dirty, detached, locked, missing, busy, unreadable, or non-canonical
-  worktrees; unfinished Git operations; ignored local files except regenerable
+- Retains dirty, locked, missing, busy, unreadable, or non-canonical
+  worktrees; a detached worktree is removable only when its HEAD is already in
+  the remote default, since it has no branch to protect; unfinished Git operations; ignored local files except regenerable
   `node_modules`; unmerged/squash-only heads; upstream-tracking and long-lived
   branches (`main`, `master`, `develop`, `dev`, `production`, `staging`, `release`).
   Oversized activity inventories also retain the worktree.
+- A branch that is merged upstream but missing from a lagging local checkout
+  reports `local default branch is behind the remote; pull before removal`,
+  because unforced deletion judges against local HEAD.
 - Rechecks remote/Git/process state before unforced removal. Checked-out/default
   branches stay. A removed worktree's branch starts its own three-day grace.
 - Read-only activity may leave no timestamps: lock active work explicitly.
