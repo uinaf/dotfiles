@@ -319,7 +319,12 @@ export function hygiene(home: string, apply: boolean, scheduled: boolean, now = 
   try { release = acquireDirectoryLock(join(directory, "hygiene.lock")); }
   catch (cause) { throw new Error("hygiene lock exists; check for an active or interrupted cleanup", { cause }); }
   try {
-    const roots = [".t3/worktrees", ".codex/worktrees", ".claude/worktrees"].map(path => join(home, path));
+    // The harness roots plus the project tree itself. A linked worktree created
+    // next to its owning clone used to fall outside every root, so it was never
+    // evaluated or reported and accumulated unseen. Eligibility still rests
+    // entirely on the per-worktree checks below, which retain anything dirty,
+    // busy, protected, detached, or not yet in the remote default.
+    const roots = [".t3/worktrees", ".codex/worktrees", ".claude/worktrees", "projects"].map(path => join(home, path));
     const next: Record<string, { head: string; since: number }> = {};
     const reports: Record<string, Entry[]> = {};
     let failed = false;

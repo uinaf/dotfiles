@@ -66,8 +66,10 @@ Prefix these commands with `mise run`.
 - Finds owning clones at `~/projects/<repo>` and `~/projects/<group>/<repo>`.
   Checks current remote default refs using local commit history. Missing history
   or failed remote access retains the repository; sync/fix access before retrying.
-- Never removes owning clones. Linked worktrees are eligible only under
-  `~/.t3/worktrees`, `~/.codex/worktrees`, or `~/.claude/worktrees`.
+- Never removes owning clones. Linked worktrees are eligible under
+  `~/.t3/worktrees`, `~/.codex/worktrees`, `~/.claude/worktrees`, and anywhere in
+  `~/projects`, so a worktree created beside its owning clone is reported and
+  cleaned rather than accumulating unseen.
 - Removal requires HEAD ancestry to the remote default and two observations of
   the same HEAD at least **three days apart**. Worktrees also need three days
   without filesystem changes, including their private Git directory.

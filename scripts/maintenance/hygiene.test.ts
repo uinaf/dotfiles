@@ -97,6 +97,53 @@ test("dirty, ignored, locked, active and detached worktrees are retained", () =>
   } finally { f.cleanup(); }
 });
 
+// A worktree created next to its owning clone, rather than under a harness
+// root, used to fall outside every cleanup root and was never reported.
+test("a worktree beside its owning clone is evaluated, and unpushed work still retains it", () => {
+  const f = fixture();
+  try {
+    const projectRoots = [...f.roots, join(f.root, "projects")];
+    const stray = join(f.root, "projects/org/repo-stray");
+    f.git(f.repo, "worktree", "add", "-b", "stray", stray);
+
+    assert.ok(
+      candidates(f.repo, f.roots, [], runner).kept.some(entry => entry.target === stray && entry.result === "outside cleanup roots"),
+      "unreachable while only harness roots are cleaned",
+    );
+    assert.ok(
+      candidates(f.repo, projectRoots, [], runner).eligible.some(item => item.path === stray),
+      "eligible once the project tree is a cleanup root",
+    );
+
+    f.git(stray, "commit", "--allow-empty", "-m", "unpushed work");
+    const kept = candidates(f.repo, projectRoots, [], runner).kept;
+    assert.ok(kept.some(entry => entry.target === stray && entry.result.startsWith("HEAD not in remote default")));
+    assert.equal(candidates(f.repo, projectRoots, [], runner).eligible.some(item => item.path === stray), false);
+    assert.ok(existsSync(stray));
+  } finally { f.cleanup(); }
+});
+
+test("scheduled hygiene reports a stray worktree beside its owning clone", () => {
+  const f = fixture();
+  try {
+    // fixture() already owns <root>/projects, which is the tree hygiene scans.
+    const home = f.root;
+    mkdirSync(join(home, ".local/state/dotfiles"), { recursive: true });
+    writeFileSync(join(home, ".local/state/dotfiles/hygiene.json"),
+      JSON.stringify({ lastRun: 0, lastCache: baseline, candidates: {} }));
+    const stray = join(home, "projects/org/repo-stray");
+    f.git(f.repo, "worktree", "add", "-b", "stray", stray);
+    f.git(stray, "commit", "--allow-empty", "-m", "unpushed work");
+
+    hygiene(home, true, true, baseline);
+
+    const log = readFileSync(join(home, `Library/Logs/dotfiles/hygiene-${new Date(baseline).toISOString().slice(0, 10)}.log`), "utf8");
+    assert.ok(log.includes("repo-stray"), "the stray worktree appears in the report");
+    assert.ok(log.includes("HEAD not in remote default"), "with the reason it was retained");
+    assert.ok(existsSync(stray), "unpushed work is never removed");
+  } finally { f.cleanup(); }
+});
+
 test("a recreated worktree cannot inherit an old HEAD's elapsed grace period", () => {
   const f = fixture();
   try {
