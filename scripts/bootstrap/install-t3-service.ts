@@ -40,8 +40,15 @@ const program = Effect.gen(function*() {
   if (present) return yield* Console.log(`T3 Code service present: ${unit}`);
   yield* Console.log(`installing the T3 Code service with base dir ${baseDir}`);
   const install = yield* runner.run("npx", ["--yes", "t3@latest", "service", "install", "--base-dir", baseDir], { output: "inherit" });
+  const installed = yield* fs.exists(unit);
+  // Over SSH with nobody at the Mac's screen, T3 writes the LaunchAgent and then
+  // fails to start it in the GUI domain; upstream documents that the service
+  // starts at the next login, so the written unit is the contract here.
+  if (install.status !== 0 && installed && process.platform === "darwin") {
+    return yield* Console.log(`T3 Code service installed at ${unit}; start deferred to the next GUI login (t3 exited ${install.status})`);
+  }
   if (install.status !== 0) return yield* fail(`t3 service install exited ${install.status}`, install.status);
-  if (!(yield* fs.exists(unit))) return yield* fail(`t3 service install finished but ${unit} is missing`);
+  if (!installed) return yield* fail(`t3 service install finished but ${unit} is missing`);
 }).pipe(Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer));
 
 runMain(program);
