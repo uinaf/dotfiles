@@ -105,7 +105,8 @@ const program = Effect.scoped(Effect.gen(function*() {
     assert.doesNotMatch(darwinMise.stdout, new RegExp(`^${tool} = "`, "m"));
     assert.match(linuxMise.stdout, new RegExp(`^${tool} = "`, "m"));
   }
-  assert.doesNotMatch(linuxMise.stdout, /^xcodes = "/m);
+  assert.match(darwinMise.stdout, /^xcodegen = "/m);
+  assert.doesNotMatch(linuxMise.stdout, /^xcodegen = "/m);
   for (const entry of ['cask "codex"', 'cask "claude-code@latest"']) assert.ok(!base.split("\n").includes(entry));
   assert.match(miseTemplate, /^"npm:@openai\/codex" = "/m);
   assert.match(miseTemplate, /^"ubi:anthropics\/claude-code" = \{ version = "/m);

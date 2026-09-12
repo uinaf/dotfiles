@@ -210,7 +210,8 @@ which preserves saved logins. For package-only refreshes, use
 
 | Failure | Recovery |
 | --- | --- |
-| Missing packages or `chezmoi` | Rerun `brew-bundle.ts` with the selected profile. |
+| Missing Homebrew packages | Rerun `brew-bundle.ts` with the selected profile. |
+| Missing `chezmoi` or another mise tool | Rerun `./dotfiles apply`; the first apply borrows the pinned `chezmoi` through `mise x` and `install-runtimes` installs the rest. |
 | Homebrew drift | Keep intentional machine-specific packages in a [local Brewfile](profiles.md#local-homebrew-additions), then review and run `./scripts/darwin/bootstrap/brew-bundle.ts --cleanup <profile>`. This removes undeclared packages; shared devboxes use the personal-devbox package union. |
 | Shared prefix permissions | Run `./scripts/darwin/bootstrap/brew-devbox.ts --repair-shared-readability` as the prefix owner. Foreign-owned content needs an administrator to correct ownership. |
 | Git dubious ownership under `/opt/homebrew` | Rerun `configure-git.ts` with the selected profile. |
