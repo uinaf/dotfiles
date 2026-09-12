@@ -66,8 +66,7 @@ mise trust
 - Configure [Git authorship and local SSH keys](identities.md#developer-git-and-ssh)
   from explicit operator values.
 - Install [the pinned Xcode](mobile-and-tv-development.md) with
-  `mise run xcode:install`.
-- On a workstation profile, install [the pinned Android Studio](mobile-and-tv-development.md#android-studio)
+  `mise run xcode:install` and [the pinned Android Studio](mobile-and-tv-development.md#android-studio)
   with `mise run android-studio:install`.
 - Every profile except `workstation` requires a
   [backed-up SOPS age identity](identities.md#sops-age-identity).
@@ -154,7 +153,8 @@ The prefix owner must use the wrapper for shared-devbox mutations:
 
 It confines the owner-write/group-read umask to Homebrew, repairs owner-owned
 content after attempted mutations, and refuses foreign-owned or group-writable
-prefix content. The devbox bundle command uses it internally.
+prefix content. `--update-software` upgrades formulae greedily and skips the
+pinned Android Studio cask. The devbox bundle command uses it internally.
 
 Enroll [headless updates](software-updates.md#headless-devbox-updates) for
 scheduled execution without a GUI session.

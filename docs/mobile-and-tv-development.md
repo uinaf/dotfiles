@@ -1,7 +1,7 @@
 # Mobile and TV Development
 
-- [Bootstrap](bootstrap.md): Xcode utilities, Watchman, Android command-line tools;
-  Android Studio on workstation profiles.
+- [Bootstrap](bootstrap.md): Xcode utilities, Watchman, Android command-line tools,
+  and Android Studio on the shared Homebrew layer.
 - Full Xcode follows the [declared release pin](../chezmoi/.chezmoidata/xcode.json).
   Simulator runtimes, SDK packages, and first-run GUI setup stay manual.
 - Android Studio follows the [declared cask pin](../chezmoi/.chezmoidata/android-studio.json).
@@ -29,9 +29,8 @@ installation to verify its selected Xcode/runtime combination.
 
 ## Android Studio
 
-Install the pinned stable cask as the Homebrew prefix owner on a workstation
-profile. This is on-demand: the six-hour updater does not install Android
-Studio, and Topgrade leaves its self-updater alone.
+Install the pinned stable cask as the Homebrew prefix owner. This is on-demand:
+the six-hour updater does not install Android Studio.
 
 ```zsh
 mise run android-studio:install
@@ -41,8 +40,9 @@ mise run android-studio:check
 `android-studio:install` uses Homebrew's `android-studio` cask and installs
 only the numbered stable release in the pin. Preview, beta, canary, and RC
 casks do not count. If brew's current cask is ahead of the pin, bump the pin
-first. Live bootstrap verification checks this release on workstation
-profiles. Headless devbox profiles skip it.
+first. Live bootstrap verification checks this release on every enrolled
+profile. Shared Homebrew greedy upgrades skip the cask so the pin cannot
+drift.
 
 ## Android TV
 
