@@ -4,7 +4,14 @@
     {
       "id": "dotfiles-convergence",
       "domain": "services",
-      "command": ["node", "--test", "scripts/maintenance/converge.test.ts", "scripts/lib/lock.test.ts", "scripts/lib/git-checkout.test.ts", "scripts/bootstrap/install-cursor-agent.test.ts"],
+      "command": [
+        "node",
+        "--test",
+        "scripts/maintenance/converge.test.ts",
+        "scripts/lib/lock.test.ts",
+        "scripts/lib/git-checkout.test.ts",
+        "scripts/bootstrap/install-cursor-agent.test.ts"
+      ],
       "output": "Default-branch convergence, local-work preservation, lock ownership and reclaim, dependency failures, and unattended profile setup"
     },
     {
@@ -20,8 +27,24 @@
     {
       "id": "maintenance-schedule",
       "domain": "services",
-      "command": ["node", "--test", "scripts/darwin/maintenance/schedule.test.ts", "scripts/darwin/maintenance/devbox.test.ts", "scripts/maintenance/run.test.ts"],
-      "output": "Opt-in update schedule, shared-prefix isolation, and on-demand serialization"
+      "command": [
+        "node",
+        "--test",
+        "scripts/darwin/maintenance/schedule.test.ts",
+        "scripts/darwin/maintenance/devbox.test.ts"
+      ],
+      "output": "Opt-in launchd update schedule and shared-prefix isolation",
+      "platform": "darwin"
+    },
+    {
+      "id": "update-run",
+      "domain": "services",
+      "command": [
+        "node",
+        "--test",
+        "scripts/maintenance/run.test.ts"
+      ],
+      "output": "Monitored update run receipts, heartbeat delivery, and on-demand serialization"
     },
     {
       "id": "static",
@@ -207,7 +230,8 @@
       "command": [
         "scripts/darwin/verify/brew-devbox.ts"
       ],
-      "output": "Devbox Homebrew behavior"
+      "output": "Devbox Homebrew behavior",
+      "platform": "darwin"
     },
     {
       "id": "external-homebrew",
@@ -215,7 +239,8 @@
       "command": [
         "scripts/darwin/verify/external-homebrew.ts"
       ],
-      "output": "External Homebrew capability boundary"
+      "output": "External Homebrew capability boundary",
+      "platform": "darwin"
     },
     {
       "id": "chrome-state",
@@ -225,13 +250,19 @@
         "--test",
         "scripts/darwin/bootstrap/chrome-state.test.ts"
       ],
-      "output": "Atomic Chrome Local State updates and malformed-input preservation"
+      "output": "Atomic Chrome Local State updates and malformed-input preservation",
+      "platform": "darwin"
     },
     {
       "id": "spotlight-policy",
       "domain": "profiles",
-      "command": ["node", "--test", "scripts/darwin/bootstrap/configure-spotlight.test.ts"],
-      "output": "Strict Spotlight policy verification, explicit opt-out, and command isolation"
+      "command": [
+        "node",
+        "--test",
+        "scripts/darwin/bootstrap/configure-spotlight.test.ts"
+      ],
+      "output": "Strict Spotlight policy verification, explicit opt-out, and command isolation",
+      "platform": "darwin"
     },
     {
       "id": "mise-path",
@@ -271,7 +302,8 @@
       "command": [
         "scripts/darwin/verify/service-labels.ts"
       ],
-      "output": "Launchd service labels"
+      "output": "Launchd service labels",
+      "platform": "darwin"
     },
     {
       "id": "maintenance-check",

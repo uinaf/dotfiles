@@ -38,10 +38,11 @@ const program = Effect.gen(function*() {
     if (configure.status !== 0) return yield* fail(`LLM gateway configuration exited ${configure.status}`);
   }
 
-  const configReadable = yield* fs.access(devboxConfig, { readable: true }).pipe(
+  // Linux has no login keychain; macOS uses the file store only on headless devboxes.
+  const configReadable = process.platform !== "darwin" || (yield* fs.access(devboxConfig, { readable: true }).pipe(
     Effect.as(true),
     Effect.catch(() => Effect.succeed(false)),
-  );
+  ));
   const version = yield* runner.run(agentPath, ["--version"], {
     env: configReadable ? { AGENT_CLI_CREDENTIAL_STORE: "file" } : {},
     output: "inherit",

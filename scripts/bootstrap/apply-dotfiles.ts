@@ -17,8 +17,7 @@ const agentRulesPath = join(process.env.XDG_STATE_HOME || join(home, ".local/sta
 const usage = `Usage:
   scripts/bootstrap/apply-dotfiles.ts [--profile PROFILE] [--dry-run] [--verbose]
 
-Applies the repo-local chezmoi source state for personal-workstation, personal-devbox,
-workstation, or devbox to $HOME. When --profile is omitted, the stored profile is used,
+Applies the repo-local chezmoi source state for the selected profile to $HOME. When --profile is omitted, the stored profile is used,
 followed by DOTFILES_PROFILE for first-time setup.`;
 
 const Arguments = Schema.Struct({
@@ -58,6 +57,30 @@ type ChezmoiContext = {
   readonly baseArgs: readonly string[];
   readonly dryRun: boolean;
 };
+
+// On macOS chezmoi and gitleaks are Homebrew formulas already on PATH. On Linux
+// they are mise tools declared by the very config this script renders, so the
+// first apply borrows the pinned releases through `mise x` until the shims exist.
+const ensureBootstrapTools = Effect.fn("ensureBootstrapTools")(function*() {
+  // The pins live in the Linux block of the template; macOS keeps Homebrew's
+  // copies and the rule refresh already tolerates a missing scanner there.
+  if (process.platform !== "linux") return;
+  const runner = yield* CommandRunner;
+  const fs = yield* FileSystem.FileSystem;
+  const template = yield* fs.readFileString(join(sourceDir, ".chezmoitemplates/mise.toml"));
+  for (const tool of ["chezmoi", "gitleaks"]) {
+    const onPath = yield* runner.run("sh", ["-c", `command -v ${tool}`], { output: "capture" }).pipe(Effect.option);
+    if (Option.isSome(onPath) && onPath.value.status === 0) continue;
+    const pin = new RegExp(`^${tool} = "([^"]+)"$`, "m").exec(template)?.[1];
+    if (!pin) return yield* fail(`${tool} is not on PATH and the mise template has no ${tool} pin`);
+    const located = yield* runner.run("mise", ["--no-config", "x", `${tool}@${pin}`, "--", "sh", "-c", `dirname "$(command -v ${tool})"`], { output: "capture" }).pipe(
+      Effect.mapError((error) => new CliFailure({ exitCode: 1, message: `cannot provision ${tool}@${pin} through mise: ${error.message}` })),
+    );
+    const directory = located.stdout.trim().split("\n").at(-1) || "";
+    if (located.status !== 0 || !directory.startsWith("/")) return yield* fail(`cannot provision ${tool}@${pin} through mise`);
+    process.env.PATH = `${directory}:${process.env.PATH || ""}`;
+  }
+});
 
 const runCommand = Effect.fn("runApplyDotfilesCommand")(function*(
   command: string,
@@ -252,10 +275,11 @@ const program = Effect.gen(function*() {
   const fs = yield* FileSystem.FileSystem;
   if (!(yield* fs.exists(sourceDir))) return yield* fail(`missing chezmoi source directory: ${sourceDir}`);
   if (!home) return yield* fail("HOME is required");
+  yield* ensureBootstrapTools();
   const profile = yield* resolveProfile(args.profile).pipe(
     Effect.mapError(() => new CliFailure({
       exitCode: 2,
-      message: "a supported profile is required: personal-workstation, personal-devbox, workstation, or devbox",
+      message: "a supported profile is required: developer, devbox, workstation, personal-devbox, or personal-workstation",
     })),
   );
   const configLink = yield* fs.readLink(configDir).pipe(Effect.option);

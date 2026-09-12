@@ -1,10 +1,31 @@
 # Bootstrap Guide
 
 Run commands from the repository root as the target Unix user. Choose a
-[profile](profiles.md): `workstation`, `personal-workstation`, `devbox`, or
-`personal-devbox`.
+[profile](profiles.md): `developer`, `devbox`, `workstation`,
+`personal-devbox`, or `personal-workstation`.
 
 ## First-Time Prerequisites
+
+### Linux (Ubuntu)
+
+The host owns root-level packages: `git`, `curl`, `zsh`, `tmux`, `mise` on
+the system PATH, and the login shell set to `zsh`. A managed devbox gets those
+from its provisioning; elsewhere:
+
+```sh
+sudo apt-get install -y git curl zsh tmux
+curl https://mise.run | sh   # installs ~/.local/bin/mise
+sudo chsh -s /usr/bin/zsh "$USER"
+```
+
+Then clone and prepare as below, skipping the Homebrew steps. Every other tool
+comes from the profile's mise configuration: `age`, `sops`, `gh`, `jq`,
+`ripgrep`, `shellcheck`, `actionlint`, `chezmoi`, `direnv`, `btop`,
+`gitleaks`, OpenCode, Codex, and Claude Code. Cursor uses its own installer.
+Android SDK and emulator tooling stay a per-user install; set `ANDROID_HOME`
+to `~/Android/Sdk` and the shell picks it up.
+
+### macOS
 
 Install Apple Command Line Tools and Homebrew:
 
@@ -55,8 +76,8 @@ Before applying a personal profile, provision the owner-only
 saved coding-client logins except those listed in `preservedLogins`.
 
 ```zsh
-profile=workstation # or personal-workstation, devbox, personal-devbox
-./scripts/darwin/bootstrap/brew-bundle.ts "$profile"
+profile=workstation # or developer, devbox, personal-devbox, personal-workstation
+./scripts/darwin/bootstrap/brew-bundle.ts "$profile" # macOS only
 mise trust
 ./dotfiles diff "$profile"
 ./dotfiles apply "$profile"

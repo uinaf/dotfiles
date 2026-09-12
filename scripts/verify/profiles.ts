@@ -86,7 +86,12 @@ const program = Effect.scoped(Effect.gen(function*() {
   const brewfile = (name: string) => fs.readFileString(join(repoRoot, name));
   const base = yield* brewfile("Brewfile");
   for (const entry of ['brew "gh"', 'cask "android-commandlinetools"']) assert.match(base, new RegExp(`^${entry.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "m"));
-  for (const entry of ['cask "codex"', 'cask "claude-code@latest"', 'brew "watchman"', 'brew "awscli"']) assert.ok(base.split("\n").includes(entry));
+  for (const entry of ['brew "watchman"', 'brew "awscli"']) assert.ok(base.split("\n").includes(entry));
+  // Coding agents moved to mise so Linux and macOS share one pin.
+  for (const entry of ['cask "codex"', 'cask "claude-code@latest"']) assert.ok(!base.split("\n").includes(entry));
+  const miseTemplate = yield* fs.readFileString(join(repoRoot, "chezmoi/.chezmoitemplates/mise.toml"));
+  assert.match(miseTemplate, /^"npm:@openai\/codex" = "/m);
+  assert.match(miseTemplate, /^"ubi:anthropics\/claude-code" = \{ version = "/m);
   assert.equal(base.includes("uinaf/tap"), false);
   const personal = yield* brewfile("Brewfile.personal");
   for (const entry of ['tap "uinaf/tap", trusted: true', 'cask "uinaf/tap/slopguard"']) assert.ok(personal.split("\n").includes(entry));

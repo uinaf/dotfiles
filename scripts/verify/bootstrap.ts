@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { CommandRunner } from "../lib/command.ts";
 import { brewfilePath, bundleCheckArgs, bundleDrift, configureExternalCapabilities, profileBrewfiles, runHomebrewRaw, verifyPrefixPermissions, withLocalBrewfile } from "../darwin/lib/homebrew.ts";
 import { fail, runMain } from "../lib/program.ts";
-import { checkMiseDoctor, runCleanZsh } from "../lib/shell-probe.ts";
+import { checkMiseDoctor, resolveZsh, runCleanZsh } from "../lib/shell-probe.ts";
 import { resolveProfile } from "../profiles/current.ts";
 import { readProfileModelEffect, requireProfile } from "../profiles/model.ts";
 
@@ -39,6 +39,8 @@ const program = Effect.gen(function*() {
   const fs = yield* FileSystem.FileSystem;
   const runner = yield* CommandRunner;
   const home = process.env.HOME || "";
+  const darwin = process.platform === "darwin";
+  const zsh = yield* resolveZsh();
   const shell = Effect.fn("bootstrapShellCheck")(function*(command: string, flags: "-lic" | "-ic" = "-lic") {
     const result = yield* runCleanZsh(flags, command);
     if (result.status !== 0) return yield* fail(command);
@@ -50,17 +52,17 @@ const program = Effect.gen(function*() {
     return result.stdout.trim();
   });
   const shellChecks = (checks: readonly string[]) => Effect.forEach(checks, (check) => shell(check), { concurrency: "unbounded", discard: true });
-  const commonTools = shellChecks(["age --version", "brew --version", "chezmoi --version", "gh --version", "git --version", "mise --version", "sops --version"]);
+  const commonTools = shellChecks(["age --version", ...(darwin ? ["brew --version"] : []), "chezmoi --version", "gh --version", "git --version", "mise --version", "sops --version", "jq --version", "rg --version"]);
   const environment = Effect.gen(function*() {
     yield* checkMiseDoctor("login interactive", "-lic");
     yield* checkMiseDoctor("interactive", "-ic");
     const trust = yield* runner.run(process.execPath, [join(repoRoot, "scripts/bootstrap/trust-agent-worktrees.ts"), "--check"]);
     if (trust.status !== 0) return yield* fail("trusted agent worktrees");
-    const truecolor = yield* runner.run("/usr/bin/env", ["TERM=xterm-ghostty", "/bin/zsh", "-ic", '[[ "$COLORTERM" = truecolor ]]']);
+    const truecolor = yield* runner.run("/usr/bin/env", ["TERM=xterm-ghostty", zsh, "-ic", '[[ "$COLORTERM" = truecolor ]]']);
     if (truecolor.status !== 0) return yield* fail("interactive zsh does not set COLORTERM=truecolor for Ghostty SSH sessions");
     if (config.capabilities.devbox) {
-      const prompt = yield* runner.run("/usr/bin/env", [`SSH_CONNECTION=${process.env.SSH_CONNECTION || "127.0.0.1 1 127.0.0.1 22"}`, "/bin/zsh", "-ic", '[[ "$PROMPT" == *"%n@%m"* ]]']);
-      if (prompt.status !== 0) return yield* fail("remote SSH shells do not show user@host in PROMPT");
+      const prompt = yield* runner.run("/usr/bin/env", [zsh, "-ic", '[[ "$PROMPT" == *"%n@%m"* ]] && [[ -d "$ZSH" ]]']);
+      if (prompt.status !== 0) return yield* fail("devbox shells do not show user@host in PROMPT with oh-my-zsh installed");
     }
     if (config.capabilities.workstation) {
       const ghostty = yield* fs.readFileString(join(home, "Library/Application Support/com.mitchellh.ghostty/config"));
@@ -80,8 +82,10 @@ const program = Effect.gen(function*() {
     if ((yield* shell("npm exec --yes -- node -p process.execPath")) !== `${nodeRoot}/bin/node`) return yield* fail("npm exec child Node is outside mise Node");
   });
   const developerTools = Effect.gen(function*() {
-    yield* shellChecks(["python --version", `python -c 'import yaml; assert yaml.__version__ == "${PYYAML_VERSION}"'`, "uv --version", "gh auth status", "gh stack --help", "glab --version", "bun --version", "java -version", "codex --version", "claude --version", "cursor-agent --version", "slopguard version", "mole --version"]);
+    yield* shellChecks(["python --version", `python -c 'import yaml; assert yaml.__version__ == "${PYYAML_VERSION}"'`, "uv --version", "gh auth status", "gh stack --help", "bun --version", "java -version", "codex --version", "claude --version", "cursor-agent --version", ...(darwin ? ["glab --version", "slopguard version", "mole --version"] : [])]);
+    // Homebrew supplies the Android command-line tools on macOS; a Linux user installs the SDK.
     const androidHome = yield* shell('printf %s "$ANDROID_HOME"');
+    if (!androidHome && !darwin) return;
     if (!androidHome || !(yield* fs.exists(androidHome))) return yield* fail("ANDROID_HOME is missing");
     for (const [name, path] of [["adb", "platform-tools/adb"], ["emulator", "emulator/emulator"], ["sdkmanager", "cmdline-tools/latest/bin/sdkmanager"]]) {
       if ((yield* shell(`command -v ${name}`)) !== join(androidHome, path)) return yield* fail(`${name} does not resolve from ANDROID_HOME`);
@@ -91,10 +95,11 @@ const program = Effect.gen(function*() {
     if (config.capabilities.personal) yield* shellChecks(["asc --version", "attach --help", "crabbox --version", "gitcrawl --version", "pi --version"]);
     if (config.capabilities.workstation) yield* shell("op --version");
     if (config.capabilities.personal && config.capabilities.workstation) yield* shellChecks(["grok --version", "tailscale status --peers=false"]);
-    yield* command(process.execPath, [join(repoRoot, "scripts/darwin/bootstrap/xcode.ts"), "--check"]);
-    if (config.capabilities.devbox) yield* shellChecks(["tmux -V", "xcodes version", "tailscale status --peers=false"]);
+    if (darwin) yield* command(process.execPath, [join(repoRoot, "scripts/darwin/bootstrap/xcode.ts"), "--check"]);
+    if (config.capabilities.devbox) yield* shellChecks(["tmux -V", "tailscale status --peers=false", ...(darwin ? ["xcodes version"] : [])]);
   });
   const homebrew = Effect.gen(function*() {
+    if (!darwin) return;
     const external = yield* configureExternalCapabilities(repoRoot, model, profile);
     for (const file of yield* withLocalBrewfile(repoRoot, profileBrewfiles(model, profile))) {
       const result = yield* runHomebrewRaw("brew", bundleCheckArgs(model, profile, brewfilePath(repoRoot, file)), { env: { ...external, HOMEBREW_BUNDLE_DOTFILES_PROFILE: profile, HOMEBREW_NO_AUTO_UPDATE: "1" } });
@@ -123,6 +128,7 @@ const program = Effect.gen(function*() {
     if (/^forced_login_method\s*=/m.test(codex.split(/^\s*\[/m)[0] || "")) return yield* fail("Codex forced_login_method must be absent");
   });
   const host = Effect.gen(function*() {
+    if (!darwin) return;
     yield* command(process.execPath, [join(repoRoot, "scripts/darwin/bootstrap/configure-spotlight.ts"), "--check"]);
     if (desktop) yield* command(process.execPath, [join(repoRoot, "scripts/darwin/bootstrap/configure-desktop.ts"), "--check"]);
   });

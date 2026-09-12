@@ -1,8 +1,9 @@
 {{ $profile := includeTemplate "profile" . | fromJson -}}
 [misc]
 # Dotfiles convergence applies declared runtime versions; OS upgrades remain manual.
-{{ if $profile.capabilities.sharedHomebrew -}}
-# Shared Homebrew must use the prefix owner's brew-devbox wrapper.
+{{ if or $profile.capabilities.sharedHomebrew (ne .chezmoi.os "darwin") -}}
+# Shared Homebrew must use the prefix owner's brew-devbox wrapper; Linux has
+# no Homebrew and the host owns its packages.
 only = ["github_cli_extensions", "custom_commands"]
 {{ else -}}
 only = ["brew_formula", "brew_cask", "github_cli_extensions", "custom_commands"]
