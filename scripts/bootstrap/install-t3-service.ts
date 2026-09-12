@@ -17,9 +17,9 @@ export function t3ServiceUnit(home: string, platform: NodeJS.Platform = process.
 
 const t3ServiceWanted = Effect.fn("t3ServiceWanted")(function*(devboxEnv: string) {
   const fs = yield* FileSystem.FileSystem;
-  if (!(yield* fs.exists(devboxEnv))) return false;
-  const contents = yield* fs.readFileString(devboxEnv);
-  return /^T3_SERVICE=1$/m.test(contents);
+  // The service is optional, so an unreadable file means "not requested".
+  const contents = yield* fs.readFileString(devboxEnv).pipe(Effect.catch(() => Effect.succeed("")));
+  return /^T3_SERVICE=1\r?$/m.test(contents);
 });
 
 const program = Effect.gen(function*() {
