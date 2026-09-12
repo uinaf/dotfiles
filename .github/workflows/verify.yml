@@ -122,10 +122,11 @@ jobs:
           set -euo pipefail
           home="$(mktemp -d)"
           units="$home/.config/systemd/user"
-          mkdir -p "$units" "$home/.local/share/mise/installs/node/latest/bin"
-          # systemd-analyze checks that ExecStart's executable exists; the
-          # fixture home stands in for the mise-installed node.
-          install -m 0755 /dev/null "$home/.local/share/mise/installs/node/latest/bin/node"
+          # chezmoi renders .chezmoi.homeDir from the real user, not the
+          # destination, and systemd-analyze checks that ExecStart's executable
+          # exists, so the stub node lives in the runner's own home.
+          mkdir -p "$units" "$HOME/.local/share/mise/installs/node/latest/bin"
+          install -m 0755 /dev/null "$HOME/.local/share/mise/installs/node/latest/bin/node"
           # chezmoi cat renders the target path's content from the source; the
           # destination file does not exist yet, so this only writes.
           for unit in dotfiles-software-update.service dotfiles-software-update.timer; do
