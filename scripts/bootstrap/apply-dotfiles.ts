@@ -73,8 +73,9 @@ const ensureBootstrapTools = Effect.fn("ensureBootstrapTools")(function*() {
     const located = yield* runner.run("mise", ["--no-config", "x", `${tool}@${pin}`, "--", "sh", "-c", `dirname "$(command -v ${tool})"`], { output: "capture" }).pipe(
       Effect.mapError((error) => new CliFailure({ exitCode: 1, message: `cannot provision ${tool}@${pin} through mise: ${error.message}` })),
     );
-    if (located.status !== 0 || !located.stdout.trim()) return yield* fail(`cannot provision ${tool}@${pin} through mise`);
-    process.env.PATH = `${located.stdout.trim()}:${process.env.PATH || ""}`;
+    const directory = located.stdout.trim().split("\n").at(-1) || "";
+    if (located.status !== 0 || !directory.startsWith("/")) return yield* fail(`cannot provision ${tool}@${pin} through mise`);
+    process.env.PATH = `${directory}:${process.env.PATH || ""}`;
   }
 });
 

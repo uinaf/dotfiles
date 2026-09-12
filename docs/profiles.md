@@ -22,10 +22,10 @@ Profiles configure one Unix user; host permissions provide isolation.
   `robbyrussell` theme and `git` plugin; `./dotfiles maintain` updates it and
   its own updater stays disabled. `devbox` profiles replace the prompt with
   `➜ user@host ~ git:(branch)` so SSH sessions name the machine.
-- Codex and Claude Code are mise-managed npm packages pinned in
-  [mise.toml](../chezmoi/.chezmoitemplates/mise.toml) on both platforms; on
-  Linux the same file also supplies the tools the shared Brewfile provides on
-  macOS.
+- Codex (npm) and Claude Code (its GitHub release) are mise-managed tools
+  pinned in [mise.toml](../chezmoi/.chezmoitemplates/mise.toml) on both
+  platforms; on Linux the same file also supplies the tools the shared
+  Brewfile provides on macOS.
 - Personal GUI casks and `mas` install only for `personal-workstation`.
 - The selected role is stored in `~/.config/dotfiles/profile` and checked during
   verification.
