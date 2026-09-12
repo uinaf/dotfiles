@@ -89,7 +89,7 @@ const program = Effect.scoped(Effect.gen(function*() {
   for (const entry of ['brew "watchman"', 'brew "ffmpeg"']) assert.ok(base.split("\n").includes(entry));
   // Binary-release tools and the coding agents are mise tools shared by both platforms.
   const miseTemplate = yield* fs.readFileString(join(repoRoot, "chezmoi/.chezmoitemplates/mise.toml"));
-  for (const tool of ["gh", "jq", "ripgrep", "shellcheck", "actionlint", "chezmoi", "direnv", "gitleaks", "trufflehog", "topgrade", "opencode", "awscli", "glab", "git-filter-repo", "xcodegen"]) {
+  for (const tool of ["gh", "jq", "ripgrep", "shellcheck", "actionlint", "chezmoi", "direnv", "gitleaks", "trufflehog", "topgrade", "opencode", "awscli", "glab", "git-filter-repo"]) {
     assert.ok(!base.split("\n").includes(`brew "${tool}"`), `${tool} must not stay in the Brewfile`);
     assert.match(miseTemplate, new RegExp(`^${tool} = "`, "m"), `${tool} must be pinned in the mise template`);
   }
@@ -101,15 +101,23 @@ const program = Effect.scoped(Effect.gen(function*() {
   const linuxMise = yield* renderedMise("linux");
   assert.equal(darwinMise.status, 0, darwinMise.stderr);
   assert.equal(linuxMise.status, 0, linuxMise.stderr);
-  for (const tool of ["btop", "age", "sops"]) {
-    assert.doesNotMatch(darwinMise.stdout, new RegExp(`^${tool} = "`, "m"));
-    assert.match(linuxMise.stdout, new RegExp(`^${tool} = "`, "m"));
-  }
+  assert.doesNotMatch(darwinMise.stdout, /^btop = "/m);
+  assert.match(linuxMise.stdout, /^btop = "/m);
   assert.match(darwinMise.stdout, /^xcodegen = "/m);
   assert.doesNotMatch(linuxMise.stdout, /^xcodegen = "/m);
-  for (const entry of ['cask "codex"', 'cask "claude-code@latest"']) assert.ok(!base.split("\n").includes(entry));
+  assert.match(darwinMise.stdout, /^"ubi:anthropics\/claude-code" = \{ version = "[^"]+", exe = "claude", matching_regex = "\^claude-darwin-/m);
+  assert.match(linuxMise.stdout, /^"ubi:anthropics\/claude-code" = \{ version = "[^"]+", exe = "claude", matching_regex = "\^claude-linux-/m);
+  for (const rendered of [darwinMise.stdout, linuxMise.stdout]) assert.equal(rendered.match(/^\[tools\]$/mg)?.length, 1, "one [tools] table per rendered config");
+  // age and sops are host packages on Linux (privileged flows call them by fixed path).
+  for (const tool of ["age", "sops"]) assert.doesNotMatch(linuxMise.stdout, new RegExp(`^${tool} = "`, "m"));
+  for (const entry of ['cask "codex"', 'cask "claude-code@latest"', 'brew "xcodegen"']) assert.ok(!base.split("\n").includes(entry));
   assert.match(miseTemplate, /^"npm:@openai\/codex" = "/m);
-  assert.match(miseTemplate, /^"ubi:anthropics\/claude-code" = \{ version = "/m);
+  // Each template part must stay plain TOML so Renovate's mise manager can
+  // parse it; a Go-template directive here silently stops every pin update.
+  for (const part of ["mise.toml", "darwin/mise.toml", "linux/mise.toml", "mise-tasks.toml"]) {
+    const parsed = yield* run("python3", ["-c", "import sys, tomllib; tomllib.loads(open(sys.argv[1]).read())", join(repoRoot, "chezmoi/.chezmoitemplates", part)]);
+    assert.equal(parsed.status, 0, `${part} is not plain TOML: ${parsed.stderr}`);
+  }
   assert.equal(base.includes("uinaf/tap"), false);
   const personal = yield* brewfile("Brewfile.personal");
   for (const entry of ['tap "uinaf/tap", trusted: true', 'cask "uinaf/tap/slopguard"']) assert.ok(personal.split("\n").includes(entry));

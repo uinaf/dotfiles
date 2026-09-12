@@ -28,7 +28,7 @@ const program = Effect.gen(function*() {
   }
   // Without lingering the user manager, and this timer with it, stops at logout.
   const linger = Effect.gen(function*() {
-    const result = yield* runner.run("loginctl", ["show-user", process.env.USER || "", "--property=Linger", "--value"], { output: "capture" });
+    const result = yield* runner.run("loginctl", ["show-user", String(process.getuid?.() ?? ""), "--property=Linger", "--value"], { output: "capture" });
     if (result.status !== 0) return yield* fail(`loginctl show-user exited ${result.status}: ${result.stderr.trim()}`);
     return result.stdout.trim() === "yes";
   });

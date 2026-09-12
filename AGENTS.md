@@ -1,7 +1,7 @@
 # AGENTS.md
 
-Public macOS bootstrap framework. Keep portable setup here and private machine
-state outside Git. `CLAUDE.md` links here; keep one authored agent guide.
+Public macOS and Ubuntu bootstrap framework. Keep portable setup here and
+private machine state outside Git. `CLAUDE.md` links here; keep one authored agent guide.
 
 ## Work
 
@@ -9,7 +9,7 @@ state outside Git. `CLAUDE.md` links here; keep one authored agent guide.
 - Identify the affected profile or repository-only tooling. Read the relevant [task guide](README.md#guides).
 - Edit tracked sources: `chezmoi/` for home files, `scripts/agents/` for global agent setup, `scripts/bootstrap/` for installation.
 - Keep repository-local instructions, secrets, and services with their consumer.
-- Keep `Brewfile` shared by every profile; role packages belong in `Brewfile.workstation`, `Brewfile.personal`, or `Brewfile.devbox`.
+- Pin command-line tools with binary releases in `chezmoi/.chezmoitemplates/mise.toml` (plain TOML; Renovate parses it). Keep `Brewfile` for what needs a compiler, a GUI, a system service, or a fixed privileged path; role packages belong in `Brewfile.workstation`, `Brewfile.personal`, or `Brewfile.devbox`.
 - Preserve standalone operation; do not require a companion workspace manager.
 - Document manual setup when automation would need opaque app-state edits or machine-specific credential juggling.
 - Before writing Effect code, read `node_modules/effect/AGENTS.md` completely and follow required links. Look up uncovered APIs in `node_modules/effect/src`.

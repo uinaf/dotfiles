@@ -62,7 +62,7 @@
       "customType": "regex",
       "description": "npm, pnpm, and Corepack installed by the mise runtime package task",
       "managerFilePatterns": [
-        "/^chezmoi/\\.chezmoitemplates/mise\\.toml$/"
+        "/^chezmoi/\\.chezmoitemplates/mise-tasks\\.toml$/"
       ],
       "matchStrings": [
         "(?<depName>npm|pnpm|corepack)@(?<currentValue>[0-9][^\\s\"&]+)"
@@ -73,7 +73,7 @@
       "customType": "regex",
       "description": "PyYAML installed into mise Python",
       "managerFilePatterns": [
-        "/^chezmoi/\\.chezmoitemplates/mise\\.toml$/"
+        "/^chezmoi/\\.chezmoitemplates/mise-tasks\\.toml$/"
       ],
       "matchStrings": [
         "(?<depName>PyYAML)==(?<currentValue>[0-9.]+)"
@@ -88,6 +88,16 @@
       ],
       "matchStrings": [
         "// renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)\\s+(?:export )?const [A-Z_]+ = \"(?<currentValue>[^\"]+)\";"
+      ]
+    },
+    {
+      "customType": "regex",
+      "description": "Pinned oh-my-zsh revision, followed as a digest of its default branch",
+      "managerFilePatterns": [
+        "/^scripts/bootstrap/install-oh-my-zsh\\.ts$/"
+      ],
+      "matchStrings": [
+        "// renovate: datasource=(?<datasource>git-refs) depName=(?<depName>[^\\s]+) branch=(?<currentValue>[^\\s]+)\\s+export const OH_MY_ZSH_REVISION = \"(?<currentDigest>[0-9a-f]{40})\";"
       ]
     },
     {

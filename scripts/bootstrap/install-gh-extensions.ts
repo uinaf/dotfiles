@@ -10,10 +10,10 @@ const extension = "github/gh-stack";
 const program = Effect.gen(function*() {
   const runner = yield* CommandRunner;
   const probe = yield* runner.run("gh", ["--version"]).pipe(
-    Effect.catch(() => fail("gh is required; install the shared Brewfile first")),
+    Effect.catch(() => fail("gh is required; run ./dotfiles apply so mise installs gh first")),
   );
   if (probe.status !== 0) {
-    return yield* fail("gh is required; install the shared Brewfile first");
+    return yield* fail("gh is required; run ./dotfiles apply so mise installs gh first");
   }
   yield* Console.log(`installing GitHub CLI extension ${extension}`);
   const install = yield* runner.run("gh", ["extension", "install", extension, "--force"], { output: "inherit" });

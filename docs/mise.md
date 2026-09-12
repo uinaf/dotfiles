@@ -38,7 +38,7 @@ Live checks inspect the current Unix user's machine. Run only for its intended
 profile; these are separate from repository verification:
 
 ```zsh
-mise run verify:bootstrap workstation # or personal-workstation, personal-devbox, devbox
+mise run verify:bootstrap workstation # or developer, devbox, personal-devbox, personal-workstation
 mise run verify:devbox-services
 ```
 
