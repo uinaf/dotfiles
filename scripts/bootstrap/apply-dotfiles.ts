@@ -310,6 +310,14 @@ const program = Effect.gen(function*() {
   if (args.dryRun) applyArgs.push("--dry-run");
   if (args.verbose) applyArgs.push("--verbose");
   yield* runCommand("chezmoi", applyArgs, "inherit");
+  // systemd keeps cached unit definitions until told otherwise; a reload is
+  // harmless when nothing changed and required when a managed unit did.
+  if (process.platform === "linux" && !args.dryRun) {
+    const runner = yield* CommandRunner;
+    yield* runner.run("systemctl", ["--user", "daemon-reload"], { output: "capture" }).pipe(
+      Effect.catch(() => Effect.succeed(undefined)),
+    );
+  }
   yield* Console.log(`dotfiles ${args.dryRun ? "previewed" : "applied"} for ${profile} with chezmoi source ${sourceDir}`);
 }).pipe(
   Effect.provide(CommandRunner.layer),

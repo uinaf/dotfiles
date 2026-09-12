@@ -19,10 +19,16 @@ const program = Effect.gen(function*() {
   const home = process.env.HOME || "";
   const systemctl = (...args: string[]) => runner.run("systemctl", ["--user", ...args], { output: "capture" });
   const unitFile = join(home, ".config/systemd/user", `${updateUnit}.timer`);
-  if (!(yield* fs.exists(unitFile))) return yield* fail(`missing ${unitFile}; run ./dotfiles apply first`);
+  // disable and status must still reach units systemd has loaded after the
+  // file is gone; only enable and run need the rendered unit.
+  if (["enable", "run"].includes(action ?? "") && !(yield* fs.exists(unitFile))) return yield* fail(`missing ${unitFile}; run ./dotfiles apply first`);
 
   switch (action) {
     case "enable": {
+      // Without lingering the user manager, and this timer with it, stops at logout.
+      const linger = yield* runner.run("loginctl", ["show-user", process.env.USER || "", "--property=Linger", "--value"], { output: "capture" });
+      if (linger.status !== 0) return yield* fail(`loginctl show-user exited ${linger.status}: ${linger.stderr.trim()}`);
+      if (linger.stdout.trim() !== "yes") return yield* fail("unattended maintenance needs systemd lingering; have an administrator run: sudo loginctl enable-linger $(id -un)");
       for (const args of [["daemon-reload"], ["enable", "--now", `${updateUnit}.timer`]]) {
         const result = yield* systemctl(...args);
         if (result.status !== 0) return yield* fail(`systemctl --user ${args.join(" ")} exited ${result.status}: ${result.stderr.trim()}`);

@@ -80,11 +80,14 @@ jobs:
           MISE_SHA256: c98423c8470d6dc416d9f7036d0646d8ef5ae92ad9186907f8fcc84cbe7db4ea
         run: |
           set -euo pipefail
-          curl -fsSLo /usr/local/bin/mise "https://github.com/jdx/mise/releases/download/v${MISE_VERSION}/mise-v${MISE_VERSION}-linux-x64"
-          echo "${MISE_SHA256}  /usr/local/bin/mise" | sha256sum -c -
-          chmod 0755 /usr/local/bin/mise
-          mise --no-config use --global chezmoi@2.72.1 shellcheck@0.11.0 actionlint@1.7.12 gitleaks@8.30.1
-          echo "$HOME/.local/share/mise/shims" >> "$GITHUB_PATH"
+          mkdir -p "$HOME/.local/bin"
+          curl -fsSLo "$HOME/.local/bin/mise" "https://github.com/jdx/mise/releases/download/v${MISE_VERSION}/mise-v${MISE_VERSION}-linux-x64"
+          echo "${MISE_SHA256}  $HOME/.local/bin/mise" | sha256sum -c -
+          chmod 0755 "$HOME/.local/bin/mise"
+          "$HOME/.local/bin/mise" --no-config use --global chezmoi@2.72.1 shellcheck@0.11.0 actionlint@1.7.12 gitleaks@8.30.1
+          printf '%s\n' "$HOME/.local/bin" "$HOME/.local/share/mise/shims" >> "$GITHUB_PATH"
+          # The fresh-home preview below swaps HOME; keep tool resolution here.
+          printf 'MISE_DATA_DIR=%s\n' "$HOME/.local/share/mise" >> "$GITHUB_ENV"
           sudo apt-get install -y -qq zsh >/dev/null
 
       - name: Install repository dependencies
