@@ -41,12 +41,12 @@
   "customManagers": [
     {
       "customType": "regex",
-      "description": "npm and pnpm installed by the mise runtime package task",
+      "description": "npm, pnpm, and Corepack installed by the mise runtime package task",
       "managerFilePatterns": [
         "/^chezmoi/\\.chezmoitemplates/mise\\.toml$/"
       ],
       "matchStrings": [
-        "(?<depName>npm|pnpm)@(?<currentValue>[0-9][^\\s\"&]+)"
+        "(?<depName>npm|pnpm|corepack)@(?<currentValue>[0-9][^\\s\"&]+)"
       ],
       "datasourceTemplate": "npm"
     },

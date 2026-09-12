@@ -60,11 +60,12 @@ Use exact versions where practical. Keep these pairs aligned:
 - Profile Node, repository [.node-version](../.node-version), and
   [package.json](../package.json).
 - Profile and repository pnpm.
+- Corepack installed by `dotfiles:runtime-packages` before `corepack enable`.
 - PyYAML installation and its [live verifier](../scripts/verify/bootstrap.ts).
 - [Xcode release](../chezmoi/.chezmoidata/xcode.json) and `mise run xcode:install`.
 
 - Bootstrap runs `mise install` and `dotfiles:runtime-packages`, so package-only
   pin changes converge even when runtimes are already installed.
-- The package task installs npm, Corepack's global pnpm default, and PyYAML;
+- The package task installs npm, Corepack, Corepack's global pnpm default, and PyYAML;
   ordinary project installs do not run it.
 - A project's `packageManager` selects its own package-manager version.
