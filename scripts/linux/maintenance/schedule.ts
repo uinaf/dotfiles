@@ -30,8 +30,10 @@ const program = Effect.gen(function*() {
       return yield* Console.log(`Software maintenance enabled: ${updateUnit}.timer runs every six hours.`);
     }
     case "disable": {
-      yield* systemctl("disable", "--now", `${updateUnit}.timer`);
-      yield* systemctl("stop", `${updateUnit}.service`);
+      for (const args of [["disable", "--now", `${updateUnit}.timer`], ["stop", `${updateUnit}.service`]]) {
+        const result = yield* systemctl(...args);
+        if (result.status !== 0) return yield* fail(`systemctl --user ${args.join(" ")} exited ${result.status}: ${result.stderr.trim()}`);
+      }
       return yield* Console.log("Software maintenance disabled; any running update was stopped.");
     }
     case "run": {

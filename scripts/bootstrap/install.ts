@@ -117,7 +117,11 @@ const program = Effect.gen(function*() {
   const model = yield* readProfileModelEffect(modelPath).pipe(
     Effect.mapError((error) => new CliFailure({ exitCode: 2, message: error.message })),
   );
-  const steps = requireProfile(model, profile).installSteps;
+  const selected = requireProfile(model, profile);
+  if (selected.capabilities.workstation && process.platform !== "darwin") {
+    return yield* fail(`${profile} configures a macOS desktop; use developer or devbox on ${process.platform}`, 2);
+  }
+  const steps = selected.installSteps;
   if (printSteps) {
     yield* Console.log(steps.join("\n"));
     return;

@@ -13,10 +13,13 @@ const program = Effect.gen(function*() {
   const runner = yield* CommandRunner;
   const update = process.argv.includes("--update");
   const home = process.env.HOME || "";
+  if (!home && !process.env.OH_MY_ZSH_DIR) return yield* fail("HOME is required");
   const target = process.env.OH_MY_ZSH_DIR || join(home, ".oh-my-zsh");
   const remote = process.env.OH_MY_ZSH_REMOTE || "https://github.com/ohmyzsh/ohmyzsh.git";
 
   if (yield* fs.exists(join(target, ".git"))) {
+    // An interrupted clone leaves .git without a usable tree.
+    if (!(yield* fs.exists(join(target, "oh-my-zsh.sh")))) return yield* fail(`${target} is an incomplete checkout; move it aside and rerun`);
     if (!update) return;
     yield* Console.log("updating oh-my-zsh");
     const pulled = yield* runner.run("git", ["-C", target, "pull", "--ff-only", "--quiet"], { output: "inherit" });

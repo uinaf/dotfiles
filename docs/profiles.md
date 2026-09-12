@@ -25,7 +25,10 @@ Profiles configure one Unix user; host permissions provide isolation.
 - Codex (npm) and Claude Code (its GitHub release) are mise-managed tools
   pinned in [mise.toml](../chezmoi/.chezmoitemplates/mise.toml) on both
   platforms; on Linux the same file also supplies the tools the shared
-  Brewfile provides on macOS.
+  Brewfile provides on macOS. A Mac that installed the retired `codex` and
+  `claude-code@latest` casks keeps them until
+  `./scripts/darwin/bootstrap/brew-bundle.ts --cleanup <profile>` runs; the
+  shell fronts the mise shims, so the casks are inert meanwhile.
 - Personal GUI casks and `mas` install only for `personal-workstation`.
 - The selected role is stored in `~/.config/dotfiles/profile` and checked during
   verification.

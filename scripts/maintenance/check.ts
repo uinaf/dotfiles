@@ -233,7 +233,7 @@ function buildProbes(context: MaintenanceContext): Probe[] {
       required: false,
     }));
   }
-  if (context.profileConfig.capabilities.sharedHomebrew) {
+  if (context.profileConfig.capabilities.sharedHomebrew && process.platform === "darwin") {
     probes.push(probe("devbox_services", process.execPath, [join(context.repoRoot, "scripts/darwin/verify/devbox-services.ts")], summaryLine, { timeoutMs: 30_000 }));
   }
   if (context.verify) {

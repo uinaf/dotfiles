@@ -68,7 +68,8 @@ const ensureBootstrapTools = Effect.fn("ensureBootstrapTools")(function*() {
   const runner = yield* CommandRunner;
   const fs = yield* FileSystem.FileSystem;
   const template = yield* fs.readFileString(join(sourceDir, ".chezmoitemplates/mise.toml"));
-  for (const tool of ["chezmoi", "gitleaks"]) {
+  const offline = process.env.DOTFILES_AGENT_RULES_OFFLINE === "1";
+  for (const tool of offline ? ["chezmoi"] : ["chezmoi", "gitleaks"]) {
     const onPath = yield* runner.run("sh", ["-c", `command -v ${tool}`], { output: "capture" }).pipe(Effect.option);
     if (Option.isSome(onPath) && onPath.value.status === 0) continue;
     const pin = new RegExp(`^${tool} = "([^"]+)"$`, "m").exec(template)?.[1];

@@ -4,7 +4,7 @@ import { NodeServices } from "@effect/platform-node";
 import { Console, Effect, FileSystem } from "effect";
 import { join } from "node:path";
 import { CommandRunner } from "../lib/command.ts";
-import { fail, runMain } from "../lib/program.ts";
+import { CliFailure, fail, runMain } from "../lib/program.ts";
 
 // T3 Code's background service, installed once per devbox user. T3 owns the
 // launchd/systemd plumbing and its own later updates; this step only proves
@@ -28,8 +28,9 @@ const program = Effect.gen(function*() {
   if (yield* fs.exists(unit)) return yield* Console.log(`T3 Code service present: ${unit}`);
   if (process.platform === "linux") {
     const linger = yield* runner.run("loginctl", ["show-user", process.env.USER || "", "--property=Linger", "--value"], { output: "capture" }).pipe(
-      Effect.catch(() => Effect.succeed({ status: 1, stdout: "", stderr: "" })),
+      Effect.mapError((error) => new CliFailure({ exitCode: 1, message: `cannot query systemd-logind: ${error.message}` })),
     );
+    if (linger.status !== 0) return yield* fail(`loginctl show-user exited ${linger.status}: ${linger.stderr.trim()}`);
     if (linger.stdout.trim() !== "yes") {
       return yield* fail("T3 Code needs systemd lingering; have an administrator run: sudo loginctl enable-linger $(id -un)");
     }

@@ -53,6 +53,10 @@ jobs:
     timeout-minutes: 20
     permissions:
       contents: read
+    env:
+      # mise resolves tool releases through the GitHub API; unauthenticated
+      # runners share a 60-request budget per address and exhaust it.
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     concurrency:
       group: verify-linux-${{ github.workflow }}-${{ github.ref }}
       cancel-in-progress: true

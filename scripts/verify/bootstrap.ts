@@ -64,7 +64,7 @@ const program = Effect.gen(function*() {
       const prompt = yield* runner.run("/usr/bin/env", [zsh, "-ic", '[[ "$PROMPT" == *"%n@%m"* ]] && [[ -d "$ZSH" ]]']);
       if (prompt.status !== 0) return yield* fail("devbox shells do not show user@host in PROMPT with oh-my-zsh installed");
     }
-    if (config.capabilities.workstation) {
+    if (config.capabilities.workstation && darwin) {
       const ghostty = yield* fs.readFileString(join(home, "Library/Application Support/com.mitchellh.ghostty/config"));
       if (!ghostty.split(/\r?\n/).includes("shell-integration-features = ssh-env,ssh-terminfo")) return yield* fail("Ghostty SSH integration is not configured");
     }
