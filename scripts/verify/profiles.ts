@@ -82,14 +82,14 @@ const program = Effect.scoped(Effect.gen(function*() {
 
   const brewfile = (name: string) => fs.readFileString(join(repoRoot, name));
   const base = yield* brewfile("Brewfile");
-  for (const entry of ['brew "gh"', 'cask "google-chrome"']) assert.match(base, new RegExp(`^${entry.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "m"));
+  for (const entry of ['brew "gh"', 'cask "android-commandlinetools"']) assert.match(base, new RegExp(`^${entry.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "m"));
   for (const entry of ['cask "codex"', 'cask "claude-code@latest"', 'brew "watchman"', 'brew "awscli"']) assert.ok(base.split("\n").includes(entry));
   assert.equal(base.includes("uinaf/tap"), false);
   const personal = yield* brewfile("Brewfile.personal");
   for (const entry of ['tap "uinaf/tap", trusted: true', 'cask "uinaf/tap/slopguard"']) assert.ok(personal.split("\n").includes(entry));
   for (const entry of ['brew "asc"', 'brew "uinaf/tap/attach"', 'brew "openclaw/tap/crabbox"', 'brew "putdotio/tap/putio-cli"']) assert.ok(personal.split("\n").includes(entry));
   const workstation = yield* brewfile("Brewfile.workstation");
-  for (const entry of ['cask "ghostty"', 'cask "1password"', 'cask "chatgpt"', 'cask "claude"', 'cask "cursor"', 'cask "t3-code"', 'cask "zed"', 'brew "ykman"']) assert.ok(workstation.split("\n").includes(entry));
+  for (const entry of ['cask "ghostty"', 'cask "1password"', 'cask "google-chrome"', 'cask "chatgpt"', 'cask "cursor"', 'cask "t3-code"', 'cask "zed"', 'brew "ykman"']) assert.ok(workstation.split("\n").includes(entry));
 
   for (const profile of profiles) {
     const destination = join(temporary, `render-${profile}`);

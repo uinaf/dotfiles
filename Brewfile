@@ -13,9 +13,6 @@ brew "btop"
 brew "ripgrep"
 brew "tmux"
 
-# Shared browser
-cask "google-chrome"
-
 # Taps
 tap "teamookla/speedtest", trusted: true
 
