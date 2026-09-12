@@ -314,9 +314,14 @@ const program = Effect.gen(function*() {
   // harmless when nothing changed and required when a managed unit did.
   if (process.platform === "linux" && !args.dryRun) {
     const runner = yield* CommandRunner;
-    yield* runner.run("systemctl", ["--user", "daemon-reload"], { output: "capture" }).pipe(
+    const reload = yield* runner.run("systemctl", ["--user", "daemon-reload"], { output: "capture" }).pipe(
       Effect.catch(() => Effect.succeed(undefined)),
     );
+    // A missing systemctl means no user manager to reload; a failing one with
+    // managed units on disk means stale definitions, which is an error.
+    if (reload && reload.status !== 0 && (yield* fs.exists(join(home, ".config/systemd/user/dotfiles-software-update.timer")))) {
+      return yield* fail(`systemctl --user daemon-reload exited ${reload.status}: ${reload.stderr.trim()}`);
+    }
   }
   yield* Console.log(`dotfiles ${args.dryRun ? "previewed" : "applied"} for ${profile} with chezmoi source ${sourceDir}`);
 }).pipe(

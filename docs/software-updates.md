@@ -32,7 +32,8 @@ Prefix these commands with `mise run`.
   minutes of jitter, catching up after downtime). Console output goes to
   `journalctl --user -u dotfiles-software-update`; receipts and history live
   under `~/.local/state/dotfiles`. Homebrew steps are absent there; topgrade
-  runs the managed-dotfiles and hygiene commands only.
+  runs GitHub CLI extension updates plus the managed-dotfiles and hygiene
+  commands.
 - Requests acknowledge launch, not completion. Check status and the log summary.
   A stuck run blocks later runs.
 - `maintenance:update` preserves an active run. Separate `topgrade` or `brew`

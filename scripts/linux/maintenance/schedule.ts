@@ -19,9 +19,9 @@ const program = Effect.gen(function*() {
   const home = process.env.HOME || "";
   const systemctl = (...args: string[]) => runner.run("systemctl", ["--user", ...args], { output: "capture" });
   const unitFile = join(home, ".config/systemd/user", `${updateUnit}.timer`);
-  // disable and status must still reach units systemd has loaded after the
-  // file is gone; only enable and run need the rendered unit.
-  if (["enable", "run"].includes(action ?? "") && !(yield* fs.exists(unitFile))) return yield* fail(`missing ${unitFile}; run ./dotfiles apply first`);
+  // Only enable needs the rendered timer; run starts the service and disable
+  // and status must still reach units systemd has loaded after the file is gone.
+  if (action === "enable" && !(yield* fs.exists(unitFile))) return yield* fail(`missing ${unitFile}; run ./dotfiles apply first`);
 
   switch (action) {
     case "enable": {
@@ -57,7 +57,10 @@ const program = Effect.gen(function*() {
       yield* Console.log(lastRun.stdout.trim().split("\n").map((line) => `last ${line}`).join("\n"));
       const receipt = join(home, ".local/state/dotfiles/updates/software-update.json");
       if (yield* fs.exists(receipt)) yield* Console.log(`receipt: ${(yield* fs.readFileString(receipt)).trim()}`);
-      return yield* Console.log(`log: journalctl --user -u ${updateUnit}`);
+      yield* Console.log(`log: journalctl --user -u ${updateUnit}`);
+      // Like the launchd status, a non-enrolled or stopped timer is a failing result.
+      if (enabled.status !== 0 || active.status !== 0) return yield* fail(`${updateUnit}.timer is not enabled and active`);
+      return;
     }
   }
 }).pipe(Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer));
