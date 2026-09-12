@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { chmodSync, closeSync, existsSync, mkdtempSync, mkdirSync, openSync, readFileSync, realpathSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync, writeSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { logDirectory } from "./logs.ts";
 import { join } from "node:path";
 import { test } from "node:test";
 import { cacheCleanup, cacheCleanupTimeoutMs, candidates, capLogs, cleanRepository, discoverRepositories, hygiene, lastChanged, openFiles, readState, type Runner } from "./hygiene.ts";
@@ -19,7 +20,7 @@ test("applied hygiene retains successive reports when stdout is not redirected",
     writeFileSync(join(directory, "hygiene.json"), JSON.stringify({ lastRun: 0, lastCache: now, candidates: {} }));
     hygiene(home, true, true, now + pass);
   }
-  const path = join(home, `Library/Logs/dotfiles/hygiene-${new Date(now).toISOString().slice(0, 10)}.log`);
+  const path = join(logDirectory(home), `hygiene-${new Date(now).toISOString().slice(0, 10)}.log`);
   const log = readFileSync(path, "utf8");
   assert.equal(log.match(/"startedAt"/g)?.length, 2);
   assert.equal(log.match(/Cache cleanup is not due/g)?.length, 2);
@@ -151,7 +152,7 @@ test("scheduled hygiene reports a stray worktree beside its owning clone", () =>
 
     hygiene(home, true, true, baseline);
 
-    const log = readFileSync(join(home, `Library/Logs/dotfiles/hygiene-${new Date(baseline).toISOString().slice(0, 10)}.log`), "utf8");
+    const log = readFileSync(join(logDirectory(home), `hygiene-${new Date(baseline).toISOString().slice(0, 10)}.log`), "utf8");
     assert.ok(log.includes("repo-stray"), "the stray worktree appears in the report");
     assert.ok(log.includes("HEAD not in remote default"), "with the reason it was retained");
     assert.ok(existsSync(stray), "unpushed work is never removed");

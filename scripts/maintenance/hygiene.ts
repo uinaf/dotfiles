@@ -7,7 +7,7 @@ import { join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Schema } from "effect";
 import { acquireDirectoryLock } from "../lib/lock.ts";
-import { dailyLog } from "./logs.ts";
+import { dailyLog, logDirectory } from "./logs.ts";
 
 const week = 7 * 86400_000;
 const gracePeriod = 3 * 86400_000;
@@ -356,7 +356,7 @@ export function hygiene(home: string, apply: boolean, scheduled: boolean, now = 
       : { status: 0, stdout: "Cache cleanup is not due." };
     console.log(cache.stdout);
     failed ||= cache.status !== 0;
-    const logs = apply ? capLogs(join(home, "Library/Logs/dotfiles")) : [];
+    const logs = apply ? capLogs(logDirectory(home)) : [];
     failed ||= logs.some(entry => entry.result.startsWith("log cap failed"));
     const report = JSON.stringify({ startedAt: new Date(now).toISOString(), finishedAt: new Date().toISOString(),
       apply, repositories: reports, cacheExitCode: cache.status, logs }, null, 2);
