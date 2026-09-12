@@ -69,6 +69,9 @@ const ensureBootstrapTools = Effect.fn("ensureBootstrapTools")(function*() {
     const onPath = yield* runner.run("sh", ["-c", `command -v ${tool}`], { output: "capture" }).pipe(Effect.option);
     if (Option.isSome(onPath) && onPath.value.status === 0) continue;
     const pin = new RegExp(`^${tool} = "([^"]+)"$`, "m").exec(template)?.[1];
+    // gitleaks is only pinned where Homebrew cannot supply it; without either
+    // the rule refresh falls back to its cache as before.
+    if (!pin && tool === "gitleaks") continue;
     if (!pin) return yield* fail(`${tool} is not on PATH and the mise template has no ${tool} pin`);
     const located = yield* runner.run("mise", ["--no-config", "x", `${tool}@${pin}`, "--", "sh", "-c", `dirname "$(command -v ${tool})"`], { output: "capture" }).pipe(
       Effect.mapError((error) => new CliFailure({ exitCode: 1, message: `cannot provision ${tool}@${pin} through mise: ${error.message}` })),
