@@ -8,8 +8,8 @@
 {{- fail "profile model profiles must be an object" -}}
 {{- end -}}
 {{- range $name, $candidate := .profileModel.profiles -}}
-{{- if or (not (kindIs "map" $candidate)) (ne (len (omit $candidate "externalHomebrew")) 5) -}}
-{{- fail (printf "profile %s must contain capabilities, brewfiles, runtimeGroup, skillLayers, and installSteps" $name) -}}
+{{- if or (not (kindIs "map" $candidate)) (ne (len (omit $candidate "externalHomebrew")) 4) -}}
+{{- fail (printf "profile %s must contain capabilities, brewfiles, skillLayers, and installSteps" $name) -}}
 {{- end -}}
 {{- if hasKey $candidate "externalHomebrew" -}}
 {{- if not (kindIs "slice" $candidate.externalHomebrew) -}}
@@ -24,10 +24,10 @@
 {{- end -}}
 {{- end -}}
 {{- end -}}
-{{- if or (not (kindIs "map" $candidate.capabilities)) (ne (len $candidate.capabilities) 6) -}}
+{{- if or (not (kindIs "map" $candidate.capabilities)) (ne (len $candidate.capabilities) 5) -}}
 {{- fail (printf "profile %s capabilities have an invalid shape" $name) -}}
 {{- end -}}
-{{- range $capability := list "developer" "sharedHomebrew" "requiresSopsIdentity" "devbox" "workstation" "personal" -}}
+{{- range $capability := list "sharedHomebrew" "requiresSopsIdentity" "devbox" "workstation" "personal" -}}
 {{- if or (not (hasKey $candidate.capabilities $capability)) (not (kindIs "bool" (index $candidate.capabilities $capability))) -}}
 {{- fail (printf "profile %s capability %s must be boolean" $name $capability) -}}
 {{- end -}}
@@ -43,11 +43,11 @@
 {{- end -}}
 {{- end -}}
 {{- end -}}
-{{- if or (not (kindIs "string" $candidate.runtimeGroup)) (not (has $candidate.runtimeGroup (list "developer" "none"))) -}}
-{{- fail (printf "profile %s runtimeGroup is invalid" $name) -}}
+{{- if not (has "developer" $candidate.skillLayers) -}}
+{{- fail (printf "profile %s skill layers must include developer" $name) -}}
 {{- end -}}
-{{- if ne (has "install-runtimes" $candidate.installSteps) (ne $candidate.runtimeGroup "none") -}}
-{{- fail (printf "profile %s runtime group and install steps disagree" $name) -}}
+{{- if or (not (has "install-runtimes" $candidate.installSteps)) (not (has "install-repository-dependencies" $candidate.installSteps)) -}}
+{{- fail (printf "profile %s must install runtimes and repository dependencies" $name) -}}
 {{- end -}}
 {{- end -}}
 {{- if not (hasKey .profileModel.profiles .dotfilesProfile) -}}

@@ -69,16 +69,28 @@ test("TypeScript rejects malformed, unsupported, missing, and wrong-type data", 
 
   const missing = rawModel();
   const capabilities = missing.profileModel.profiles.workstation.capabilities as Record<string, unknown>;
-  delete capabilities.developer;
+  delete capabilities.sharedHomebrew;
   assert.throws(() => parseProfileModel(JSON.stringify(missing)), /Missing key/);
 
   const wrongType = rawModel();
-  (wrongType.profileModel.profiles.workstation.capabilities as Record<string, unknown>).developer = "yes";
+  (wrongType.profileModel.profiles.workstation.capabilities as Record<string, unknown>).sharedHomebrew = "yes";
   assert.throws(() => parseProfileModel(JSON.stringify(wrongType)), /Expected boolean/);
+
+  const leftoverRuntimeGroup = rawModel();
+  leftoverRuntimeGroup.profileModel.profiles.workstation.runtimeGroup = "developer";
+  assert.throws(() => parseProfileModel(JSON.stringify(leftoverRuntimeGroup)), /Expected no excess property/);
+
+  const leftoverDeveloper = rawModel();
+  (leftoverDeveloper.profileModel.profiles.workstation.capabilities as Record<string, unknown>).developer = true;
+  assert.throws(() => parseProfileModel(JSON.stringify(leftoverDeveloper)), /Expected no excess property/);
 
   const missingRuntimeStep = rawModel();
   missingRuntimeStep.profileModel.profiles.workstation.installSteps = ["apply-dotfiles", "install-cursor-agent"];
-  assert.throws(() => parseProfileModel(JSON.stringify(missingRuntimeStep)), /runtime group and install steps disagree/);
+  assert.throws(() => parseProfileModel(JSON.stringify(missingRuntimeStep)), /install-runtimes/);
+
+  const emptySkillLayers = rawModel();
+  emptySkillLayers.profileModel.profiles.workstation.skillLayers = [];
+  assert.throws(() => parseProfileModel(JSON.stringify(emptySkillLayers)), /must include developer/);
 
   const model = readProfileModel(modelPath);
   assert.throws(() => requireProfile(model, "unknown"), /unknown profile/);
@@ -135,16 +147,28 @@ test("chezmoi rejects unsupported, unknown, missing, and wrong-type data", () =>
   assert.notEqual(renderProfile("unknown").status, 0);
 
   const missing = rawModel();
-  delete (missing.profileModel.profiles.workstation.capabilities as Record<string, unknown>).developer;
+  delete (missing.profileModel.profiles.workstation.capabilities as Record<string, unknown>).sharedHomebrew;
   assert.notEqual(renderProfile("workstation", missing.profileModel).status, 0);
 
   const wrongType = rawModel();
-  (wrongType.profileModel.profiles.workstation.capabilities as Record<string, unknown>).developer = "yes";
+  (wrongType.profileModel.profiles.workstation.capabilities as Record<string, unknown>).sharedHomebrew = "yes";
   assert.notEqual(renderProfile("workstation", wrongType.profileModel).status, 0);
+
+  const leftoverRuntimeGroup = rawModel();
+  leftoverRuntimeGroup.profileModel.profiles.workstation.runtimeGroup = "developer";
+  assert.notEqual(renderProfile("workstation", leftoverRuntimeGroup.profileModel).status, 0);
+
+  const leftoverDeveloper = rawModel();
+  (leftoverDeveloper.profileModel.profiles.workstation.capabilities as Record<string, unknown>).developer = true;
+  assert.notEqual(renderProfile("workstation", leftoverDeveloper.profileModel).status, 0);
 
   const missingRuntimeStep = rawModel();
   missingRuntimeStep.profileModel.profiles.workstation.installSteps = ["apply-dotfiles", "install-cursor-agent"];
   assert.notEqual(renderProfile("workstation", missingRuntimeStep.profileModel).status, 0);
+
+  const emptySkillLayers = rawModel();
+  emptySkillLayers.profileModel.profiles.workstation.skillLayers = [];
+  assert.notEqual(renderProfile("workstation", emptySkillLayers.profileModel).status, 0);
 });
 
 test("chezmoi rejects malformed profile data before rendering", () => {

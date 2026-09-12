@@ -4,8 +4,7 @@ import { NodeServices } from "@effect/platform-node";
 import { Console, Effect } from "effect";
 import { CommandRunner } from "../lib/command.ts";
 import { fail, runMain } from "../lib/program.ts";
-import { normalizeProfile, profileModelFile } from "../profiles/current.ts";
-import { readProfileModelEffect, requireProfile } from "../profiles/model.ts";
+import { normalizeProfile } from "../profiles/current.ts";
 
 const usage = `Usage:
   scripts/bootstrap/configure-power.ts [--profile personal-workstation|personal-devbox|workstation|devbox] [--check]
@@ -80,11 +79,6 @@ const program = Effect.gen(function*() {
     }
   }
   const profile = yield* normalizeProfile(profileInput).pipe(Effect.mapError(() => new Error("unsupported profile")));
-  const model = yield* readProfileModelEffect(profileModelFile());
-  if (!requireProfile(model, profile).capabilities.developer) {
-    yield* Console.error(usage);
-    return yield* fail(`unsupported profile ${profile}`, 2);
-  }
   if (process.platform !== "darwin") return yield* fail("configure-power is macOS-only");
   if (checkOnly) {
     yield* checkPolicy();

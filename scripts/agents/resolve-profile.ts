@@ -2,8 +2,7 @@
 
 import { NodeServices } from "@effect/platform-node";
 import { Console, Effect } from "effect";
-import { readProfileModelEffect, requireProfile } from "../profiles/model.ts";
-import { normalizeProfile, profileModelFile, resolveProfile } from "../profiles/current.ts";
+import { normalizeProfile, resolveProfile } from "../profiles/current.ts";
 import { CliFailure, fail, runMain } from "../lib/program.ts";
 
 const usage = "Usage: scripts/agents/resolve-profile.ts [--expected PROFILE]";
@@ -40,12 +39,6 @@ const program = Effect.gen(function*() {
   );
   if (normalizedExpected && profile !== normalizedExpected) {
     return yield* fail(`cannot use agent sync; expected profile ${normalizedExpected} but the profile marker contains ${profile}`, 3);
-  }
-  const model = yield* readProfileModelEffect(profileModelFile()).pipe(
-    Effect.mapError((error) => new CliFailure({ exitCode: 3, message: error.message })),
-  );
-  if (!requireProfile(model, profile).capabilities.developer) {
-    return yield* fail(`agent sync is not available for profile ${profile}`, 3);
   }
   yield* Console.log(profile);
 }).pipe(Effect.provide(NodeServices.layer));

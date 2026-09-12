@@ -165,16 +165,14 @@ function probe(
 }
 
 function agentProbes(profile: ProfileConfig): Probe[] {
-  const versions: Array<[string, string, string[]]> = [];
-  if (profile.runtimeGroup !== "none") versions.push(["node", "node", ["--version"]], ["npm", "npm", ["--version"]]);
-  if (profile.capabilities.developer) {
-    versions.push(
-      ["codex", "codex", ["--version"]],
-      ["claude", "claude", ["--version"]],
-      ["opencode", "opencode", ["--version"]],
-      ["cursor_agent", "cursor-agent", ["--version"]],
-    );
-  }
+  const versions: Array<[string, string, string[]]> = [
+    ["node", "node", ["--version"]],
+    ["npm", "npm", ["--version"]],
+    ["codex", "codex", ["--version"]],
+    ["claude", "claude", ["--version"]],
+    ["opencode", "opencode", ["--version"]],
+    ["cursor_agent", "cursor-agent", ["--version"]],
+  ];
   if (profile.capabilities.personal) versions.push(["pi", "pi", ["--version"]]);
   if (profile.capabilities.personal && profile.capabilities.workstation) versions.push(["grok", "grok", ["--version"]]);
   return versions.map(([id, command, args]) => probe(`version_${id}`, command, args, firstLine));

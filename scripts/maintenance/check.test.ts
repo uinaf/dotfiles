@@ -13,7 +13,6 @@ import type { MacOSUpdateIO } from "./macos-updates.ts";
 
 const profileConfig = {
   capabilities: {
-    developer: true,
     sharedHomebrew: false,
     requiresSopsIdentity: false,
     devbox: false,
@@ -21,7 +20,6 @@ const profileConfig = {
     personal: false,
   },
   brewfiles: ["Brewfile"],
-  runtimeGroup: "developer",
   skillLayers: ["developer"],
   installSteps: ["apply-dotfiles", "install-runtimes", "install-repository-dependencies"],
 } as const satisfies ProfileConfig;

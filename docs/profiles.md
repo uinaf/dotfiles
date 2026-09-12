@@ -12,7 +12,7 @@ Profiles configure one Unix user; host permissions provide isolation.
 | `personal-devbox` | Personal headless tools and skills | [Devbox](../Brewfile.devbox), [personal](../Brewfile.personal) |
 
 - [profiles.json](../chezmoi/.chezmoidata/profiles.json) owns capabilities,
-  runtimes, [skill layers](agents.md), and install steps. Brewfiles own packages.
+  [skill layers](agents.md), and install steps. Brewfiles own packages.
 - Personal GUI casks and `mas` install only for `personal-workstation`.
 - The selected role is stored in `~/.config/dotfiles/profile` and checked during
   verification.

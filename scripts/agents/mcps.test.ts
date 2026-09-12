@@ -80,8 +80,8 @@ class FixtureRuntime implements Runtime {
       if (expected !== undefined && expected !== this.profile) {
         return { status: 3, stdout: "", stderr: "profile mismatch" };
       }
-      if ((profileModel.profiles[this.profile]?.skillLayers.length ?? 0) === 0) {
-        return { status: 3, stdout: "", stderr: "profile does not manage agents" };
+      if (!Object.hasOwn(profileModel.profiles, this.profile)) {
+        return { status: 3, stdout: "", stderr: "unknown profile" };
       }
       return { status: 0, stdout: `${this.profile}\n`, stderr: "" };
     }
@@ -435,7 +435,7 @@ test("reports every failing command with a redacted diagnostic", () => {
   assert.doesNotMatch(runtime.stdout.value, /Done\./);
 });
 
-test("refuses profiles without agent setup before touching a harness", () => {
+test("refuses an unknown profile before touching a harness", () => {
   const { repoDir, home } = createFixture();
   const runtime = new FixtureRuntime(repoDir, home, { profile: "unsupported" });
 

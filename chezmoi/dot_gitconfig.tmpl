@@ -2,7 +2,6 @@
 	ignorecase = false
 
 {{ $profile := includeTemplate "profile" . | fromJson -}}
-{{ if $profile.capabilities.developer -}}
 [gpg]
 	format = ssh
 
@@ -17,6 +16,5 @@
 	helper =
 	helper = !/opt/homebrew/bin/gh auth git-credential
 
-{{ end -}}
 [include]
 	path = ~/.gitconfig.local

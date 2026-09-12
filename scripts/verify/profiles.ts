@@ -118,6 +118,7 @@ const program = Effect.scoped(Effect.gen(function*() {
   }
   const gitconfig = yield* fs.readFileString(join(appliedHome, ".gitconfig"));
   assert.match(gitconfig, /^\[core\]$/m);
+  assert.match(gitconfig, /^\[gpg\]$/m);
   assert.match(gitconfig, /^\[include\]$/m);
   yield* Console.log("ok profile layers and applied dotfiles");
 }).pipe(Effect.catchCause((cause) => fail(Cause.pretty(cause))), Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer)));

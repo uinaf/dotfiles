@@ -14,7 +14,7 @@ const sshConfigs = { kind: "files", path: ".ssh", maxDepth: 0, namePrefix: "conf
 const profileModelPath = fileURLToPath(new URL("../../chezmoi/.chezmoidata/profiles.json", import.meta.url));
 
 export function devboxPolicy(user: string, devboxUser: string, configPath: string, systemRoot = "/", profileName = "devbox"): AuditPolicy {
-  const developer = requireProfile(readProfileModel(profileModelPath), profileName).capabilities.developer;
+  requireProfile(readProfileModel(profileModelPath), profileName);
   const codexPrivateDirectories = [
     ".codex",
     ".codex/sessions",
@@ -50,13 +50,13 @@ export function devboxPolicy(user: string, devboxUser: string, configPath: strin
           { kind: "private-mode", sources: [{ kind: "files", path: ".codex", maxDepth: 2, pathPattern: /(?:[.]sqlite3?|[.]db(?:-.*)?|[.]log)$|\/log\// }], mismatch: "fail" },
         ],
       },
-      ...(developer ? [{
+      {
         title: "Codex trust boundaries",
         checks: [
           { kind: "private-mode", sources: [{ kind: "path", path: ".codex/config.toml" }], mode: 0o600, mismatch: "fail" },
           { kind: "codex-trust", path: ".codex/config.toml" },
         ],
-      }] as const : []),
+      },
       {
         title: "home root pollution",
         checks: [{ kind: "paths-absent", paths: ["node_modules", "package.json", "package-lock.json", "pnpm-lock.yaml", "yarn.lock"], severity: "warn", label: "home root contains project artifact" }],
@@ -65,14 +65,14 @@ export function devboxPolicy(user: string, devboxUser: string, configPath: strin
         title: "project directory privacy",
         checks: [{ kind: "private-mode", sources: [{ kind: "path", path: "projects" }, { kind: "path", path: `projects/${devboxUser}` }], mismatch: "warn" }],
       },
-      ...(developer ? [{
+      {
         title: "Git and GitHub identity",
         checks: [
           { kind: "git-identity", config: ".gitconfig", missing: "fail", identity: "separate" },
           { kind: "github-auth" },
           { kind: "github-ssh-auth" },
         ],
-      }] as const : []),
+      },
       { title: "SSH key file permissions", checks: [{ kind: "ssh-private-key-modes", path: ".ssh" }] },
       { title: "Tailscale", checks: [{ kind: "tailscale-magicdns" }] },
     ],

@@ -54,12 +54,10 @@ const program = Effect.gen(function*() {
   const environment = Effect.gen(function*() {
     yield* checkMiseDoctor("login interactive", "-lic");
     yield* checkMiseDoctor("interactive", "-ic");
-    if (config.capabilities.developer) {
-      const trust = yield* runner.run(process.execPath, [join(repoRoot, "scripts/bootstrap/trust-agent-worktrees.ts"), "--check"]);
-      if (trust.status !== 0) return yield* fail("trusted agent worktrees");
-      const truecolor = yield* runner.run("/usr/bin/env", ["TERM=xterm-ghostty", "/bin/zsh", "-ic", '[[ "$COLORTERM" = truecolor ]]']);
-      if (truecolor.status !== 0) return yield* fail("interactive zsh does not set COLORTERM=truecolor for Ghostty SSH sessions");
-    }
+    const trust = yield* runner.run(process.execPath, [join(repoRoot, "scripts/bootstrap/trust-agent-worktrees.ts"), "--check"]);
+    if (trust.status !== 0) return yield* fail("trusted agent worktrees");
+    const truecolor = yield* runner.run("/usr/bin/env", ["TERM=xterm-ghostty", "/bin/zsh", "-ic", '[[ "$COLORTERM" = truecolor ]]']);
+    if (truecolor.status !== 0) return yield* fail("interactive zsh does not set COLORTERM=truecolor for Ghostty SSH sessions");
     if (config.capabilities.devbox) {
       const prompt = yield* runner.run("/usr/bin/env", [`SSH_CONNECTION=${process.env.SSH_CONNECTION || "127.0.0.1 1 127.0.0.1 22"}`, "/bin/zsh", "-ic", '[[ "$PROMPT" == *"%n@%m"* ]]']);
       if (prompt.status !== 0) return yield* fail("remote SSH shells do not show user@host in PROMPT");
@@ -70,13 +68,11 @@ const program = Effect.gen(function*() {
     }
   });
   const runtime = Effect.gen(function*() {
-    if (config.runtimeGroup === "none") return;
     if (yield* shell("mise ls --current --missing --no-header")) return yield* fail("mise still reports missing configured tools");
     yield* shell("node --version");
     const nodePath = yield* shell("mise which node");
     const nodeRoot = yield* shell("mise where node");
     if (!nodePath.startsWith(`${nodeRoot}/`)) return yield* fail("Node is not owned by mise");
-    if (!config.capabilities.developer) return;
     yield* shellChecks(["pnpm --version", "npm --version", "playwright-cli --version", "ruby --version"]);
     if ((yield* shell("command -v vp >/dev/null 2>&1; printf %s $?")) === "0") return yield* fail("vp is available globally; Vite+ must resolve from each repository");
     if ((yield* shell("npm config get prefix")) !== nodeRoot) return yield* fail("npm prefix is outside mise Node");
@@ -84,7 +80,6 @@ const program = Effect.gen(function*() {
     if ((yield* shell("npm exec --yes -- node -p process.execPath")) !== `${nodeRoot}/bin/node`) return yield* fail("npm exec child Node is outside mise Node");
   });
   const developerTools = Effect.gen(function*() {
-    if (!config.capabilities.developer) return;
     yield* shellChecks(["python --version", `python -c 'import yaml; assert yaml.__version__ == "${PYYAML_VERSION}"'`, "uv --version", "gh auth status", "gh stack --help", "glab --version", "bun --version", "java -version", "codex --version", "claude --version", "cursor-agent --version", "slopguard version", "mole --version"]);
     const androidHome = yield* shell('printf %s "$ANDROID_HOME"');
     if (!androidHome || !(yield* fs.exists(androidHome))) return yield* fail("ANDROID_HOME is missing");
@@ -96,7 +91,7 @@ const program = Effect.gen(function*() {
     if (config.capabilities.personal) yield* shellChecks(["asc --version", "attach --help", "crabbox --version", "gitcrawl --version", "pi --version"]);
     if (config.capabilities.workstation) yield* shell("op --version");
     if (config.capabilities.personal && config.capabilities.workstation) yield* shellChecks(["grok --version", "tailscale status --peers=false"]);
-    if (config.capabilities.developer) yield* command(process.execPath, [join(repoRoot, "scripts/bootstrap/xcode.ts"), "--check"]);
+    yield* command(process.execPath, [join(repoRoot, "scripts/bootstrap/xcode.ts"), "--check"]);
     if (config.capabilities.devbox) yield* shellChecks(["tmux -V", "xcodes version", "tailscale status --peers=false"]);
   });
   const homebrew = Effect.gen(function*() {
@@ -111,19 +106,24 @@ const program = Effect.gen(function*() {
   });
   const configuration = Effect.gen(function*() {
     if ((yield* fs.exists(join(home, ".tool-versions"))) || (yield* fs.readLink(join(home, ".tool-versions")).pipe(Effect.option))._tag === "Some") return yield* fail("legacy ~/.tool-versions exists");
-    const paths = [join(home, ".config/dotfiles/profile"), join(home, ".config/mise/config.toml"), join(home, ".gitconfig")];
-    if (config.capabilities.developer) paths.push(join(home, ".config/git/allowed_signers"), join(home, ".codex/config.toml"), join(home, ".gitconfig.local"), join(home, ".ssh/config"));
+    const paths = [
+      join(home, ".config/dotfiles/profile"),
+      join(home, ".config/mise/config.toml"),
+      join(home, ".gitconfig"),
+      join(home, ".config/git/allowed_signers"),
+      join(home, ".codex/config.toml"),
+      join(home, ".gitconfig.local"),
+      join(home, ".ssh/config"),
+    ];
     if (config.capabilities.workstation) paths.push(join(home, "Library/Application Support/com.mitchellh.ghostty/config"));
     for (const path of paths) if (!(yield* fs.exists(path))) return yield* fail(`missing ${path}`);
     if ((yield* resolveProfile(undefined)) !== profile) return yield* fail(`installed profile does not match ${profile}`);
     if (config.capabilities.requiresSopsIdentity) yield* command(process.execPath, [join(repoRoot, "scripts/secrets/configure-sops-age-identity.ts"), "--check"]);
-    if (config.capabilities.developer) {
-      const codex = yield* fs.readFileString(join(home, ".codex/config.toml"));
-      if (/^forced_login_method\s*=/m.test(codex.split(/^\s*\[/m)[0] || "")) return yield* fail("Codex forced_login_method must be absent");
-    }
+    const codex = yield* fs.readFileString(join(home, ".codex/config.toml"));
+    if (/^forced_login_method\s*=/m.test(codex.split(/^\s*\[/m)[0] || "")) return yield* fail("Codex forced_login_method must be absent");
   });
   const host = Effect.gen(function*() {
-    if (config.capabilities.developer) yield* command(process.execPath, [join(repoRoot, "scripts/bootstrap/configure-spotlight.ts"), "--check"]);
+    yield* command(process.execPath, [join(repoRoot, "scripts/bootstrap/configure-spotlight.ts"), "--check"]);
     if (desktop) yield* command(process.execPath, [join(repoRoot, "scripts/bootstrap/configure-desktop.ts"), "--check"]);
   });
   const groups: readonly [string, Effect.Effect<void, unknown, CommandRunner | FileSystem.FileSystem>][] = [

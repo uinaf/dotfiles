@@ -4,7 +4,6 @@
     "profiles": {
       "personal-workstation": {
         "capabilities": {
-          "developer": true,
           "sharedHomebrew": false,
           "requiresSopsIdentity": true,
           "devbox": false,
@@ -16,7 +15,6 @@
           "Brewfile.workstation",
           "Brewfile.personal"
         ],
-        "runtimeGroup": "developer",
         "skillLayers": [
           "developer",
           "workstation",
@@ -37,7 +35,6 @@
       },
       "personal-devbox": {
         "capabilities": {
-          "developer": true,
           "sharedHomebrew": true,
           "requiresSopsIdentity": true,
           "devbox": true,
@@ -49,7 +46,6 @@
           "Brewfile.devbox",
           "Brewfile.personal"
         ],
-        "runtimeGroup": "developer",
         "skillLayers": [
           "developer",
           "devbox",
@@ -70,7 +66,6 @@
       },
       "workstation": {
         "capabilities": {
-          "developer": true,
           "sharedHomebrew": false,
           "requiresSopsIdentity": false,
           "devbox": false,
@@ -81,7 +76,6 @@
           "Brewfile",
           "Brewfile.workstation"
         ],
-        "runtimeGroup": "developer",
         "skillLayers": [
           "developer",
           "workstation"
@@ -105,7 +99,6 @@
       },
       "devbox": {
         "capabilities": {
-          "developer": true,
           "sharedHomebrew": true,
           "requiresSopsIdentity": true,
           "devbox": true,
@@ -116,7 +109,6 @@
           "Brewfile",
           "Brewfile.devbox"
         ],
-        "runtimeGroup": "developer",
         "skillLayers": [
           "developer",
           "devbox"

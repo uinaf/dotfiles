@@ -8,7 +8,6 @@ import { refreshAgentRules } from "../agents/rules.ts";
 import { CommandRunner } from "../lib/command.ts";
 import { CliFailure, fail, runMain } from "../lib/program.ts";
 import { resolveProfile } from "../profiles/current.ts";
-import { readProfileModelEffect, requireProfile } from "../profiles/model.ts";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const sourceDir = join(repoRoot, "chezmoi");
@@ -223,9 +222,8 @@ const validateLocalAgentRules = Effect.fn("validateLocalAgentRules")(function*()
 
 const backupPreexistingTargets = Effect.fn("backupPreexistingTargets")(function*(
   context: ChezmoiContext,
-  developer: boolean,
 ) {
-  if (developer) yield* replaceAgentPath(context, join(home, ".agents/AGENTS.md"), "remove");
+  yield* replaceAgentPath(context, join(home, ".agents/AGENTS.md"), "remove");
   for (const target of yield* managedTargets(context, "files")) {
     if (target === join(home, "AGENTS.md")) {
       yield* replaceAgentPath(context, target, "file");
@@ -260,11 +258,6 @@ const program = Effect.gen(function*() {
       message: "a supported profile is required: personal-workstation, personal-devbox, workstation, or devbox",
     })),
   );
-  const model = yield* readProfileModelEffect(join(sourceDir, ".chezmoidata/profiles.json"));
-  const profileConfig = yield* Effect.try({
-    try: () => requireProfile(model, profile),
-    catch: () => new CliFailure({ exitCode: 2, message: `unsupported profile: ${profile}` }),
-  });
   const configLink = yield* fs.readLink(configDir).pipe(Effect.option);
   if (Option.isSome(configLink)) return yield* fail(`canonical config directory must not be a symlink: ${configDir}`);
   const configExists = yield* fs.exists(configDir);
@@ -282,13 +275,11 @@ const program = Effect.gen(function*() {
     ],
     dryRun: args.dryRun,
   };
-  if (profileConfig.capabilities.developer) {
-    yield* validateLocalAgentRules();
-    yield* refreshAgentRules(repoRoot, agentRulesPath, {
-      offline: process.env.DOTFILES_AGENT_RULES_OFFLINE === "1",
-    });
-  }
-  yield* backupPreexistingTargets(context, profileConfig.capabilities.developer);
+  yield* validateLocalAgentRules();
+  yield* refreshAgentRules(repoRoot, agentRulesPath, {
+    offline: process.env.DOTFILES_AGENT_RULES_OFFLINE === "1",
+  });
+  yield* backupPreexistingTargets(context);
   yield* retireLaunchAgents(process.getuid?.() ?? -1, args.dryRun);
   const applyArgs = [...context.baseArgs, "--force", "apply"];
   if (args.dryRun) applyArgs.push("--dry-run");

@@ -2,7 +2,6 @@ import { Effect, FileSystem, Schema } from "effect";
 import { readFileSync } from "node:fs";
 
 const Capabilities = Schema.Struct({
-  developer: Schema.Boolean,
   sharedHomebrew: Schema.Boolean,
   requiresSopsIdentity: Schema.Boolean,
   devbox: Schema.Boolean,
@@ -18,9 +17,19 @@ const ProfileConfig = Schema.Struct({
     packageType: Schema.Literals(["brew", "cask"]),
     name: Schema.NonEmptyString,
   }))),
-  runtimeGroup: Schema.Literals(["developer", "none"]),
-  skillLayers: Schema.Array(SkillLayer),
-  installSteps: Schema.NonEmptyArray(Schema.NonEmptyString),
+  skillLayers: Schema.Array(SkillLayer).pipe(
+    Schema.check(Schema.makeFilter((layers: ReadonlyArray<typeof SkillLayer.Type>) =>
+      layers.includes("developer") || "must include developer"
+    )),
+  ),
+  installSteps: Schema.TupleWithRest(
+    Schema.Tuple([
+      Schema.Literal("apply-dotfiles"),
+      Schema.Literal("install-runtimes"),
+      Schema.Literal("install-repository-dependencies"),
+    ]),
+    [Schema.NonEmptyString],
+  ),
 });
 const ProfileModel = Schema.Struct({
   version: Schema.Literal(1),
@@ -53,23 +62,8 @@ const validateProfile = Effect.fn("validateProfile")(function*(name: string, pro
       return yield* new ProfileModelError({ message: `profile ${name} ${field} must contain unique values` });
     }
   }
-  if (profile.brewfiles[0] !== "Brewfile" || profile.installSteps[0] !== "apply-dotfiles") {
-    return yield* new ProfileModelError({ message: `profile ${name} must start with the shared Brewfile and apply-dotfiles step` });
-  }
-  if (profile.installSteps.includes("install-runtimes") !== (profile.runtimeGroup !== "none")) {
-    return yield* new ProfileModelError({ message: `profile ${name} runtime group and install steps disagree` });
-  }
-  if (profile.installSteps.includes("install-repository-dependencies") !== (profile.runtimeGroup !== "none")) {
-    return yield* new ProfileModelError({ message: `profile ${name} runtime group and repository dependency steps disagree` });
-  }
-  if (profile.installSteps.indexOf("install-repository-dependencies") !== profile.installSteps.indexOf("install-runtimes") + 1) {
-    return yield* new ProfileModelError({ message: `profile ${name} must install repository dependencies after runtimes` });
-  }
-  if (
-    profile.capabilities.developer !== (profile.runtimeGroup === "developer") ||
-    profile.capabilities.developer !== (profile.skillLayers.length > 0)
-  ) {
-    return yield* new ProfileModelError({ message: `profile ${name} developer capability, runtime group, and skill layers disagree` });
+  if (profile.brewfiles[0] !== "Brewfile") {
+    return yield* new ProfileModelError({ message: `profile ${name} must start with the shared Brewfile` });
   }
 });
 

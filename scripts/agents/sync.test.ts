@@ -83,8 +83,8 @@ class FixtureRuntime implements Runtime {
       if (expected !== undefined && expected !== this.profile) {
         return { status: 3, stdout: "", stderr: "profile mismatch" };
       }
-      if ((profileModel.profiles[this.profile]?.skillLayers.length ?? 0) === 0) {
-        return { status: 3, stdout: "", stderr: "profile does not manage agents" };
+      if (!Object.hasOwn(profileModel.profiles, this.profile)) {
+        return { status: 3, stdout: "", stderr: "unknown profile" };
       }
       return { status: 0, stdout: `${this.profile}\n`, stderr: "" };
     }
@@ -318,7 +318,7 @@ test("rejects duplicate names across selected layers before installing skills", 
   assert.equal(installedSkillNames(runtime).length, 0);
 });
 
-test("refuses profiles without agent setup before managing skills", () => {
+test("refuses an unknown profile before managing skills", () => {
   const { repoDir, home } = createFixture();
   const runtime = new FixtureRuntime(repoDir, home, { profile: "unsupported" });
 
