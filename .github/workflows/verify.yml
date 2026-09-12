@@ -117,6 +117,23 @@ jobs:
           # short name or asset regex fails here instead of on a user's first apply.
           MISE_GLOBAL_CONFIG_FILE="$home/mise.toml" mise install --dry-run
 
+      - name: Verify the rendered systemd user units
+        run: |
+          set -euo pipefail
+          home="$(mktemp -d)"
+          units="$home/.config/systemd/user"
+          mkdir -p "$units" "$home/.local/share/mise/installs/node/latest/bin"
+          # systemd-analyze checks that ExecStart's executable exists; the
+          # fixture home stands in for the mise-installed node.
+          install -m 0755 /dev/null "$home/.local/share/mise/installs/node/latest/bin/node"
+          # chezmoi cat renders the target path's content from the source; the
+          # destination file does not exist yet, so this only writes.
+          for unit in dotfiles-software-update.service dotfiles-software-update.timer; do
+            rendered="$(chezmoi --source chezmoi --destination "$home" --override-data '{"dotfilesProfile":"devbox"}' cat "$units/$unit")"
+            printf '%s\n' "$rendered" > "$units/$unit"
+          done
+          systemd-analyze verify "$units/dotfiles-software-update.service" "$units/dotfiles-software-update.timer"
+
   release:
     name: GitHub Release
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, '[skip ci]') }}
