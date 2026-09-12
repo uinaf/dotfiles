@@ -314,10 +314,14 @@ const program = Effect.gen(function*() {
     const reload = yield* runner.run("systemctl", ["--user", "daemon-reload"], { output: "capture" }).pipe(
       Effect.catch(() => Effect.succeed(undefined)),
     );
-    // A missing systemctl means no user manager to reload; a failing one with
-    // managed units on disk means stale definitions, which is an error.
-    if (reload && reload.status !== 0 && (yield* fs.exists(join(home, ".config/systemd/user/dotfiles-software-update.timer")))) {
-      return yield* fail(`systemctl --user daemon-reload exited ${reload.status}: ${reload.stderr.trim()}`);
+    // Without a user manager (containers, cron, WSL) the reload cannot run and
+    // nothing is enrolled, so that is not an error. With the timer enrolled, a
+    // failed reload leaves systemd on stale unit definitions, which is.
+    if (reload && reload.status !== 0) {
+      const enrolled = yield* runner.run("systemctl", ["--user", "is-enabled", "dotfiles-software-update.timer"], { output: "capture" }).pipe(
+        Effect.catch(() => Effect.succeed(undefined)),
+      );
+      if (enrolled?.status === 0) return yield* fail(`systemctl --user daemon-reload exited ${reload.status}: ${reload.stderr.trim()}`);
     }
   }
   yield* Console.log(`dotfiles ${args.dryRun ? "previewed" : "applied"} for ${profile} with chezmoi source ${sourceDir}`);

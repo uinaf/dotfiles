@@ -89,7 +89,7 @@ jobs:
           "$RUNNER_TEMP/bin/mise" --no-config use --global chezmoi@2.72.1 shellcheck@0.11.0 actionlint@1.7.12 gitleaks@8.30.1
           printf '%s\n' "$RUNNER_TEMP/bin" "$HOME/.local/share/mise/shims" >> "$GITHUB_PATH"
           # The fresh-home preview below swaps HOME; keep tool resolution here.
-          printf 'MISE_DATA_DIR=%s\n' "$HOME/.local/share/mise" >> "$GITHUB_ENV"
+          printf 'MISE_DATA_DIR=%s\nMISE_GLOBAL_CONFIG_FILE=%s\n' "$HOME/.local/share/mise" "$HOME/.config/mise/config.toml" >> "$GITHUB_ENV"
           sudo apt-get install -y -qq zsh >/dev/null
 
       - name: Install repository dependencies
