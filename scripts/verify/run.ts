@@ -14,6 +14,7 @@ const Check = Schema.Struct({
   domain: Schema.NonEmptyString,
   gate: Schema.optional(Gate),
   scope: Schema.optional(Schema.Literal("complete")),
+  platform: Schema.optional(Schema.Literals(["darwin", "linux"])),
   command: Schema.NonEmptyArray(Schema.NonEmptyString),
   output: Schema.NonEmptyString,
 });
@@ -157,7 +158,7 @@ const listRegistry = Effect.fn("listRegistry")(function*(registry: Registry, jso
   for (const domain of domains) {
     yield* Console.log(domain);
     for (const check of registry.checks.filter((candidate) => candidate.domain === domain)) {
-      yield* Console.log(`  ${check.id}${check.scope === "complete" ? " [complete only]" : ""}: ${check.output}`);
+      yield* Console.log(`  ${check.id}${check.scope === "complete" ? " [complete only]" : ""}${check.platform ? ` [${check.platform}]` : ""}: ${check.output}`);
     }
   }
 });
@@ -182,6 +183,9 @@ const program = Effect.gen(function*() {
   const focused = options.domains.size > 0;
   const selected = registry.checks.filter((check) => {
     if (check.gate === "history" && options.skipSecurity) {
+      return false;
+    }
+    if (check.platform && check.platform !== process.platform) {
       return false;
     }
     if (focused) {

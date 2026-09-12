@@ -12,7 +12,7 @@ fail() {
 
 command -v jq >/dev/null 2>&1 || fail "missing jq"
 [ -f "$config_path" ] && [ ! -L "$config_path" ] || fail "missing regular gateway config"
-config_mode="$(stat -f '%Lp' "$config_path" 2>/dev/null || stat -c '%a' "$config_path" 2>/dev/null)" \
+config_mode="$(stat -c '%a' "$config_path" 2>/dev/null || stat -f '%Lp' "$config_path" 2>/dev/null)" \
   || fail "could not inspect gateway config permissions"
 [ "$config_mode" = 600 ] || fail "gateway config mode must be 0600"
 [ -x "$credential_helper" ] || fail "missing LLM gateway credential helper"

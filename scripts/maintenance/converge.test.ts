@@ -148,7 +148,8 @@ for (const failure of [false, true]) {
     });
     assert.equal(result.status, failure ? 19 : 0, result.stderr);
     const steps = readFileSync(log, "utf8");
-    assert.match(steps, /^brew-bundle.ts --maintenance personal-devbox$/m);
+    if (process.platform === "darwin") assert.match(steps, /^brew-bundle.ts --maintenance personal-devbox$/m);
+    else assert.doesNotMatch(steps, /brew-bundle/);
     assert.doesNotMatch(steps, /--retire-auth/);
     if (failure) assert.doesNotMatch(steps, /install-runtimes|mise|sync.ts|configure-codex/);
     else {

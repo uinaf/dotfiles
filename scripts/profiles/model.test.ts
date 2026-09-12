@@ -107,7 +107,7 @@ test("external Homebrew declarations reject malformed entries in both consumers"
   }
 });
 
-test("Brewfile gates GUI casks on the workstation capability", () => {
+test("Brewfile gates GUI casks on the workstation capability", { skip: process.platform !== "darwin" && "Homebrew is macOS-only" }, () => {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-profile-brewfile-"));
   const fixtureModelPath = join(root, "chezmoi/.chezmoidata/profiles.json");
   const listCasks = (profile: string): string[] => {
