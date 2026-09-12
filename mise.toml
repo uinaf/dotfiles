@@ -56,20 +56,20 @@ description = "Collect a live-applicability snapshot with full bootstrap verific
 run = "node ./scripts/maintenance/check.ts --verify"
 
 [tasks."maintenance:enable"]
-description = "Enable six-hour software updates for the current macOS GUI user"
-run = "node ./scripts/darwin/maintenance/schedule.ts enable"
+description = "Enable six-hour software updates for the current user"
+run = "node ./scripts/maintenance/schedule.ts enable"
 
 [tasks."maintenance:disable"]
 description = "Disable scheduled software updates and stop any current run"
-run = "node ./scripts/darwin/maintenance/schedule.ts disable"
+run = "node ./scripts/maintenance/schedule.ts disable"
 
 [tasks."maintenance:update"]
-description = "Request an on-demand update through the existing launchd job"
-run = "node ./scripts/darwin/maintenance/schedule.ts run"
+description = "Request an on-demand update through the scheduled job"
+run = "node ./scripts/maintenance/schedule.ts run"
 
 [tasks."maintenance:status"]
-description = "Show the updater's launchd state, last exit code, and log location"
-run = "node ./scripts/darwin/maintenance/schedule.ts status"
+description = "Show the updater state, last exit code, and log location"
+run = "node ./scripts/maintenance/schedule.ts status"
 
 [tasks."dotfiles:apply"]
 description = "Apply the repo-local chezmoi source state"

@@ -28,6 +28,7 @@ direnv = "2.37.1"
 btop = "1.4.7"
 gitleaks = "8.30.1"
 "npm:opencode-ai" = "1.18.30"
+topgrade = "17.10.1"
 {{- end }}
 
 [tasks."dotfiles:runtime-packages"]

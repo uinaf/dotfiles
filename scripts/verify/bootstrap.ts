@@ -96,7 +96,10 @@ const program = Effect.gen(function*() {
     if (config.capabilities.workstation) yield* shell("op --version");
     if (config.capabilities.personal && config.capabilities.workstation) yield* shellChecks(["grok --version", "tailscale status --peers=false"]);
     if (darwin) yield* command(process.execPath, [join(repoRoot, "scripts/darwin/bootstrap/xcode.ts"), "--check"]);
-    if (config.capabilities.devbox) yield* shellChecks(["tmux -V", "tailscale status --peers=false", ...(darwin ? ["xcodes version"] : [])]);
+    if (config.capabilities.devbox) {
+      yield* shellChecks(["tmux -V", "tailscale status --peers=false", ...(darwin ? ["xcodes version"] : [])]);
+      yield* command(process.execPath, [join(repoRoot, "scripts/bootstrap/install-t3-service.ts"), "--check"]);
+    }
   });
   const homebrew = Effect.gen(function*() {
     if (!darwin) return;

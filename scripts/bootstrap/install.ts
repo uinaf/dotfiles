@@ -35,6 +35,8 @@ const runStep = Effect.fn("runInstallStep")(function*(step: string, profile: str
       return yield* execute(step, bootstrap("apply-dotfiles.ts"), ["--profile", profile]);
     case "install-cursor-agent":
       return yield* execute(step, bootstrap("install-cursor-agent.ts"), []);
+    case "install-t3-service":
+      return yield* execute(step, bootstrap("install-t3-service.ts"), []);
     case "install-oh-my-zsh":
       return yield* execute(step, bootstrap("install-oh-my-zsh.ts"), maintenance ? ["--update"] : []);
     case "trust-agent-worktrees":

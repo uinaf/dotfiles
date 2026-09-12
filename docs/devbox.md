@@ -129,15 +129,19 @@ sudo ./scripts/darwin/bootstrap/install-devbox-service-daemons.ts --user example
 - Retire competing user LaunchAgents before installation.
 - Reference owner-only wrappers or files; never embed secrets.
 
-Install T3 Code as its target user so the desktop app can update the service:
+The `devbox` profiles install the T3 Code background service as the target
+user through the `install-t3-service` step (`npx t3@latest service install
+--base-dir ~/.t3`) when its unit is absent; T3 owns later updates and
+`./dotfiles check` proves the unit exists. Inspect it with:
 
 ```zsh
-npx t3@latest service install --base-dir ~/.t3
 npx t3@latest service status
 ```
 
-Keep the user logged in and the Mac awake; the LaunchAgent stops at logout.
-Keep `--base-dir` stable across updates; see the upstream
+On macOS keep the user logged in and the Mac awake; the LaunchAgent stops at
+logout. On Linux the systemd user service needs lingering, which an
+administrator enables once with `sudo loginctl enable-linger <user>`. Keep
+`--base-dir` stable across updates; see the upstream
 [background service guide](https://github.com/pingdotgg/t3code/blob/main/docs/user/background-service.md).
 
 ## Software Updates and Cleanup

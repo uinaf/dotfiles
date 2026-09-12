@@ -27,6 +27,12 @@ Prefix these commands with `mise run`.
 - Applying dotfiles does not enable updates; enrollment is explicit.
 - GUI schedule: 00:23, 06:23, 12:23, 18:23 local time, plus login/load.
   Missed sleep events coalesce on wake; powered-off machines wait until startup.
+- On Linux the same commands manage a systemd user timer
+  (`dotfiles-software-update.timer`, every six hours with up to fifteen
+  minutes of jitter, catching up after downtime). Console output goes to
+  `journalctl --user -u dotfiles-software-update`; receipts and history live
+  under `~/.local/state/dotfiles`. Homebrew steps are absent there; topgrade
+  runs the managed-dotfiles and hygiene commands only.
 - Requests acknowledge launch, not completion. Check status and the log summary.
   A stuck run blocks later runs.
 - `maintenance:update` preserves an active run. Separate `topgrade` or `brew`

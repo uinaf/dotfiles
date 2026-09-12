@@ -95,7 +95,8 @@
           "configure-codex",
           "configure-llm-gateway",
           "configure-bifrost-clients",
-          "sync-agents"
+          "sync-agents",
+          "install-t3-service"
         ]
       },
       "workstation": {
@@ -157,7 +158,8 @@
           "trust-agent-worktrees",
           "install-gh-extensions",
           "configure-codex",
-          "sync-agents"
+          "sync-agents",
+          "install-t3-service"
         ],
         "externalHomebrew": [
           {

@@ -45,6 +45,56 @@ jobs:
       - name: Verify repository
         run: ./scripts/verify/run.ts --skip-security
 
+  verify-linux:
+    # The same deterministic checks on Ubuntu, plus a dry-run developer apply
+    # into a throwaway home, so a macOS-only change cannot land unnoticed.
+    if: ${{ github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    concurrency:
+      group: verify-linux-${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: ".node-version"
+          package-manager-cache: false
+
+      - name: Install mise and the verification tools
+        env:
+          # renovate: datasource=github-releases depName=jdx/mise
+          MISE_VERSION: "2026.9.1"
+          MISE_SHA256: c98423c8470d6dc416d9f7036d0646d8ef5ae92ad9186907f8fcc84cbe7db4ea
+        run: |
+          set -euo pipefail
+          curl -fsSLo /usr/local/bin/mise "https://github.com/jdx/mise/releases/download/v${MISE_VERSION}/mise-v${MISE_VERSION}-linux-x64"
+          echo "${MISE_SHA256}  /usr/local/bin/mise" | sha256sum -c -
+          chmod 0755 /usr/local/bin/mise
+          mise --no-config use --global chezmoi@2.72.1 shellcheck@0.11.0 actionlint@1.7.12 gitleaks@8.30.1
+          echo "$HOME/.local/share/mise/shims" >> "$GITHUB_PATH"
+          sudo apt-get install -y -qq zsh >/dev/null
+
+      - name: Install repository dependencies
+        run: corepack pnpm install --frozen-lockfile
+
+      - name: Verify repository
+        run: ./scripts/verify/run.ts --skip-security
+
+      - name: Preview the developer profile in a fresh home
+        run: |
+          set -euo pipefail
+          home="$(mktemp -d)"
+          HOME="$home" ./dotfiles diff developer
+
   release:
     name: GitHub Release
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, '[skip ci]') }}
