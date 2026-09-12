@@ -43,11 +43,14 @@ const program = Effect.gen(function*() {
   const installed = yield* fs.exists(unit);
   // Over SSH with nobody at the Mac's screen, T3 writes the LaunchAgent and then
   // fails to start it in the GUI domain; upstream documents that the service
-  // starts at the next login. Only a unit this run wrote qualifies: the
-  // t3 process reports a generic 1, so the fresh file is the distinguishing
-  // evidence, and a stale plist from an earlier failure still fails here.
-  if (install.status !== 0 && installed && !present && process.platform === "darwin") {
-    return yield* Console.log(`T3 Code service installed at ${unit}; start deferred to the next GUI login (t3 exited ${install.status})`);
+  // starts at the next login.
+  if (install.status !== 0 && installed && process.platform === "darwin") {
+    // t3 exits a generic 1 for the headless start failure, so T3's own status
+    // is the evidence: a partial or corrupt install does not report installed.
+    const status = yield* runner.run("npx", ["--yes", "t3@latest", "service", "status"], { output: "capture" });
+    if (status.status === 0 && /^\s*Status:\s*installed\b/m.test(status.stdout)) {
+      return yield* Console.log(`T3 Code service installed at ${unit}; start deferred to the next GUI login (t3 exited ${install.status})`);
+    }
   }
   if (install.status !== 0) return yield* fail(`t3 service install exited ${install.status}`, install.status);
   if (!installed) return yield* fail(`t3 service install finished but ${unit} is missing`);
