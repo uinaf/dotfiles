@@ -5,7 +5,7 @@ import { Console, Effect, FileSystem } from "effect";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { CommandRunner } from "../lib/command.ts";
-import { brewfilePath, bundleCheckArgs, bundleDrift, configureExternalCapabilities, profileBrewfiles, runHomebrewRaw, verifyPrefixPermissions, withLocalBrewfile } from "../lib/homebrew.ts";
+import { brewfilePath, bundleCheckArgs, bundleDrift, configureExternalCapabilities, profileBrewfiles, runHomebrewRaw, verifyPrefixPermissions, withLocalBrewfile } from "../darwin/lib/homebrew.ts";
 import { fail, runMain } from "../lib/program.ts";
 import { checkMiseDoctor, runCleanZsh } from "../lib/shell-probe.ts";
 import { resolveProfile } from "../profiles/current.ts";
@@ -91,7 +91,7 @@ const program = Effect.gen(function*() {
     if (config.capabilities.personal) yield* shellChecks(["asc --version", "attach --help", "crabbox --version", "gitcrawl --version", "pi --version"]);
     if (config.capabilities.workstation) yield* shell("op --version");
     if (config.capabilities.personal && config.capabilities.workstation) yield* shellChecks(["grok --version", "tailscale status --peers=false"]);
-    yield* command(process.execPath, [join(repoRoot, "scripts/bootstrap/xcode.ts"), "--check"]);
+    yield* command(process.execPath, [join(repoRoot, "scripts/darwin/bootstrap/xcode.ts"), "--check"]);
     if (config.capabilities.devbox) yield* shellChecks(["tmux -V", "xcodes version", "tailscale status --peers=false"]);
   });
   const homebrew = Effect.gen(function*() {
@@ -123,8 +123,8 @@ const program = Effect.gen(function*() {
     if (/^forced_login_method\s*=/m.test(codex.split(/^\s*\[/m)[0] || "")) return yield* fail("Codex forced_login_method must be absent");
   });
   const host = Effect.gen(function*() {
-    yield* command(process.execPath, [join(repoRoot, "scripts/bootstrap/configure-spotlight.ts"), "--check"]);
-    if (desktop) yield* command(process.execPath, [join(repoRoot, "scripts/bootstrap/configure-desktop.ts"), "--check"]);
+    yield* command(process.execPath, [join(repoRoot, "scripts/darwin/bootstrap/configure-spotlight.ts"), "--check"]);
+    if (desktop) yield* command(process.execPath, [join(repoRoot, "scripts/darwin/bootstrap/configure-desktop.ts"), "--check"]);
   });
   const groups: readonly [string, Effect.Effect<void, unknown, CommandRunner | FileSystem.FileSystem>][] = [
     ["environment", environment], ["runtime", runtime], ["common-tools", commonTools], ["homebrew", homebrew],

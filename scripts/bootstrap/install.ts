@@ -12,7 +12,7 @@ import { readProfileModelEffect, requireProfile } from "../profiles/model.ts";
 const sourceRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const repoRoot = process.env.DOTFILES_INSTALL_REPO_ROOT || sourceRoot;
 const usage = `Usage:
-  scripts/bootstrap/install.ts --profile personal-workstation|personal-devbox|workstation|devbox
+  scripts/bootstrap/install.ts --profile developer|devbox|workstation|personal-devbox|personal-workstation
   scripts/bootstrap/install.ts --print-steps --profile PROFILE
   scripts/bootstrap/install.ts --maintenance [--profile PROFILE]
 
@@ -100,7 +100,7 @@ const program = Effect.gen(function*() {
   }
 
   const profile = yield* resolveProfile(profileInput).pipe(
-    Effect.mapError(() => new CliFailure({ exitCode: 2, message: "a supported profile is required: personal-workstation, personal-devbox, workstation, or devbox" })),
+    Effect.mapError(() => new CliFailure({ exitCode: 2, message: "a supported profile is required: developer, devbox, workstation, personal-devbox, or personal-workstation" })),
   );
   const modelPath = repoRoot === sourceRoot
     ? profileModelFile()
@@ -113,7 +113,7 @@ const program = Effect.gen(function*() {
     yield* Console.log(steps.join("\n"));
     return;
   }
-  if (maintenance) yield* execute("converge packages", resolve(repoRoot, "scripts/bootstrap/brew-bundle.ts"), ["--maintenance", profile]);
+  if (maintenance) yield* execute("converge packages", resolve(repoRoot, "scripts/darwin/bootstrap/brew-bundle.ts"), ["--maintenance", profile]);
   yield* Effect.forEach(steps, (step) => runStep(step, profile, maintenance));
 }).pipe(
   Effect.provide(CommandRunner.layer),

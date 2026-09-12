@@ -138,7 +138,8 @@ for (const failure of [false, true]) {
       mkdirSync(resolve(path, ".."), { recursive: true });
       writeFileSync(path, `#!/bin/sh\nprintf '%s %s\\n' '${name}' "$*" >> "$TEST_LOG"\nexit ${failure && name === "apply-dotfiles.ts" ? 19 : 0}\n`, { mode: 0o755 });
     }
-    for (const name of ["brew-bundle.ts", "apply-dotfiles.ts", "install-cursor-agent.ts", "trust-agent-worktrees.ts", "install-gh-extensions.ts", "configure-codex.ts", "configure-llm-gateway.ts", "configure-bifrost-clients.ts"]) stub(join(root, "scripts/bootstrap", name), name);
+    stub(join(root, "scripts/darwin/bootstrap/brew-bundle.ts"), "brew-bundle.ts");
+    for (const name of ["apply-dotfiles.ts", "install-cursor-agent.ts", "trust-agent-worktrees.ts", "install-gh-extensions.ts", "configure-codex.ts", "configure-llm-gateway.ts", "configure-bifrost-clients.ts"]) stub(join(root, "scripts/bootstrap", name), name);
     for (const name of ["sync.ts", "plugins.ts", "mcps.ts"]) stub(join(root, "scripts/agents", name), name);
     stub(join(bin, "mise"), "mise");
     const result = spawnSync(process.execPath, [join(source, "scripts/bootstrap/install.ts"), "--profile", "personal-devbox", "--maintenance"], {

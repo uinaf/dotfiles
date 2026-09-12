@@ -4,7 +4,7 @@ import { NodeServices } from "@effect/platform-node";
 import { Console, Effect, FileSystem, Option, Schema } from "effect";
 import { dirname, join } from "node:path";
 import { CommandRunner, runCommand } from "../lib/command.ts";
-import { commandAvailable } from "../lib/homebrew.ts";
+import { commandAvailable } from "../darwin/lib/homebrew.ts";
 import { CliFailure, fail, runMain } from "../lib/program.ts";
 
 const usage = `Usage:

@@ -5,7 +5,7 @@ import { NodeServices } from "@effect/platform-node";
 import { Effect, FileSystem, Option, Schema } from "effect";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { CliFailure, runMain } from "../lib/program.ts";
+import { CliFailure, runMain } from "../../lib/program.ts";
 
 type Mode = "enable" | "disable";
 
@@ -47,7 +47,7 @@ export const updateChromeStateEffect = Effect.fn("updateChromeState")(function*(
 if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) {
   const program = Effect.gen(function*() {
     const [path, mode, flagName, flagValue] = yield* Schema.decodeUnknownEffect(Arguments)(process.argv.slice(2)).pipe(
-      Effect.mapError(() => new CliFailure({ exitCode: 2, message: "Usage: scripts/bootstrap/chrome-state.ts PATH <enable|disable> FLAG VALUE" })),
+      Effect.mapError(() => new CliFailure({ exitCode: 2, message: "Usage: scripts/darwin/bootstrap/chrome-state.ts PATH <enable|disable> FLAG VALUE" })),
     );
     yield* updateChromeStateEffect(path, mode, flagName, flagValue);
   }).pipe(Effect.provide(NodeServices.layer));

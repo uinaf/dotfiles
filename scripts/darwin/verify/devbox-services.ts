@@ -4,11 +4,11 @@ import { NodeServices } from "@effect/platform-node";
 import { Console, Effect, FileSystem, Option, Schema } from "effect";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { CommandRunner, runCommand } from "../lib/command.ts";
+import { CommandRunner, runCommand } from "../../lib/command.ts";
 import { launchdLabel, resolveLaunchdNamespaceContract } from "../lib/launchd.ts";
-import { CliFailure, fail, runMain } from "../lib/program.ts";
+import { CliFailure, fail, runMain } from "../../lib/program.ts";
 
-const repoRoot = resolve(fileURLToPath(new URL("../..", import.meta.url)));
+const repoRoot = resolve(fileURLToPath(new URL("../../..", import.meta.url)));
 const home = process.env.HOME || "";
 const configPath = process.env.DEVBOX_CONFIG || join(home, ".config/dotfiles/devbox.env");
 const Config = Schema.Struct({ DEVBOX_USER: Schema.optional(Schema.NonEmptyString) });
@@ -41,7 +41,7 @@ const readConfig = Effect.fn("readDevboxVerificationConfig")(function*() {
 const program = Effect.gen(function*() {
   const args = process.argv.slice(2);
   if (args.length === 1 && (args[0] === "-h" || args[0] === "--help")) {
-    yield* Console.log("Usage:\n  scripts/verify/devbox-services.ts");
+    yield* Console.log("Usage:\n  scripts/darwin/verify/devbox-services.ts");
     return;
   }
   if (args.length > 0) return yield* fail(`unknown argument: ${args[0]}`, 2);

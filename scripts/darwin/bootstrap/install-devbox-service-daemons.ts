@@ -4,13 +4,13 @@ import { NodeServices } from "@effect/platform-node";
 import { Console, Effect, FileSystem, Option, Schema } from "effect";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { CommandRunner, runChecked, runCommand } from "../lib/command.ts";
+import { CommandRunner, runChecked, runCommand } from "../../lib/command.ts";
 import { launchdLabel, plistXml, resolveLaunchdNamespace, resolveLaunchdNamespaceContract } from "../lib/launchd.ts";
-import { CliFailure, fail, runMain } from "../lib/program.ts";
+import { CliFailure, fail, runMain } from "../../lib/program.ts";
 
-const repoRoot = resolve(fileURLToPath(new URL("../..", import.meta.url)));
+const repoRoot = resolve(fileURLToPath(new URL("../../..", import.meta.url)));
 const usage = `Usage:
-  scripts/bootstrap/install-devbox-service-daemons.ts --user <name> [services]
+  scripts/darwin/bootstrap/install-devbox-service-daemons.ts --user <name> [services]
 
 Services:
   --colima           Run the user's colima-ensure script once at system boot.

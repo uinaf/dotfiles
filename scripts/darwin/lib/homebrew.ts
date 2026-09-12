@@ -1,9 +1,9 @@
 import { Console, Effect, FileSystem, Option, Schema } from "effect";
 import { basename, delimiter, dirname, isAbsolute, join } from "node:path";
-import { runChecked, runCommand } from "./command.ts";
-import { CliFailure, fail } from "./program.ts";
-import type { ProfileModel } from "../profiles/model.ts";
-import { requireProfile } from "../profiles/model.ts";
+import { runChecked, runCommand } from "../../lib/command.ts";
+import { CliFailure, fail } from "../../lib/program.ts";
+import type { ProfileModel } from "../../profiles/model.ts";
+import { requireProfile } from "../../profiles/model.ts";
 
 const PackageName = Schema.String.pipe(Schema.check(Schema.isPattern(/^[A-Za-z0-9@+._/-]+$/)));
 const CommandCapability = Schema.Struct({

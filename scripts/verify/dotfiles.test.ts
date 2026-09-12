@@ -96,8 +96,23 @@ test("operator command validates and delegates every profile", async () => {
     writeFileSync(log, "");
     assert.equal((await run(["apply", "unknown"], log)).status, 2);
     assert.equal((await run(["unknown", "workstation"], log)).status, 2);
-    assert.equal((await run(["apply"], log)).status, 2);
     assert.equal(readFileSync(log, "utf8"), "");
+    // No profile: a fresh home converges developer; a stored marker wins; an
+    // unsafe marker still refuses rather than defaulting.
+    const defaulted = await run(["apply"], log);
+    assert.equal(defaulted.status, 0, defaulted.stderr);
+    assert.equal(readFileSync(log, "utf8"), "install.ts --profile developer\n");
+    mkdirSync(join(home, ".config/dotfiles"), { recursive: true });
+    writeFileSync(join(home, ".config/dotfiles/profile"), "personal-devbox\n", { mode: 0o600 });
+    writeFileSync(log, "");
+    const stored = await run(["apply"], log);
+    assert.equal(stored.status, 0, stored.stderr);
+    assert.equal(readFileSync(log, "utf8"), "install.ts --profile personal-devbox\n");
+    chmodSync(join(home, ".config/dotfiles/profile"), 0o666);
+    writeFileSync(log, "");
+    assert.equal((await run(["apply"], log)).status, 3);
+    assert.equal(readFileSync(log, "utf8"), "");
+    rmSync(join(home, ".config/dotfiles/profile"));
     const failed = await run(["apply", "workstation"], log, 29);
     assert.equal(failed.status, 29);
     assert.match(failed.stderr, /scripts\/bootstrap\/install\.ts failed/);

@@ -9,7 +9,7 @@ import test from "node:test";
 
 import type { ProfileConfig } from "../profiles/model.ts";
 import { collectMaintenanceSnapshot, parseBrewBacklog, runProcess, type CommandRunner, type MaintenanceContext } from "./check.ts";
-import type { MacOSUpdateIO } from "./macos-updates.ts";
+import type { MacOSUpdateIO } from "../darwin/maintenance/macos-updates.ts";
 
 const profileConfig = {
   capabilities: {

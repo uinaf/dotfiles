@@ -121,8 +121,8 @@ Install Colima's boot service from an authorized administrator account for the
 user who owns Colima:
 
 ```zsh
-sudo ./scripts/bootstrap/install-devbox-service-daemons.ts --user example --colima
-sudo ./scripts/bootstrap/install-devbox-service-daemons.ts --user example --colima --check
+sudo ./scripts/darwin/bootstrap/install-devbox-service-daemons.ts --user example --colima
+sudo ./scripts/darwin/bootstrap/install-devbox-service-daemons.ts --user example --colima --check
 ```
 
 - Root-owned LaunchDaemon, mode `0644`, running as the target user.
@@ -159,7 +159,7 @@ Run as the intended Unix user:
 
 ```zsh
 ./dotfiles check devbox # use personal-devbox for that profile
-./scripts/verify/devbox-services.ts
+./scripts/darwin/verify/devbox-services.ts
 mise run audit devbox --format json
 ```
 

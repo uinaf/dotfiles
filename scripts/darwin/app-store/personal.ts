@@ -2,13 +2,13 @@
 
 import { NodeServices } from "@effect/platform-node";
 import { Console, Effect, Schema } from "effect";
-import { CommandRunner } from "../lib/command.ts";
-import { fail, runMain } from "../lib/program.ts";
+import { CommandRunner } from "../../lib/command.ts";
+import { fail, runMain } from "../../lib/program.ts";
 
 const AppId = Schema.String.check(Schema.isPattern(/^\d+$/));
 const uninstallAppIds = ["682658836", "408981434"] as const;
 const usage = `Usage:
-  scripts/app-store/personal.ts [--dry-run] [-h|--help]
+  scripts/darwin/app-store/personal.ts [--dry-run] [-h|--help]
 
 Removes bundled Mac App Store apps unused by the personal workstation profile.
 

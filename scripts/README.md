@@ -11,6 +11,12 @@ Shared Effect services live in [lib/](lib/); scripts own parsing, policy,
 filesystem changes, and command orchestration. Read the Effect guidance named
 in [AGENTS.md](../AGENTS.md) before changing them.
 
+Directories mirror the operating systems they serve: [darwin/](darwin/) holds
+Homebrew, launchd, and macOS desktop scripts with the same `bootstrap/`,
+`maintenance/`, `verify/`, and `lib/` shape as the shared tree; `linux/` holds
+their Linux counterparts. A script belongs at the top level only when it runs
+unchanged on both.
+
 Shell is reserved for standalone process boundaries: the root launcher,
 external-client credential adapters in [agents/](agents/), and sudo's
 [askpass helper](lib/sudo-age-askpass.sh). These must run without the

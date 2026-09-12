@@ -5,10 +5,10 @@ import { Cause, Console, Effect, FileSystem } from "effect";
 import assert from "node:assert/strict";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { CommandRunner } from "../lib/command.ts";
-import { fail, runMain } from "../lib/program.ts";
+import { CommandRunner } from "../../lib/command.ts";
+import { fail, runMain } from "../../lib/program.ts";
 
-const repoRoot = resolve(fileURLToPath(new URL("../..", import.meta.url)));
+const repoRoot = resolve(fileURLToPath(new URL("../../..", import.meta.url)));
 const program = Effect.scoped(Effect.gen(function*() {
   const fs = yield* FileSystem.FileSystem;
   const runner = yield* CommandRunner;
@@ -43,7 +43,7 @@ exit "\${FAKE_BREW_EXIT:-0}"
   yield* fs.writeFileString(repairExecutable, "fixture", { mode: 0o700 });
   yield* fs.writeFileString(otherExecutable, "fixture", { mode: 0o601 });
   yield* fs.symlink(repairFile, repairLink);
-  const repairResult = yield* execute("scripts/bootstrap/brew-devbox.ts", ["--repair-shared-readability"], join(temporary, "repair.log"));
+  const repairResult = yield* execute("scripts/darwin/bootstrap/brew-devbox.ts", ["--repair-shared-readability"], join(temporary, "repair.log"));
   assert.equal(repairResult.status, 0, repairResult.stderr);
   for (const [path, mode] of [[repairDirectory, 0o750], [repairFile, 0o640], [repairExecutable, 0o750], [otherExecutable, 0o641]] as const) {
     assert.equal((yield* fs.stat(path)).mode & 0o777, mode);
@@ -53,7 +53,7 @@ exit "\${FAKE_BREW_EXIT:-0}"
   const output = join(temporary, "output");
   yield* fs.writeFileString(directLog, "");
   yield* fs.makeDirectory(output);
-  const direct = yield* execute("scripts/bootstrap/brew-devbox.ts", ["upgrade", "lima", "usage"], directLog, { FAKE_BREW_OUTPUT_DIR: output });
+  const direct = yield* execute("scripts/darwin/bootstrap/brew-devbox.ts", ["upgrade", "lima", "usage"], directLog, { FAKE_BREW_OUTPUT_DIR: output });
   assert.equal(direct.status, 0, direct.stderr);
   const log = yield* fs.readFileString(directLog);
   assert.match(log, /^umask=0027$/m);
@@ -65,28 +65,28 @@ exit "\${FAKE_BREW_EXIT:-0}"
   const writable = join(prefix, "group-writable");
   yield* fs.makeDirectory(writable, { mode: 0o770 });
   yield* fs.chmod(writable, 0o770);
-  const refused = yield* execute("scripts/bootstrap/brew-devbox.ts", ["upgrade", "unsafe"], directLog);
+  const refused = yield* execute("scripts/darwin/bootstrap/brew-devbox.ts", ["upgrade", "unsafe"], directLog);
   assert.equal(refused.status, 1);
   assert.match(refused.stderr, /Homebrew prefix contains group-writable content/);
   yield* fs.chmod(writable, 0o750);
-  const failed = yield* execute("scripts/bootstrap/brew-devbox.ts", ["failure-path"], directLog, { FAKE_BREW_EXIT: "37" });
+  const failed = yield* execute("scripts/darwin/bootstrap/brew-devbox.ts", ["failure-path"], directLog, { FAKE_BREW_EXIT: "37" });
   assert.equal(failed.status, 37);
 
   const updateLog = join(temporary, "update.log");
-  const updated = yield* execute("scripts/bootstrap/brew-devbox.ts", ["--update-software"], updateLog);
+  const updated = yield* execute("scripts/darwin/bootstrap/brew-devbox.ts", ["--update-software"], updateLog);
   assert.equal(updated.status, 0, updated.stderr);
   const updateArgs = (yield* fs.readFileString(updateLog)).split("\n").filter((line) => line.startsWith("arg="));
   assert.deepEqual(updateArgs, ["arg=developer", "arg=off", "arg=update", "arg=upgrade", "arg=--greedy", "arg=--no-ask"]);
   yield* fs.writeFileString(updateLog, "");
-  const refreshFailed = yield* execute("scripts/bootstrap/brew-devbox.ts", ["--update-software"], updateLog, { FAKE_BREW_EXIT: "37" });
+  const refreshFailed = yield* execute("scripts/darwin/bootstrap/brew-devbox.ts", ["--update-software"], updateLog, { FAKE_BREW_EXIT: "37" });
   assert.equal(refreshFailed.status, 37);
   assert.doesNotMatch(yield* fs.readFileString(updateLog), /^arg=upgrade$/m);
-  assert.equal((yield* execute("scripts/bootstrap/brew-devbox.ts", ["--update-software", "extra"], updateLog)).status, 2);
+  assert.equal((yield* execute("scripts/darwin/bootstrap/brew-devbox.ts", ["--update-software", "extra"], updateLog)).status, 2);
 
   const bundle = Effect.fn("runBrewBundleFixture")(function*(profile: string, args: readonly string[] = []) {
     const bundleLog = join(temporary, `${profile}-${args.join("-") || "bundle"}.log`);
     yield* fs.writeFileString(bundleLog, "");
-    const result = yield* execute("scripts/bootstrap/brew-bundle.ts", [...args, profile], bundleLog);
+    const result = yield* execute("scripts/darwin/bootstrap/brew-bundle.ts", [...args, profile], bundleLog);
     assert.equal(result.status, 0, result.stderr);
     return yield* fs.readFileString(bundleLog);
   });
@@ -108,7 +108,7 @@ exit "\${FAKE_BREW_EXIT:-0}"
   assert.doesNotMatch(maintenance, /^arg=(cleanup|trust)$/m);
   assert.equal((maintenance.match(/^arg=check$/gm) || []).length, 3);
   const missingLog = join(temporary, "missing-packages.log");
-  const missing = yield* execute("scripts/bootstrap/brew-bundle.ts", ["--maintenance", "devbox"], missingLog, { FAKE_BREW_CHECK_EXIT: "1" });
+  const missing = yield* execute("scripts/darwin/bootstrap/brew-bundle.ts", ["--maintenance", "devbox"], missingLog, { FAKE_BREW_CHECK_EXIT: "1" });
   assert.equal(missing.status, 0, missing.stderr);
   const missingCommands = yield* fs.readFileString(missingLog);
   assert.equal((missingCommands.match(/^arg=--no-upgrade$/gm) || []).length, 4);
@@ -116,7 +116,7 @@ exit "\${FAKE_BREW_EXIT:-0}"
   assert.match(missingCommands, /^umask=0027$/m);
   if (process.getuid?.() !== 0) {
     const consumerLog = join(temporary, "consumer.log");
-    const consumer = yield* execute("scripts/bootstrap/brew-bundle.ts", ["--maintenance", "devbox"], consumerLog, { FAKE_BREW_PREFIX: "/" });
+    const consumer = yield* execute("scripts/darwin/bootstrap/brew-bundle.ts", ["--maintenance", "devbox"], consumerLog, { FAKE_BREW_PREFIX: "/" });
     assert.equal(consumer.status, 0, consumer.stderr);
     const commands = yield* fs.readFileString(consumerLog);
     assert.equal((commands.match(/^arg=check$/gm) || []).length, 2);
@@ -127,15 +127,15 @@ exit "\${FAKE_BREW_EXIT:-0}"
   assert.match(cleanup, /^arg=--force$/m);
   assert.match(cleanup, /^cleanup_entry=brew "pi-coding-agent"$/m);
   assert.equal((yield* fs.glob("Brewfile.composed.*", { root: repoRoot })).length, 0);
-  assert.equal((yield* execute("scripts/bootstrap/brew-bundle.ts", ["--cleanup", "--shared-only", "devbox"], directLog)).status, 2);
-  assert.equal((yield* execute("scripts/bootstrap/brew-bundle.ts", ["--shared-only"], directLog)).status, 2);
+  assert.equal((yield* execute("scripts/darwin/bootstrap/brew-bundle.ts", ["--cleanup", "--shared-only", "devbox"], directLog)).status, 2);
+  assert.equal((yield* execute("scripts/darwin/bootstrap/brew-bundle.ts", ["--shared-only"], directLog)).status, 2);
 
   const local = join(temporary, "Brewfile.local");
   yield* fs.writeFileString(local, 'brew "local-tool"\ncask "local-app"', { mode: 0o600 });
   const withLocal = Effect.fn("runLocalBrewfileFixture")(function*(profile: string, args: readonly string[] = [], extra: Readonly<Record<string, string>> = {}) {
     const localLog = join(temporary, `local-${profile}-${args.join("-") || "bundle"}.log`);
     yield* fs.writeFileString(localLog, "");
-    const result = yield* execute("scripts/bootstrap/brew-bundle.ts", [...args, profile], localLog, { DOTFILES_BREWFILE_LOCAL: local, ...extra });
+    const result = yield* execute("scripts/darwin/bootstrap/brew-bundle.ts", [...args, profile], localLog, { DOTFILES_BREWFILE_LOCAL: local, ...extra });
     return { result, log: yield* fs.readFileString(localLog) };
   });
   const printed = yield* withLocal("devbox", ["--print-files"]);

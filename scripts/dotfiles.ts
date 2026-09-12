@@ -5,17 +5,20 @@ import { Console, Effect } from "effect";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { CommandRunner } from "./lib/command.ts";
-import { fail, runMain } from "./lib/program.ts";
+import { CliFailure, fail, runMain } from "./lib/program.ts";
+import { resolveProfile } from "./profiles/current.ts";
 import { readProfileModelEffect, requireProfile } from "./profiles/model.ts";
 
 const sourceRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const repoRoot = process.env.DOTFILES_OPERATOR_REPO_ROOT || sourceRoot;
-const usage = `Usage: ./dotfiles diff|apply|check PROFILE
+const defaultProfile = "developer";
+const usage = `Usage: ./dotfiles diff|apply|check [PROFILE]
 
   diff   Preview per-user convergence
   apply  Converge the selected per-user profile
   check  Check the live per-user profile
 
+PROFILE defaults to the stored ~/.config/dotfiles/profile, then ${defaultProfile}.
 Homebrew packages, identities, secrets, and host-wide settings remain separate.`;
 
 const delegate = Effect.fn("delegateDotfilesCommand")(function*(owner: string, args: readonly string[], commandName: string, profile: string) {
@@ -36,11 +39,16 @@ const program = Effect.gen(function*() {
     yield* Console.log(usage);
     return;
   }
-  if (args.length !== 2) {
+  if (args.length < 1 || args.length > 2) {
     yield* Console.error(usage);
     return yield* fail("invalid operator arguments", 2);
   }
-  const [commandName, requestedProfile] = args;
+  const commandName = args[0];
+  // A stored profile wins; a missing marker means a fresh user and the default.
+  // An unreadable or unsafe marker still fails rather than silently defaulting.
+  const requestedProfile = args[1] ?? (yield* resolveProfile(undefined, { ...process.env, DOTFILES_PROFILE: defaultProfile }).pipe(
+    Effect.mapError((error) => new CliFailure({ exitCode: error.exitCode, message: error.message })),
+  ));
   const model = yield* readProfileModelEffect(resolve(repoRoot, "chezmoi/.chezmoidata/profiles.json"));
   let profile: string;
   try {

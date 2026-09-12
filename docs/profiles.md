@@ -6,13 +6,18 @@ Profiles configure one Unix user; host permissions provide isolation.
 
 | Profile | Role | Homebrew layers after [Brewfile](../Brewfile) |
 | --- | --- | --- |
-| `workstation` | Human laptop or desktop | [Workstation](../Brewfile.workstation) |
-| `personal-workstation` | Personal desktop apps and tools | [Workstation](../Brewfile.workstation), [personal](../Brewfile.personal) |
-| `devbox` | Human-operated SSH coding identity | [Devbox](../Brewfile.devbox) |
-| `personal-devbox` | Personal headless tools and skills | [Devbox](../Brewfile.devbox), [personal](../Brewfile.personal) |
+| `developer` | Default: runtimes, coding agents, rules, and skills for any Unix user | none |
+| `devbox` | `developer` on a human-operated SSH coding host | [Devbox](../Brewfile.devbox) |
+| `workstation` | `developer` on a human laptop or desktop | [Workstation](../Brewfile.workstation) |
+| `personal-devbox` | `devbox` plus personal headless tools and skills | [Devbox](../Brewfile.devbox), [personal](../Brewfile.personal) |
+| `personal-workstation` | `workstation` plus personal desktop apps and tools | [Workstation](../Brewfile.workstation), [personal](../Brewfile.personal) |
 
+- `./dotfiles diff|apply|check` without a profile uses the stored
+  `~/.config/dotfiles/profile`, or `developer` on a fresh user.
 - [profiles.json](../chezmoi/.chezmoidata/profiles.json) owns capabilities,
   [skill layers](agents.md), and install steps. Brewfiles own packages.
+- macOS-only scripts live under `scripts/darwin/`; everything else in
+  `scripts/` is shared.
 - Personal GUI casks and `mas` install only for `personal-workstation`.
 - The selected role is stored in `~/.config/dotfiles/profile` and checked during
   verification.
@@ -36,7 +41,7 @@ Choose one role; run Homebrew setup as its authorized administrator:
 
 ```zsh
 profile=workstation
-./scripts/bootstrap/brew-bundle.ts "$profile"
+./scripts/darwin/bootstrap/brew-bundle.ts "$profile"
 ```
 
 As the target Unix user:
@@ -85,8 +90,8 @@ Profiles can accept packages supplied by another trusted installer:
 - Create `~/.config/dotfiles/external-homebrew.plist`: a regular XML plist,
   owned by the user, without group/other write access.
 - Use version `1` and a `capabilities` array following the
-  [schema](../scripts/lib/homebrew.ts) and
-  [examples](../scripts/verify/external-homebrew.ts). Entries must name packages
+  [schema](../scripts/darwin/lib/homebrew.ts) and
+  [examples](../scripts/darwin/verify/external-homebrew.ts). Entries must name packages
   declared in the selected profile's Brewfiles, `Brewfile.local`, or
   `externalHomebrew` list.
 - `command`: absolute executable owned by root or the user, without group/other

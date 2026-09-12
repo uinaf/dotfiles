@@ -2,6 +2,37 @@
   "profileModel": {
     "version": 1,
     "profiles": {
+      "developer": {
+        "capabilities": {
+          "sharedHomebrew": false,
+          "requiresSopsIdentity": false,
+          "devbox": false,
+          "workstation": false,
+          "personal": false
+        },
+        "brewfiles": [
+          "Brewfile"
+        ],
+        "skillLayers": [
+          "developer"
+        ],
+        "installSteps": [
+          "apply-dotfiles",
+          "install-runtimes",
+          "install-repository-dependencies",
+          "install-cursor-agent",
+          "trust-agent-worktrees",
+          "install-gh-extensions",
+          "configure-codex",
+          "sync-agents"
+        ],
+        "externalHomebrew": [
+          {
+            "packageType": "cask",
+            "name": "uinaf/tap/slopguard"
+          }
+        ]
+      },
       "personal-workstation": {
         "capabilities": {
           "sharedHomebrew": false,

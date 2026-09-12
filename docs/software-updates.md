@@ -152,7 +152,7 @@ For always-on hosts, provision an owner-only regular file at
 Prepare each user's persistent checkout and apply its devbox profile. As admin:
 
 ```sh
-sudo node scripts/bootstrap/install-devbox-service-daemons.ts \
+sudo node scripts/darwin/bootstrap/install-devbox-service-daemons.ts \
   --user example --software-updates --homebrew-updates \
   --updates-repository /Users/example/projects/dotfiles
 ```
