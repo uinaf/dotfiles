@@ -37,6 +37,19 @@ const program = Effect.gen(function*() {
   }
   const present = yield* fs.exists(unit);
   if (check && !present) return yield* fail(`T3 Code service is not installed: ${unit}`);
+  if (check && present && process.platform === "linux") {
+    // The service inherits the user manager's environment, not the shell's:
+    // prove the running process can reach the mise shims, or providers show
+    // as "not found" in T3 while every shell finds them.
+    const pid = yield* runner.run("systemctl", ["--user", "show", "-p", "MainPID", "--value", "t3code.service"], { output: "capture" });
+    const mainPid = pid.stdout.trim();
+    if (pid.status !== 0 || !/^[1-9]\d*$/.test(mainPid)) return yield* fail("t3code.service is installed but not running");
+    const environ = yield* fs.readFileString(`/proc/${mainPid}/environ`).pipe(Effect.catch(() => Effect.succeed("")));
+    const servicePath = environ.split("\0").find((entry) => entry.startsWith("PATH="))?.slice(5) ?? "";
+    if (!servicePath.split(":").includes(join(home, ".local/share/mise/shims"))) {
+      return yield* fail("t3code.service PATH lacks the mise shims; rerun ./dotfiles apply and restart the service");
+    }
+  }
   if (present && process.platform !== "linux") return check ? undefined : yield* Console.log(`T3 Code service present: ${unit}`);
   if (process.platform === "linux") {
     // Checked for an existing unit and under --check too: revoked lingering
