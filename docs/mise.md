@@ -69,3 +69,6 @@ Use exact versions where practical. Keep these pairs aligned:
 - The package task installs npm, Corepack, Corepack's global pnpm default, and PyYAML;
   ordinary project installs do not run it.
 - A project's `packageManager` selects its own package-manager version.
+- Renovate follows mise toolchain patch and minor releases (Node, Bun, uv,
+  and the other `[tools]` pins) after one day, at any time. npm, pnpm, and
+  Corepack stay on the shared seven-day age gate.
