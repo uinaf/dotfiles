@@ -146,8 +146,11 @@ users. Inspect it with:
 t3 service status
 ```
 
-On macOS keep the user logged in and the Mac awake; the LaunchAgent stops at
-logout. Installing over SSH for a user with no GUI session writes the
+On Linux, `~/.config/environment.d/50-dotfiles.conf` fronts the mise shims and
+the dotfiles launchers on the user manager's `PATH`, so the service finds
+`codex`, `claude`, and `cursor-agent`; apply also hands the running manager
+that `PATH`. On macOS keep the user logged in and the Mac awake; the
+LaunchAgent stops at logout. Installing over SSH for a user with no GUI session writes the
 LaunchAgent but cannot start it; the step reports the deferred start and the
 service comes up at that user's next login, so a green maintenance run does
 not by itself prove the service is running. On Linux the systemd user service needs lingering, which an

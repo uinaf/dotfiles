@@ -314,6 +314,19 @@ const program = Effect.gen(function*() {
     const reload = yield* runner.run("systemctl", ["--user", "daemon-reload"], { output: "capture" }).pipe(
       Effect.catch(() => Effect.succeed(undefined)),
     );
+    // environment.d is read when the user manager starts; hand the running
+    // manager the same PATH so services started now see the shims.
+    const managerPath = yield* runner.run("systemctl", ["--user", "show-environment"], { output: "capture" }).pipe(
+      Effect.catch(() => Effect.succeed(undefined)),
+    );
+    if (managerPath && managerPath.status === 0) {
+      const current = managerPath.stdout.split("\n").find((line) => line.startsWith("PATH="))?.slice(5) ?? "/usr/local/bin:/usr/bin:/bin";
+      const front = [".local/share/mise/shims", ".local/libexec/dotfiles/bin", ".local/bin"].map((part) => join(home, part));
+      const merged = [...front, ...current.split(":").filter((part) => part && !front.includes(part))].join(":");
+      yield* runner.run("systemctl", ["--user", "set-environment", `PATH=${merged}`], { output: "capture" }).pipe(
+        Effect.catch(() => Effect.succeed(undefined)),
+      );
+    }
     // Without a user manager (containers, cron, WSL) the reload cannot run and
     // nothing is enrolled, so that is not an error. With the timer enrolled, a
     // failed reload leaves systemd on stale unit definitions, which is.
