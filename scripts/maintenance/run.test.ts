@@ -8,7 +8,7 @@ import { NodeServices } from "@effect/platform-node";
 import { Effect } from "effect";
 import { CommandRunner, CommandError } from "../lib/command.ts";
 import { runUpdate } from "./run.ts";
-import { dailyLog, rotateUpdateLog } from "./logs.ts";
+import { dailyLog, logDirectory, rotateUpdateLog } from "./logs.ts";
 
 for (const scenario of ["success", "failure", "spawn", "delivery", "retried", "invalid", "unconfigured"] as const) {
   test(`update reporting preserves ${scenario} without repeating the command`, async t => {
@@ -46,7 +46,7 @@ for (const scenario of ["success", "failure", "spawn", "delivery", "retried", "i
     const receipt = await readFile(join(home, ".local/state/dotfiles/updates/software-update.json"), "utf8");
     assert.doesNotMatch(receipt, /secret-token|secret diagnostic/);
     assert.equal(JSON.parse(receipt).exitCode, expected);
-    const historyPath = join(home, `Library/Logs/dotfiles/software-update-history-${new Date().toISOString().slice(0, 10)}.log`);
+    const historyPath = join(logDirectory(home), `software-update-history-${new Date().toISOString().slice(0, 10)}.log`);
     const history = await readFile(historyPath, "utf8");
     assert.doesNotMatch(history, /secret-token|secret diagnostic/);
     const records = history.trim().split("\n").map(line => JSON.parse(line));
@@ -82,7 +82,7 @@ test("rotation preserves launchd's append descriptor and expires only owned date
   t.after(() => rm(home, { recursive: true, force: true }));
   const now = Date.parse("2026-09-08T12:00:00Z");
   const history = dailyLog(home, "software-update-history", now);
-  const directory = join(home, "Library/Logs/dotfiles");
+  const directory = logDirectory(home);
   const active = join(directory, "software-update.log");
   await writeFile(active, "previous run\n", { mode: 0o600 });
   await utimes(active, new Date(now), new Date(now));

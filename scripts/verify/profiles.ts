@@ -110,7 +110,7 @@ const program = Effect.scoped(Effect.gen(function*() {
     assert.match(zshrc.stdout, /^export EDITOR="vim"$/m);
     assert.match(zshrc.stdout, /^export VISUAL="vim"$/m);
   }
-  const developerSteps = (yield* run(process.execPath, [join(repoRoot, "scripts/bootstrap/install.ts"), "--print-steps", "--profile", "workstation"])).stdout.trim().split("\n");
+  const developerSteps = (yield* run(process.execPath, [join(repoRoot, "scripts/bootstrap/install.ts"), "--print-steps", "--profile", "developer"])).stdout.trim().split("\n");
   for (const step of ["apply-dotfiles", "install-runtimes", "install-repository-dependencies", "install-cursor-agent", "trust-agent-worktrees", "install-gh-extensions", "configure-codex", "sync-agents"]) assert.ok(developerSteps.includes(step));
 
   const appliedHome = join(temporary, "devbox-applied");

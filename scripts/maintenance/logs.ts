@@ -4,7 +4,7 @@ import { join } from "node:path";
 const day = 86_400_000;
 
 export function logDirectory(home: string): string {
-  const directory = join(home, "Library/Logs/dotfiles");
+  const directory = process.platform === "darwin" ? join(home, "Library/Logs/dotfiles") : join(home, ".local/state/dotfiles/logs");
   mkdirSync(directory, { recursive: true, mode: 0o700 });
   return directory;
 }

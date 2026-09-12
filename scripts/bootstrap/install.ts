@@ -35,6 +35,8 @@ const runStep = Effect.fn("runInstallStep")(function*(step: string, profile: str
       return yield* execute(step, bootstrap("apply-dotfiles.ts"), ["--profile", profile]);
     case "install-cursor-agent":
       return yield* execute(step, bootstrap("install-cursor-agent.ts"), []);
+    case "install-t3-service":
+      return yield* execute(step, bootstrap("install-t3-service.ts"), []);
     case "install-oh-my-zsh":
       return yield* execute(step, bootstrap("install-oh-my-zsh.ts"), maintenance ? ["--update"] : []);
     case "trust-agent-worktrees":
@@ -115,10 +117,14 @@ const program = Effect.gen(function*() {
   const model = yield* readProfileModelEffect(modelPath).pipe(
     Effect.mapError((error) => new CliFailure({ exitCode: 2, message: error.message })),
   );
-  const steps = requireProfile(model, profile).installSteps;
+  const selected = requireProfile(model, profile);
+  const steps = selected.installSteps;
   if (printSteps) {
     yield* Console.log(steps.join("\n"));
     return;
+  }
+  if (selected.capabilities.workstation && process.platform !== "darwin") {
+    return yield* fail(`${profile} configures a macOS desktop; use developer or devbox on ${process.platform}`, 2);
   }
   if (maintenance && process.platform === "darwin") yield* execute("converge packages", resolve(repoRoot, "scripts/darwin/bootstrap/brew-bundle.ts"), ["--maintenance", profile]);
   yield* Effect.forEach(steps, (step) => runStep(step, profile, maintenance));

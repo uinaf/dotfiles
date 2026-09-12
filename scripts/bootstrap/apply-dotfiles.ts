@@ -68,7 +68,8 @@ const ensureBootstrapTools = Effect.fn("ensureBootstrapTools")(function*() {
   const runner = yield* CommandRunner;
   const fs = yield* FileSystem.FileSystem;
   const template = yield* fs.readFileString(join(sourceDir, ".chezmoitemplates/mise.toml"));
-  for (const tool of ["chezmoi", "gitleaks"]) {
+  const offline = process.env.DOTFILES_AGENT_RULES_OFFLINE === "1";
+  for (const tool of offline ? ["chezmoi"] : ["chezmoi", "gitleaks"]) {
     const onPath = yield* runner.run("sh", ["-c", `command -v ${tool}`], { output: "capture" }).pipe(Effect.option);
     if (Option.isSome(onPath) && onPath.value.status === 0) continue;
     const pin = new RegExp(`^${tool} = "([^"]+)"$`, "m").exec(template)?.[1];
@@ -309,6 +310,19 @@ const program = Effect.gen(function*() {
   if (args.dryRun) applyArgs.push("--dry-run");
   if (args.verbose) applyArgs.push("--verbose");
   yield* runCommand("chezmoi", applyArgs, "inherit");
+  // systemd keeps cached unit definitions until told otherwise; a reload is
+  // harmless when nothing changed and required when a managed unit did.
+  if (process.platform === "linux" && !args.dryRun) {
+    const runner = yield* CommandRunner;
+    const reload = yield* runner.run("systemctl", ["--user", "daemon-reload"], { output: "capture" }).pipe(
+      Effect.catch(() => Effect.succeed(undefined)),
+    );
+    // A missing systemctl means no user manager to reload; a failing one with
+    // managed units on disk means stale definitions, which is an error.
+    if (reload && reload.status !== 0 && (yield* fs.exists(join(home, ".config/systemd/user/dotfiles-software-update.timer")))) {
+      return yield* fail(`systemctl --user daemon-reload exited ${reload.status}: ${reload.stderr.trim()}`);
+    }
+  }
   yield* Console.log(`dotfiles ${args.dryRun ? "previewed" : "applied"} for ${profile} with chezmoi source ${sourceDir}`);
 }).pipe(
   Effect.provide(CommandRunner.layer),

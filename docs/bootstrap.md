@@ -13,15 +13,22 @@ the system PATH, and the login shell set to `zsh`. A managed devbox gets those
 from its provisioning; elsewhere:
 
 ```sh
-sudo apt-get install -y git curl zsh tmux
+sudo apt-get install -y git curl zsh tmux lynis
 curl https://mise.run | sh   # installs ~/.local/bin/mise
+export PATH="$HOME/.local/bin:$PATH"
 sudo chsh -s /usr/bin/zsh "$USER"
+mkdir -p ~/projects
+git clone https://github.com/uinaf/dotfiles.git ~/projects/dotfiles
+cd ~/projects/dotfiles
+./dotfiles prepare
 ```
 
-Then clone and prepare as below, skipping the Homebrew steps. Every other tool
-comes from the profile's mise configuration: `age`, `sops`, `gh`, `jq`,
-`ripgrep`, `shellcheck`, `actionlint`, `chezmoi`, `direnv`, `btop`,
-`gitleaks`, OpenCode, Codex, and Claude Code. Cursor uses its own installer.
+Skip the Homebrew steps below; `gh auth login` comes after the first apply
+installs `gh`. Every other tool comes from the profile's mise configuration:
+`age`, `sops`, `gh`, `jq`, `ripgrep`, `shellcheck`, `actionlint`, `chezmoi`,
+`direnv`, `btop`, `gitleaks`, `trufflehog`, `topgrade`, OpenCode, Codex, and
+Claude Code. Cursor uses its own installer. `workstation` profiles are
+macOS-only; use `developer` or `devbox` here.
 Android SDK and emulator tooling stay a per-user install; set `ANDROID_HOME`
 to `~/Android/Sdk` and the shell picks it up.
 

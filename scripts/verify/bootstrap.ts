@@ -64,7 +64,7 @@ const program = Effect.gen(function*() {
       const prompt = yield* runner.run("/usr/bin/env", [zsh, "-ic", '[[ "$PROMPT" == *"%n@%m"* ]] && [[ -d "$ZSH" ]]']);
       if (prompt.status !== 0) return yield* fail("devbox shells do not show user@host in PROMPT with oh-my-zsh installed");
     }
-    if (config.capabilities.workstation) {
+    if (config.capabilities.workstation && darwin) {
       const ghostty = yield* fs.readFileString(join(home, "Library/Application Support/com.mitchellh.ghostty/config"));
       if (!ghostty.split(/\r?\n/).includes("shell-integration-features = ssh-env,ssh-terminfo")) return yield* fail("Ghostty SSH integration is not configured");
     }
@@ -96,7 +96,10 @@ const program = Effect.gen(function*() {
     if (config.capabilities.workstation) yield* shell("op --version");
     if (config.capabilities.personal && config.capabilities.workstation) yield* shellChecks(["grok --version", "tailscale status --peers=false"]);
     if (darwin) yield* command(process.execPath, [join(repoRoot, "scripts/darwin/bootstrap/xcode.ts"), "--check"]);
-    if (config.capabilities.devbox) yield* shellChecks(["tmux -V", "tailscale status --peers=false", ...(darwin ? ["xcodes version"] : [])]);
+    if (config.capabilities.devbox) {
+      yield* shellChecks(["tmux -V", "tailscale status --peers=false", ...(darwin ? ["xcodes version"] : [])]);
+      yield* command(process.execPath, [join(repoRoot, "scripts/bootstrap/install-t3-service.ts"), "--check"]);
+    }
   });
   const homebrew = Effect.gen(function*() {
     if (!darwin) return;

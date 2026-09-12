@@ -1,0 +1,20 @@
+# Linux counterpart of the launchd software-update job. The timer decides when;
+# this unit runs one monitored update through the repository's own runner.
+[Unit]
+Description=dotfiles software update
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory={{ .chezmoi.homeDir }}
+Environment=PATH={{ .chezmoi.homeDir }}/.local/share/mise/shims:{{ .chezmoi.homeDir }}/.local/bin:/usr/local/bin:/usr/bin:/bin
+Environment=GIT_TERMINAL_PROMPT=0
+Environment=NO_COLOR=1
+Nice=10
+IOSchedulingClass=idle
+UMask=0077
+ExecStart={{ .chezmoi.homeDir }}/.local/share/mise/installs/node/latest/bin/node {{ .chezmoi.sourceDir | dir }}/scripts/maintenance/run.ts software-update -- {{ .chezmoi.homeDir }}/.local/share/mise/shims/topgrade --config {{ .chezmoi.homeDir }}/.config/topgrade.toml --no-tmux --no-ask-retry --no-self-update --notify-end on_failure --yes
+# Receipts and history land under ~/.local/state/dotfiles; the console stream
+# goes to the user journal (journalctl --user -u dotfiles-software-update).
+StandardOutput=journal
+StandardError=journal
