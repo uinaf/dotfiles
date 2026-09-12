@@ -15,10 +15,10 @@ go = "1.27.1"
 "ubi:anthropics/claude-code" = { version = "2.1.269", exe = "claude", matching_regex = {{ if eq .chezmoi.os "darwin" }}"^claude-darwin-{{ if eq .chezmoi.arch "arm64" }}arm64{{ else }}x64{{ end }}\\.tar\\.gz$"{{ else }}"^claude-linux-{{ if eq .chezmoi.arch "arm64" }}arm64{{ else }}x64{{ end }}\\.tar\\.gz$"{{ end }} }
 
 # Command-line tools with binary releases live here on both platforms so one
-# pin serves macOS and Linux. Homebrew keeps what needs a compiler or a GUI:
-# git, tmux, ffmpeg, watchman, the Docker and Colima stack, and casks.
-age = "1.3.2"
-sops = "3.13.3"
+# pin serves macOS and Linux. Homebrew keeps what needs a compiler or a GUI
+# (git, tmux, ffmpeg, watchman, the Docker and Colima stack, casks) and, on
+# macOS, what privileged or secret-handling flows call by fixed path: age and
+# sops for the sudo askpass helper, xcodes for the root Xcode selection.
 gh = "2.100.0"
 jq = "1.8.2"
 ripgrep = "15.2.0"
@@ -33,10 +33,10 @@ opencode = "1.18.30"
 awscli = "2.36.44"
 glab = "1.117.0"
 git-filter-repo = "2.47.0"
-{{- if eq .chezmoi.os "darwin" }}
-xcodes = "2.0.3"
 xcodegen = "2.46.0"
-{{- else }}
+{{- if eq .chezmoi.os "linux" }}
+age = "1.3.2"
+sops = "3.13.3"
 # btop has no macOS release asset; Homebrew supplies it there.
 btop = "1.4.7"
 {{- end }}

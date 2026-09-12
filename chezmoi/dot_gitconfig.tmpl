@@ -9,7 +9,7 @@
 	allowedSignersFile = ~/.config/git/allowed_signers
 
 {{- /* gh is a mise tool; the shim path works for GUI Git clients that lack the shell PATH. */}}
-{{- $gh := printf "%s/.local/share/mise/shims/gh" .chezmoi.homeDir }}
+{{- $gh := printf "\"%s/.local/share/mise/shims/gh\"" .chezmoi.homeDir }}
 [credential "https://github.com"]
 	helper =
 	helper = !{{ $gh }} auth git-credential

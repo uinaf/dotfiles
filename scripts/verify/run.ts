@@ -169,6 +169,7 @@ const listRegistry = Effect.fn("listRegistry")(function*(registry: Registry, jso
 const home = process.env.HOME || "";
 process.env.MISE_DATA_DIR ||= join(home, ".local/share/mise");
 process.env.MISE_TRUSTED_CONFIG_PATHS ||= join(home, ".config/mise/config.toml");
+process.env.MISE_GLOBAL_CONFIG_FILE ||= join(home, ".config/mise/config.toml");
 
 const program = Effect.gen(function*() {
   const options = yield* parseOptions(process.argv.slice(2));

@@ -9,6 +9,12 @@ brew "mise"
 brew "btop"
 brew "tmux"
 
+# Called by fixed path from privileged flows (sudo askpass, Xcode selection),
+# so they stay under the root-controlled prefix rather than a user shim.
+brew "age"
+brew "sops"
+brew "xcodes"
+
 # Taps
 tap "teamookla/speedtest", trusted: true
 

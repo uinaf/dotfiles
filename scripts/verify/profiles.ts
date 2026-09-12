@@ -89,20 +89,22 @@ const program = Effect.scoped(Effect.gen(function*() {
   for (const entry of ['brew "watchman"', 'brew "ffmpeg"']) assert.ok(base.split("\n").includes(entry));
   // Binary-release tools and the coding agents are mise tools shared by both platforms.
   const miseTemplate = yield* fs.readFileString(join(repoRoot, "chezmoi/.chezmoitemplates/mise.toml"));
-  for (const tool of ["age", "sops", "gh", "jq", "ripgrep", "shellcheck", "actionlint", "chezmoi", "direnv", "gitleaks", "trufflehog", "topgrade", "opencode", "awscli", "glab", "git-filter-repo", "xcodes", "xcodegen"]) {
+  for (const tool of ["gh", "jq", "ripgrep", "shellcheck", "actionlint", "chezmoi", "direnv", "gitleaks", "trufflehog", "topgrade", "opencode", "awscli", "glab", "git-filter-repo", "xcodegen"]) {
     assert.ok(!base.split("\n").includes(`brew "${tool}"`), `${tool} must not stay in the Brewfile`);
     assert.match(miseTemplate, new RegExp(`^${tool} = "`, "m"), `${tool} must be pinned in the mise template`);
   }
-  // btop has no macOS asset: Homebrew on macOS, mise on Linux.
-  assert.ok(base.split("\n").includes('brew "btop"'));
+  // btop has no macOS asset; age, sops, and xcodes are called by fixed path from
+  // privileged flows: Homebrew on macOS, mise on Linux.
+  for (const tool of ["btop", "age", "sops", "xcodes"]) assert.ok(base.split("\n").includes(`brew "${tool}"`), `${tool} must stay in the Brewfile`);
   const renderedMise = (os: string) => run("chezmoi", ["--source", join(repoRoot, "chezmoi"), "--destination", temporary, "--override-data", `{"dotfilesProfile":"developer","chezmoi":{"os":"${os}","arch":"arm64"}}`, "cat", join(temporary, ".config/mise/config.toml")]);
   const darwinMise = yield* renderedMise("darwin");
   const linuxMise = yield* renderedMise("linux");
   assert.equal(darwinMise.status, 0, darwinMise.stderr);
   assert.equal(linuxMise.status, 0, linuxMise.stderr);
-  assert.match(darwinMise.stdout, /^xcodes = "/m);
-  assert.doesNotMatch(darwinMise.stdout, /^btop = "/m);
-  assert.match(linuxMise.stdout, /^btop = "/m);
+  for (const tool of ["btop", "age", "sops"]) {
+    assert.doesNotMatch(darwinMise.stdout, new RegExp(`^${tool} = "`, "m"));
+    assert.match(linuxMise.stdout, new RegExp(`^${tool} = "`, "m"));
+  }
   assert.doesNotMatch(linuxMise.stdout, /^xcodes = "/m);
   for (const entry of ['cask "codex"', 'cask "claude-code@latest"']) assert.ok(!base.split("\n").includes(entry));
   assert.match(miseTemplate, /^"npm:@openai\/codex" = "/m);

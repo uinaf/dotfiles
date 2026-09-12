@@ -22,15 +22,17 @@ Profiles configure one Unix user; host permissions provide isolation.
   `robbyrussell` theme and `git` plugin; `./dotfiles maintain` updates it and
   its own updater stays disabled. `devbox` profiles replace the prompt with
   `➜ user@host ~ git:(branch)` so SSH sessions name the machine.
-- Command-line tools with binary releases (`age`, `sops`, `gh`, `jq`,
-  `ripgrep`, `shellcheck`, `actionlint`, `chezmoi`, `direnv`, `gitleaks`,
-  `trufflehog`, `topgrade`, OpenCode, `awscli`, `glab`, `git-filter-repo`,
-  Codex, Claude Code, and on macOS `xcodes` and `xcodegen`) are mise tools
-  pinned in [mise.toml](../chezmoi/.chezmoitemplates/mise.toml), so both
-  platforms share one pin and Renovate. Homebrew keeps what needs a compiler,
-  a GUI, or a system service: `git`, `mise`, `tmux`, `btop`, `ffmpeg`,
-  `watchman`, `git-crypt`, the Docker and Colima stack, `lynis`, `mole`, and
-  the casks. A Mac upgraded from the Homebrew copies keeps them until
+- Command-line tools with binary releases (`gh`, `jq`, `ripgrep`,
+  `shellcheck`, `actionlint`, `chezmoi`, `direnv`, `gitleaks`, `trufflehog`,
+  `topgrade`, OpenCode, `awscli`, `glab`, `git-filter-repo`, `xcodegen`,
+  Codex, and Claude Code) are mise tools pinned in
+  [mise.toml](../chezmoi/.chezmoitemplates/mise.toml), so both platforms share
+  one pin and Renovate; Linux adds `age`, `sops`, and `btop` there. Homebrew
+  keeps what needs a compiler, a GUI, or a system service (`git`, `mise`,
+  `tmux`, `btop`, `ffmpeg`, `watchman`, `git-crypt`, the Docker and Colima
+  stack, `lynis`, `mole`, the casks) and, on macOS, the tools privileged flows
+  call by fixed path: `age` and `sops` for the sudo askpass helper and
+  `xcodes` for root Xcode selection. A Mac upgraded from the Homebrew copies keeps them until
   `./scripts/darwin/bootstrap/brew-bundle.ts --cleanup <profile>` runs; the
   shell fronts the mise shims, so the leftovers are inert meanwhile.
 - Personal GUI casks and `mas` install only for `personal-workstation`.

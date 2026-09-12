@@ -58,13 +58,10 @@ type ChezmoiContext = {
   readonly dryRun: boolean;
 };
 
-// On macOS chezmoi and gitleaks are Homebrew formulas already on PATH. On Linux
-// they are mise tools declared by the very config this script renders, so the
-// first apply borrows the pinned releases through `mise x` until the shims exist.
+// chezmoi and gitleaks are mise tools declared by the very config this script
+// renders, so the first apply borrows the pinned releases through `mise x`
+// until the shims exist.
 const ensureBootstrapTools = Effect.fn("ensureBootstrapTools")(function*() {
-  // The pins live in the Linux block of the template; macOS keeps Homebrew's
-  // copies and the rule refresh already tolerates a missing scanner there.
-  if (process.platform !== "linux") return;
   const runner = yield* CommandRunner;
   const fs = yield* FileSystem.FileSystem;
   const template = yield* fs.readFileString(join(sourceDir, ".chezmoitemplates/mise.toml"));
