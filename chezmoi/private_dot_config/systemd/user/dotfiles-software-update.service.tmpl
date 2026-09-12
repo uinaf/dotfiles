@@ -2,7 +2,9 @@
 # this unit runs one monitored update through the repository's own runner.
 [Unit]
 Description=dotfiles software update
-After=network-online.target
+# network-online.target belongs to the system manager and does not exist in
+# the user manager, so there is no ordering gate here. A run that starts before
+# the network is up fails and the timer retries at the next slot.
 
 [Service]
 Type=oneshot

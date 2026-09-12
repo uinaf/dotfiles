@@ -18,17 +18,24 @@ const program = Effect.gen(function*() {
   const fs = yield* FileSystem.FileSystem;
   const home = process.env.HOME || "";
   const systemctl = (...args: string[]) => runner.run("systemctl", ["--user", ...args], { output: "capture" });
-  const unitFile = join(home, ".config/systemd/user", `${updateUnit}.timer`);
-  // Only enable needs the rendered timer; run starts the service and disable
-  // and status must still reach units systemd has loaded after the file is gone.
-  if (action === "enable" && !(yield* fs.exists(unitFile))) return yield* fail(`missing ${unitFile}; run ./dotfiles apply first`);
+  // Only enable needs the rendered units; run starts the service and disable
+  // and status must still reach units systemd has loaded after the files are gone.
+  if (action === "enable") {
+    for (const suffix of ["timer", "service"]) {
+      const unitFile = join(home, ".config/systemd/user", `${updateUnit}.${suffix}`);
+      if (!(yield* fs.exists(unitFile))) return yield* fail(`missing ${unitFile}; run ./dotfiles apply first`);
+    }
+  }
+  // Without lingering the user manager, and this timer with it, stops at logout.
+  const linger = Effect.gen(function*() {
+    const result = yield* runner.run("loginctl", ["show-user", process.env.USER || "", "--property=Linger", "--value"], { output: "capture" });
+    if (result.status !== 0) return yield* fail(`loginctl show-user exited ${result.status}: ${result.stderr.trim()}`);
+    return result.stdout.trim() === "yes";
+  });
 
   switch (action) {
     case "enable": {
-      // Without lingering the user manager, and this timer with it, stops at logout.
-      const linger = yield* runner.run("loginctl", ["show-user", process.env.USER || "", "--property=Linger", "--value"], { output: "capture" });
-      if (linger.status !== 0) return yield* fail(`loginctl show-user exited ${linger.status}: ${linger.stderr.trim()}`);
-      if (linger.stdout.trim() !== "yes") return yield* fail("unattended maintenance needs systemd lingering; have an administrator run: sudo loginctl enable-linger $(id -un)");
+      if (!(yield* linger)) return yield* fail("unattended maintenance needs systemd lingering; have an administrator run: sudo loginctl enable-linger $(id -un)");
       for (const args of [["daemon-reload"], ["enable", "--now", `${updateUnit}.timer`]]) {
         const result = yield* systemctl(...args);
         if (result.status !== 0) return yield* fail(`systemctl --user ${args.join(" ")} exited ${result.status}: ${result.stderr.trim()}`);
@@ -36,10 +43,14 @@ const program = Effect.gen(function*() {
       return yield* Console.log(`Software maintenance enabled: ${updateUnit}.timer runs every six hours.`);
     }
     case "disable": {
+      // disable is a unit-file operation and stop a loaded-unit one; a missing
+      // timer file must not keep a running update alive, so both always run.
+      const failures: string[] = [];
       for (const args of [["disable", "--now", `${updateUnit}.timer`], ["stop", `${updateUnit}.service`]]) {
         const result = yield* systemctl(...args);
-        if (result.status !== 0) return yield* fail(`systemctl --user ${args.join(" ")} exited ${result.status}: ${result.stderr.trim()}`);
+        if (result.status !== 0) failures.push(`systemctl --user ${args.join(" ")} exited ${result.status}: ${result.stderr.trim()}`);
       }
+      if (failures.length > 0) return yield* fail(failures.join("\n"));
       return yield* Console.log("Software maintenance disabled; any running update was stopped.");
     }
     case "run": {
@@ -58,8 +69,10 @@ const program = Effect.gen(function*() {
       const receipt = join(home, ".local/state/dotfiles/updates/software-update.json");
       if (yield* fs.exists(receipt)) yield* Console.log(`receipt: ${(yield* fs.readFileString(receipt)).trim()}`);
       yield* Console.log(`log: journalctl --user -u ${updateUnit}`);
-      // Like the launchd status, a non-enrolled or stopped timer is a failing result.
+      // Like the launchd status, a non-enrolled or stopped timer is a failing
+      // result, and so is a timer that will die with the login session.
       if (enabled.status !== 0 || active.status !== 0) return yield* fail(`${updateUnit}.timer is not enabled and active`);
+      if (!(yield* linger)) return yield* fail("systemd lingering is off; the timer stops at logout");
       return;
     }
   }

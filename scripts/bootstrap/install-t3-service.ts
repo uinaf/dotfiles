@@ -21,14 +21,13 @@ const program = Effect.gen(function*() {
   const home = process.env.HOME || "";
   const baseDir = process.env.T3_BASE_DIR || join(home, ".t3");
   const unit = t3ServiceUnit(home);
-  if (process.argv.includes("--check")) {
-    if (!(yield* fs.exists(unit))) return yield* fail(`T3 Code service is not installed: ${unit}`);
-    return;
-  }
+  const check = process.argv.includes("--check");
   const present = yield* fs.exists(unit);
-  if (present && process.platform !== "linux") return yield* Console.log(`T3 Code service present: ${unit}`);
+  if (check && !present) return yield* fail(`T3 Code service is not installed: ${unit}`);
+  if (present && process.platform !== "linux") return check ? undefined : yield* Console.log(`T3 Code service present: ${unit}`);
   if (process.platform === "linux") {
-    // Checked for an existing unit too: revoked lingering stops the service at logout.
+    // Checked for an existing unit and under --check too: revoked lingering
+    // stops the service at logout.
     const linger = yield* runner.run("loginctl", ["show-user", process.env.USER || "", "--property=Linger", "--value"], { output: "capture" }).pipe(
       Effect.mapError((error) => new CliFailure({ exitCode: 1, message: `cannot query systemd-logind: ${error.message}` })),
     );
@@ -37,6 +36,7 @@ const program = Effect.gen(function*() {
       return yield* fail("T3 Code needs systemd lingering; have an administrator run: sudo loginctl enable-linger $(id -un)");
     }
   }
+  if (check) return;
   if (present) return yield* Console.log(`T3 Code service present: ${unit}`);
   yield* Console.log(`installing the T3 Code service with base dir ${baseDir}`);
   const install = yield* runner.run("npx", ["--yes", "t3@latest", "service", "install", "--base-dir", baseDir], { output: "inherit" });

@@ -24,7 +24,9 @@ cd ~/projects/dotfiles
 ```
 
 Skip the Homebrew steps below; `gh auth login` comes after the first apply
-installs `gh`. Every other tool comes from the profile's mise configuration:
+installs `gh`. The `devbox` profile additionally expects the host to have
+Tailscale installed and joined and systemd lingering enabled for the user
+(`sudo loginctl enable-linger <user>`); `./dotfiles check devbox` probes both. Every other tool comes from the profile's mise configuration:
 `age`, `sops`, `gh`, `jq`, `ripgrep`, `shellcheck`, `actionlint`, `chezmoi`,
 `direnv`, `btop`, `gitleaks`, `trufflehog`, `topgrade`, OpenCode, `awscli`,
 `glab`, `git-filter-repo`, Codex, and Claude Code. Cursor uses its own
