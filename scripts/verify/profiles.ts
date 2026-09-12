@@ -90,7 +90,8 @@ const program = Effect.scoped(Effect.gen(function*() {
   // Coding agents moved to mise so Linux and macOS share one pin.
   for (const entry of ['cask "codex"', 'cask "claude-code@latest"']) assert.ok(!base.split("\n").includes(entry));
   const miseTemplate = yield* fs.readFileString(join(repoRoot, "chezmoi/.chezmoitemplates/mise.toml"));
-  for (const tool of ['"npm:@openai/codex"', '"npm:@anthropic-ai/claude-code"']) assert.match(miseTemplate, new RegExp(`^${tool.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")} = "`, "m"));
+  assert.match(miseTemplate, /^"npm:@openai\/codex" = "/m);
+  assert.match(miseTemplate, /^"ubi:anthropics\/claude-code" = \{ version = "/m);
   assert.equal(base.includes("uinaf/tap"), false);
   const personal = yield* brewfile("Brewfile.personal");
   for (const entry of ['tap "uinaf/tap", trusted: true', 'cask "uinaf/tap/slopguard"']) assert.ok(personal.split("\n").includes(entry));
