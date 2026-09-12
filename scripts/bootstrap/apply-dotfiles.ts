@@ -17,8 +17,7 @@ const agentRulesPath = join(process.env.XDG_STATE_HOME || join(home, ".local/sta
 const usage = `Usage:
   scripts/bootstrap/apply-dotfiles.ts [--profile PROFILE] [--dry-run] [--verbose]
 
-Applies the repo-local chezmoi source state for personal-workstation, personal-devbox,
-workstation, or devbox to $HOME. When --profile is omitted, the stored profile is used,
+Applies the repo-local chezmoi source state for the selected profile to $HOME. When --profile is omitted, the stored profile is used,
 followed by DOTFILES_PROFILE for first-time setup.`;
 
 const Arguments = Schema.Struct({
@@ -59,13 +58,30 @@ type ChezmoiContext = {
   readonly dryRun: boolean;
 };
 
+// On macOS chezmoi is a Homebrew formula already on PATH. On Linux it is a
+// mise tool declared by the very config this script renders, so the first apply
+// runs the pinned release through `mise x` until the shim exists.
+let chezmoiInvocation: readonly string[] = ["chezmoi"];
+
+const resolveChezmoi = Effect.fn("resolveChezmoi")(function*() {
+  const runner = yield* CommandRunner;
+  const fs = yield* FileSystem.FileSystem;
+  const onPath = yield* runner.run("sh", ["-c", "command -v chezmoi"], { output: "capture" }).pipe(Effect.option);
+  if (Option.isSome(onPath) && onPath.value.status === 0) return;
+  const template = yield* fs.readFileString(join(sourceDir, ".chezmoitemplates/mise.toml"));
+  const pin = /^chezmoi = "([^"]+)"$/m.exec(template)?.[1];
+  if (!pin) return yield* fail("chezmoi is not on PATH and the mise template has no chezmoi pin");
+  chezmoiInvocation = ["mise", "--no-config", "x", `chezmoi@${pin}`, "--", "chezmoi"];
+});
+
 const runCommand = Effect.fn("runApplyDotfilesCommand")(function*(
   command: string,
   args: readonly string[],
   output: "capture" | "inherit" = "capture",
 ) {
   const runner = yield* CommandRunner;
-  const result = yield* runner.run(command, args, { cwd: repoRoot, stdin: "inherit", output }).pipe(
+  const [executable, ...prefix] = command === "chezmoi" ? chezmoiInvocation : [command];
+  const result = yield* runner.run(executable, [...prefix, ...args], { cwd: repoRoot, stdin: "inherit", output }).pipe(
     Effect.mapError((error) => new CliFailure({ exitCode: 1, message: error.message })),
   );
   if (result.status !== 0) return yield* fail(`${command} exited ${result.status}`, result.status);
@@ -252,10 +268,11 @@ const program = Effect.gen(function*() {
   const fs = yield* FileSystem.FileSystem;
   if (!(yield* fs.exists(sourceDir))) return yield* fail(`missing chezmoi source directory: ${sourceDir}`);
   if (!home) return yield* fail("HOME is required");
+  yield* resolveChezmoi();
   const profile = yield* resolveProfile(args.profile).pipe(
     Effect.mapError(() => new CliFailure({
       exitCode: 2,
-      message: "a supported profile is required: personal-workstation, personal-devbox, workstation, or devbox",
+      message: "a supported profile is required: developer, devbox, workstation, personal-devbox, or personal-workstation",
     })),
   );
   const configLink = yield* fs.readLink(configDir).pipe(Effect.option);

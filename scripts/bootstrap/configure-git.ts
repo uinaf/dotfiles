@@ -305,7 +305,7 @@ const program = Effect.gen(function*() {
       yield* run("git", ["config", "--file", temporary, "gpg.ssh.allowedSignersFile", signers]);
       yield* run("git", ["config", "--file", temporary, "gpg.ssh.program", signerProgram]);
     }
-    if (profileConfig.capabilities.devbox) yield* run("git", ["config", "--file", temporary, "safe.directory", "/opt/homebrew"]);
+    if (profileConfig.capabilities.devbox && process.platform === "darwin") yield* run("git", ["config", "--file", temporary, "safe.directory", "/opt/homebrew"]);
 
     if (values.sshIdentity) yield* writeGithubSshConfig(home, values.sshIdentity);
     if (values.signCommits === "true") {

@@ -16,9 +16,7 @@ brew "tmux"
 # Taps
 tap "teamookla/speedtest", trusted: true
 
-# Coding agents
-cask "codex"
-cask "claude-code@latest"
+# Coding agents (Codex and Claude Code are mise-managed npm packages)
 brew "opencode"
 
 # Development CLI

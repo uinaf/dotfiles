@@ -1,21 +1,23 @@
-![dotfiles — macOS bootstrap for workstations and remote coding users.](https://uinaf.dev/og/banner/dotfiles.png)
+![dotfiles — macOS and Linux bootstrap for workstations and remote coding users.](https://uinaf.dev/og/banner/dotfiles.png)
 
 # uinaf/dotfiles
 
-macOS setup for one Unix user: packages, shell and Git defaults, runtimes,
-coding agents, and maintenance. Private identities and secrets stay outside Git.
+macOS and Ubuntu setup for one Unix user: packages, shell and Git defaults,
+runtimes, coding agents, and maintenance. Private identities and secrets stay
+outside Git.
 
 ## Start
 
-- New Mac: follow [Bootstrap](docs/bootstrap.md).
-- Choose a [profile](docs/profiles.md); use it in place of `workstation` below.
-- On a configured Mac, preview changes before applying them:
+- New machine: follow [Bootstrap](docs/bootstrap.md).
+- Choose a [profile](docs/profiles.md); `developer` is the default when none
+  is given.
+- On a configured machine, preview changes before applying them:
 
 ```zsh
 cd ~/projects/dotfiles
-./dotfiles diff workstation
-./dotfiles apply workstation
-./dotfiles check workstation
+./dotfiles diff
+./dotfiles apply
+./dotfiles check
 ```
 
 Homebrew packages, identities, and host settings have separate bootstrap steps.

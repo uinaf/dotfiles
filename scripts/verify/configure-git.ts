@@ -11,7 +11,6 @@ import { fail, runMain } from "../lib/program.ts";
 
 const repoRoot = resolve(fileURLToPath(new URL("../..", import.meta.url)));
 const configurator = join(repoRoot, "scripts/bootstrap/configure-git.ts");
-const sshSource = join(repoRoot, "chezmoi/private_dot_ssh/private_config");
 const signerSource = join(repoRoot, "chezmoi/private_dot_local/private_libexec/private_dotfiles/private_executable_git-ssh-sign-agentless");
 
 const program = Effect.scoped(Effect.gen(function*() {
@@ -31,7 +30,9 @@ const program = Effect.scoped(Effect.gen(function*() {
     yield* fs.chmod(signer, 0o700);
     assert.equal((yield* run("git", ["config", "--global", "gpg.format", "ssh"], { HOME: home })).status, 0);
     assert.equal((yield* run("git", ["config", "--global", "include.path", join(home, ".gitconfig.local")], { HOME: home })).status, 0);
-    const ssh = (yield* fs.readFileString(sshSource)).replaceAll("~/.ssh", `${home}/.ssh`).replaceAll("~/.colima", `${home}/.colima`);
+    const rendered = yield* runner.run("chezmoi", ["--source", join(repoRoot, "chezmoi"), "--destination", home, "--override-data", '{"dotfilesProfile":"devbox"}', "cat", join(home, ".ssh/config")]);
+    assert.equal(rendered.status, 0, rendered.stderr);
+    const ssh = rendered.stdout.replaceAll("~/.ssh", `${home}/.ssh`).replaceAll("~/.colima", `${home}/.colima`);
     yield* fs.writeFileString(join(home, ".ssh/config"), ssh, { mode: 0o600 });
     const key = join(home, ".ssh/signing");
     const generated = yield* run("ssh-keygen", ["-q", "-t", "ed25519", "-N", encrypted ? "fixture-passphrase" : "", "-f", key]);
@@ -42,10 +43,15 @@ const program = Effect.scoped(Effect.gen(function*() {
     HOME: home, GIT_USER_NAME: "Example User", GIT_USER_EMAIL: "example@example.com", GIT_SIGNING_KEY: signingKey,
     GIT_SSH_IDENTITY_FILE: identity, GIT_SIGN_COMMITS: "true", ...extra,
   });
-  const source = yield* fs.readFileString(sshSource);
+  const renderSsh = (data: string) => runner.run("chezmoi", ["--source", join(repoRoot, "chezmoi"), "--destination", temporary, "--override-data", data, "cat", join(temporary, ".ssh/config")]);
+  const source = (yield* renderSsh('{"dotfilesProfile":"devbox"}')).stdout;
   assert.equal(source.split("\n")[0], "Include ~/.ssh/github.config");
-  assert.match(source, /^Include ~\/\.colima\/ssh_config$/m);
   assert.match(source, /^Include ~\/\.ssh\/config\.d\/\*\.conf$/m);
+  // The Colima include is macOS-only; a missing non-glob Include breaks OpenSSH on Linux.
+  const darwin = (yield* renderSsh('{"dotfilesProfile":"devbox","chezmoi":{"os":"darwin"}}')).stdout;
+  assert.match(darwin, /^Include ~\/\.colima\/ssh_config$/m);
+  const linux = (yield* renderSsh('{"dotfilesProfile":"devbox","chezmoi":{"os":"linux"}}')).stdout;
+  assert.doesNotMatch(linux, /colima/);
 
   const personal = yield* makeHome("personal");
   yield* fs.writeFileString(join(personal.home, ".ssh/config.local"), `Host unrelated.example\n  User example\n\nHost *\n  IdentityAgent /tmp/preexisting-agent.sock\n  IdentityFile /tmp/preexisting-identity\n`);

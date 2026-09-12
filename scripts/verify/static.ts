@@ -56,7 +56,7 @@ const program = Effect.gen(function*() {
   }
   yield* runRequired("git", ["diff", "--check"], "working-tree diff hygiene");
   yield* runRequired("git", ["diff", "--cached", "--check"], "index diff hygiene");
-  yield* runRequired("plutil", ["-lint", blackWallpaper], "desktop wallpaper plist");
+  if (process.platform === "darwin") yield* runRequired("plutil", ["-lint", blackWallpaper], "desktop wallpaper plist");
 
   const ghosttyLines = yield* fs.readFileString(ghosttyConfig).pipe(
     Effect.map((contents) => contents.split(/\r?\n/)),
