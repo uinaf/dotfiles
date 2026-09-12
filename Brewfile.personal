@@ -3,7 +3,12 @@
 require "json"
 
 personal_profile = ENV.fetch("HOMEBREW_BUNDLE_DOTFILES_PROFILE")
-profile_model = JSON.parse(File.read(File.join(__dir__, "chezmoi/.chezmoidata/profiles.json"))).fetch("profileModel")
+# brew-bundle.ts composes the profile's Brewfiles into a temporary directory
+# under the checkout, so the model may live one level above this file.
+profile_model_path = [__dir__, File.dirname(__dir__)]
+  .map { |root| File.join(root, "chezmoi/.chezmoidata/profiles.json") }
+  .find { |candidate| File.exist?(candidate) } or raise "profile model not found near #{__dir__}"
+profile_model = JSON.parse(File.read(profile_model_path)).fetch("profileModel")
 raise "unsupported profile model version" unless profile_model.fetch("version") == 1
 
 profile_config = profile_model.fetch("profiles").fetch(personal_profile)
