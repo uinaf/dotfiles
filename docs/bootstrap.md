@@ -67,6 +67,8 @@ mise trust
   from explicit operator values.
 - Install [the pinned Xcode](mobile-and-tv-development.md) with
   `mise run xcode:install`.
+- On `personal-workstation`, install [the pinned Android Studio](mobile-and-tv-development.md#android-studio)
+  with `mise run android-studio:install`.
 - Every profile except `workstation` requires a
   [backed-up SOPS age identity](identities.md#sops-age-identity).
   `workstation` needs one when it consumes secrets.

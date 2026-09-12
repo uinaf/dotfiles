@@ -4,6 +4,8 @@
   Android Studio on `personal-workstation`.
 - Full Xcode follows the [declared release pin](../chezmoi/.chezmoidata/xcode.json).
   Simulator runtimes, SDK packages, and first-run GUI setup stay manual.
+- Android Studio follows the [declared cask pin](../chezmoi/.chezmoidata/android-studio.json).
+  SDK packages and first-run GUI setup stay manual.
 - Shared mise provides Java and Ruby; projects can override those versions.
 - Keep CocoaPods and Fastlane in the application's `Gemfile`.
 
@@ -24,6 +26,23 @@ the pin. Betas and Release Candidates do not count. `xcodes` needs an Apple
 Developer login in that terminal (including 2FA) for the download. Simulator
 runtimes are a multi-GB download. Run the application's build after
 installation to verify its selected Xcode/runtime combination.
+
+## Android Studio
+
+Install the pinned stable cask as the Homebrew prefix owner on
+`personal-workstation`. This is on-demand: the six-hour updater does not
+install Android Studio, and Topgrade leaves its self-updater alone.
+
+```zsh
+mise run android-studio:install
+mise run android-studio:check
+```
+
+`android-studio:install` uses Homebrew's `android-studio` cask and installs
+only the numbered stable release in the pin. Preview, beta, canary, and RC
+casks do not count. If brew's current cask is ahead of the pin, bump the pin
+first. Live bootstrap verification checks this release on
+`personal-workstation` only.
 
 ## Android TV
 

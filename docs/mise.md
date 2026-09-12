@@ -32,6 +32,7 @@ mise run verify               # deterministic checks plus full-history secret sc
 | `agents:sync`, `agents:update`, `agents:doctor` | [Agent selections](agents.md#skill-sync) |
 | `maintenance:*` | [Software updates](software-updates.md) |
 | `xcode:install`, `xcode:check` | [Xcode pin](mobile-and-tv-development.md#xcode-and-tvos-simulator) |
+| `android-studio:install`, `android-studio:check` | [Android Studio pin](mobile-and-tv-development.md#android-studio) |
 | `audit` | [Security audits](security-audits.md) |
 
 Live checks inspect the current Unix user's machine. Run only for its intended
@@ -63,6 +64,7 @@ Use exact versions where practical. Keep these pairs aligned:
 - Corepack installed by `dotfiles:runtime-packages` before `corepack enable`.
 - PyYAML installation and its [live verifier](../scripts/verify/bootstrap.ts).
 - [Xcode release](../chezmoi/.chezmoidata/xcode.json) and `mise run xcode:install`.
+- [Android Studio release](../chezmoi/.chezmoidata/android-studio.json) and `mise run android-studio:install`.
 
 - Bootstrap runs `mise install` and `dotfiles:runtime-packages`, so package-only
   pin changes converge even when runtimes are already installed.

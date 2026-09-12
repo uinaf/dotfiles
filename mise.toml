@@ -109,6 +109,14 @@ run = "node ./scripts/bootstrap/xcode.ts"
 description = "Verify the selected Xcode matches the declared release pin"
 run = "node ./scripts/bootstrap/xcode.ts --check"
 
+[tasks."android-studio:install"]
+description = "Install the declared Android Studio release"
+run = "node ./scripts/bootstrap/android-studio.ts"
+
+[tasks."android-studio:check"]
+description = "Verify the installed Android Studio matches the declared release pin"
+run = "node ./scripts/bootstrap/android-studio.ts --check"
+
 [tasks."bootstrap:trust-agent-worktrees"]
 description = "Trust mise configs in generated agent worktrees"
 run = "./scripts/bootstrap/trust-agent-worktrees.ts"
