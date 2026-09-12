@@ -39,10 +39,6 @@ Prefix these commands with `mise run`.
 - Full Xcode follows [the declared pin](../chezmoi/.chezmoidata/xcode.json).
   Install or select it with `mise run xcode:install`; the scheduled updater
   does not. Live bootstrap verification checks the selected release.
-- Android Studio follows [the declared pin](../chezmoi/.chezmoidata/android-studio.json).
-  Install it with `mise run android-studio:install`; the scheduled updater does
-  not. Live bootstrap verification checks the cask on every enrolled profile.
-  Shared Homebrew greedy upgrades skip it.
 
 ## Dotfiles Convergence
 

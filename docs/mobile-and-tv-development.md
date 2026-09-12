@@ -1,11 +1,10 @@
 # Mobile and TV Development
 
-- [Bootstrap](bootstrap.md): Xcode utilities, Watchman, Android command-line tools,
-  and Android Studio on the shared Homebrew layer.
+- [Bootstrap](bootstrap.md): Xcode utilities, Watchman, and Android command-line
+  tools.
 - Full Xcode follows the [declared release pin](../chezmoi/.chezmoidata/xcode.json).
   Simulator runtimes, SDK packages, and first-run GUI setup stay manual.
-- Android Studio follows the [declared cask pin](../chezmoi/.chezmoidata/android-studio.json).
-  SDK packages and first-run GUI setup stay manual.
+- Android SDK packages and emulator images stay manual through `sdkmanager`.
 - Shared mise provides Java and Ruby; projects can override those versions.
 - Keep CocoaPods and Fastlane in the application's `Gemfile`.
 
@@ -27,42 +26,22 @@ Developer login in that terminal (including 2FA) for the download. Simulator
 runtimes are a multi-GB download. Run the application's build after
 installation to verify its selected Xcode/runtime combination.
 
-## Android Studio
-
-Install the pinned stable cask as the Homebrew prefix owner. This is on-demand:
-the six-hour updater does not install Android Studio.
-
-```zsh
-mise run android-studio:install
-mise run android-studio:check
-```
-
-`android-studio:install` uses Homebrew's `android-studio` cask and installs
-only the numbered stable release in the pin. Preview, beta, canary, and RC
-casks do not count. If brew's current cask is ahead of the pin, bump the pin
-first. Live bootstrap verification checks this release on every enrolled
-profile. Shared Homebrew greedy upgrades skip the cask so the pin cannot
-drift.
-
 ## Android TV
 
-Run Android Studio's setup wizard if using it, then open a new shell:
+The shared Homebrew layer installs Android command-line tools, not the IDE.
+Accept licenses, then install packages for the app's API level and host
+architecture:
 
 ```zsh
 print -r -- "$ANDROID_HOME"
-command -v adb emulator sdkmanager
+command -v adb emulator sdkmanager avdmanager
 sdkmanager --licenses
+sdkmanager 'system-images;android-34;android-tv;arm64-v8a'
+avdmanager create avd -n android-tv -k 'system-images;android-34;android-tv;arm64-v8a'
 ```
 
 The shell prefers `~/Library/Android/sdk` when present, otherwise
-`/opt/homebrew/share/android-commandlinetools`. Install packages for the app's
-API level and host architecture; for example, an ARM64 Android TV image:
-
-```zsh
-sdkmanager 'system-images;android-34;android-tv;arm64-v8a'
-```
-
-Create a TV device in Android Studio's Device Manager, then verify:
+`/opt/homebrew/share/android-commandlinetools`. Verify:
 
 ```zsh
 adb --version

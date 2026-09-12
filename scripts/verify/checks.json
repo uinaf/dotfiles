@@ -187,10 +187,9 @@
         "--test",
         "scripts/verify/dotfiles.test.ts",
         "scripts/verify/runtime-pins.test.ts",
-        "scripts/bootstrap/xcode.test.ts",
-        "scripts/bootstrap/android-studio.test.ts"
+        "scripts/bootstrap/xcode.test.ts"
       ],
-      "output": "Validated operator routing, coordinated runtime pins, and the Xcode and Android Studio release pins"
+      "output": "Validated operator routing, coordinated runtime pins, and the Xcode release pin"
     },
     {
       "id": "profile-model",

@@ -23,7 +23,6 @@ const program = Effect.scoped(Effect.gen(function*() {
 if [ "\${1:-}" = --prefix ]; then printf '%s\\n' "$FAKE_BREW_PREFIX"; exit 0; fi
 { printf 'umask=%s\\n' "$(umask)"; printf 'no_auto_update=%s\\n' "\${HOMEBREW_NO_AUTO_UPDATE:-}"; [ -z "\${HOMEBREW_BUNDLE_DOTFILES_PROFILE:-}" ] || printf 'profile=%s\\n' "$HOMEBREW_BUNDLE_DOTFILES_PROFILE"; printf 'arg=%s\\n' "$@"; } >> "$FAKE_BREW_LOG"
 if [ -n "\${FAKE_BREW_OUTPUT_DIR:-}" ]; then mkdir "$FAKE_BREW_OUTPUT_DIR/directory"; : > "$FAKE_BREW_OUTPUT_DIR/file"; : > "$FAKE_BREW_OUTPUT_DIR/executable"; chmod a+x "$FAKE_BREW_OUTPUT_DIR/executable"; fi
-if [ "\${1:-}" = list ] && [ "\${2:-}" = --cask ]; then printf '%s' "\${FAKE_BREW_CASKS:-}"; exit "\${FAKE_BREW_EXIT:-0}"; fi
 if [ "\${1:-}" = bundle ] && [ "\${2:-}" = cleanup ]; then while [ "$#" -gt 0 ]; do if [ "$1" = --file ]; then sed -n -E 's/^((brew|cask|tap) ".*")$/cleanup_entry=\\1/p' "$2" >> "$FAKE_BREW_LOG"; break; fi; shift; done; fi
 if [ "\${1:-}" = bundle ] && [ "\${2:-}" = check ]; then exit "\${FAKE_BREW_CHECK_EXIT:-0}"; fi
 exit "\${FAKE_BREW_EXIT:-0}"
@@ -77,41 +76,7 @@ exit "\${FAKE_BREW_EXIT:-0}"
   const updated = yield* execute("scripts/bootstrap/brew-devbox.ts", ["--update-software"], updateLog);
   assert.equal(updated.status, 0, updated.stderr);
   const updateArgs = (yield* fs.readFileString(updateLog)).split("\n").filter((line) => line.startsWith("arg="));
-  assert.deepEqual(updateArgs, [
-    "arg=developer",
-    "arg=off",
-    "arg=update",
-    "arg=upgrade",
-    "arg=--greedy",
-    "arg=--no-ask",
-    "arg=--formula",
-    "arg=list",
-    "arg=--cask",
-    "arg=--full-name",
-  ]);
-  yield* fs.writeFileString(updateLog, "");
-  const skipped = yield* execute("scripts/bootstrap/brew-devbox.ts", ["--update-software"], updateLog, {
-    FAKE_BREW_CASKS: "android-studio\ngoogle-chrome\n",
-  });
-  assert.equal(skipped.status, 0, skipped.stderr);
-  const skipArgs = (yield* fs.readFileString(updateLog)).split("\n").filter((line) => line.startsWith("arg="));
-  assert.deepEqual(skipArgs, [
-    "arg=developer",
-    "arg=off",
-    "arg=update",
-    "arg=upgrade",
-    "arg=--greedy",
-    "arg=--no-ask",
-    "arg=--formula",
-    "arg=list",
-    "arg=--cask",
-    "arg=--full-name",
-    "arg=upgrade",
-    "arg=--greedy",
-    "arg=--no-ask",
-    "arg=--cask",
-    "arg=google-chrome",
-  ]);
+  assert.deepEqual(updateArgs, ["arg=developer", "arg=off", "arg=update", "arg=upgrade", "arg=--greedy", "arg=--no-ask"]);
   yield* fs.writeFileString(updateLog, "");
   const refreshFailed = yield* execute("scripts/bootstrap/brew-devbox.ts", ["--update-software"], updateLog, { FAKE_BREW_EXIT: "37" });
   assert.equal(refreshFailed.status, 37);

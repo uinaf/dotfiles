@@ -45,12 +45,6 @@ test("Xcode pin is a dotted release consumed by the installer", () => {
   assert.match(xcode.release, /^\d+\.\d+$/);
 });
 
-test("Android Studio pin is a stable Homebrew cask release", () => {
-  const studio = JSON.parse(read("chezmoi/.chezmoidata/android-studio.json")) as { version: number; release: string };
-  assert.equal(studio.version, 1);
-  assert.match(studio.release, /^\d+\.\d+\.\d+\.\d+$/);
-});
-
 test("mise package convergence repeats without runtime installs and stops on failure", t => {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-runtime-packages-"));
   t.after(() => rmSync(root, { recursive: true, force: true }));

@@ -39,7 +39,6 @@ brew "watchman"
 
 # Platform development
 cask "android-commandlinetools"
-cask "android-studio"
 
 # Download and media helpers
 brew "aria2"
