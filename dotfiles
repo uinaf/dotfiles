@@ -28,7 +28,7 @@ if command -v node >/dev/null 2>&1 \
 fi
 
 if ! command -v mise >/dev/null 2>&1; then
-  printf 'FAILED: mise is required; install the shared Brewfile first\n' >&2
+  printf 'FAILED: mise is required; see docs/bootstrap.md\n' >&2
   exit 1
 fi
 

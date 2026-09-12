@@ -12,7 +12,8 @@
 shell PATH, and running from $HOME keeps the shim on the global mise config
 instead of whatever untrusted mise.toml the current repository carries. */}}
 {{- /* git strips unescaped quotes from config values, hence the backslashes. */}}
-{{- $gh := printf `cd \"$HOME\" && \"%s/.local/share/mise/shims/gh\"` .chezmoi.homeDir }}
+{{- /* A credential lookup must never turn into a release download; the apply installs gh. */}}
+{{- $gh := printf `cd \"$HOME\" && MISE_EXEC_AUTO_INSTALL=0 \"%s/.local/share/mise/shims/gh\"` .chezmoi.homeDir }}
 [credential "https://github.com"]
 	helper =
 	helper = !{{ $gh }} auth git-credential

@@ -13,7 +13,13 @@ the system PATH, and the login shell set to `zsh`. A managed devbox gets those
 from its provisioning; elsewhere:
 
 ```sh
-sudo apt-get install -y git curl zsh tmux lynis
+sudo apt-get install -y git curl zsh tmux lynis age
+# sops has no Ubuntu package; the host installs the release binary for its
+# architecture on the fixed path the sudo askpass helper resolves. A managed
+# devbox gets this from its provisioning, which owns the version pin.
+sops_version=3.13.3
+sudo curl -fsSLo /usr/local/bin/sops "https://github.com/getsops/sops/releases/download/v${sops_version}/sops-v${sops_version}.linux.$(dpkg --print-architecture)"
+sudo chmod 0755 /usr/local/bin/sops
 curl https://mise.run | sh   # installs ~/.local/bin/mise
 export PATH="$HOME/.local/bin:$PATH"
 sudo chsh -s /usr/bin/zsh "$USER"
@@ -33,10 +39,12 @@ probed by `./dotfiles check devbox`:
 - Tailscale installed and joined.
 - systemd lingering for the user: `sudo loginctl enable-linger <user>`.
 
-Every other tool comes from the profile's mise configuration: `age`, `sops`,
-`gh`, `jq`, `ripgrep`, `shellcheck`, `actionlint`, `chezmoi`, `direnv`,
-`btop`, `gitleaks`, `trufflehog`, `topgrade`, OpenCode, `awscli`, `glab`,
-`git-filter-repo`, Codex, and Claude Code. Cursor uses its own installer.
+Every other tool comes from the profile's mise configuration: `gh`, `jq`,
+`ripgrep`, `shellcheck`, `actionlint`, `chezmoi`, `direnv`, `btop`,
+`gitleaks`, `trufflehog`, `topgrade`, OpenCode, `awscli`, `glab`,
+`git-filter-repo`, Codex, Claude Code, and the T3 CLI. Cursor uses its own
+installer. `age` and `sops` stay host packages on both platforms because the
+sudo askpass helper calls them by fixed path.
 Android SDK and emulator tooling stay a per-user install; set `ANDROID_HOME`
 to `~/Android/Sdk` and the shell picks it up.
 

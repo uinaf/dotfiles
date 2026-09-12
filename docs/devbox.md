@@ -130,12 +130,14 @@ sudo ./scripts/darwin/bootstrap/install-devbox-service-daemons.ts --user example
 - Reference owner-only wrappers or files; never embed secrets.
 
 The `devbox` profiles install the T3 Code background service as the target
-user through the `install-t3-service` step (`npx t3@latest service install
---base-dir ~/.t3`) when its unit is absent; T3 owns later updates and
-`./dotfiles check` proves the unit exists. Inspect it with:
+user through the `install-t3-service` step (`t3 service install --base-dir
+~/.t3`, with the CLI pinned in the mise template) when its unit is absent.
+Only an explicit `./dotfiles apply` installs it; unattended maintenance never
+adds a background service. T3 owns later updates and `./dotfiles check`
+proves the unit exists. Inspect it with:
 
 ```zsh
-npx t3@latest service status
+t3 service status
 ```
 
 On macOS keep the user logged in and the Mac awake; the LaunchAgent stops at

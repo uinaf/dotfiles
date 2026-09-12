@@ -1,6 +1,6 @@
 # Agent Setup
 
-The four [developer profiles](profiles.md) install global rules, skills,
+The five [profiles](profiles.md) install global rules, skills,
 plugins, and MCP servers.
 
 ## Global Rules

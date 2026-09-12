@@ -20,7 +20,7 @@ mise run maintenance:update
 | `maintenance:verify` | Post-update live macOS scan and full bootstrap verification |
 | `maintenance:hygiene` | Cleanup preview; reads remote refs, deletes nothing |
 | `maintenance:clean` | Apply eligible cleanup now |
-| `maintenance:disable` | Persistently disable and stop the GUI update job |
+| `maintenance:disable` | Persistently disable and stop the scheduled update job |
 
 Prefix these commands with `mise run`.
 

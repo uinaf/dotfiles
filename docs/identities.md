@@ -4,8 +4,8 @@ Provision credentials per Unix user and host. Keep age, SSH, GitHub, and provide
 credentials independently replaceable; profiles select software, not access.
 
 All developer profiles require explicit Git authorship and local SSH signing.
-Every profile except `workstation` requires a SOPS age identity; `workstation`
-needs one when it consumes encrypted secrets.
+Every profile except `developer` and `workstation` requires a SOPS age
+identity; those two need one when they consume encrypted secrets.
 
 ## Developer Git and SSH
 

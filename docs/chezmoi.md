@@ -3,8 +3,9 @@
 Edit tracked files under [chezmoi/](../chezmoi/).
 [Profile data](../chezmoi/.chezmoidata/profiles.json) selects their targets;
 [apply-dotfiles.ts](../scripts/bootstrap/apply-dotfiles.ts) handles preview,
-backups, and apply. Package installation belongs to Homebrew and runtime pins
-to [mise](mise.md#runtime-pins).
+backups, and apply. Runtime and command-line tool pins belong to
+[mise](mise.md#runtime-pins); Homebrew keeps the macOS packages that need a
+compiler, a GUI, or a system service.
 
 ## Workflow
 

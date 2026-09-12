@@ -6,7 +6,7 @@ import { join } from "node:path";
 import test from "node:test";
 
 const read = (path: string) => readFileSync(new URL(`../../${path}`, import.meta.url), "utf8");
-const tools = read("chezmoi/.chezmoitemplates/mise.toml");
+const tools = `${read("chezmoi/.chezmoitemplates/mise.toml")}\n${read("chezmoi/.chezmoitemplates/mise-tasks.toml")}`;
 const manifest = JSON.parse(read("package.json"));
 
 function pin(source: string, pattern: RegExp): string {

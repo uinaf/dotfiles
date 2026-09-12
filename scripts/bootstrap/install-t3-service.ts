@@ -28,7 +28,7 @@ const program = Effect.gen(function*() {
   if (process.platform === "linux") {
     // Checked for an existing unit and under --check too: revoked lingering
     // stops the service at logout.
-    const linger = yield* runner.run("loginctl", ["show-user", process.env.USER || "", "--property=Linger", "--value"], { output: "capture" }).pipe(
+    const linger = yield* runner.run("loginctl", ["show-user", String(process.getuid?.() ?? ""), "--property=Linger", "--value"], { output: "capture" }).pipe(
       Effect.mapError((error) => new CliFailure({ exitCode: 1, message: `cannot query systemd-logind: ${error.message}` })),
     );
     if (linger.status !== 0) return yield* fail(`loginctl show-user exited ${linger.status}: ${linger.stderr.trim()}`);
@@ -39,7 +39,9 @@ const program = Effect.gen(function*() {
   if (check) return;
   if (present) return yield* Console.log(`T3 Code service present: ${unit}`);
   yield* Console.log(`installing the T3 Code service with base dir ${baseDir}`);
-  const install = yield* runner.run("npx", ["--yes", "t3@latest", "service", "install", "--base-dir", baseDir], { output: "inherit" });
+  // t3 is a mise-pinned npm tool (chezmoi/.chezmoitemplates/mise.toml); the
+  // installed service keeps updating itself through the desktop app.
+  const install = yield* runner.run("t3", ["service", "install", "--base-dir", baseDir], { output: "inherit" });
   const installed = yield* fs.exists(unit);
   // Over SSH with nobody at the Mac's screen, T3 writes the LaunchAgent and then
   // fails to start it in the GUI domain; upstream documents that the service
@@ -47,7 +49,7 @@ const program = Effect.gen(function*() {
   if (install.status !== 0 && installed && process.platform === "darwin") {
     // t3 exits a generic 1 for the headless start failure, so T3's own status
     // is the evidence: a partial or corrupt install does not report installed.
-    const status = yield* runner.run("npx", ["--yes", "t3@latest", "service", "status", "--base-dir", baseDir], { output: "capture" });
+    const status = yield* runner.run("t3", ["service", "status", "--base-dir", baseDir], { output: "capture" });
     if (status.status === 0 && /^\s*Status:\s*installed\b/m.test(status.stdout)) {
       return yield* Console.log(`T3 Code service installed at ${unit}; start deferred to the next GUI login (t3 exited ${install.status})`);
     }

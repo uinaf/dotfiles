@@ -46,7 +46,7 @@ const program = Effect.scoped(Effect.gen(function*() {
     extendEnv: true,
   });
   if (missing.status !== 1) return yield* fail(`missing gh returned ${missing.status} instead of 1`);
-  if (!missing.stderr.includes("gh is required; install the shared Brewfile first")) {
+  if (!missing.stderr.includes("gh is required; run ./dotfiles apply so mise installs gh")) {
     return yield* fail("missing gh failure was not actionable");
   }
   yield* Console.log("ok GitHub CLI extension installer is idempotent and validates gh-stack");

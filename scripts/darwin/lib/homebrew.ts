@@ -28,14 +28,7 @@ const ExternalHomebrew = Schema.Struct({
 
 export type HomebrewEnvironment = Readonly<Record<string, string>>;
 
-export const commandAvailable = Effect.fn("homebrewCommandAvailable")(function*(name: string) {
-  const fs = yield* FileSystem.FileSystem;
-  for (const directory of (process.env.PATH || "").split(delimiter).filter(Boolean)) {
-    const info = yield* fs.stat(join(directory, name)).pipe(Effect.option);
-    if (Option.isSome(info) && info.value.type === "File" && (info.value.mode & 0o111) !== 0) return true;
-  }
-  return false;
-});
+export { commandAvailable } from "../../lib/command-available.ts";
 
 const runRaw = runCommand;
 const run = runChecked;

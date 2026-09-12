@@ -53,10 +53,6 @@ jobs:
     timeout-minutes: 20
     permissions:
       contents: read
-    env:
-      # mise resolves tool releases through the GitHub API; unauthenticated
-      # runners share a 60-request budget per address and exhaust it.
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     concurrency:
       group: verify-linux-${{ github.workflow }}-${{ github.ref }}
       cancel-in-progress: true
@@ -75,18 +71,24 @@ jobs:
 
       - name: Install mise and the verification tools
         env:
+          # mise resolves tool releases through the GitHub API; unauthenticated
+          # runners share a 60-request budget per address and exhaust it. The
+          # token stays on this step only.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # renovate: datasource=github-releases depName=jdx/mise
-          MISE_VERSION: "2026.9.1"
-          MISE_SHA256: c98423c8470d6dc416d9f7036d0646d8ef5ae92ad9186907f8fcc84cbe7db4ea
+          MISE_VERSION: "v2026.9.1"
         run: |
           set -euo pipefail
           # Not ~/.local/bin: converge.ts fronts that directory, and its tests
-          # rely on a PATH stub taking precedence over the real mise.
+          # rely on a PATH stub taking precedence over the real mise. The
+          # installer verifies the release checksum itself, so a Renovate bump
+          # of MISE_VERSION needs no digest edit.
           mkdir -p "$RUNNER_TEMP/bin"
-          curl -fsSLo "$RUNNER_TEMP/bin/mise" "https://github.com/jdx/mise/releases/download/v${MISE_VERSION}/mise-v${MISE_VERSION}-linux-x64"
-          echo "${MISE_SHA256}  $RUNNER_TEMP/bin/mise" | sha256sum -c -
-          chmod 0755 "$RUNNER_TEMP/bin/mise"
-          "$RUNNER_TEMP/bin/mise" --no-config use --global chezmoi@2.72.1 shellcheck@0.11.0 actionlint@1.7.12 gitleaks@8.30.1
+          curl -fsSL https://mise.run | MISE_INSTALL_PATH="$RUNNER_TEMP/bin/mise" sh
+          # The verification tools follow the shared template pins.
+          tools=$(sed -nE 's/^(chezmoi|shellcheck|actionlint|gitleaks) = "([^"]+)"$/\1@\2/p' chezmoi/.chezmoitemplates/mise.toml | tr '\n' ' ')
+          # shellcheck disable=SC2086
+          "$RUNNER_TEMP/bin/mise" --no-config use --global $tools
           printf '%s\n' "$RUNNER_TEMP/bin" "$HOME/.local/share/mise/shims" >> "$GITHUB_PATH"
           # The fresh-home preview below swaps HOME; keep tool resolution here.
           printf 'MISE_DATA_DIR=%s\nMISE_GLOBAL_CONFIG_FILE=%s\n' "$HOME/.local/share/mise" "$HOME/.config/mise/config.toml" >> "$GITHUB_ENV"
@@ -103,6 +105,17 @@ jobs:
           set -euo pipefail
           home="$(mktemp -d)"
           HOME="$home" ./dotfiles diff developer
+
+      - name: Resolve the rendered Linux mise config
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          home="$(mktemp -d)"
+          chezmoi --source chezmoi --destination "$home" --override-data '{"dotfilesProfile":"devbox"}' cat "$home/.config/mise/config.toml" > "$home/mise.toml"
+          # Every pinned tool must resolve to a concrete release on Linux; a bad
+          # short name or asset regex fails here instead of on a user's first apply.
+          MISE_GLOBAL_CONFIG_FILE="$home/mise.toml" mise install --dry-run
 
   release:
     name: GitHub Release

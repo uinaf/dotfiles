@@ -2,11 +2,11 @@
 
 ## Prepare
 
-- Install the [Mac prerequisites](docs/bootstrap.md) and clone the repo.
-- In a new checkout or worktree:
+- Install the [platform prerequisites](docs/bootstrap.md) (`git` and `mise`) and clone the repo.
+- In a new checkout or worktree, install the verification tools at the template pins and prepare:
 
 ```zsh
-brew install mise actionlint chezmoi shellcheck
+mise --no-config use --global $(sed -nE 's/^(chezmoi|shellcheck|actionlint|gitleaks|trufflehog) = "([^"]+)"$/\1@\2/p' chezmoi/.chezmoitemplates/mise.toml)
 ./dotfiles prepare
 export PATH="$(mise --no-config where node@"$(cat .node-version)")/bin:$PATH"
 mise trust

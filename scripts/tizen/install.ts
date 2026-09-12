@@ -4,7 +4,7 @@ import { NodeServices } from "@effect/platform-node";
 import { Console, Effect, FileSystem, Option } from "effect";
 import { join } from "node:path";
 import { CommandRunner, runChecked, runCommand } from "../lib/command.ts";
-import { commandAvailable } from "../darwin/lib/homebrew.ts";
+import { commandAvailable } from "../lib/command-available.ts";
 import { CliFailure, fail, runMain } from "../lib/program.ts";
 
 const version = process.env.TIZEN_SDK_VERSION || "10.0";

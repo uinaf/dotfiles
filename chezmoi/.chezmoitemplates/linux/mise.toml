@@ -1,0 +1,6 @@
+# Linux-only tool pins, appended to the shared mise.toml.
+[tools]
+# See darwin/mise.toml for why Claude Code is a ubi tool.
+"ubi:anthropics/claude-code" = { version = "2.1.269", exe = "claude", matching_regex = "^claude-linux-(arm64|x64)\\.tar\\.gz$" }
+# btop has no macOS release asset; Homebrew supplies it there.
+btop = "1.4.7"
