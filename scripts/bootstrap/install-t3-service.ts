@@ -47,7 +47,7 @@ const program = Effect.gen(function*() {
   if (install.status !== 0 && installed && process.platform === "darwin") {
     // t3 exits a generic 1 for the headless start failure, so T3's own status
     // is the evidence: a partial or corrupt install does not report installed.
-    const status = yield* runner.run("npx", ["--yes", "t3@latest", "service", "status"], { output: "capture" });
+    const status = yield* runner.run("npx", ["--yes", "t3@latest", "service", "status", "--base-dir", baseDir], { output: "capture" });
     if (status.status === 0 && /^\s*Status:\s*installed\b/m.test(status.stdout)) {
       return yield* Console.log(`T3 Code service installed at ${unit}; start deferred to the next GUI login (t3 exited ${install.status})`);
     }
