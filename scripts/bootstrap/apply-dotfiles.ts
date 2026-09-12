@@ -58,20 +58,24 @@ type ChezmoiContext = {
   readonly dryRun: boolean;
 };
 
-// On macOS chezmoi is a Homebrew formula already on PATH. On Linux it is a
-// mise tool declared by the very config this script renders, so the first apply
-// runs the pinned release through `mise x` until the shim exists.
-let chezmoiInvocation: readonly string[] = ["chezmoi"];
-
-const resolveChezmoi = Effect.fn("resolveChezmoi")(function*() {
+// On macOS chezmoi and gitleaks are Homebrew formulas already on PATH. On Linux
+// they are mise tools declared by the very config this script renders, so the
+// first apply borrows the pinned releases through `mise x` until the shims exist.
+const ensureBootstrapTools = Effect.fn("ensureBootstrapTools")(function*() {
   const runner = yield* CommandRunner;
   const fs = yield* FileSystem.FileSystem;
-  const onPath = yield* runner.run("sh", ["-c", "command -v chezmoi"], { output: "capture" }).pipe(Effect.option);
-  if (Option.isSome(onPath) && onPath.value.status === 0) return;
   const template = yield* fs.readFileString(join(sourceDir, ".chezmoitemplates/mise.toml"));
-  const pin = /^chezmoi = "([^"]+)"$/m.exec(template)?.[1];
-  if (!pin) return yield* fail("chezmoi is not on PATH and the mise template has no chezmoi pin");
-  chezmoiInvocation = ["mise", "--no-config", "x", `chezmoi@${pin}`, "--", "chezmoi"];
+  for (const tool of ["chezmoi", "gitleaks"]) {
+    const onPath = yield* runner.run("sh", ["-c", `command -v ${tool}`], { output: "capture" }).pipe(Effect.option);
+    if (Option.isSome(onPath) && onPath.value.status === 0) continue;
+    const pin = new RegExp(`^${tool} = "([^"]+)"$`, "m").exec(template)?.[1];
+    if (!pin) return yield* fail(`${tool} is not on PATH and the mise template has no ${tool} pin`);
+    const located = yield* runner.run("mise", ["--no-config", "x", `${tool}@${pin}`, "--", "sh", "-c", `dirname "$(command -v ${tool})"`], { output: "capture" }).pipe(
+      Effect.mapError((error) => new CliFailure({ exitCode: 1, message: `cannot provision ${tool}@${pin} through mise: ${error.message}` })),
+    );
+    if (located.status !== 0 || !located.stdout.trim()) return yield* fail(`cannot provision ${tool}@${pin} through mise`);
+    process.env.PATH = `${located.stdout.trim()}:${process.env.PATH || ""}`;
+  }
 });
 
 const runCommand = Effect.fn("runApplyDotfilesCommand")(function*(
@@ -80,8 +84,7 @@ const runCommand = Effect.fn("runApplyDotfilesCommand")(function*(
   output: "capture" | "inherit" = "capture",
 ) {
   const runner = yield* CommandRunner;
-  const [executable, ...prefix] = command === "chezmoi" ? chezmoiInvocation : [command];
-  const result = yield* runner.run(executable, [...prefix, ...args], { cwd: repoRoot, stdin: "inherit", output }).pipe(
+  const result = yield* runner.run(command, args, { cwd: repoRoot, stdin: "inherit", output }).pipe(
     Effect.mapError((error) => new CliFailure({ exitCode: 1, message: error.message })),
   );
   if (result.status !== 0) return yield* fail(`${command} exited ${result.status}`, result.status);
@@ -268,7 +271,7 @@ const program = Effect.gen(function*() {
   const fs = yield* FileSystem.FileSystem;
   if (!(yield* fs.exists(sourceDir))) return yield* fail(`missing chezmoi source directory: ${sourceDir}`);
   if (!home) return yield* fail("HOME is required");
-  yield* resolveChezmoi();
+  yield* ensureBootstrapTools();
   const profile = yield* resolveProfile(args.profile).pipe(
     Effect.mapError(() => new CliFailure({
       exitCode: 2,
