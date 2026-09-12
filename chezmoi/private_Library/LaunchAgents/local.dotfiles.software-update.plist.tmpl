@@ -1,7 +1,4 @@
-{{ $topgrade := "/usr/local/bin/topgrade" -}}
-{{ if eq .chezmoi.arch "arm64" -}}
-{{ $topgrade = "/opt/homebrew/bin/topgrade" -}}
-{{ end -}}
+{{ $topgrade := printf "%s/.local/share/mise/shims/topgrade" (.chezmoi.homeDir | html) -}}
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">

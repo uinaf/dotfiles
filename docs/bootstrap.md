@@ -26,8 +26,9 @@ cd ~/projects/dotfiles
 Skip the Homebrew steps below; `gh auth login` comes after the first apply
 installs `gh`. Every other tool comes from the profile's mise configuration:
 `age`, `sops`, `gh`, `jq`, `ripgrep`, `shellcheck`, `actionlint`, `chezmoi`,
-`direnv`, `btop`, `gitleaks`, `trufflehog`, `topgrade`, OpenCode, Codex, and
-Claude Code. Cursor uses its own installer. `workstation` profiles are
+`direnv`, `btop`, `gitleaks`, `trufflehog`, `topgrade`, OpenCode, `awscli`,
+`glab`, `git-filter-repo`, Codex, and Claude Code. Cursor uses its own
+installer. `workstation` profiles are
 macOS-only; use `developer` or `devbox` here.
 Android SDK and emulator tooling stay a per-user install; set `ANDROID_HOME`
 to `~/Android/Sdk` and the shell picks it up.
@@ -41,20 +42,20 @@ xcode-select --install
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 ```
 
-Install the clone tools, authenticate, and prepare the checkout:
+Install the clone tools and prepare the checkout; `gh auth login` follows the
+first apply, which installs `gh` through mise:
 
 ```zsh
-brew install git gh mise
-gh auth login
+brew install git mise
 mkdir -p ~/projects
-gh repo clone uinaf/dotfiles ~/projects/dotfiles
+git clone https://github.com/uinaf/dotfiles.git ~/projects/dotfiles
 cd ~/projects/dotfiles
 ./dotfiles prepare
 export PATH="$(mise --no-config where node@"$(cat .node-version)")/bin:$PATH"
 ```
 
 On a shared devbox, run the initial `brew install` as the prefix owner inside
-`(umask 0027; brew install git gh mise)`. Use the [shared wrapper](#shared-homebrew-updates)
+`(umask 0027; brew install git mise)`. Use the [shared wrapper](#shared-homebrew-updates)
 for subsequent mutations.
 
 `prepare` installs the pinned Node runtime and locked repository dependencies.

@@ -85,11 +85,15 @@ const program = Effect.scoped(Effect.gen(function*() {
 
   const brewfile = (name: string) => fs.readFileString(join(repoRoot, name));
   const base = yield* brewfile("Brewfile");
-  for (const entry of ['brew "gh"', 'cask "android-commandlinetools"']) assert.match(base, new RegExp(`^${entry.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "m"));
-  for (const entry of ['brew "watchman"', 'brew "awscli"']) assert.ok(base.split("\n").includes(entry));
-  // Coding agents moved to mise so Linux and macOS share one pin.
-  for (const entry of ['cask "codex"', 'cask "claude-code@latest"']) assert.ok(!base.split("\n").includes(entry));
+  for (const entry of ['brew "git"', 'brew "mise"', 'cask "android-commandlinetools"']) assert.match(base, new RegExp(`^${entry.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "m"));
+  for (const entry of ['brew "watchman"', 'brew "ffmpeg"']) assert.ok(base.split("\n").includes(entry));
+  // Binary-release tools and the coding agents are mise tools shared by both platforms.
   const miseTemplate = yield* fs.readFileString(join(repoRoot, "chezmoi/.chezmoitemplates/mise.toml"));
+  for (const tool of ["age", "sops", "gh", "jq", "ripgrep", "chezmoi", "gitleaks", "topgrade", "awscli", "glab"]) {
+    assert.ok(!base.split("\n").includes(`brew "${tool}"`), `${tool} must not stay in the Brewfile`);
+    assert.match(miseTemplate, new RegExp(`^${tool} = "`, "m"), `${tool} must be pinned in the mise template`);
+  }
+  for (const entry of ['cask "codex"', 'cask "claude-code@latest"']) assert.ok(!base.split("\n").includes(entry));
   assert.match(miseTemplate, /^"npm:@openai\/codex" = "/m);
   assert.match(miseTemplate, /^"ubi:anthropics\/claude-code" = \{ version = "/m);
   assert.equal(base.includes("uinaf/tap"), false);

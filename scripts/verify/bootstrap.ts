@@ -82,7 +82,7 @@ const program = Effect.gen(function*() {
     if ((yield* shell("npm exec --yes -- node -p process.execPath")) !== `${nodeRoot}/bin/node`) return yield* fail("npm exec child Node is outside mise Node");
   });
   const developerTools = Effect.gen(function*() {
-    yield* shellChecks(["python --version", `python -c 'import yaml; assert yaml.__version__ == "${PYYAML_VERSION}"'`, "uv --version", "gh auth status", "gh stack --help", "bun --version", "java -version", "codex --version", "claude --version", "cursor-agent --version", ...(darwin ? ["glab --version", "slopguard version", "mole --version"] : [])]);
+    yield* shellChecks(["python --version", `python -c 'import yaml; assert yaml.__version__ == "${PYYAML_VERSION}"'`, "uv --version", "gh auth status", "gh stack --help", "bun --version", "java -version", "codex --version", "claude --version", "cursor-agent --version", "glab --version", "aws --version", "topgrade --version", ...(darwin ? ["slopguard version", "mole --version"] : [])]);
     // Homebrew supplies the Android command-line tools on macOS; a Linux user installs the SDK.
     const androidHome = yield* shell('printf %s "$ANDROID_HOME"');
     if (!androidHome && !darwin) return;

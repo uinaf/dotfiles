@@ -1,35 +1,19 @@
-# Shared Homebrew layer for every managed Unix user on macOS.
+# Shared Homebrew layer for every managed Unix user on macOS: packages that
+# need a compiler, a GUI, or a system service. Command-line tools with binary
+# releases are mise tools in chezmoi/.chezmoitemplates/mise.toml.
 # Role-specific additions belong in Brewfile.<profile>.
 
 # Bootstrap and runtime tools
-brew "age"
-brew "sops"
 brew "git"
-brew "gh"
-brew "chezmoi"
 brew "mise"
-brew "direnv"
 brew "btop"
-brew "ripgrep"
 brew "tmux"
 
 # Taps
 tap "teamookla/speedtest", trusted: true
 
-# Coding agents (Codex and Claude Code are mise-managed; see the mise template)
-brew "opencode"
-
 # Development CLI
-brew "topgrade"
-brew "awscli"
 brew "git-crypt"
-brew "git-filter-repo"
-brew "glab"
-brew "jq"
-brew "actionlint"
-brew "shellcheck"
-brew "xcodes"
-brew "xcodegen"
 brew "watchman"
 
 # Platform development
@@ -51,9 +35,7 @@ brew "fping"
 brew "teamookla/speedtest/speedtest"
 
 # Security
-brew "gitleaks"
 brew "lynis"
-brew "trufflehog"
 
 # Maintenance utilities
 brew "mole"

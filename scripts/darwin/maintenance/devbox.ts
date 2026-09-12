@@ -31,7 +31,7 @@ export function updateJobs(options: UpdateOptions, prefix: string) {
     }] : []),
     {
       service: "software-update", minute: 5 * (1 + target.uid % 10),
-      args: [join(prefix, "bin/topgrade"), "--config", join(target.home, ".config/topgrade.toml"),
+      args: [join(target.home, ".local/share/mise/shims/topgrade"), "--config", join(target.home, ".config/topgrade.toml"),
         "--only", "github_cli_extensions", "custom_commands", "--no-tmux", "--no-ask-retry",
         "--no-self-update", "--notify-end", "never", "--yes"],
     },
@@ -78,7 +78,7 @@ export const installUpdateJobs = Effect.fn("installUpdateJobs")(function*(option
   if (options.homebrew && Option.getOrUndefined((yield* fs.stat(prefix)).uid) !== target.uid) {
     return yield* fail("only the shared Homebrew prefix owner can enroll Homebrew updates");
   }
-  yield* runChecked("/usr/bin/sudo", ["-u", target.user, "-H", join(prefix, "bin/topgrade"), "--version"], { cwd: home });
+  yield* runChecked("/usr/bin/sudo", ["-u", target.user, "-H", join(target.home, ".local/share/mise/shims/topgrade"), "--version"], { cwd: home });
   const guiService = `gui/${target.uid}/local.dotfiles.software-update`;
   const gui = yield* runCommand("/bin/launchctl", ["print", guiService]);
   if (gui.status === 0) return yield* fail(`disable the GUI updater before enrolling system updates: ${guiService}`);
