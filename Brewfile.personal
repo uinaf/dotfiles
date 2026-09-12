@@ -59,7 +59,6 @@ if workstation_enabled
   cask "tuna"
 
   # Platform development
-  cask "android-studio"
   cask "raspberry-pi-imager"
 
   # Media utilities

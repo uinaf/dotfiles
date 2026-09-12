@@ -12,5 +12,8 @@ cask "cursor"
 cask "t3-code"
 cask "zed"
 
+# Platform development
+cask "android-studio"
+
 # Hardware security
 brew "ykman"
