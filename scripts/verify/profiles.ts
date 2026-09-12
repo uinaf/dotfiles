@@ -85,11 +85,29 @@ const program = Effect.scoped(Effect.gen(function*() {
 
   const brewfile = (name: string) => fs.readFileString(join(repoRoot, name));
   const base = yield* brewfile("Brewfile");
-  for (const entry of ['brew "gh"', 'cask "android-commandlinetools"']) assert.match(base, new RegExp(`^${entry.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "m"));
-  for (const entry of ['brew "watchman"', 'brew "awscli"']) assert.ok(base.split("\n").includes(entry));
-  // Coding agents moved to mise so Linux and macOS share one pin.
-  for (const entry of ['cask "codex"', 'cask "claude-code@latest"']) assert.ok(!base.split("\n").includes(entry));
+  for (const entry of ['brew "git"', 'brew "mise"', 'cask "android-commandlinetools"']) assert.match(base, new RegExp(`^${entry.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "m"));
+  for (const entry of ['brew "watchman"', 'brew "ffmpeg"']) assert.ok(base.split("\n").includes(entry));
+  // Binary-release tools and the coding agents are mise tools shared by both platforms.
   const miseTemplate = yield* fs.readFileString(join(repoRoot, "chezmoi/.chezmoitemplates/mise.toml"));
+  for (const tool of ["gh", "jq", "ripgrep", "shellcheck", "actionlint", "chezmoi", "direnv", "gitleaks", "trufflehog", "topgrade", "opencode", "awscli", "glab", "git-filter-repo", "xcodegen"]) {
+    assert.ok(!base.split("\n").includes(`brew "${tool}"`), `${tool} must not stay in the Brewfile`);
+    assert.match(miseTemplate, new RegExp(`^${tool} = "`, "m"), `${tool} must be pinned in the mise template`);
+  }
+  // btop has no macOS asset; age, sops, and xcodes are called by fixed path from
+  // privileged flows: Homebrew on macOS, mise on Linux.
+  for (const tool of ["btop", "age", "sops", "xcodes"]) assert.ok(base.split("\n").includes(`brew "${tool}"`), `${tool} must stay in the Brewfile`);
+  const renderedMise = (os: string) => run("chezmoi", ["--source", join(repoRoot, "chezmoi"), "--destination", temporary, "--override-data", `{"dotfilesProfile":"developer","chezmoi":{"os":"${os}","arch":"arm64"}}`, "cat", join(temporary, ".config/mise/config.toml")]);
+  const darwinMise = yield* renderedMise("darwin");
+  const linuxMise = yield* renderedMise("linux");
+  assert.equal(darwinMise.status, 0, darwinMise.stderr);
+  assert.equal(linuxMise.status, 0, linuxMise.stderr);
+  for (const tool of ["btop", "age", "sops"]) {
+    assert.doesNotMatch(darwinMise.stdout, new RegExp(`^${tool} = "`, "m"));
+    assert.match(linuxMise.stdout, new RegExp(`^${tool} = "`, "m"));
+  }
+  assert.match(darwinMise.stdout, /^xcodegen = "/m);
+  assert.doesNotMatch(linuxMise.stdout, /^xcodegen = "/m);
+  for (const entry of ['cask "codex"', 'cask "claude-code@latest"']) assert.ok(!base.split("\n").includes(entry));
   assert.match(miseTemplate, /^"npm:@openai\/codex" = "/m);
   assert.match(miseTemplate, /^"ubi:anthropics\/claude-code" = \{ version = "/m);
   assert.equal(base.includes("uinaf/tap"), false);

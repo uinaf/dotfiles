@@ -272,7 +272,7 @@ test("rendered profiles keep updater scope, scheduling, and paths valid", async 
       assert.deepEqual(job.StartCalendarInterval, [0, 6, 12, 18].map((Hour) => ({ Hour, Minute: 0 })));
       assert.deepEqual(job.ProgramArguments, [
         join(home, ".local/share/mise/installs/node/latest/bin/node"), join(repoRoot, "scripts/maintenance/run.ts"), "software-update", "--",
-        process.arch === "arm64" ? "/opt/homebrew/bin/topgrade" : "/usr/local/bin/topgrade",
+        join(home, ".local/share/mise/shims/topgrade"),
         "--config", join(home, ".config/topgrade.toml"), "--no-tmux", "--no-ask-retry",
         "--no-self-update", "--notify-end", "on_failure", "--yes",
       ]);

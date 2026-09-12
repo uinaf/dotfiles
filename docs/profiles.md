@@ -22,13 +22,19 @@ Profiles configure one Unix user; host permissions provide isolation.
   `robbyrussell` theme and `git` plugin; `./dotfiles maintain` updates it and
   its own updater stays disabled. `devbox` profiles replace the prompt with
   `➜ user@host ~ git:(branch)` so SSH sessions name the machine.
-- Codex (npm) and Claude Code (its GitHub release) are mise-managed tools
-  pinned in [mise.toml](../chezmoi/.chezmoitemplates/mise.toml) on both
-  platforms; on Linux the same file also supplies the tools the shared
-  Brewfile provides on macOS. A Mac that installed the retired `codex` and
-  `claude-code@latest` casks keeps them until
+- Command-line tools with binary releases (`gh`, `jq`, `ripgrep`,
+  `shellcheck`, `actionlint`, `chezmoi`, `direnv`, `gitleaks`, `trufflehog`,
+  `topgrade`, OpenCode, `awscli`, `glab`, `git-filter-repo`, `xcodegen`,
+  Codex, and Claude Code) are mise tools pinned in
+  [mise.toml](../chezmoi/.chezmoitemplates/mise.toml), so both platforms share
+  one pin and Renovate; Linux adds `age`, `sops`, and `btop` there. Homebrew
+  keeps what needs a compiler, a GUI, or a system service (`git`, `mise`,
+  `tmux`, `btop`, `ffmpeg`, `watchman`, `git-crypt`, the Docker and Colima
+  stack, `lynis`, `mole`, the casks) and, on macOS, the tools privileged flows
+  call by fixed path: `age` and `sops` for the sudo askpass helper and
+  `xcodes` for root Xcode selection. A Mac upgraded from the Homebrew copies keeps them until
   `./scripts/darwin/bootstrap/brew-bundle.ts --cleanup <profile>` runs; the
-  shell fronts the mise shims, so the casks are inert meanwhile.
+  shell fronts the mise shims, so the leftovers are inert meanwhile.
 - Personal GUI casks and `mas` install only for `personal-workstation`.
 - The selected role is stored in `~/.config/dotfiles/profile` and checked during
   verification.

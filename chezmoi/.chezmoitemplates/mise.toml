@@ -13,11 +13,12 @@ go = "1.27.1"
 # binary in a postinstall that mise's npm backend does not run.
 "npm:@openai/codex" = "0.154.0"
 "ubi:anthropics/claude-code" = { version = "2.1.269", exe = "claude", matching_regex = {{ if eq .chezmoi.os "darwin" }}"^claude-darwin-{{ if eq .chezmoi.arch "arm64" }}arm64{{ else }}x64{{ end }}\\.tar\\.gz$"{{ else }}"^claude-linux-{{ if eq .chezmoi.arch "arm64" }}arm64{{ else }}x64{{ end }}\\.tar\\.gz$"{{ end }} }
-{{- if eq .chezmoi.os "linux" }}
-# Linux has no Homebrew layer; the tools the shared Brewfile supplies on macOS
-# come from mise here. tmux and zsh are distribution packages the host owns.
-age = "1.3.2"
-sops = "3.13.3"
+
+# Command-line tools with binary releases live here on both platforms so one
+# pin serves macOS and Linux. Homebrew keeps what needs a compiler or a GUI
+# (git, tmux, ffmpeg, watchman, the Docker and Colima stack, casks) and, on
+# macOS, what privileged or secret-handling flows call by fixed path: age and
+# sops for the sudo askpass helper, xcodes for the root Xcode selection.
 gh = "2.100.0"
 jq = "1.8.2"
 ripgrep = "15.2.0"
@@ -25,11 +26,20 @@ shellcheck = "0.11.0"
 actionlint = "1.7.12"
 chezmoi = "2.72.1"
 direnv = "2.37.1"
-btop = "1.4.7"
 gitleaks = "8.30.1"
 trufflehog = "3.97.4"
-"npm:opencode-ai" = "1.18.30"
 topgrade = "17.10.1"
+opencode = "1.18.30"
+awscli = "2.36.44"
+glab = "1.117.0"
+git-filter-repo = "2.47.0"
+{{- if eq .chezmoi.os "darwin" }}
+xcodegen = "2.46.0"
+{{- else }}
+age = "1.3.2"
+sops = "3.13.3"
+# btop has no macOS release asset; Homebrew supplies it there.
+btop = "1.4.7"
 {{- end }}
 
 [tasks."dotfiles:runtime-packages"]

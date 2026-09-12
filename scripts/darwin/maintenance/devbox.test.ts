@@ -41,7 +41,7 @@ test("system jobs keep Homebrew with its owner and per-user Topgrade headless", 
         brewJob ? "homebrew-update" : "software-update", "--"]);
       assert.deepEqual(plist.ProgramArguments.slice(4), brewJob
         ? ["/fixture/node", join(repository, "scripts/darwin/bootstrap/brew-devbox.ts"), "--update-software"]
-        : ["/opt/homebrew/bin/topgrade", "--config", join(target.home, ".config/topgrade.toml"),
+        : [join(target.home, ".local/share/mise/shims/topgrade"), "--config", join(target.home, ".config/topgrade.toml"),
           "--only", "github_cli_extensions", "custom_commands", "--no-tmux", "--no-ask-retry",
           "--no-self-update", "--notify-end", "never", "--yes"]);
     }

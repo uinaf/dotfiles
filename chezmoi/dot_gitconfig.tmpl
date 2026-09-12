@@ -8,8 +8,11 @@
 [gpg "ssh"]
 	allowedSignersFile = ~/.config/git/allowed_signers
 
-{{- $gh := "gh" }}
-{{- if eq .chezmoi.os "darwin" }}{{ $gh = "/opt/homebrew/bin/gh" }}{{ end }}
+{{- /* gh is a mise shim: the absolute path serves GUI Git clients without the
+shell PATH, and running from $HOME keeps the shim on the global mise config
+instead of whatever untrusted mise.toml the current repository carries. */}}
+{{- /* git strips unescaped quotes from config values, hence the backslashes. */}}
+{{- $gh := printf `cd \"$HOME\" && \"%s/.local/share/mise/shims/gh\"` .chezmoi.homeDir }}
 [credential "https://github.com"]
 	helper =
 	helper = !{{ $gh }} auth git-credential
