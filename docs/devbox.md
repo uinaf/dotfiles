@@ -10,7 +10,12 @@ Optional per-user settings live in `~/.config/dotfiles/devbox.env`, mode `0600`:
 
 ```sh
 DEVBOX_USER=example
+T3_SERVICE=1
 ```
+
+`T3_SERVICE=1` opts the user into the T3 Code background service below; a
+devbox identity reached only through the desktop app's SSH launcher leaves it
+out.
 
 - Resolve SOPS secrets only in the consuming process. Keep plaintext tokens out
   of shell startup, plists, and supervisor configuration.
@@ -129,12 +134,13 @@ sudo ./scripts/darwin/bootstrap/install-devbox-service-daemons.ts --user example
 - Retire competing user LaunchAgents before installation.
 - Reference owner-only wrappers or files; never embed secrets.
 
-The `devbox` profiles install the T3 Code background service as the target
-user through the `install-t3-service` step (`t3 service install --base-dir
-~/.t3`, with the CLI pinned in the mise template) when its unit is absent.
-Only an explicit `./dotfiles apply` installs it; unattended maintenance never
-adds a background service. T3 owns later updates and `./dotfiles check`
-proves the unit exists. Inspect it with:
+The `devbox` profiles install the T3 Code background service through the
+`install-t3-service` step (`t3 service install --base-dir ~/.t3`, with the CLI
+pinned in the mise template) for users whose `devbox.env` sets
+`T3_SERVICE=1` and whose unit is absent. Only an explicit `./dotfiles apply`
+installs it; unattended maintenance never adds a background service. T3 owns
+later updates and `./dotfiles check` proves the unit exists for opted-in
+users. Inspect it with:
 
 ```zsh
 t3 service status

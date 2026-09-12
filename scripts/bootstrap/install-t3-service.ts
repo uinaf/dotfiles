@@ -15,6 +15,13 @@ export function t3ServiceUnit(home: string, platform: NodeJS.Platform = process.
     : join(home, ".config/systemd/user/t3code.service");
 }
 
+const t3ServiceWanted = Effect.fn("t3ServiceWanted")(function*(devboxEnv: string) {
+  const fs = yield* FileSystem.FileSystem;
+  if (!(yield* fs.exists(devboxEnv))) return false;
+  const contents = yield* fs.readFileString(devboxEnv);
+  return /^T3_SERVICE=1$/m.test(contents);
+});
+
 const program = Effect.gen(function*() {
   const fs = yield* FileSystem.FileSystem;
   const runner = yield* CommandRunner;
@@ -22,6 +29,12 @@ const program = Effect.gen(function*() {
   const baseDir = process.env.T3_BASE_DIR || join(home, ".t3");
   const unit = t3ServiceUnit(home);
   const check = process.argv.includes("--check");
+  // The service is per user, not per profile: a devbox identity that reaches
+  // T3 through the desktop app's SSH launcher (as on a shared Mac) does not
+  // want a second server. T3_SERVICE=1 in devbox.env opts a user in.
+  if (!(yield* t3ServiceWanted(join(home, ".config/dotfiles/devbox.env")))) {
+    return check ? undefined : yield* Console.log("T3 Code service not requested (set T3_SERVICE=1 in ~/.config/dotfiles/devbox.env)");
+  }
   const present = yield* fs.exists(unit);
   if (check && !present) return yield* fail(`T3 Code service is not installed: ${unit}`);
   if (present && process.platform !== "linux") return check ? undefined : yield* Console.log(`T3 Code service present: ${unit}`);
