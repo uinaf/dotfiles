@@ -3,9 +3,9 @@
 import { NodeServices } from "@effect/platform-node";
 import { Effect, Option } from "effect";
 import { resolve } from "node:path";
-import { acquireCheckoutLock } from "../maintenance/converge.ts";
-import { CommandRunner } from "../lib/command.ts";
-import { fail, runMain } from "../lib/program.ts";
+import { acquireCheckoutLock } from "../../maintenance/converge.ts";
+import { CommandRunner } from "../../lib/command.ts";
+import { fail, runMain } from "../../lib/program.ts";
 import {
   commandAvailable,
   repairSharedReadability,
@@ -21,7 +21,7 @@ const program = Effect.gen(function*() {
   const updateSoftware = args[0] === "--update-software";
   if (updateSoftware && args.length !== 1) return yield* fail("Usage: scripts/bootstrap/brew-devbox.ts --update-software", 2);
   if (updateSoftware) yield* Effect.acquireRelease(
-    Effect.try(() => acquireCheckoutLock(resolve(import.meta.dirname, "../.."))),
+    Effect.try(() => acquireCheckoutLock(resolve(import.meta.dirname, "../../.."))),
     (release) => Effect.sync(release),
   );
   if (args[0] === "--repair-shared-readability") {

@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { CommandRunner, type CommandResult } from "../lib/command.ts";
-import { bundleCheckArgs, profileBrewfiles } from "../lib/homebrew.ts";
+import { bundleCheckArgs, profileBrewfiles } from "../darwin/lib/homebrew.ts";
 import { fail, runMain } from "../lib/program.ts";
 import { readPersistedProfile, resolveProfile } from "../profiles/current.ts";
 import { readProfileModelEffect, requireProfile } from "../profiles/model.ts";
@@ -21,13 +21,16 @@ const program = Effect.scoped(Effect.gen(function*() {
   const runner = yield* CommandRunner;
   const temporary = yield* fs.makeTempDirectoryScoped({ prefix: "dotfiles-profiles." });
   const model = yield* readProfileModelEffect(modelPath);
-  const profiles = ["personal-workstation", "personal-devbox", "workstation", "devbox"] as const;
+  const profiles = ["developer", "devbox", "workstation", "personal-devbox", "personal-workstation"] as const;
   assert.deepEqual(Object.keys(model.profiles).sort(), [...profiles].sort());
   const run = (command: string, args: readonly string[] = [], options: { env?: Readonly<Record<string, string>>; cwd?: string } = {}): Effect.Effect<CommandResult, unknown> =>
     runner.run(command, args, { env: options.env, cwd: options.cwd });
   for (const profile of profiles) requireProfile(model, profile);
   assert.throws(() => requireProfile(model, "unsupported"));
-  assert.equal(requireProfile(model, "workstation").capabilities.requiresSopsIdentity, false);
+  for (const profile of ["developer", "workstation"]) {
+    assert.equal(requireProfile(model, profile).capabilities.requiresSopsIdentity, false);
+  }
+  assert.deepEqual(profileBrewfiles(model, "developer"), ["Brewfile"]);
   for (const profile of ["personal-workstation", "personal-devbox", "devbox"]) {
     assert.equal(requireProfile(model, profile).capabilities.requiresSopsIdentity, true);
   }
@@ -42,7 +45,7 @@ const program = Effect.scoped(Effect.gen(function*() {
     assert.deepEqual(bundleCheckArgs(model, profile, "Brewfile"), ["bundle", "check", "--file", "Brewfile"]);
   }
 
-  for (const script of ["scripts/bootstrap/configure-power.ts", "scripts/verify/bootstrap.ts"]) {
+  for (const script of ["scripts/darwin/bootstrap/configure-power.ts", "scripts/verify/bootstrap.ts"]) {
     const result = yield* run(process.execPath, [join(repoRoot, script), "workstation", "devbox"]);
     assert.notEqual(result.status, 0, `${script} accepted duplicate profiles`);
   }

@@ -5,7 +5,7 @@ import { NodeServices } from "@effect/platform-node";
 import { Effect, FileSystem, Option, Schema } from "effect";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { CliFailure, runMain } from "../lib/program.ts";
+import { CliFailure, runMain } from "../../lib/program.ts";
 
 type Mode = "enable" | "disable";
 

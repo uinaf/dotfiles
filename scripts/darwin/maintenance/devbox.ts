@@ -1,9 +1,9 @@
 import { Console, Effect, FileSystem, Option } from "effect";
 import { isAbsolute, join } from "node:path";
-import { runChecked, runCommand } from "../lib/command.ts";
+import { runChecked, runCommand } from "../../lib/command.ts";
 import { launchdLabel, plistXml } from "../lib/launchd.ts";
-import { fail } from "../lib/program.ts";
-import { readPersistedProfile } from "../profiles/current.ts";
+import { fail } from "../../lib/program.ts";
+import { readPersistedProfile } from "../../profiles/current.ts";
 
 type Target = { user: string; uid: number; group: string; home: string };
 type UpdateOptions = {

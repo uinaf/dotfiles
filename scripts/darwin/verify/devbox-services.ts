@@ -4,11 +4,11 @@ import { NodeServices } from "@effect/platform-node";
 import { Console, Effect, FileSystem, Option, Schema } from "effect";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { CommandRunner, runCommand } from "../lib/command.ts";
+import { CommandRunner, runCommand } from "../../lib/command.ts";
 import { launchdLabel, resolveLaunchdNamespaceContract } from "../lib/launchd.ts";
-import { CliFailure, fail, runMain } from "../lib/program.ts";
+import { CliFailure, fail, runMain } from "../../lib/program.ts";
 
-const repoRoot = resolve(fileURLToPath(new URL("../..", import.meta.url)));
+const repoRoot = resolve(fileURLToPath(new URL("../../..", import.meta.url)));
 const home = process.env.HOME || "";
 const configPath = process.env.DEVBOX_CONFIG || join(home, ".config/dotfiles/devbox.env");
 const Config = Schema.Struct({ DEVBOX_USER: Schema.optional(Schema.NonEmptyString) });

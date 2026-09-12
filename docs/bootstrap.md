@@ -56,7 +56,7 @@ saved coding-client logins except those listed in `preservedLogins`.
 
 ```zsh
 profile=workstation # or personal-workstation, devbox, personal-devbox
-./scripts/bootstrap/brew-bundle.ts "$profile"
+./scripts/darwin/bootstrap/brew-bundle.ts "$profile"
 mise trust
 ./dotfiles diff "$profile"
 ./dotfiles apply "$profile"
@@ -78,8 +78,8 @@ mise trust
 Run these host-wide steps once from the administrator account:
 
 ```zsh
-./scripts/bootstrap/configure-power.ts --profile "$profile"
-./scripts/bootstrap/configure-spotlight.ts
+./scripts/darwin/bootstrap/configure-power.ts --profile "$profile"
+./scripts/darwin/bootstrap/configure-spotlight.ts
 ```
 
 Power configuration disables sleep while plugged in and leaves battery settings
@@ -100,15 +100,15 @@ For subsequent checks, export `DOTFILES_SKIP_SPOTLIGHT_CHECK=1` in your
 machine-local [`~/.config/dotfiles/zshenv.local`](chezmoi.md#local-overrides).
 Checks report the policy as skipped and leave indexing unchanged. `apply` does
 not configure Spotlight. An explicit
-`./scripts/bootstrap/configure-spotlight.ts` still disables indexing and verifies
+`./scripts/darwin/bootstrap/configure-spotlight.ts` still disables indexing and verifies
 the result, even with this flag set.
 
 ### Workstation Options
 
 - Install licensed Berkeley Mono Variable manually; Ghostty falls back to Menlo.
-- On `personal-workstation`, run `./scripts/app-store/personal.ts` to remove
+- On `personal-workstation`, run `./scripts/darwin/app-store/personal.ts` to remove
   the unused bundled App Store apps; uninstall may prompt for a password.
-- Quit Chrome before running `./scripts/bootstrap/configure-chrome.ts` to apply
+- Quit Chrome before running `./scripts/darwin/bootstrap/configure-chrome.ts` to apply
   Lens policies and the vertical-tabs setting.
 - For simulators, SDKs, and signing certificates, follow
   [Mobile and TV development](mobile-and-tv-development.md).
@@ -119,7 +119,7 @@ Follow [Devbox setup](devbox.md) for services and secret consumers. The logged-i
 owner may apply the optional desktop baseline:
 
 ```zsh
-./scripts/bootstrap/configure-desktop.ts
+./scripts/darwin/bootstrap/configure-desktop.ts
 ./scripts/verify/bootstrap.ts --profile devbox --desktop
 ```
 
@@ -136,7 +136,7 @@ mise run audit host
 For workstations, also run `mise run audit workstation`. For devbox profiles:
 
 ```zsh
-./scripts/verify/devbox-services.ts
+./scripts/darwin/verify/devbox-services.ts
 mise run audit devbox
 ```
 
@@ -145,9 +145,9 @@ mise run audit devbox
 The prefix owner must use the wrapper for shared-devbox mutations:
 
 ```zsh
-./scripts/bootstrap/brew-devbox.ts upgrade
-./scripts/bootstrap/brew-devbox.ts upgrade --cask
-./scripts/bootstrap/brew-devbox.ts --update-software
+./scripts/darwin/bootstrap/brew-devbox.ts upgrade
+./scripts/darwin/bootstrap/brew-devbox.ts upgrade --cask
+./scripts/darwin/bootstrap/brew-devbox.ts --update-software
 ```
 
 It confines the owner-write/group-read umask to Homebrew, repairs owner-owned
@@ -165,7 +165,7 @@ Refresh the checkout, review the selected profile, then converge it:
 cd ~/projects/dotfiles
 git pull --ff-only
 profile=workstation # select the installed profile
-./scripts/bootstrap/brew-bundle.ts "$profile"
+./scripts/darwin/bootstrap/brew-bundle.ts "$profile"
 mise trust
 ./dotfiles diff "$profile"
 ./dotfiles apply "$profile"
@@ -182,8 +182,8 @@ which preserves saved logins. For package-only refreshes, use
 | Failure | Recovery |
 | --- | --- |
 | Missing packages or `chezmoi` | Rerun `brew-bundle.ts` with the selected profile. |
-| Homebrew drift | Keep intentional machine-specific packages in a [local Brewfile](profiles.md#local-homebrew-additions), then review and run `./scripts/bootstrap/brew-bundle.ts --cleanup <profile>`. This removes undeclared packages; shared devboxes use the personal-devbox package union. |
-| Shared prefix permissions | Run `./scripts/bootstrap/brew-devbox.ts --repair-shared-readability` as the prefix owner. Foreign-owned content needs an administrator to correct ownership. |
+| Homebrew drift | Keep intentional machine-specific packages in a [local Brewfile](profiles.md#local-homebrew-additions), then review and run `./scripts/darwin/bootstrap/brew-bundle.ts --cleanup <profile>`. This removes undeclared packages; shared devboxes use the personal-devbox package union. |
+| Shared prefix permissions | Run `./scripts/darwin/bootstrap/brew-devbox.ts --repair-shared-readability` as the prefix owner. Foreign-owned content needs an administrator to correct ownership. |
 | Git dubious ownership under `/opt/homebrew` | Rerun `configure-git.ts` with the selected profile. |
 | GitHub SSH authentication | Check the local key and rerun [Git configuration](identities.md#developer-git-and-ssh). |
 | Secret access over SSH | Check the deployment recipient and encrypted repository policy in [Identity provisioning](identities.md). |

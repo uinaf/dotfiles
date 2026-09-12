@@ -4,10 +4,10 @@ import { NodeServices } from "@effect/platform-node";
 import { Console, Effect, FileSystem, Option } from "effect";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { CommandRunner, runChecked } from "../lib/command.ts";
+import { CommandRunner, runChecked } from "../../lib/command.ts";
 import { launchdLabel, resolveLaunchdNamespaceContract } from "../lib/launchd.ts";
-import { fail, runMain } from "../lib/program.ts";
-import { readPersistedProfile } from "../profiles/current.ts";
+import { fail, runMain } from "../../lib/program.ts";
+import { readPersistedProfile } from "../../profiles/current.ts";
 
 export const updateLabel = "local.dotfiles.software-update";
 const usage = "Usage: scripts/maintenance/schedule.ts <enable|disable|run|status>";

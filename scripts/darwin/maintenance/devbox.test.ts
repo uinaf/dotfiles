@@ -6,7 +6,7 @@ import { join } from "node:path";
 import test from "node:test";
 import { NodeServices } from "@effect/platform-node";
 import { Effect, FileSystem, Option } from "effect";
-import { CommandRunner } from "../lib/command.ts";
+import { CommandRunner } from "../../lib/command.ts";
 import { installUpdateJobs, updateJobs } from "./devbox.ts";
 
 test("system jobs keep Homebrew with its owner and per-user Topgrade headless", async (t) => {

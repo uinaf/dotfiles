@@ -20,7 +20,7 @@ const ghosttyConfig = resolve(
   repoRoot,
   "chezmoi/private_Library/private_Application Support/com.mitchellh.ghostty/private_config",
 );
-const blackWallpaper = resolve(repoRoot, "scripts/bootstrap/assets/black-wallpaper.plist");
+const blackWallpaper = resolve(repoRoot, "scripts/darwin/bootstrap/assets/black-wallpaper.plist");
 
 const runRequired = Effect.fn("runRequired")(function*(command: string, args: readonly string[], label: string) {
   const runner = yield* CommandRunner;

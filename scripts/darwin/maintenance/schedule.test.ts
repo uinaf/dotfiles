@@ -7,11 +7,11 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { Effect, FileSystem } from "effect";
 import { NodeServices } from "@effect/platform-node";
-import { CommandRunner } from "../lib/command.ts";
-import { CliFailure } from "../lib/program.ts";
+import { CommandRunner } from "../../lib/command.ts";
+import { CliFailure } from "../../lib/program.ts";
 import { comparePlist, manageSchedule, parseLaunchdPrint, receiptWarning, staleReceiptMs, updateLabel } from "./schedule.ts";
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 
 test("on-demand updates reuse the loaded service without killing its current work", async () => {
   const calls: string[][] = [];

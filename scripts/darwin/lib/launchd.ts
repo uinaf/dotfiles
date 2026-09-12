@@ -1,5 +1,5 @@
 import { Effect, FileSystem, Option } from "effect";
-import { fail } from "./program.ts";
+import { fail } from "../../lib/program.ts";
 
 const component = /^[A-Za-z0-9._-]+$/;
 

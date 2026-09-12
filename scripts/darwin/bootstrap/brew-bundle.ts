@@ -4,8 +4,8 @@ import { NodeServices } from "@effect/platform-node";
 import { Console, Effect, FileSystem, Option } from "effect";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { CommandRunner } from "../lib/command.ts";
-import { CliFailure, fail, runMain } from "../lib/program.ts";
+import { CommandRunner } from "../../lib/command.ts";
+import { CliFailure, fail, runMain } from "../../lib/program.ts";
 import {
   brewfilePath,
   commandAvailable,
@@ -19,16 +19,16 @@ import {
   trustTaps,
   withLocalBrewfile,
 } from "../lib/homebrew.ts";
-import { normalizeProfile, profileModelFile } from "../profiles/current.ts";
-import { readProfileModelEffect, requireProfile } from "../profiles/model.ts";
+import { normalizeProfile, profileModelFile } from "../../profiles/current.ts";
+import { readProfileModelEffect, requireProfile } from "../../profiles/model.ts";
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const usage = `Usage:
-  scripts/bootstrap/brew-bundle.ts workstation|devbox|personal-workstation|personal-devbox
-  scripts/bootstrap/brew-bundle.ts --shared-only PROFILE
-  scripts/bootstrap/brew-bundle.ts --print-files PROFILE
-  scripts/bootstrap/brew-bundle.ts --cleanup PROFILE
-  scripts/bootstrap/brew-bundle.ts --maintenance PROFILE
+  scripts/darwin/bootstrap/brew-bundle.ts workstation|devbox|personal-workstation|personal-devbox
+  scripts/darwin/bootstrap/brew-bundle.ts --shared-only PROFILE
+  scripts/darwin/bootstrap/brew-bundle.ts --print-files PROFILE
+  scripts/darwin/bootstrap/brew-bundle.ts --cleanup PROFILE
+  scripts/darwin/bootstrap/brew-bundle.ts --maintenance PROFILE
 
 Installs the shared base first, then the selected profile layers and an optional
 gitignored Brewfile.local. --shared-only skips both.
@@ -138,7 +138,7 @@ const program = Effect.gen(function*() {
     const env = { ...external, HOMEBREW_BUNDLE_DOTFILES_PROFILE: profile };
     const bundleArgs = ["bundle", ...(args.maintenance ? ["--no-upgrade"] : []), "--file", path];
     if (profileConfig.capabilities.sharedHomebrew) {
-      yield* execute(process.execPath, [join(repoRoot, "scripts/bootstrap/brew-devbox.ts"), ...bundleArgs], env);
+      yield* execute(process.execPath, [join(repoRoot, "scripts/darwin/bootstrap/brew-devbox.ts"), ...bundleArgs], env);
     } else {
       yield* execute("brew", bundleArgs, env);
     }
@@ -150,7 +150,7 @@ const program = Effect.gen(function*() {
     yield* Console.log(`\n## brew bundle cleanup --force (composed ${profile} host contract)`);
     const env = { ...external, HOMEBREW_BUNDLE_DOTFILES_PROFILE: cleanupProfile(model, profile) };
     if (profileConfig.capabilities.sharedHomebrew) {
-      yield* execute(process.execPath, [join(repoRoot, "scripts/bootstrap/brew-devbox.ts"), "bundle", "cleanup", "--force", "--file", composed], env);
+      yield* execute(process.execPath, [join(repoRoot, "scripts/darwin/bootstrap/brew-devbox.ts"), "bundle", "cleanup", "--force", "--file", composed], env);
     } else {
       yield* execute("brew", ["bundle", "cleanup", "--force", "--file", composed], env);
     }

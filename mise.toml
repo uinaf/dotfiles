@@ -26,14 +26,14 @@ run = './scripts/verify/run.ts --domain "$usage_domain"'
 description = "Verify one live profile"
 usage = '''
 arg "<profile>" help="Profile to verify" {
-  choices "personal-workstation" "personal-devbox" "workstation" "devbox"
+  choices "developer" "devbox" "workstation" "personal-devbox" "personal-workstation"
 }
 '''
 run = './scripts/verify/bootstrap.ts --profile "$usage_profile"'
 
 [tasks."verify:devbox-services"]
 description = "Verify live devbox services"
-run = "./scripts/verify/devbox-services.ts"
+run = "./scripts/darwin/verify/devbox-services.ts"
 
 [tasks.audit]
 description = "Run one repository or live-host audit"
@@ -57,25 +57,25 @@ run = "node ./scripts/maintenance/check.ts --verify"
 
 [tasks."maintenance:enable"]
 description = "Enable six-hour software updates for the current macOS GUI user"
-run = "node ./scripts/maintenance/schedule.ts enable"
+run = "node ./scripts/darwin/maintenance/schedule.ts enable"
 
 [tasks."maintenance:disable"]
 description = "Disable scheduled software updates and stop any current run"
-run = "node ./scripts/maintenance/schedule.ts disable"
+run = "node ./scripts/darwin/maintenance/schedule.ts disable"
 
 [tasks."maintenance:update"]
 description = "Request an on-demand update through the existing launchd job"
-run = "node ./scripts/maintenance/schedule.ts run"
+run = "node ./scripts/darwin/maintenance/schedule.ts run"
 
 [tasks."maintenance:status"]
 description = "Show the updater's launchd state, last exit code, and log location"
-run = "node ./scripts/maintenance/schedule.ts status"
+run = "node ./scripts/darwin/maintenance/schedule.ts status"
 
 [tasks."dotfiles:apply"]
 description = "Apply the repo-local chezmoi source state"
 usage = '''
 arg "<profile>" help="Profile to apply" {
-  choices "personal-workstation" "personal-devbox" "workstation" "devbox"
+  choices "developer" "devbox" "workstation" "personal-devbox" "personal-workstation"
 }
 '''
 run = './scripts/bootstrap/apply-dotfiles.ts --profile "$usage_profile"'
@@ -84,7 +84,7 @@ run = './scripts/bootstrap/apply-dotfiles.ts --profile "$usage_profile"'
 description = "Preview the repo-local chezmoi source state"
 usage = '''
 arg "<profile>" help="Profile to preview" {
-  choices "personal-workstation" "personal-devbox" "workstation" "devbox"
+  choices "developer" "devbox" "workstation" "personal-devbox" "personal-workstation"
 }
 '''
 run = './scripts/bootstrap/apply-dotfiles.ts --profile "$usage_profile" --dry-run --verbose'
@@ -103,11 +103,11 @@ run = "./scripts/agents/doctor.ts"
 
 [tasks."xcode:install"]
 description = "Install and select the declared Xcode release"
-run = "node ./scripts/bootstrap/xcode.ts"
+run = "node ./scripts/darwin/bootstrap/xcode.ts"
 
 [tasks."xcode:check"]
 description = "Verify the selected Xcode matches the declared release pin"
-run = "node ./scripts/bootstrap/xcode.ts --check"
+run = "node ./scripts/darwin/bootstrap/xcode.ts --check"
 
 [tasks."bootstrap:trust-agent-worktrees"]
 description = "Trust mise configs in generated agent worktrees"

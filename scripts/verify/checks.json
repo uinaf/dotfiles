@@ -20,7 +20,7 @@
     {
       "id": "maintenance-schedule",
       "domain": "services",
-      "command": ["node", "--test", "scripts/maintenance/schedule.test.ts", "scripts/maintenance/devbox.test.ts", "scripts/maintenance/run.test.ts"],
+      "command": ["node", "--test", "scripts/darwin/maintenance/schedule.test.ts", "scripts/darwin/maintenance/devbox.test.ts", "scripts/maintenance/run.test.ts"],
       "output": "Opt-in update schedule, shared-prefix isolation, and on-demand serialization"
     },
     {
@@ -187,7 +187,7 @@
         "--test",
         "scripts/verify/dotfiles.test.ts",
         "scripts/verify/runtime-pins.test.ts",
-        "scripts/bootstrap/xcode.test.ts"
+        "scripts/darwin/bootstrap/xcode.test.ts"
       ],
       "output": "Validated operator routing, coordinated runtime pins, and the Xcode release pin"
     },
@@ -205,7 +205,7 @@
       "id": "brew-devbox",
       "domain": "profiles",
       "command": [
-        "scripts/verify/brew-devbox.ts"
+        "scripts/darwin/verify/brew-devbox.ts"
       ],
       "output": "Devbox Homebrew behavior"
     },
@@ -213,7 +213,7 @@
       "id": "external-homebrew",
       "domain": "profiles",
       "command": [
-        "scripts/verify/external-homebrew.ts"
+        "scripts/darwin/verify/external-homebrew.ts"
       ],
       "output": "External Homebrew capability boundary"
     },
@@ -223,14 +223,14 @@
       "command": [
         "node",
         "--test",
-        "scripts/bootstrap/chrome-state.test.ts"
+        "scripts/darwin/bootstrap/chrome-state.test.ts"
       ],
       "output": "Atomic Chrome Local State updates and malformed-input preservation"
     },
     {
       "id": "spotlight-policy",
       "domain": "profiles",
-      "command": ["node", "--test", "scripts/bootstrap/configure-spotlight.test.ts"],
+      "command": ["node", "--test", "scripts/darwin/bootstrap/configure-spotlight.test.ts"],
       "output": "Strict Spotlight policy verification, explicit opt-out, and command isolation"
     },
     {
@@ -269,7 +269,7 @@
       "id": "service-labels",
       "domain": "services",
       "command": [
-        "scripts/verify/service-labels.ts"
+        "scripts/darwin/verify/service-labels.ts"
       ],
       "output": "Launchd service labels"
     },
@@ -280,7 +280,7 @@
         "node",
         "--test",
         "scripts/maintenance/check.test.ts",
-        "scripts/maintenance/macos-updates.test.ts"
+        "scripts/darwin/maintenance/macos-updates.test.ts"
       ],
       "output": "Concurrent typed maintenance inventory, freshness, and update applicability"
     },

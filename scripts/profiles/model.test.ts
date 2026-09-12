@@ -13,6 +13,7 @@ const modelPath = join(repoRoot, "chezmoi/.chezmoidata/profiles.json");
 const sourceDir = join(repoRoot, "chezmoi");
 const profileNames = [
   "devbox",
+  "developer",
   "personal-devbox",
   "personal-workstation",
   "workstation",

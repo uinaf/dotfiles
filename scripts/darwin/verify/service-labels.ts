@@ -5,12 +5,12 @@ import { Console, Effect, FileSystem } from "effect";
 import assert from "node:assert/strict";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { CommandRunner } from "../lib/command.ts";
+import { CommandRunner } from "../../lib/command.ts";
 import { launchdLabel, resolveLaunchdNamespaceContract } from "../lib/launchd.ts";
-import { CliFailure, fail, runMain } from "../lib/program.ts";
+import { CliFailure, fail, runMain } from "../../lib/program.ts";
 
-const repoRoot = resolve(fileURLToPath(new URL("../..", import.meta.url)));
-const installer = join(repoRoot, "scripts/bootstrap/install-devbox-service-daemons.ts");
+const repoRoot = resolve(fileURLToPath(new URL("../../..", import.meta.url)));
+const installer = join(repoRoot, "scripts/darwin/bootstrap/install-devbox-service-daemons.ts");
 
 const program = Effect.scoped(Effect.gen(function*() {
   const runner = yield* CommandRunner;

@@ -17,9 +17,9 @@ import {
   type MacOSUpdateIO,
   type MacOSUpdateInventory,
   type RawCommandResult,
-} from "./macos-updates.ts";
+} from "../darwin/maintenance/macos-updates.ts";
 
-export type { CommandRunner, RawCommandResult } from "./macos-updates.ts";
+export type { CommandRunner, RawCommandResult } from "../darwin/maintenance/macos-updates.ts";
 
 type ProbeStatus = "ok" | "failed" | "timed_out" | "unavailable";
 
@@ -234,7 +234,7 @@ function buildProbes(context: MaintenanceContext): Probe[] {
     }));
   }
   if (context.profileConfig.capabilities.sharedHomebrew) {
-    probes.push(probe("devbox_services", process.execPath, [join(context.repoRoot, "scripts/verify/devbox-services.ts")], summaryLine, { timeoutMs: 30_000 }));
+    probes.push(probe("devbox_services", process.execPath, [join(context.repoRoot, "scripts/darwin/verify/devbox-services.ts")], summaryLine, { timeoutMs: 30_000 }));
   }
   if (context.verify) {
     probes.push(probe("bootstrap", process.execPath, [join(context.repoRoot, "scripts/verify/bootstrap.ts"), "--profile", context.profile], summaryLine, { timeoutMs: 60_000 }));

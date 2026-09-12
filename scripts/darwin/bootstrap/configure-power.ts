@@ -2,12 +2,12 @@
 
 import { NodeServices } from "@effect/platform-node";
 import { Console, Effect } from "effect";
-import { CommandRunner } from "../lib/command.ts";
-import { fail, runMain } from "../lib/program.ts";
-import { normalizeProfile } from "../profiles/current.ts";
+import { CommandRunner } from "../../lib/command.ts";
+import { fail, runMain } from "../../lib/program.ts";
+import { normalizeProfile } from "../../profiles/current.ts";
 
 const usage = `Usage:
-  scripts/bootstrap/configure-power.ts [--profile personal-workstation|personal-devbox|workstation|devbox] [--check]
+  scripts/bootstrap/configure-power.ts [--profile developer|devbox|workstation|personal-devbox|personal-workstation] [--check]
 
 Configures plugged-in macOS power policy for managed Macs:
   - disables system sleep on AC power

@@ -5,12 +5,12 @@ import { Cause, Console, Effect, FileSystem } from "effect";
 import assert from "node:assert/strict";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { CommandRunner } from "../lib/command.ts";
+import { CommandRunner } from "../../lib/command.ts";
 import { configureExternalCapabilities } from "../lib/homebrew.ts";
-import { fail, runMain } from "../lib/program.ts";
-import { readProfileModelEffect } from "../profiles/model.ts";
+import { fail, runMain } from "../../lib/program.ts";
+import { readProfileModelEffect } from "../../profiles/model.ts";
 
-const repoRoot = resolve(fileURLToPath(new URL("../..", import.meta.url)));
+const repoRoot = resolve(fileURLToPath(new URL("../../..", import.meta.url)));
 type Capability = Record<string, unknown>;
 const xml = (capabilities: readonly Capability[]) => {
   const value = (input: unknown): string => {

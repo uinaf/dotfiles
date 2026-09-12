@@ -2,8 +2,8 @@
 
 import { NodeServices } from "@effect/platform-node";
 import { Console, Effect } from "effect";
-import { CommandRunner } from "../lib/command.ts";
-import { fail, runMain } from "../lib/program.ts";
+import { CommandRunner } from "../../lib/command.ts";
+import { fail, runMain } from "../../lib/program.ts";
 
 const usage = `Usage:
   scripts/bootstrap/configure-spotlight.ts [--check]
