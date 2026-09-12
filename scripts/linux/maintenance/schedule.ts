@@ -71,7 +71,7 @@ const program = Effect.gen(function*() {
       yield* Console.log(`log: journalctl --user -u ${updateUnit}`);
       // Like the launchd status, a non-enrolled or stopped timer is a failing
       // result, and so is a timer that will die with the login session.
-      if (enabled.status !== 0 || active.status !== 0) return yield* fail(`${updateUnit}.timer is not enabled and active`);
+      if (enabled.status !== 0 || active.status !== 0) return yield* fail(`${updateUnit}.timer is ${enabled.stdout.trim() || "not enabled"} and ${active.stdout.trim() || "not active"}`);
       if (!(yield* linger)) return yield* fail("systemd lingering is off; the timer stops at logout");
       return;
     }
