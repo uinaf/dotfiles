@@ -24,7 +24,7 @@ const policies = [
   { key: "LensDesktopNTPSearchEnabled", type: "-bool", value: "false" },
 ] as const;
 const usage = `Usage:
-  scripts/bootstrap/configure-chrome.ts [options]
+  scripts/darwin/bootstrap/configure-chrome.ts [options]
 
 Disables Google Lens and its "Ask Google" toolbar chip for every Chrome profile
 through macOS-managed Chrome policy, and enables Chrome's native vertical tabs
@@ -85,7 +85,7 @@ const program = Effect.gen(function*() {
   }
   for (const flag of flagOverrides) {
     const result = yield* runner.run(process.execPath, [
-      resolve(repoRoot, "scripts/bootstrap/chrome-state.ts"),
+      resolve(repoRoot, "scripts/darwin/bootstrap/chrome-state.ts"),
       statePath,
       mode,
       flag.name,

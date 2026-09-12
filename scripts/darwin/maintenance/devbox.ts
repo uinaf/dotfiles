@@ -27,7 +27,7 @@ export function updateJobs(options: UpdateOptions, prefix: string) {
   const definitions = [
     ...(options.homebrew ? [{
       service: "homebrew-update", minute: 0,
-      args: [node, join(repository, "scripts/bootstrap/brew-devbox.ts"), "--update-software"],
+      args: [node, join(repository, "scripts/darwin/bootstrap/brew-devbox.ts"), "--update-software"],
     }] : []),
     {
       service: "software-update", minute: 5 * (1 + target.uid % 10),
@@ -71,7 +71,7 @@ export const installUpdateJobs = Effect.fn("installUpdateJobs")(function*(option
   const profile = yield* readPersistedProfile(join(home, ".config/dotfiles/profile"), target.uid);
   if (profile !== "devbox" && profile !== "personal-devbox") return yield* fail("system updates require a devbox profile");
   yield* ownerFile(join(home, ".config/topgrade.toml"), target.uid);
-  yield* ownerFile(join(repo, "scripts/bootstrap/brew-devbox.ts"), target.uid);
+  yield* ownerFile(join(repo, "scripts/darwin/bootstrap/brew-devbox.ts"), target.uid);
   yield* runChecked("/usr/bin/sudo", ["-u", target.user, "-H", node, "--version"], { cwd: home });
   const brew = process.arch === "arm64" ? "/opt/homebrew/bin/brew" : "/usr/local/bin/brew";
   const prefix = (yield* runChecked(brew, ["--prefix"])).stdout.trim();

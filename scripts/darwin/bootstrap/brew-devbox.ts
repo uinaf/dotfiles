@@ -19,13 +19,13 @@ const program = Effect.gen(function*() {
   yield* requirePrefixOwner();
   const args = process.argv.slice(2);
   const updateSoftware = args[0] === "--update-software";
-  if (updateSoftware && args.length !== 1) return yield* fail("Usage: scripts/bootstrap/brew-devbox.ts --update-software", 2);
+  if (updateSoftware && args.length !== 1) return yield* fail("Usage: scripts/darwin/bootstrap/brew-devbox.ts --update-software", 2);
   if (updateSoftware) yield* Effect.acquireRelease(
     Effect.try(() => acquireCheckoutLock(resolve(import.meta.dirname, "../../.."))),
     (release) => Effect.sync(release),
   );
   if (args[0] === "--repair-shared-readability") {
-    if (args.length !== 1) return yield* fail("Usage: scripts/bootstrap/brew-devbox.ts --repair-shared-readability", 2);
+    if (args.length !== 1) return yield* fail("Usage: scripts/darwin/bootstrap/brew-devbox.ts --repair-shared-readability", 2);
     yield* repairSharedReadability();
     yield* verifyPrefixPermissions();
     return;

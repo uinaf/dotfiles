@@ -9,9 +9,9 @@ import { fail, runMain } from "../../lib/program.ts";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const wallpaperIndex = join(process.env.HOME || "", "Library/Application Support/com.apple.wallpaper/Store/Index.plist");
-const wallpaperSource = resolve(repoRoot, "scripts/bootstrap/assets/black-wallpaper.plist");
+const wallpaperSource = resolve(repoRoot, "scripts/darwin/bootstrap/assets/black-wallpaper.plist");
 const usage = `Usage:
-  scripts/bootstrap/configure-desktop.ts [--check]
+  scripts/darwin/bootstrap/configure-desktop.ts [--check]
 
 Applies or verifies the owner desktop baseline for a macOS devbox: black system
 wallpaper, hidden desktop icons and widgets, compact auto-hiding Dock, no recent

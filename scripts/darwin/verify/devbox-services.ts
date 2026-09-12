@@ -41,7 +41,7 @@ const readConfig = Effect.fn("readDevboxVerificationConfig")(function*() {
 const program = Effect.gen(function*() {
   const args = process.argv.slice(2);
   if (args.length === 1 && (args[0] === "-h" || args[0] === "--help")) {
-    yield* Console.log("Usage:\n  scripts/verify/devbox-services.ts");
+    yield* Console.log("Usage:\n  scripts/darwin/verify/devbox-services.ts");
     return;
   }
   if (args.length > 0) return yield* fail(`unknown argument: ${args[0]}`, 2);

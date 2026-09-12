@@ -11,8 +11,8 @@ import { CliFailure, fail, runMain } from "../../lib/program.ts";
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const defaultPinPath = join(repoRoot, "chezmoi/.chezmoidata/xcode.json");
 const usage = `Usage:
-  scripts/bootstrap/xcode.ts
-  scripts/bootstrap/xcode.ts --check
+  scripts/darwin/bootstrap/xcode.ts
+  scripts/darwin/bootstrap/xcode.ts --check
 
 Installs the declared Xcode release with xcodes and selects it. --check reports
 the selected version only. Unattended software updates do not run this.`;

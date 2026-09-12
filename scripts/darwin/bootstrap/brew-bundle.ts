@@ -24,7 +24,7 @@ import { readProfileModelEffect, requireProfile } from "../../profiles/model.ts"
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const usage = `Usage:
-  scripts/darwin/bootstrap/brew-bundle.ts workstation|devbox|personal-workstation|personal-devbox
+  scripts/darwin/bootstrap/brew-bundle.ts developer|devbox|workstation|personal-devbox|personal-workstation
   scripts/darwin/bootstrap/brew-bundle.ts --shared-only PROFILE
   scripts/darwin/bootstrap/brew-bundle.ts --print-files PROFILE
   scripts/darwin/bootstrap/brew-bundle.ts --cleanup PROFILE

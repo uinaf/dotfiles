@@ -10,7 +10,7 @@ import { CliFailure, fail, runMain } from "../../lib/program.ts";
 
 const repoRoot = resolve(fileURLToPath(new URL("../../..", import.meta.url)));
 const usage = `Usage:
-  scripts/bootstrap/install-devbox-service-daemons.ts --user <name> [services]
+  scripts/darwin/bootstrap/install-devbox-service-daemons.ts --user <name> [services]
 
 Services:
   --colima           Run the user's colima-ensure script once at system boot.

@@ -40,7 +40,7 @@ test("system jobs keep Homebrew with its owner and per-user Topgrade headless", 
       assert.deepEqual(plist.ProgramArguments.slice(0, 4), ["/fixture/node", join(repository, "scripts/maintenance/run.ts"),
         brewJob ? "homebrew-update" : "software-update", "--"]);
       assert.deepEqual(plist.ProgramArguments.slice(4), brewJob
-        ? ["/fixture/node", join(repository, "scripts/bootstrap/brew-devbox.ts"), "--update-software"]
+        ? ["/fixture/node", join(repository, "scripts/darwin/bootstrap/brew-devbox.ts"), "--update-software"]
         : ["/opt/homebrew/bin/topgrade", "--config", join(target.home, ".config/topgrade.toml"),
           "--only", "github_cli_extensions", "custom_commands", "--no-tmux", "--no-ask-retry",
           "--no-self-update", "--notify-end", "never", "--yes"]);
@@ -54,11 +54,11 @@ test("a consumer cannot enroll the shared-prefix updater", async (t) => {
   const home = await mkdtemp(join(tmpdir(), "dotfiles-update-owner-"));
   t.after(() => rm(home, { recursive: true, force: true }));
   const repository = join(home, "repo");
-  await mkdir(join(repository, "scripts/bootstrap"), { recursive: true });
+  await mkdir(join(repository, "scripts/darwin/bootstrap"), { recursive: true });
   await mkdir(join(home, ".config/dotfiles"), { recursive: true });
   await writeFile(join(home, ".config/dotfiles/profile"), "devbox\n", { mode: 0o600 });
   await writeFile(join(home, ".config/topgrade.toml"), "", { mode: 0o600 });
-  await writeFile(join(repository, "scripts/bootstrap/brew-devbox.ts"), "", { mode: 0o600 });
+  await writeFile(join(repository, "scripts/darwin/bootstrap/brew-devbox.ts"), "", { mode: 0o600 });
   const commands: string[] = [];
   const runner = CommandRunner.of({ run: (command) => {
     commands.push(command);
@@ -83,11 +83,11 @@ test("enrollment works when launchd has a user domain but no GUI domain", async 
   const home = await mkdtemp(join(tmpdir(), "dotfiles-headless-update-"));
   t.after(() => rm(home, { recursive: true, force: true }));
   const repository = join(home, "repo");
-  await mkdir(join(repository, "scripts/bootstrap"), { recursive: true });
+  await mkdir(join(repository, "scripts/darwin/bootstrap"), { recursive: true });
   await mkdir(join(home, ".config/dotfiles"), { recursive: true });
   await writeFile(join(home, ".config/dotfiles/profile"), "devbox\n", { mode: 0o600 });
   await writeFile(join(home, ".config/topgrade.toml"), "", { mode: 0o600 });
-  await writeFile(join(repository, "scripts/bootstrap/brew-devbox.ts"), "", { mode: 0o600 });
+  await writeFile(join(repository, "scripts/darwin/bootstrap/brew-devbox.ts"), "", { mode: 0o600 });
   const calls: string[][] = [];
   const runner = CommandRunner.of({ run: (command, args = []) => {
     calls.push([command, ...args]);
