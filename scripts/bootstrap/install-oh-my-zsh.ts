@@ -27,8 +27,12 @@ const program = Effect.gen(function*() {
     yield* Console.log("installing oh-my-zsh");
     const init = yield* runner.run("git", ["init", "--quiet", target], { output: "capture" });
     if (init.status !== 0) return yield* fail(`git init exited ${init.status}: ${init.stderr.trim()}`);
-    const origin = yield* git("remote", "add", "origin", remote);
-    if (origin.status !== 0) return yield* fail(`git remote add exited ${origin.status}: ${origin.stderr.trim()}`);
+  }
+  // The remote is converged too, so a checkout seeded elsewhere still follows the pin.
+  const origin = yield* git("remote", "set-url", "origin", remote);
+  if (origin.status !== 0) {
+    const added = yield* git("remote", "add", "origin", remote);
+    if (added.status !== 0) return yield* fail(`git remote add exited ${added.status}: ${added.stderr.trim()}`);
   }
   const current = yield* git("rev-parse", "HEAD");
   if (current.status === 0 && current.stdout.trim() === revision && (yield* fs.exists(join(target, "oh-my-zsh.sh")))) return;

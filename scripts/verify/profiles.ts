@@ -93,8 +93,9 @@ const program = Effect.scoped(Effect.gen(function*() {
     assert.ok(!base.split("\n").includes(`brew "${tool}"`), `${tool} must not stay in the Brewfile`);
     assert.match(miseTemplate, new RegExp(`^${tool} = "`, "m"), `${tool} must be pinned in the mise template`);
   }
-  // btop has no macOS asset; age, sops, and xcodes are called by fixed path from
-  // privileged flows: Homebrew on macOS, mise on Linux.
+  // btop has no macOS asset. age, sops, and xcodes are called by fixed path
+  // from privileged flows, so they stay Homebrew on macOS; on Linux the host
+  // supplies age and sops and xcodes does not apply.
   for (const tool of ["btop", "age", "sops", "xcodes"]) assert.ok(base.split("\n").includes(`brew "${tool}"`), `${tool} must stay in the Brewfile`);
   const renderedMise = (os: string) => run("chezmoi", ["--source", join(repoRoot, "chezmoi"), "--destination", temporary, "--override-data", `{"dotfilesProfile":"developer","chezmoi":{"os":"${os}","arch":"arm64"}}`, "cat", join(temporary, ".config/mise/config.toml")]);
   const darwinMise = yield* renderedMise("darwin");
