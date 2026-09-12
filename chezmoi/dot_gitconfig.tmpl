@@ -8,8 +8,10 @@
 [gpg "ssh"]
 	allowedSignersFile = ~/.config/git/allowed_signers
 
-{{- /* gh is a mise tool; the shim path works for GUI Git clients that lack the shell PATH. */}}
-{{- $gh := printf "\"%s/.local/share/mise/shims/gh\"" .chezmoi.homeDir }}
+{{- /* gh is a mise shim: the absolute path serves GUI Git clients without the
+shell PATH, and running from $HOME keeps the shim on the global mise config
+instead of whatever untrusted mise.toml the current repository carries. */}}
+{{- $gh := printf "cd \"$HOME\" && \"%s/.local/share/mise/shims/gh\"" .chezmoi.homeDir }}
 [credential "https://github.com"]
 	helper =
 	helper = !{{ $gh }} auth git-credential
