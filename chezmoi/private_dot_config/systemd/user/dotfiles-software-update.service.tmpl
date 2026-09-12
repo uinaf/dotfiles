@@ -8,7 +8,7 @@ Description=dotfiles software update
 
 [Service]
 Type=oneshot
-WorkingDirectory="{{ .chezmoi.homeDir }}"
+WorkingDirectory={{ .chezmoi.homeDir }}
 Environment="PATH={{ .chezmoi.homeDir }}/.local/share/mise/shims:{{ .chezmoi.homeDir }}/.local/bin:/usr/local/bin:/usr/bin:/bin"
 Environment=GIT_TERMINAL_PROMPT=0
 Environment=NO_COLOR=1
