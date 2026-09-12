@@ -151,6 +151,12 @@ export const bundleDrift = Effect.fn("homebrewBundleDrift")(function*(repoRoot: 
       HOMEBREW_NO_AUTO_UPDATE: "1",
     },
   }).pipe(Effect.ensuring(removeComposedBrewfile(repoRoot, composed).pipe(Effect.orDie)));
+  // The dry run exits non-zero both when it has a plan and when the Brewfile
+  // fails to evaluate; only the latter must not read as "no drift".
+  if (result.status !== 0 && !/^Would /m.test(result.stdout)) {
+    const detail = [result.stderr.trim(), result.stdout.trim()].filter(Boolean).join("\n") || "no output";
+    return yield* fail(`brew bundle cleanup exited ${result.status} without a plan for the composed Brewfile:\n${detail}`);
+  }
   let show = false;
   return result.stdout.split("\n").filter((line) => {
     if (/^Would (uninstall|untap)/.test(line)) show = true;
