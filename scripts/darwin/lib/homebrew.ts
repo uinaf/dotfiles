@@ -154,7 +154,8 @@ export const bundleDrift = Effect.fn("homebrewBundleDrift")(function*(repoRoot: 
   // The dry run exits non-zero both when it has a plan and when the Brewfile
   // fails to evaluate; only the latter must not read as "no drift".
   if (result.status !== 0 && !/^Would /m.test(result.stdout)) {
-    return yield* fail(`brew bundle cleanup could not evaluate the composed Brewfile: ${result.stderr.trim() || result.stdout.trim()}`);
+    const detail = [result.stderr.trim(), result.stdout.trim()].filter(Boolean).join("\n") || "no output";
+    return yield* fail(`brew bundle cleanup exited ${result.status} without a plan for the composed Brewfile:\n${detail}`);
   }
   let show = false;
   return result.stdout.split("\n").filter((line) => {
