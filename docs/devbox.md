@@ -137,7 +137,7 @@ adds a background service. T3 owns later updates and `./dotfiles check`
 proves the unit exists. Inspect it with:
 
 ```zsh
-npx t3@latest service status
+t3 service status
 ```
 
 On macOS keep the user logged in and the Mac awake; the LaunchAgent stops at

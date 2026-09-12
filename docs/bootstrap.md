@@ -14,8 +14,11 @@ from its provisioning; elsewhere:
 
 ```sh
 sudo apt-get install -y git curl zsh tmux lynis age
-# sops has no Ubuntu package; the host installs the pinned release binary.
-sudo curl -fsSLo /usr/local/bin/sops https://github.com/getsops/sops/releases/download/v3.13.3/sops-v3.13.3.linux.amd64
+# sops has no Ubuntu package; the host installs the release binary for its
+# architecture on the fixed path the sudo askpass helper resolves. A managed
+# devbox gets this from its provisioning, which owns the version pin.
+sops_version=3.13.3
+sudo curl -fsSLo /usr/local/bin/sops "https://github.com/getsops/sops/releases/download/v${sops_version}/sops-v${sops_version}.linux.$(dpkg --print-architecture)"
 sudo chmod 0755 /usr/local/bin/sops
 curl https://mise.run | sh   # installs ~/.local/bin/mise
 export PATH="$HOME/.local/bin:$PATH"
