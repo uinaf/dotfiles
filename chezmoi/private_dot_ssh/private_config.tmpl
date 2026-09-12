@@ -1,5 +1,7 @@
 Include ~/.ssh/github.config
+{{ if eq .chezmoi.os "darwin" -}}
 Include ~/.colima/ssh_config
+{{ end -}}
 Include ~/.ssh/config.d/*.conf
 
 Host *

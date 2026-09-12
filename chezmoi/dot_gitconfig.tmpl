@@ -8,13 +8,15 @@
 [gpg "ssh"]
 	allowedSignersFile = ~/.config/git/allowed_signers
 
+{{- $gh := "gh" }}
+{{- if eq .chezmoi.os "darwin" }}{{ $gh = "/opt/homebrew/bin/gh" }}{{ end }}
 [credential "https://github.com"]
 	helper =
-	helper = !/opt/homebrew/bin/gh auth git-credential
+	helper = !{{ $gh }} auth git-credential
 
 [credential "https://gist.github.com"]
 	helper =
-	helper = !/opt/homebrew/bin/gh auth git-credential
+	helper = !{{ $gh }} auth git-credential
 
 [include]
 	path = ~/.gitconfig.local

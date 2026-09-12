@@ -35,6 +35,8 @@ const runStep = Effect.fn("runInstallStep")(function*(step: string, profile: str
       return yield* execute(step, bootstrap("apply-dotfiles.ts"), ["--profile", profile]);
     case "install-cursor-agent":
       return yield* execute(step, bootstrap("install-cursor-agent.ts"), []);
+    case "install-oh-my-zsh":
+      return yield* execute(step, bootstrap("install-oh-my-zsh.ts"), maintenance ? ["--update"] : []);
     case "trust-agent-worktrees":
       return yield* execute(step, bootstrap("trust-agent-worktrees.ts"), []);
     case "install-gh-extensions":
@@ -70,6 +72,11 @@ const runStep = Effect.fn("runInstallStep")(function*(step: string, profile: str
       return yield* fail(`unsupported install step: ${step}`, 2);
   }
 });
+
+// Steps after install-runtimes call tools mise just installed (gh, chezmoi on
+// Linux), and the launching shell may predate any mise activation.
+const miseShims = join(process.env.MISE_DATA_DIR || join(process.env.HOME || "", ".local/share/mise"), "shims");
+if (!(process.env.PATH || "").split(":").includes(miseShims)) process.env.PATH = `${miseShims}:${process.env.PATH || ""}`;
 
 const program = Effect.gen(function*() {
   let profileInput: string | undefined;
@@ -113,7 +120,7 @@ const program = Effect.gen(function*() {
     yield* Console.log(steps.join("\n"));
     return;
   }
-  if (maintenance) yield* execute("converge packages", resolve(repoRoot, "scripts/darwin/bootstrap/brew-bundle.ts"), ["--maintenance", profile]);
+  if (maintenance && process.platform === "darwin") yield* execute("converge packages", resolve(repoRoot, "scripts/darwin/bootstrap/brew-bundle.ts"), ["--maintenance", profile]);
   yield* Effect.forEach(steps, (step) => runStep(step, profile, maintenance));
 }).pipe(
   Effect.provide(CommandRunner.layer),

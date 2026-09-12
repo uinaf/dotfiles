@@ -5,7 +5,7 @@ import { fail } from "./program.ts";
 
 export const resolveZsh = Effect.fn("resolveProbeZsh")(function*() {
   const fs = yield* FileSystem.FileSystem;
-  for (const candidate of [process.env.DOTFILES_ZSH_BIN, process.env.SHELL?.endsWith("/zsh") ? process.env.SHELL : undefined, "/opt/homebrew/bin/zsh", "/usr/local/bin/zsh", "/bin/zsh"]) {
+  for (const candidate of [process.env.DOTFILES_ZSH_BIN, process.env.SHELL?.endsWith("/zsh") ? process.env.SHELL : undefined, "/opt/homebrew/bin/zsh", "/usr/local/bin/zsh", "/usr/bin/zsh", "/bin/zsh"]) {
     if (!candidate) continue;
     const info = yield* fs.stat(candidate).pipe(Effect.option);
     if (Option.isSome(info) && info.value.type === "File" && (info.value.mode & 0o111) !== 0) return candidate;
