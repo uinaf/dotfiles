@@ -2,23 +2,27 @@
 
 - [Bootstrap](bootstrap.md): Xcode utilities, Watchman, Android command-line tools;
   Android Studio on `personal-workstation`.
-- Manual setup: full Xcode, simulator runtimes, SDK packages, licenses.
+- Full Xcode follows the [declared release pin](../chezmoi/.chezmoidata/xcode.json).
+  Simulator runtimes, SDK packages, and first-run GUI setup stay manual.
 - Shared mise provides Java and Ruby; projects can override those versions.
 - Keep CocoaPods and Fastlane in the application's `Gemfile`.
 
 ## Xcode and tvOS Simulator
 
-Install full Xcode with `xcodes` or the App Store, then open it to finish setup.
-Select its developer directory (adjust for a versioned app name):
+Install and select the pinned release as the Homebrew prefix owner. This is
+on-demand: the six-hour updater does not download Xcode.
 
 ```zsh
-sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer
-sudo xcodebuild -license accept
+mise run xcode:install
+mise run xcode:check
 xcodebuild -downloadPlatform tvOS
 xcrun simctl list devicetypes | rg 'Apple TV'
 ```
 
-The simulator runtime is a multi-GB download. Run the application's build after
+`xcode:install` uses `xcodes` and installs only the numbered stable release in
+the pin. Betas and Release Candidates do not count. `xcodes` needs an Apple
+Developer login in that terminal (including 2FA) for the download. Simulator
+runtimes are a multi-GB download. Run the application's build after
 installation to verify its selected Xcode/runtime combination.
 
 ## Android TV

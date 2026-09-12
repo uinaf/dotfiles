@@ -65,6 +65,8 @@ mise trust
 
 - Configure [Git authorship and local SSH keys](identities.md#developer-git-and-ssh)
   from explicit operator values.
+- Install [the pinned Xcode](mobile-and-tv-development.md) with
+  `mise run xcode:install`.
 - Every profile except `workstation` requires a
   [backed-up SOPS age identity](identities.md#sops-age-identity).
   `workstation` needs one when it consumes secrets.

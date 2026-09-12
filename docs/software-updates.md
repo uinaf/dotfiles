@@ -36,6 +36,9 @@ Prefix these commands with `mise run`.
   vendor installers can still disrupt apps.
 - OS installation, reboots, machine provisioning, identity enrollment, and
   remote services remain separate operations.
+- Full Xcode follows [the declared pin](../chezmoi/.chezmoidata/xcode.json).
+  Install or select it with `mise run xcode:install`; the scheduled updater
+  does not. Live bootstrap verification checks the selected release.
 
 ## Dotfiles Convergence
 

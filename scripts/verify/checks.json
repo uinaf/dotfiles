@@ -186,9 +186,10 @@
         "node",
         "--test",
         "scripts/verify/dotfiles.test.ts",
-        "scripts/verify/runtime-pins.test.ts"
+        "scripts/verify/runtime-pins.test.ts",
+        "scripts/bootstrap/xcode.test.ts"
       ],
-      "output": "Validated operator routing and coordinated runtime pins for every profile"
+      "output": "Validated operator routing, coordinated runtime pins, and the Xcode release pin"
     },
     {
       "id": "profile-model",

@@ -31,6 +31,7 @@ mise run verify               # deterministic checks plus full-history secret sc
 | `dotfiles:diff`, `dotfiles:apply` | [Edit dotfiles](chezmoi.md#workflow) |
 | `agents:sync`, `agents:update`, `agents:doctor` | [Agent selections](agents.md#skill-sync) |
 | `maintenance:*` | [Software updates](software-updates.md) |
+| `xcode:install`, `xcode:check` | [Xcode pin](mobile-and-tv-development.md#xcode-and-tvos-simulator) |
 | `audit` | [Security audits](security-audits.md) |
 
 Live checks inspect the current Unix user's machine. Run only for its intended
@@ -60,6 +61,7 @@ Use exact versions where practical. Keep these pairs aligned:
   [package.json](../package.json).
 - Profile and repository pnpm.
 - PyYAML installation and its [live verifier](../scripts/verify/bootstrap.ts).
+- [Xcode release](../chezmoi/.chezmoidata/xcode.json) and `mise run xcode:install`.
 
 - Bootstrap runs `mise install` and `dotfiles:runtime-packages`, so package-only
   pin changes converge even when runtimes are already installed.

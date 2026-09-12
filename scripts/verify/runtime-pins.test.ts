@@ -33,6 +33,12 @@ test("PyYAML live verification follows its installation pin", () => {
   );
 });
 
+test("Xcode pin is a dotted release consumed by the installer", () => {
+  const xcode = JSON.parse(read("chezmoi/.chezmoidata/xcode.json")) as { version: number; release: string };
+  assert.equal(xcode.version, 1);
+  assert.match(xcode.release, /^\d+\.\d+$/);
+});
+
 test("mise package convergence repeats without runtime installs and stops on failure", t => {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-runtime-packages-"));
   t.after(() => rmSync(root, { recursive: true, force: true }));

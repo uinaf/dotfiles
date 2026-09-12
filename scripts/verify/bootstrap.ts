@@ -96,6 +96,7 @@ const program = Effect.gen(function*() {
     if (config.capabilities.personal) yield* shellChecks(["asc --version", "attach --help", "crabbox --version", "gitcrawl --version", "pi --version"]);
     if (config.capabilities.workstation) yield* shell("op --version");
     if (config.capabilities.personal && config.capabilities.workstation) yield* shellChecks(["grok --version", "tailscale status --peers=false"]);
+    if (config.capabilities.developer) yield* command(process.execPath, [join(repoRoot, "scripts/bootstrap/xcode.ts"), "--check"]);
     if (config.capabilities.devbox) yield* shellChecks(["tmux -V", "xcodes version", "tailscale status --peers=false"]);
   });
   const homebrew = Effect.gen(function*() {

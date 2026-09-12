@@ -101,6 +101,14 @@ run = ["./scripts/agents/sync.ts --update", "./scripts/agents/plugins.ts --updat
 description = "Report MCP authentication state per harness with the repair command"
 run = "./scripts/agents/doctor.ts"
 
+[tasks."xcode:install"]
+description = "Install and select the declared Xcode release"
+run = "node ./scripts/bootstrap/xcode.ts"
+
+[tasks."xcode:check"]
+description = "Verify the selected Xcode matches the declared release pin"
+run = "node ./scripts/bootstrap/xcode.ts --check"
+
 [tasks."bootstrap:trust-agent-worktrees"]
 description = "Trust mise configs in generated agent worktrees"
 run = "./scripts/bootstrap/trust-agent-worktrees.ts"
