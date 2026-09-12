@@ -2,7 +2,7 @@
 
 import { NodeServices } from "@effect/platform-node";
 import { Clock, Console, Effect, FileSystem, Schema } from "effect";
-import { dirname, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { availableParallelism } from "node:os";
 import { fileURLToPath } from "node:url";
 import { CommandRunner } from "../lib/command.ts";
@@ -162,6 +162,13 @@ const listRegistry = Effect.fn("listRegistry")(function*(registry: Registry, jso
     }
   }
 });
+
+// chezmoi and gitleaks are mise shims. Checks swap HOME and the XDG
+// directories into disposable fixtures, which would otherwise hide mise's
+// install directory and trust store from those shims.
+const home = process.env.HOME || "";
+process.env.MISE_DATA_DIR ||= join(home, ".local/share/mise");
+process.env.MISE_TRUSTED_CONFIG_PATHS ||= join(home, ".config/mise/config.toml");
 
 const program = Effect.gen(function*() {
   const options = yield* parseOptions(process.argv.slice(2));
