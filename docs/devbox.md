@@ -139,7 +139,10 @@ npx t3@latest service status
 ```
 
 On macOS keep the user logged in and the Mac awake; the LaunchAgent stops at
-logout. On Linux the systemd user service needs lingering, which an
+logout. Installing over SSH for a user with no GUI session writes the
+LaunchAgent but cannot start it; the step reports the deferred start and the
+service comes up at that user's next login, so a green maintenance run does
+not by itself prove the service is running. On Linux the systemd user service needs lingering, which an
 administrator enables once with `sudo loginctl enable-linger <user>`. Keep
 `--base-dir` stable across updates; see the upstream
 [background service guide](https://github.com/pingdotgg/t3code/blob/main/docs/user/background-service.md).
