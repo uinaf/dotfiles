@@ -24,14 +24,19 @@ cd ~/projects/dotfiles
 ```
 
 Skip the Homebrew steps below; `gh auth login` comes after the first apply
-installs `gh`. The `devbox` profile additionally expects the host to have
-Tailscale installed and joined and systemd lingering enabled for the user
-(`sudo loginctl enable-linger <user>`); `./dotfiles check devbox` probes both. Every other tool comes from the profile's mise configuration:
-`age`, `sops`, `gh`, `jq`, `ripgrep`, `shellcheck`, `actionlint`, `chezmoi`,
-`direnv`, `btop`, `gitleaks`, `trufflehog`, `topgrade`, OpenCode, `awscli`,
-`glab`, `git-filter-repo`, Codex, and Claude Code. Cursor uses its own
-installer. `workstation` profiles are
-macOS-only; use `developer` or `devbox` here.
+installs `gh`. `workstation` profiles are macOS-only; use `developer` or
+`devbox` here.
+
+The `devbox` profile also expects two host-provided prerequisites, both
+probed by `./dotfiles check devbox`:
+
+- Tailscale installed and joined.
+- systemd lingering for the user: `sudo loginctl enable-linger <user>`.
+
+Every other tool comes from the profile's mise configuration: `age`, `sops`,
+`gh`, `jq`, `ripgrep`, `shellcheck`, `actionlint`, `chezmoi`, `direnv`,
+`btop`, `gitleaks`, `trufflehog`, `topgrade`, OpenCode, `awscli`, `glab`,
+`git-filter-repo`, Codex, and Claude Code. Cursor uses its own installer.
 Android SDK and emulator tooling stay a per-user install; set `ANDROID_HOME`
 to `~/Android/Sdk` and the shell picks it up.
 
