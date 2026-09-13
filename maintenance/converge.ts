@@ -8,8 +8,7 @@ import { fileURLToPath } from "node:url";
 import { defaultBranchFromRemoteHead } from "../lib/git-checkout.ts";
 import { acquireDirectoryLock, type LockOptions } from "../lib/lock.ts";
 
-// Boot starts the devbox update jobs together and the shared Homebrew pass can
-// outlast the per-user stagger, so contenders wait instead of failing a heartbeat.
+// Concurrent manual and scheduled convergence wait for the checkout owner.
 const lockWaitMs = 15 * 60_000;
 
 class UpdateFailure extends Error {

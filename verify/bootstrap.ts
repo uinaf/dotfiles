@@ -7,12 +7,10 @@ import { fileURLToPath } from "node:url";
 import { CommandRunner } from "../lib/command.ts";
 import {
   brewfilePath,
-  bundleCheckArgs,
   bundleDrift,
   configureExternalCapabilities,
   profileBrewfiles,
   runHomebrewRaw,
-  verifyPrefixPermissions,
   withLocalBrewfile,
 } from "../homebrew/homebrew.ts";
 import { fail, runMain } from "../lib/program.ts";
@@ -205,7 +203,7 @@ const program = Effect.gen(function* () {
     for (const file of yield* withLocalBrewfile(repoRoot, profileBrewfiles(model, profile))) {
       const result = yield* runHomebrewRaw(
         "brew",
-        bundleCheckArgs(model, profile, brewfilePath(repoRoot, file)),
+        ["bundle", "check", "--file", brewfilePath(repoRoot, file)],
         {
           env: {
             ...external,
@@ -224,7 +222,6 @@ const program = Effect.gen(function* () {
       return yield* fail(
         `installed Homebrew packages drift from the profile manifests and local Brewfile:\n${drift}`,
       );
-    if (config.capabilities.devbox) yield* verifyPrefixPermissions();
   });
   const configuration = Effect.gen(function* () {
     if (

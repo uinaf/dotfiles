@@ -9,8 +9,7 @@ Profiles configure one Unix user; host permissions provide isolation.
 | `developer`            | Default: runtimes and coding agents for any Unix user       |
 | `devbox`               | Human-operated SSH coding host                              |
 | `workstation`          | Human laptop or desktop                                     |
-| `personal-devbox`      | Devbox with personal tools and gateway routing              |
-| `personal-solo-devbox` | Single-owner devbox with personal tools and gateway routing |
+| `personal-devbox`      | Single-owner devbox with personal tools and gateway routing |
 | `personal-workstation` | Workstation with personal apps and gateway routing          |
 
 - `./dotfiles diff|apply|check` without a profile uses the stored
@@ -25,13 +24,10 @@ Profiles configure one Unix user; host permissions provide isolation.
 
 - An authorized administrator owns host-wide Homebrew, Tailscale, power,
   Spotlight, LaunchDaemon, and systemd lingering changes.
-- Shared devbox Homebrew is owner-write, consumer-read-only. Other users check
-  package presence; they do not update the prefix.
-- `personal-solo-devbox` uses the same packages and services as
-  `personal-devbox`, but manages Homebrew directly without shared-prefix
-  permission repair. Use it only when the user exclusively owns the prefix.
+- Each Mac has one Homebrew owner. Profiles manage that owner's package layers
+  directly; they do not repair permissions for other users.
 - Use Unix ownership, groups, filesystem permissions, and scoped identities for
-  isolation. Shared package visibility does not provide it.
+  isolation.
 - Unattended runtime packages, machine credentials, and Linux host packages
   belong to the hosting configuration. Profiles here enroll human-operated
   users and manage the files selected by [Chezmoi](../chezmoi/.chezmoiignore.tmpl).
@@ -54,7 +50,7 @@ Machine-specific packages that no shared profile should carry go in an optional
 - Contents are trusted Homebrew Bundle Ruby, evaluated after the selected
   profile's layers. Review the file before running setup or cleanup.
 - [Layer composition and cleanup](../homebrew/homebrew.ts) own inclusion rules
-  (`withLocalBrewfile`, `cleanupFiles`); `--shared-only` excludes local additions.
+  (`withLocalBrewfile`, `profileBrewfiles`); `--shared-only` excludes local additions.
 
 Use it for packages Homebrew installs. Applications supplied by another
 installer belong in the external capability file below, which accepts names

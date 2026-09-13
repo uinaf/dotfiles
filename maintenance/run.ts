@@ -8,7 +8,7 @@ import { CommandRunner } from "../lib/command.ts";
 import { fail, runMain } from "../lib/program.ts";
 import { dailyLog, rotateUpdateLog } from "./logs.ts";
 
-const Job = Schema.Literals(["software-update", "homebrew-update"]);
+const Job = Schema.Literal("software-update");
 type Job = typeof Job.Type;
 const Config = Schema.Record(Schema.String, Schema.String);
 type Delivery = "not-configured" | "sent" | "failed";
@@ -154,7 +154,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1
   const program = Effect.gen(function* () {
     const [job, separator, command, ...args] = process.argv.slice(2);
     if (!Schema.is(Job)(job) || separator !== "--" || !command || !process.env.HOME) {
-      return yield* fail("Usage: run.ts <software-update|homebrew-update> -- COMMAND [ARGS...]", 2);
+      return yield* fail("Usage: run.ts <software-update> -- COMMAND [ARGS...]", 2);
     }
     process.exitCode = yield* runUpdate(job, process.env.HOME, command, args);
   }).pipe(Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer));

@@ -52,14 +52,10 @@ and [Linux timer](../chezmoi/private_dot_config/systemd/user/dotfiles-software-u
   mise tasks, installs locked dependencies, and applies the selected profile.
   Runtime versions follow declarations; [gateway client logins](devbox.md#opt-in-coding-llm-gateway)
   are preserved.
-- Shared Homebrew is updated only by its prefix owner. Other users check package
-  presence. See [shared Homebrew updates](bootstrap.md#shared-homebrew-updates).
-- The shared Homebrew update job runs `brew developer off` first. Any
-  `brew audit` or other developer command silently enables developer mode,
-  which makes `brew update` track Homebrew `main` instead of stable tags and
-  has hung unattended builds on an untagged commit.
-- Convergence and shared Homebrew serialize through a
-  [checkout lock](../lib/lock.ts). Live or ambiguous owners retain the lock.
+- Homebrew updates run as its prefix owner. The [Topgrade template](../chezmoi/private_dot_config/topgrade.toml.tmpl)
+  disables Homebrew developer mode before updates so they follow stable tags.
+- Concurrent convergence runs serialize through a [checkout lock](../lib/lock.ts).
+  Live or ambiguous owners retain the lock.
 - Failed steps retry on the next run. Package/configuration changes are not
   rolled back; Topgrade reports independent steps separately.
 
@@ -126,8 +122,7 @@ For always-on hosts, provision an owner-only regular file at
 
 ```json
 {
-  "software-update": "https://monitor.example/software-heartbeat",
-  "homebrew-update": "https://monitor.example/homebrew-heartbeat"
+  "software-update": "https://monitor.example/software-heartbeat"
 }
 ```
 
@@ -213,36 +208,32 @@ and have an administrator re-enroll macOS update daemons afterward.
    For macOS system jobs, have the administrator rerun the
    [headless enrollment command](#headless-devbox-updates) from the updated
    checkout using the existing user, repository, and namespace. Select
-   `--software-updates`; include `--homebrew-updates` only for the previously
-   enrolled prefix owner. Repeat with `--check` to verify the new job contract.
+   `--software-updates`. Repeat with `--check` to verify the new job contract.
    Leave the competing GUI updater disabled. Re-enrollment starts the jobs.
 
 ## Headless Devbox Updates
 
 On Linux, `mise run maintenance:enable` plus lingering is the whole
-enrollment; the user timer then runs without a login. On a shared Mac, prepare
-each user's persistent checkout and apply its devbox profile. As admin:
+enrollment; the user timer then runs without a login. On a Mac, prepare
+the owner's persistent checkout and apply its devbox profile. As admin:
 
 ```sh
 sudo node bootstrap/darwin/install-devbox-service-daemons.ts \
-  --user example --software-updates --homebrew-updates \
+  --user example --software-updates \
   --updates-repository /Users/example/projects/dotfiles
 ```
 
-- Only the Homebrew prefix owner gets `--homebrew-updates`; omit it for others.
-  Each user must own their checkout/profile. Add `--check` for read-only validation.
-- For `personal-solo-devbox`, omit `--homebrew-updates`: the system software
-  updater includes Homebrew and records one combined result. It verifies prefix
-  ownership and does not run shared-prefix permission repair.
+- The selected user must own the Homebrew prefix and checkout/profile. The
+  system software updater includes packages and tools in one result. Add
+  `--check` for read-only validation.
 - Disable the user's GUI updater before enrollment. System and GUI enrollment
   reject duplicates. [Devbox scheduling](../maintenance/darwin/devbox.ts)
-  owns the staggered schedule; starts do not wait for earlier jobs to finish.
+  owns the schedule.
 - Use the actual installed labels; `kickstart` without `-k` preserves active runs:
 
 ```sh
 launchctl print system/local.dotfiles.software-update.example
 sudo launchctl kickstart system/local.dotfiles.software-update.example
-sudo launchctl kickstart system/local.dotfiles.homebrew-update.example
 ```
 
 To reload, wait for idle, then disable/bootout each affected label and re-enroll:
@@ -259,22 +250,22 @@ sudo launchctl bootout system/local.dotfiles.software-update.example
 ### Change a Shared Mac to One Owner
 
 First verify the departing user's destination and recovery, and obtain approval
-for account retirement. Preserve the current profile, Topgrade configuration,
+for account retirement. Preserve the current source revision, profile, Topgrade configuration,
 and both updater plists for rollback. Wait for both owner's jobs to finish,
 then disable and bootout their system labels. Remove the obsolete Homebrew
 updater plist explicitly; single-owner enrollment refuses it while present or
 loaded. Retire the departing user's jobs separately.
 
-Apply `personal-solo-devbox`, then re-enroll the remaining owner's system
-updates without `--homebrew-updates`. Run enrollment again with `--check`,
+Apply `personal-devbox`, then re-enroll the remaining owner's system
+updates. Run enrollment again with `--check`,
 request an update, and verify its result includes successful package and tool
 updates. Keep the GUI updater disabled. After replacement proof, update any
 external health consumer to require the combined `software-update` result with
 its existing failure and freshness checks, instead of two separate results.
 
 To roll back, wait for the new updater to finish, disable and bootout it,
-restore the old profile and configuration, and re-enroll with
-`--software-updates --homebrew-updates`. Verify both jobs and restore the
+restore the old source revision, profile, configuration, and saved plists.
+Verify the restored jobs and restore the
 external health contract. Account deletion and credential retirement require
 their own recovery procedure.
 

@@ -18,7 +18,6 @@ const usage = `Usage:
 Services:
   --colima           Run the user's colima-ensure script once at system boot.
   --software-updates Run per-user Topgrade every six hours and at boot.
-  --homebrew-updates Also update shared Homebrew; requires the prefix owner.
 
 Options:
   --check            Verify the selected LaunchDaemons without changing them.
@@ -39,7 +38,6 @@ const InstallerOptions = Schema.Struct({
   check: Schema.Boolean,
   printLabels: Schema.Boolean,
   softwareUpdates: Schema.Boolean,
-  homebrewUpdates: Schema.Boolean,
   updatesRepository: Schema.String,
 });
 type InstallerOptions = typeof InstallerOptions.Type;
@@ -67,7 +65,6 @@ const parseArguments = Effect.fn("parseServiceInstallerArguments")(function* (
     check: false,
     printLabels: false,
     softwareUpdates: false,
-    homebrewUpdates: false,
     updatesRepository: "",
   };
   const args = [...argv];
@@ -90,9 +87,6 @@ const parseArguments = Effect.fn("parseServiceInstallerArguments")(function* (
         break;
       case "--software-updates":
         values.softwareUpdates = true;
-        break;
-      case "--homebrew-updates":
-        values.homebrewUpdates = true;
         break;
       case "--updates-repository":
         values.updatesRepository = take(flag);
@@ -117,8 +111,6 @@ const parseArguments = Effect.fn("parseServiceInstallerArguments")(function* (
   );
   if (!/^[A-Za-z0-9._-]+$/.test(options.user))
     return yield* fail(`unsupported user name: ${options.user}`);
-  if (options.homebrewUpdates && !options.softwareUpdates)
-    return yield* fail("--homebrew-updates requires --software-updates");
   if (options.softwareUpdates !== Boolean(options.updatesRepository))
     return yield* fail("--software-updates requires --updates-repository PATH");
   return options;
@@ -367,7 +359,6 @@ const program = Effect.gen(function* () {
       node: resolvedNode,
       repository: options.updatesRepository,
       namespace,
-      homebrew: options.homebrewUpdates,
       check: options.check,
     });
   }

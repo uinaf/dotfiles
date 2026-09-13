@@ -155,10 +155,8 @@ Keep `--base-dir` stable across updates; see the upstream
 
 ## Software Updates and Cleanup
 
-On macOS, use the [shared Homebrew wrapper](bootstrap.md#shared-homebrew-updates)
-as the prefix owner and enroll
-[headless updates](software-updates.md#headless-devbox-updates) to run shared
-packages and per-user updates without a GUI login. On Linux, each user
+On macOS, enroll [headless updates](software-updates.md#headless-devbox-updates)
+as the Homebrew owner to update packages and tools without a GUI login. On Linux, each user
 enables the [systemd maintenance timer](software-updates.md#enable-and-use).
 
 Use [Host hygiene](software-updates.md#host-hygiene) to preview cleanup,

@@ -15,7 +15,6 @@ const profileNames = [
   "devbox",
   "developer",
   "personal-devbox",
-  "personal-solo-devbox",
   "personal-workstation",
   "workstation",
 ];
@@ -83,13 +82,12 @@ test("TypeScript rejects malformed, unsupported, missing, and wrong-type data", 
     string,
     unknown
   >;
-  delete capabilities.sharedHomebrew;
+  delete capabilities.devbox;
   assert.throws(() => parseProfileModel(JSON.stringify(missing)), /Missing key/);
 
   const wrongType = rawModel();
-  (
-    wrongType.profileModel.profiles.workstation.capabilities as Record<string, unknown>
-  ).sharedHomebrew = "yes";
+  (wrongType.profileModel.profiles.workstation.capabilities as Record<string, unknown>).devbox =
+    "yes";
   assert.throws(() => parseProfileModel(JSON.stringify(wrongType)), /Expected boolean/);
 
   const leftoverRuntimeGroup = rawModel();
@@ -150,14 +148,12 @@ test("chezmoi rejects unsupported, unknown, missing, and wrong-type data", () =>
   assert.notEqual(renderProfile("unknown").status, 0);
 
   const missing = rawModel();
-  delete (missing.profileModel.profiles.workstation.capabilities as Record<string, unknown>)
-    .sharedHomebrew;
+  delete (missing.profileModel.profiles.workstation.capabilities as Record<string, unknown>).devbox;
   assert.notEqual(renderProfile("workstation", missing.profileModel).status, 0);
 
   const wrongType = rawModel();
-  (
-    wrongType.profileModel.profiles.workstation.capabilities as Record<string, unknown>
-  ).sharedHomebrew = "yes";
+  (wrongType.profileModel.profiles.workstation.capabilities as Record<string, unknown>).devbox =
+    "yes";
   assert.notEqual(renderProfile("workstation", wrongType.profileModel).status, 0);
 
   const leftoverRuntimeGroup = rawModel();

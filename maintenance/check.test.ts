@@ -21,7 +21,6 @@ import type { MacOSUpdateIO } from "./darwin/macos-updates.ts";
 
 const profileConfig = {
   capabilities: {
-    sharedHomebrew: false,
     requiresSopsIdentity: false,
     devbox: false,
     workstation: true,
@@ -59,7 +58,7 @@ test("single-owner Darwin devboxes retain the service probe without shared Homeb
     {
       ...context(),
       platform: "darwin",
-      profile: "personal-solo-devbox",
+      profile: "personal-devbox",
       profileConfig: {
         ...profileConfig,
         skillLayers: [],

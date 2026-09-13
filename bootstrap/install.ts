@@ -12,7 +12,7 @@ import { readProfileModelEffect, requireProfile } from "../profiles/model.ts";
 const sourceRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const repoRoot = process.env.DOTFILES_INSTALL_REPO_ROOT || sourceRoot;
 const usage = `Usage:
-  bootstrap/install.ts --profile developer|devbox|workstation|personal-devbox|personal-solo-devbox|personal-workstation
+  bootstrap/install.ts --profile developer|devbox|workstation|personal-devbox|personal-workstation
   bootstrap/install.ts --print-steps --profile PROFILE
   bootstrap/install.ts --maintenance [--profile PROFILE]
 
@@ -157,7 +157,7 @@ const program = Effect.gen(function* () {
         new CliFailure({
           exitCode: 2,
           message:
-            "a supported profile is required: developer, devbox, workstation, personal-devbox, personal-solo-devbox, or personal-workstation",
+            "a supported profile is required: developer, devbox, workstation, personal-devbox, or personal-workstation",
         }),
     ),
   );

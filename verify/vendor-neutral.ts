@@ -92,7 +92,7 @@ function allowed(file: string, content: string): boolean {
       ]);
     case "verify/profiles.ts":
     case "homebrew/verify/layers.test.ts":
-    case "homebrew/verify/brew-devbox.ts":
+    case "homebrew/verify/brew-bundle.ts":
     case "homebrew/verify/external-homebrew.ts":
     case "chezmoi/.chezmoidata/profiles.json":
       return content.includes("uinaf/tap");

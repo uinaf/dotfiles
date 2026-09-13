@@ -45,7 +45,7 @@
         "maintenance/darwin/schedule.test.ts",
         "maintenance/darwin/devbox.test.ts"
       ],
-      "output": "Opt-in launchd update schedule and shared-prefix isolation",
+      "output": "Opt-in launchd update schedule and owner isolation",
       "platform": "darwin"
     },
     {
@@ -213,9 +213,9 @@
       "output": "Strict profile model parsing and chezmoi consumption"
     },
     {
-      "id": "brew-devbox",
+      "id": "brew-bundle",
       "domain": "profiles",
-      "command": ["homebrew/verify/brew-devbox.ts"],
+      "command": ["homebrew/verify/brew-bundle.ts"],
       "output": "Devbox Homebrew behavior",
       "platform": "darwin"
     },

@@ -8,7 +8,7 @@ import { CliFailure, fail, runMain } from "../lib/program.ts";
 import { normalizeProfile, profileModelFile, resolveProfile } from "../profiles/current.ts";
 import { readProfileModelEffect, requireProfile, type ProfileConfig } from "../profiles/model.ts";
 
-const usage = `usage: identity/configure-git.ts [--profile developer|devbox|workstation|personal-devbox|personal-solo-devbox|personal-workstation] [--non-interactive]
+const usage = `usage: identity/configure-git.ts [--profile developer|devbox|workstation|personal-devbox|personal-workstation] [--non-interactive]
 
 Personal and devbox/workstation profiles configure human
 identity.
@@ -102,7 +102,7 @@ const resolveSelectedProfile = Effect.fn("resolveConfigureGitProfile")(function*
     );
   }
   const selected = yield* prompt(
-    "Profile (personal-workstation/personal-devbox/personal-solo-devbox/workstation/devbox)",
+    "Profile (personal-workstation/personal-devbox/workstation/devbox)",
     "workstation",
     args.nonInteractive,
   );

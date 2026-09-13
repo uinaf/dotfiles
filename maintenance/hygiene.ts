@@ -428,9 +428,8 @@ const logCapBytes = 2 * 1024 * 1024;
 // descriptor and silently discard all later output. Because writers append,
 // the tail is written back through an O_APPEND descriptor too, so a concurrent
 // append that lands between our truncate and our write is interleaved rather
-// than overwritten (a positional write at offset 0 would clobber it; this is
-// real on the devbox, where one user's updater appends to homebrew-update.log
-// while another user's hygiene caps it). Residual caveat: lines appended
+// than overwritten (a positional write at offset 0 would clobber it).
+// Residual caveat: lines appended
 // between the tail read and the truncate are lost.
 export function capLogs(
   directory: string,

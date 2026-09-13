@@ -7,7 +7,7 @@ import { fail, runMain } from "../../lib/program.ts";
 import { normalizeProfile } from "../../profiles/current.ts";
 
 const usage = `Usage:
-  bootstrap/darwin/configure-power.ts [--profile developer|devbox|workstation|personal-devbox|personal-solo-devbox|personal-workstation] [--check]
+  bootstrap/darwin/configure-power.ts [--profile developer|devbox|workstation|personal-devbox|personal-workstation] [--check]
 
 Configures plugged-in macOS power policy for managed Macs:
   - disables system sleep on AC power

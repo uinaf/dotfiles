@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { CommandRunner, type CommandResult } from "../lib/command.ts";
-import { bundleCheckArgs, profileBrewfiles } from "../homebrew/homebrew.ts";
+import { profileBrewfiles } from "../homebrew/homebrew.ts";
 import { fail, runMain } from "../lib/program.ts";
 import { readPersistedProfile, resolveProfile } from "../profiles/current.ts";
 import { readProfileModelEffect, requireProfile } from "../profiles/model.ts";
@@ -27,7 +27,6 @@ const program = Effect.scoped(
       "devbox",
       "workstation",
       "personal-devbox",
-      "personal-solo-devbox",
       "personal-workstation",
     ] as const;
     assert.deepEqual(Object.keys(model.profiles).sort(), [...profiles].sort());
@@ -43,12 +42,7 @@ const program = Effect.scoped(
       assert.equal(requireProfile(model, profile).capabilities.requiresSopsIdentity, false);
     }
     assert.deepEqual(profileBrewfiles(model, "developer"), ["homebrew/Brewfile"]);
-    for (const profile of [
-      "personal-workstation",
-      "personal-devbox",
-      "personal-solo-devbox",
-      "devbox",
-    ]) {
+    for (const profile of ["personal-workstation", "personal-devbox", "devbox"]) {
       assert.equal(requireProfile(model, profile).capabilities.requiresSopsIdentity, true);
     }
     assert.deepEqual(profileBrewfiles(model, "devbox"), [
@@ -70,24 +64,6 @@ const program = Effect.scoped(
       "homebrew/Brewfile.personal",
       "homebrew/Brewfile.personal-workstation",
     ]);
-    for (const profile of ["personal-devbox", "devbox"]) {
-      assert.deepEqual(bundleCheckArgs(model, profile, "homebrew/Brewfile"), [
-        "bundle",
-        "check",
-        "--no-upgrade",
-        "--file",
-        "homebrew/Brewfile",
-      ]);
-    }
-    for (const profile of ["personal-workstation", "workstation", "personal-solo-devbox"]) {
-      assert.deepEqual(bundleCheckArgs(model, profile, "homebrew/Brewfile"), [
-        "bundle",
-        "check",
-        "--file",
-        "homebrew/Brewfile",
-      ]);
-    }
-
     for (const script of ["bootstrap/darwin/configure-power.ts", "verify/bootstrap.ts"]) {
       const result = yield* run(process.execPath, [
         join(repoRoot, script),

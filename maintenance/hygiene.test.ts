@@ -649,7 +649,7 @@ test("log capping rewrites the same inode at a line boundary and keeps append de
         (_, index) => `line ${String(index).padStart(4, "0")} of the update log`,
       ).join("\n") + "\n";
     writeFileSync(big, content);
-    writeFileSync(join(logs, "homebrew-update.log"), "short\n");
+    writeFileSync(join(logs, "worker.log"), "short\n");
     writeFileSync(join(logs, "notes.txt"), "x".repeat(cap * 2));
     symlinkSync(big, join(logs, "linked.log"));
     const before = statSync(big).ino;
@@ -669,7 +669,7 @@ test("log capping rewrites the same inode at a line boundary and keeps append de
     writeSync(appender, Buffer.from("appended after cap\n"));
     closeSync(appender);
     assert.ok(readFileSync(big, "utf8").endsWith("appended after cap\n"));
-    assert.equal(readFileSync(join(logs, "homebrew-update.log"), "utf8"), "short\n");
+    assert.equal(readFileSync(join(logs, "worker.log"), "utf8"), "short\n");
     assert.equal(statSync(join(logs, "notes.txt")).size, cap * 2);
     assert.deepEqual(capLogs(join(root, "missing")), []);
   } finally {
@@ -681,7 +681,7 @@ test("a concurrent append between truncate and the tail write is interleaved, no
   const root = realpathSync(mkdtempSync(join(tmpdir(), "hygiene-logs-")));
   try {
     const cap = 512;
-    const log = join(root, "homebrew-update.log");
+    const log = join(root, "worker.log");
     writeFileSync(
       log,
       Array.from({ length: 100 }, (_, index) => `line ${String(index).padStart(3, "0")}`).join(

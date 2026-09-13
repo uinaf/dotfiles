@@ -50,120 +50,6 @@ export const requirePrefixOwner = Effect.fn("requireHomebrewPrefixOwner")(functi
   );
 });
 
-export const repairSharedReadability = Effect.fn("repairHomebrewSharedReadability")(function* () {
-  const prefix = yield* requirePrefixOwner();
-  const uid = String(process.getuid?.());
-  const branches = [
-    "(",
-    "-type",
-    "d",
-    "(",
-    "!",
-    "-perm",
-    "-0050",
-    "-o",
-    "-perm",
-    "-0020",
-    ")",
-    "-exec",
-    "chmod",
-    "g+rX,g-w",
-    "{}",
-    "+",
-    ")",
-    "-o",
-    "(",
-    "-type",
-    "f",
-    "(",
-    "!",
-    "-perm",
-    "-0040",
-    "-o",
-    "-perm",
-    "-0020",
-    ")",
-    "-exec",
-    "chmod",
-    "g+r,g-w",
-    "{}",
-    "+",
-    ")",
-  ];
-  if (process.platform === "darwin") {
-    branches.push(
-      "-o",
-      "(",
-      "-type",
-      "l",
-      "(",
-      "!",
-      "-perm",
-      "-0050",
-      "-o",
-      "-perm",
-      "-0020",
-      ")",
-      "-exec",
-      "chmod",
-      "-h",
-      "g+rX,g-w",
-      "{}",
-      "+",
-      ")",
-    );
-  }
-  yield* run("find", [prefix, "-xdev", "-uid", uid, "(", ...branches, ")"]);
-  // Executable files also need group execute after the general file repair.
-  yield* run("find", [
-    prefix,
-    "-xdev",
-    "-type",
-    "f",
-    "-uid",
-    uid,
-    "-perm",
-    "-0100",
-    "!",
-    "-perm",
-    "-0010",
-    "-exec",
-    "chmod",
-    "g+x",
-    "{}",
-    "+",
-  ]);
-});
-
-export const verifyPrefixPermissions = Effect.fn("verifyHomebrewPrefixPermissions")(function* () {
-  const fs = yield* FileSystem.FileSystem;
-  const prefix = yield* homebrewPrefix();
-  const info = yield* fs.stat(prefix).pipe(Effect.option);
-  if (Option.isNone(info) || info.value.type !== "Directory")
-    return yield* fail(`Homebrew prefix does not exist: ${prefix}`);
-  const ownerUid = String(Option.getOrUndefined(info.value.uid));
-  const foreign = yield* run("find", [prefix, "-xdev", "!", "-uid", ownerUid, "-print", "-quit"]);
-  if (foreign.stdout.trim())
-    return yield* fail(
-      `Homebrew prefix contains content not owned by uid ${ownerUid}: ${foreign.stdout.trim()}`,
-    );
-  const writable = yield* run("find", [
-    prefix,
-    "-xdev",
-    "!",
-    "-type",
-    "l",
-    "-perm",
-    "-0020",
-    "-print",
-    "-quit",
-  ]);
-  if (writable.stdout.trim())
-    return yield* fail(
-      `Homebrew prefix contains group-writable content: ${writable.stdout.trim()}`,
-    );
-});
-
 export function profileBrewfiles(model: ProfileModel, profile: string): readonly string[] {
   return requireProfile(model, profile).brewfiles;
 }
@@ -208,17 +94,6 @@ export const withLocalBrewfile = Effect.fn("withLocalBrewfile")(function* (
   return Option.isSome(local) ? [...files, local.value] : files;
 });
 
-export function bundleCheckArgs(
-  model: ProfileModel,
-  profile: string,
-  file: string,
-): readonly string[] {
-  const installedOnly = requireProfile(model, profile).capabilities.sharedHomebrew
-    ? ["--no-upgrade"]
-    : [];
-  return ["bundle", "check", ...installedOnly, "--file", file];
-}
-
 export const composeBrewfile = Effect.fn("composeBrewfile")(function* (
   repoRoot: string,
   files: readonly string[],
@@ -248,16 +123,6 @@ export const removeComposedBrewfile = Effect.fn("removeComposedBrewfile")(functi
   }
 });
 
-export function cleanupFiles(model: ProfileModel, profile: string): readonly string[] {
-  if (!requireProfile(model, profile).capabilities.sharedHomebrew)
-    return profileBrewfiles(model, profile);
-  return profileBrewfiles(model, "personal-devbox");
-}
-
-export function cleanupProfile(model: ProfileModel, profile: string): string {
-  return requireProfile(model, profile).capabilities.sharedHomebrew ? "personal-devbox" : profile;
-}
-
 export const bundleDrift = Effect.fn("homebrewBundleDrift")(function* (
   repoRoot: string,
   model: ProfileModel,
@@ -265,11 +130,11 @@ export const bundleDrift = Effect.fn("homebrewBundleDrift")(function* (
 ) {
   const composed = yield* composeBrewfile(
     repoRoot,
-    yield* withLocalBrewfile(repoRoot, cleanupFiles(model, profile)),
+    yield* withLocalBrewfile(repoRoot, profileBrewfiles(model, profile)),
   );
   const result = yield* runRaw("brew", ["bundle", "cleanup", "--file", composed], {
     env: {
-      HOMEBREW_BUNDLE_DOTFILES_PROFILE: cleanupProfile(model, profile),
+      HOMEBREW_BUNDLE_DOTFILES_PROFILE: profile,
       HOMEBREW_NO_AUTO_UPDATE: "1",
     },
   }).pipe(Effect.ensuring(removeComposedBrewfile(repoRoot, composed).pipe(Effect.orDie)));

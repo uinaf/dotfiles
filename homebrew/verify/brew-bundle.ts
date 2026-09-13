@@ -13,7 +13,7 @@ const program = Effect.scoped(
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const runner = yield* CommandRunner;
-    const temporary = yield* fs.makeTempDirectoryScoped({ prefix: "dotfiles-brew-devbox." });
+    const temporary = yield* fs.makeTempDirectoryScoped({ prefix: "dotfiles-brew-bundle." });
     const bin = join(temporary, "bin");
     const prefix = join(temporary, "prefix");
     const external = join(temporary, "external-homebrew.plist");
@@ -57,89 +57,9 @@ exit "\${FAKE_BREW_EXIT:-0}"
           ...extra,
         },
       });
-    const repairDirectory = join(prefix, "private-directory");
-    const repairFile = join(prefix, "private-file");
-    const repairExecutable = join(prefix, "private-executable");
-    const otherExecutable = join(prefix, "other-executable");
-    const repairLink = join(prefix, "private-link");
-    yield* fs.makeDirectory(repairDirectory, { mode: 0o700 });
-    yield* fs.writeFileString(repairFile, "fixture", { mode: 0o600 });
-    yield* fs.writeFileString(repairExecutable, "fixture", { mode: 0o700 });
-    yield* fs.writeFileString(otherExecutable, "fixture", { mode: 0o601 });
-    yield* fs.symlink(repairFile, repairLink);
-    const repairResult = yield* execute(
-      "homebrew/brew-devbox.ts",
-      ["--repair-shared-readability"],
-      join(temporary, "repair.log"),
-    );
-    assert.equal(repairResult.status, 0, repairResult.stderr);
-    for (const [path, mode] of [
-      [repairDirectory, 0o750],
-      [repairFile, 0o640],
-      [repairExecutable, 0o750],
-      [otherExecutable, 0o641],
-    ] as const) {
-      assert.equal((yield* fs.stat(path)).mode & 0o777, mode);
-    }
-    assert.equal(yield* fs.readLink(repairLink), repairFile);
     const directLog = join(temporary, "direct.log");
-    const output = join(temporary, "output");
-    yield* fs.writeFileString(directLog, "");
-    yield* fs.makeDirectory(output);
-    const direct = yield* execute(
-      "homebrew/brew-devbox.ts",
-      ["upgrade", "lima", "usage"],
-      directLog,
-      { FAKE_BREW_OUTPUT_DIR: output },
-    );
-    assert.equal(direct.status, 0, direct.stderr);
-    const log = yield* fs.readFileString(directLog);
-    assert.match(log, /^umask=0027$/m);
-    assert.match(log, /^arg=upgrade$/m);
-    assert.match(log, /^arg=lima$/m);
-    assert.equal((yield* fs.stat(join(output, "directory"))).mode & 0o777, 0o750);
-    assert.equal((yield* fs.stat(join(output, "file"))).mode & 0o777, 0o640);
-    assert.equal((yield* fs.stat(join(output, "executable"))).mode & 0o777, 0o751);
-    const writable = join(prefix, "group-writable");
-    yield* fs.makeDirectory(writable, { mode: 0o770 });
-    yield* fs.chmod(writable, 0o770);
-    const refused = yield* execute("homebrew/brew-devbox.ts", ["upgrade", "unsafe"], directLog);
-    assert.equal(refused.status, 1);
-    assert.match(refused.stderr, /Homebrew prefix contains group-writable content/);
-    yield* fs.chmod(writable, 0o750);
-    const failed = yield* execute("homebrew/brew-devbox.ts", ["failure-path"], directLog, {
-      FAKE_BREW_EXIT: "37",
-    });
-    assert.equal(failed.status, 37);
-
-    const updateLog = join(temporary, "update.log");
-    const updated = yield* execute("homebrew/brew-devbox.ts", ["--update-software"], updateLog);
-    assert.equal(updated.status, 0, updated.stderr);
-    const updateArgs = (yield* fs.readFileString(updateLog))
-      .split("\n")
-      .filter((line) => line.startsWith("arg="));
-    assert.deepEqual(updateArgs, [
-      "arg=developer",
-      "arg=off",
-      "arg=update",
-      "arg=upgrade",
-      "arg=--greedy",
-      "arg=--no-ask",
-    ]);
-    yield* fs.writeFileString(updateLog, "");
-    const refreshFailed = yield* execute(
-      "homebrew/brew-devbox.ts",
-      ["--update-software"],
-      updateLog,
-      { FAKE_BREW_EXIT: "37" },
-    );
-    assert.equal(refreshFailed.status, 37);
-    assert.doesNotMatch(yield* fs.readFileString(updateLog), /^arg=upgrade$/m);
-    assert.equal(
-      (yield* execute("homebrew/brew-devbox.ts", ["--update-software", "extra"], updateLog)).status,
-      2,
-    );
-
+    const privateFile = join(prefix, "private-file");
+    yield* fs.writeFileString(privateFile, "fixture", { mode: 0o600 });
     const bundle = Effect.fn("runBrewBundleFixture")(function* (
       profile: string,
       args: readonly string[] = [],
@@ -158,6 +78,7 @@ exit "\${FAKE_BREW_EXIT:-0}"
     for (const file of ["homebrew/Brewfile", "homebrew/Brewfile.devbox"])
       assert.ok(devbox.includes(`arg=${join(repoRoot, file)}`));
     const personal = yield* bundle("personal-devbox");
+    assert.equal((yield* fs.stat(privateFile)).mode & 0o777, 0o600);
     assert.ok(personal.includes("arg=uinaf/tap\n"));
     assert.ok((yield* bundle("personal-workstation")).includes("arg=uinaf/tap\n"));
     assert.equal((personal.match(/^arg=bundle$/gm) || []).length, 3);
@@ -184,24 +105,18 @@ exit "\${FAKE_BREW_EXIT:-0}"
     const missingCommands = yield* fs.readFileString(missingLog);
     assert.equal((missingCommands.match(/^arg=--no-upgrade$/gm) || []).length, 4);
     assert.equal((missingCommands.match(/^arg=check$/gm) || []).length, 2);
-    assert.match(missingCommands, /^umask=0027$/m);
-    if (process.getuid?.() !== 0) {
-      const consumerLog = join(temporary, "consumer.log");
-      const consumer = yield* execute(
-        "homebrew/brew-bundle.ts",
-        ["--maintenance", "devbox"],
-        consumerLog,
-        { FAKE_BREW_PREFIX: "/" },
-      );
-      assert.equal(consumer.status, 0, consumer.stderr);
-      const commands = yield* fs.readFileString(consumerLog);
-      assert.equal((commands.match(/^arg=check$/gm) || []).length, 2);
-      assert.doesNotMatch(commands, /^arg=(trust|upgrade|install)$/m);
-    }
+    const failedInstall = yield* execute(
+      "homebrew/brew-bundle.ts",
+      ["--maintenance", "personal-devbox"],
+      join(temporary, "failed-install.log"),
+      { FAKE_BREW_CHECK_EXIT: "1", FAKE_BREW_EXIT: "19" },
+    );
+    assert.notEqual(failedInstall.status, 0);
+    assert.match(failedInstall.stderr, /exited 19/);
     const cleanup = yield* bundle("devbox", ["--cleanup"]);
     assert.match(cleanup, /^arg=cleanup$/m);
     assert.match(cleanup, /^arg=--force$/m);
-    assert.match(cleanup, /^cleanup_entry=brew "pi-coding-agent"$/m);
+    assert.doesNotMatch(cleanup, /^cleanup_entry=brew "pi-coding-agent"$/m);
     assert.equal((yield* fs.glob("Brewfile.composed.*", { root: repoRoot })).length, 0);
     assert.equal(
       (yield* execute(
@@ -255,7 +170,7 @@ exit "\${FAKE_BREW_EXIT:-0}"
     assert.ok(localMaintenance.log.includes(`arg=${local}`));
     const localCleanup = yield* withLocal("devbox", ["--cleanup"]);
     assert.equal(localCleanup.result.status, 0, localCleanup.result.stderr);
-    assert.match(localCleanup.log, /^cleanup_entry=brew "pi-coding-agent"$/m);
+    assert.doesNotMatch(localCleanup.log, /^cleanup_entry=brew "pi-coding-agent"$/m);
     assert.match(localCleanup.log, /^cleanup_entry=brew "local-tool"$/m);
     assert.match(localCleanup.log, /^cleanup_entry=cask "local-app"$/m);
     assert.equal((yield* fs.glob("Brewfile.composed.*", { root: repoRoot })).length, 0);
@@ -280,7 +195,7 @@ exit "\${FAKE_BREW_EXIT:-0}"
     assert.equal(directory.result.status, 1);
     assert.match(directory.result.stderr, /invalid local Brewfile: .* must be a regular file/);
     yield* Console.log(
-      "ok shared Homebrew mutations require the prefix owner and verification stays read-only",
+      "ok Homebrew bundles preserve profile boundaries, local declarations, and maintenance failures",
     );
   }).pipe(
     Effect.catchCause((cause) => fail(Cause.pretty(cause))),

@@ -363,13 +363,7 @@ test("rendered profiles keep updater scope, scheduling, and paths valid", async 
     // Spaces and XML metacharacters must survive launchd's argument boundary.
     const home = join(root, "home & space");
     await mkdir(home);
-    for (const profile of [
-      "workstation",
-      "personal-workstation",
-      "devbox",
-      "personal-devbox",
-      "personal-solo-devbox",
-    ]) {
+    for (const profile of ["workstation", "personal-workstation", "devbox", "personal-devbox"]) {
       const render = (target: string) => {
         const result = spawnSync(
           "chezmoi",
@@ -429,14 +423,15 @@ test("rendered profiles keep updater scope, scheduling, and paths valid", async 
         "installed user harnesses must be available to scheduled agent sync",
       );
       const config = render(".config/topgrade.toml");
+      assert.ok(config.includes('"Stable Homebrew" = "brew developer off"'));
       const selection = config.split("\n").find((line) => line.startsWith("only = "));
       assert.ok(selection);
-      assert.deepEqual(
-        JSON.parse(selection.slice("only = ".length)),
-        ["devbox", "personal-devbox"].includes(profile)
-          ? ["github_cli_extensions", "custom_commands"]
-          : ["brew_formula", "brew_cask", "github_cli_extensions", "custom_commands"],
-      );
+      assert.deepEqual(JSON.parse(selection.slice("only = ".length)), [
+        "brew_formula",
+        "brew_cask",
+        "github_cli_extensions",
+        "custom_commands",
+      ]);
       assert.ok(
         !config.includes("t3-server"),
         "the updater must not push T3 Code to other hosts; T3 Code manages its own server updates",

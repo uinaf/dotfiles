@@ -2,7 +2,6 @@ import { Effect, FileSystem, Schema } from "effect";
 import { readFileSync } from "node:fs";
 
 const Capabilities = Schema.Struct({
-  sharedHomebrew: Schema.Boolean,
   requiresSopsIdentity: Schema.Boolean,
   devbox: Schema.Boolean,
   workstation: Schema.Boolean,

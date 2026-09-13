@@ -24,7 +24,7 @@ function pruneLogs(directory: string, now = Date.now()): void {
   const cutoff = new Date(now - 6 * day).toISOString().slice(0, 10);
   for (const name of readdirSync(directory)) {
     const date =
-      /^(?:software-update|homebrew-update|hygiene)(?:-history)?-(\d{4}-\d{2}-\d{2})(?:T[\d.-]+Z)?\.log$/.exec(
+      /^(?:software-update|hygiene)(?:-history)?-(\d{4}-\d{2}-\d{2})(?:T[\d.-]+Z)?\.log$/.exec(
         name,
       )?.[1];
     const path = join(directory, name);
@@ -34,7 +34,7 @@ function pruneLogs(directory: string, now = Date.now()): void {
 
 export function dailyLog(
   home: string,
-  name: "software-update-history" | "homebrew-update-history" | "hygiene",
+  name: "software-update-history" | "hygiene",
   now = Date.now(),
 ): string {
   const directory = logDirectory(home);
@@ -42,11 +42,7 @@ export function dailyLog(
   return join(directory, `${name}-${new Date(now).toISOString().slice(0, 10)}.log`);
 }
 
-export function rotateUpdateLog(
-  home: string,
-  job: "software-update" | "homebrew-update",
-  now = Date.now(),
-): void {
+export function rotateUpdateLog(home: string, job: "software-update", now = Date.now()): void {
   const directory = logDirectory(home);
   const path = join(directory, `${job}.log`);
   if (existsSync(path)) {

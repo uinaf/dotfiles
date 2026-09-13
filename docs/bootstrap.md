@@ -66,9 +66,7 @@ cd ~/projects/dotfiles
 export PATH="$(mise --no-config where node@"$(cat .node-version)")/bin:$PATH"
 ```
 
-On a shared devbox, run the initial `brew install` as the prefix owner inside
-`(umask 0027; brew install git mise)`. Use the [shared wrapper](#shared-homebrew-updates)
-for subsequent mutations.
+Run Homebrew commands as the user who owns its prefix.
 
 `prepare` installs the pinned Node runtime and locked repository dependencies.
 
@@ -180,20 +178,9 @@ For workstations, also run `mise run audit workstation`. For devbox profiles:
 mise run audit devbox
 ```
 
-## Shared Homebrew Updates
+## Homebrew Updates
 
-On a shared Mac, the prefix owner must use the wrapper for shared-devbox
-mutations:
-
-```zsh
-./homebrew/brew-devbox.ts upgrade
-./homebrew/brew-devbox.ts upgrade --cask
-./homebrew/brew-devbox.ts --update-software
-```
-
-It confines the owner-write/group-read umask to Homebrew, repairs owner-owned
-content after attempted mutations, and refuses foreign-owned or group-writable
-prefix content. The devbox bundle command uses it internally.
+Homebrew manages packages directly for the Mac's owner.
 
 Enroll [headless updates](software-updates.md#headless-devbox-updates) for
 scheduled execution without a GUI session.
@@ -221,14 +208,13 @@ For package-only refreshes, use
 
 ## Troubleshooting
 
-| Failure                                                                    | Recovery                                                                                                                                                                                                                                                              |
-| -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Missing Homebrew packages                                                  | Rerun `brew-bundle.ts` with the selected profile.                                                                                                                                                                                                                     |
-| Missing `chezmoi` or another mise tool                                     | Rerun `./dotfiles apply`; the first apply borrows the pinned `chezmoi` through `mise x` and `install-runtimes` installs the rest.                                                                                                                                     |
-| A systemd user service cannot find `codex`, `claude`, or another mise tool | Rerun `./dotfiles apply`, which hands the user manager the shim `PATH`, then restart the service.                                                                                                                                                                     |
-| Homebrew drift                                                             | Keep intentional machine-specific packages in a [local Brewfile](profiles.md#local-homebrew-additions), then review and run `./homebrew/brew-bundle.ts --cleanup <profile>`. This removes undeclared packages; shared devboxes use the personal-devbox package union. |
-| Shared prefix permissions                                                  | Run `./homebrew/brew-devbox.ts --repair-shared-readability` as the prefix owner. Foreign-owned content needs an administrator to correct ownership.                                                                                                                   |
-| Git dubious ownership under `/opt/homebrew`                                | Rerun `configure-git.ts` with the selected profile.                                                                                                                                                                                                                   |
-| GitHub SSH authentication                                                  | Check the local key and rerun [Git configuration](identities.md#developer-git-and-ssh).                                                                                                                                                                               |
-| Secret access over SSH                                                     | Check the deployment recipient and encrypted repository policy in [Identity provisioning](identities.md).                                                                                                                                                             |
-| Gatekeeper blocks a Cursor Agent `.node` module                            | Remove the Homebrew `cursor-cli` cask and run `./bootstrap/install-cursor-agent.ts` for the per-user vendor installation.                                                                                                                                             |
+| Failure                                                                    | Recovery                                                                                                                                                                                                                                            |
+| -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Missing Homebrew packages                                                  | Rerun `brew-bundle.ts` with the selected profile.                                                                                                                                                                                                   |
+| Missing `chezmoi` or another mise tool                                     | Rerun `./dotfiles apply`; the first apply borrows the pinned `chezmoi` through `mise x` and `install-runtimes` installs the rest.                                                                                                                   |
+| A systemd user service cannot find `codex`, `claude`, or another mise tool | Rerun `./dotfiles apply`, which hands the user manager the shim `PATH`, then restart the service.                                                                                                                                                   |
+| Homebrew drift                                                             | Keep intentional machine-specific packages in a [local Brewfile](profiles.md#local-homebrew-additions), then review and run `./homebrew/brew-bundle.ts --cleanup <profile>`. This removes packages outside the selected profile and local Brewfile. |
+| Git dubious ownership under `/opt/homebrew`                                | Rerun `configure-git.ts` with the selected profile.                                                                                                                                                                                                 |
+| GitHub SSH authentication                                                  | Check the local key and rerun [Git configuration](identities.md#developer-git-and-ssh).                                                                                                                                                             |
+| Secret access over SSH                                                     | Check the deployment recipient and encrypted repository policy in [Identity provisioning](identities.md).                                                                                                                                           |
+| Gatekeeper blocks a Cursor Agent `.node` module                            | Remove the Homebrew `cursor-cli` cask and run `./bootstrap/install-cursor-agent.ts` for the per-user vendor installation.                                                                                                                           |

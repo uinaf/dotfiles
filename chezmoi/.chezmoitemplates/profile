@@ -24,10 +24,10 @@
 {{- end -}}
 {{- end -}}
 {{- end -}}
-{{- if or (not (kindIs "map" $candidate.capabilities)) (ne (len $candidate.capabilities) 5) -}}
+{{- if or (not (kindIs "map" $candidate.capabilities)) (ne (len $candidate.capabilities) 4) -}}
 {{- fail (printf "profile %s capabilities have an invalid shape" $name) -}}
 {{- end -}}
-{{- range $capability := list "sharedHomebrew" "requiresSopsIdentity" "devbox" "workstation" "personal" -}}
+{{- range $capability := list "requiresSopsIdentity" "devbox" "workstation" "personal" -}}
 {{- if or (not (hasKey $candidate.capabilities $capability)) (not (kindIs "bool" (index $candidate.capabilities $capability))) -}}
 {{- fail (printf "profile %s capability %s must be boolean" $name $capability) -}}
 {{- end -}}

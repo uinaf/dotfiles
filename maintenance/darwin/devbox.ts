@@ -12,7 +12,6 @@ type UpdateOptions = {
   node: string;
   repository: string;
   namespace: string;
-  homebrew: boolean;
   check: boolean;
 };
 
@@ -22,7 +21,7 @@ function miseData(home: string): string {
   return join(home, ".local/share/mise");
 }
 
-export function updateJobs(options: UpdateOptions, prefix: string, sharedHomebrew: boolean) {
+export function updateJobs(options: UpdateOptions, prefix: string) {
   const { target, repository, namespace, node } = options;
   const logDirectory = join(target.home, "Library/Logs/dotfiles");
   const environment = {
@@ -38,24 +37,16 @@ export function updateJobs(options: UpdateOptions, prefix: string, sharedHomebre
     NO_COLOR: "1",
   };
   const definitions = [
-    ...(options.homebrew
-      ? [
-          {
-            service: "homebrew-update",
-            minute: 0,
-            args: [node, join(repository, "homebrew/brew-devbox.ts"), "--update-software"],
-          },
-        ]
-      : []),
     {
       service: "software-update",
-      minute: 5 * (1 + (target.uid % 10)),
+      minute: 0,
       args: [
         join(miseData(target.home), "shims/topgrade"),
         "--config",
         join(target.home, ".config/topgrade.toml"),
         "--only",
-        ...(!sharedHomebrew ? ["brew_formula", "brew_cask"] : []),
+        "brew_formula",
+        "brew_cask",
         "github_cli_extensions",
         "custom_commands",
         "--no-tmux",
@@ -125,11 +116,7 @@ export const installUpdateJobs = Effect.fn("installUpdateJobs")(function* (optio
   const model = yield* readProfileModelEffect(profileModelFile());
   const { capabilities } = requireProfile(model, profile);
   if (!capabilities.devbox) return yield* fail("system updates require a devbox profile");
-  if (!capabilities.sharedHomebrew && options.homebrew)
-    return yield* fail(
-      "single-owner profiles include Homebrew in software updates; omit --homebrew-updates",
-    );
-  if (!capabilities.sharedHomebrew) {
+  {
     const label = launchdLabel("homebrew-update", target.user, options.namespace);
     const oldPlist = `/Library/LaunchDaemons/${label}.plist`;
     const loaded = yield* runCommand("/bin/launchctl", ["print", `system/${label}`]);
@@ -139,15 +126,10 @@ export const installUpdateJobs = Effect.fn("installUpdateJobs")(function* (optio
       );
   }
   yield* ownerFile(join(home, ".config/topgrade.toml"), target.uid);
-  if (capabilities.sharedHomebrew)
-    yield* ownerFile(join(repo, "homebrew/brew-devbox.ts"), target.uid);
   yield* runChecked("/usr/bin/sudo", ["-u", target.user, "-H", node, "--version"], { cwd: home });
   const brew = process.arch === "arm64" ? "/opt/homebrew/bin/brew" : "/usr/local/bin/brew";
   const prefix = (yield* runChecked(brew, ["--prefix"])).stdout.trim();
-  if (
-    (options.homebrew || !capabilities.sharedHomebrew) &&
-    Option.getOrUndefined((yield* fs.stat(prefix)).uid) !== target.uid
-  ) {
+  if (Option.getOrUndefined((yield* fs.stat(prefix)).uid) !== target.uid) {
     return yield* fail("only the Homebrew prefix owner can enroll Homebrew updates");
   }
   yield* runChecked(
@@ -160,7 +142,7 @@ export const installUpdateJobs = Effect.fn("installUpdateJobs")(function* (optio
   if (gui.status === 0)
     return yield* fail(`disable the GUI updater before enrolling system updates: ${guiService}`);
 
-  const jobs = updateJobs(options, prefix, capabilities.sharedHomebrew);
+  const jobs = updateJobs(options, prefix);
   // Preflight every job before changing any plist or launchd state.
   const states = yield* Effect.forEach(
     jobs,
