@@ -1,5 +1,5 @@
 import { NodeRuntime } from "@effect/platform-node";
-import { Effect, Schema } from "effect";
+import { Cause, Effect, Schema } from "effect";
 
 export class CliFailure extends Schema.TaggedError<CliFailure>()("CliFailure", {
   exitCode: Schema.Int,
@@ -11,15 +11,25 @@ export const fail = (message: string, exitCode = 1): Effect.Effect<never, CliFai
 
 export function runMain(program: Effect.Effect<void, unknown>): void {
   program.pipe(
-    Effect.catch((error) =>
-      Effect.sync(() => {
-        const failure = Schema.is(CliFailure)(error)
-          ? error
-          : new CliFailure({ exitCode: 1, message: error instanceof Error ? error.message : String(error) });
+    Effect.catchCause((cause) => {
+      if (Cause.hasInterruptsOnly(cause)) return Effect.failCause(cause);
+      return Effect.sync(() => {
+        const error = cause.reasons.find(Cause.isFailReason)?.error;
+        const failure =
+          !Cause.hasDies(cause) && Schema.is(CliFailure)(error)
+            ? error
+            : new CliFailure({
+                exitCode: 1,
+                message: Cause.hasDies(cause)
+                  ? Cause.pretty(cause)
+                  : error instanceof Error
+                    ? error.message
+                    : String(error),
+              });
         process.stderr.write(`FAILED: ${failure.message}\n`);
         process.exitCode = failure.exitCode;
-      }),
-    ),
+      });
+    }),
     NodeRuntime.runMain({ disableErrorReporting: true }),
   );
 }

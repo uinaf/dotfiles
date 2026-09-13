@@ -1,18 +1,17 @@
 # Mobile and TV Development
 
-- [Bootstrap](bootstrap.md) on macOS: Xcode utilities, Watchman, and Android
-  command-line tools through Homebrew. A Linux user installs the Android SDK
-  under `~/Android/Sdk`.
-- Full Xcode follows the [declared release pin](../chezmoi/.chezmoidata/xcode.json).
-  Simulator runtimes, SDK packages, and first-run GUI setup stay manual.
-- Android SDK packages and emulator images stay manual through `sdkmanager`.
-- Shared mise provides Java and Ruby; projects can override those versions.
-- Keep CocoaPods and Fastlane in the application's `Gemfile`.
+Start with [bootstrap](bootstrap.md). The [Homebrew manifests](../homebrew/)
+and [mise templates](../chezmoi/.chezmoitemplates/) own the shared toolchain;
+projects can override runtime versions.
+
+Simulator runtimes, Android SDK packages, emulator images, and first-run GUI
+setup stay manual. Keep CocoaPods and Fastlane in the application’s `Gemfile`.
 
 ## Xcode and tvOS Simulator
 
-Install and select the pinned release as the Homebrew prefix owner. This is
-on-demand: the six-hour updater does not download Xcode.
+Install and select the [pinned release](../chezmoi/.chezmoidata/xcode.json) as
+the Homebrew prefix owner. Xcode downloads are on demand; the scheduled
+updater does not download Xcode.
 
 ```zsh
 mise run xcode:install
@@ -21,17 +20,15 @@ xcodebuild -downloadPlatform tvOS
 xcrun simctl list devicetypes | rg 'Apple TV'
 ```
 
-`xcode:install` uses `xcodes` and installs only the numbered stable release in
-the pin. Betas and Release Candidates do not count. `xcodes` needs an Apple
-Developer login in that terminal (including 2FA) for the download. Simulator
-runtimes are a multi-GB download. Run the application's build after
-installation to verify its selected Xcode/runtime combination.
+`xcodes` needs an Apple Developer login in that terminal, including 2FA,
+for the download. Simulator runtimes are a multi-GB download. Run the
+application’s build afterward to verify its Xcode/runtime combination.
 
 ## Android TV
 
-On macOS the shared Homebrew layer installs Android command-line tools, not
-the IDE. Accept licenses, then install packages for the app's API level and
-host architecture:
+On Linux, install the Android SDK under `~/Android/Sdk` before continuing.
+Accept licenses, then choose packages for the app’s API level and host
+architecture. This example creates an ARM64 Android TV emulator:
 
 ```zsh
 print -r -- "$ANDROID_HOME"
@@ -41,8 +38,8 @@ sdkmanager 'system-images;android-34;android-tv;arm64-v8a'
 avdmanager create avd -n android-tv -k 'system-images;android-34;android-tv;arm64-v8a'
 ```
 
-The shell sets `ANDROID_HOME` to `~/Library/Android/sdk` when present, then
-`~/Android/Sdk`, then `/opt/homebrew/share/android-commandlinetools`. Verify:
+The [shell template](../chezmoi/dot_zshrc.tmpl) selects `ANDROID_HOME` from
+the installed SDK paths. Verify:
 
 ```zsh
 adb --version
@@ -72,13 +69,12 @@ bundle exec pod install
 
 Keep certificates, profiles, archives, and device keys out of Git.
 
-| Operation | Helper |
-| --- | --- |
-| Install and verify CLI tools | `./bootstrap/darwin/tizen/install.ts` |
-| Archive certificates (`--full` includes SDK state) | `./bootstrap/darwin/tizen/pack.ts` |
-| Restore an archive | `./bootstrap/darwin/tizen/restore.ts /path/to/archive.tar.gz` |
-| Restore a recovery attachment | `./bootstrap/darwin/tizen/restore-from-1password.ts` |
+| Operation                                          | Helper                                                                           |
+| -------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Install and verify CLI tools                       | [install.ts](../bootstrap/darwin/tizen/install.ts)                               |
+| Archive certificates (`--full` includes SDK state) | [pack.ts](../bootstrap/darwin/tizen/pack.ts)                                     |
+| Restore an archive                                 | [restore.ts](../bootstrap/darwin/tizen/restore.ts) `/path/to/archive.tar.gz`     |
+| Restore a recovery attachment                      | [restore-from-1password.ts](../bootstrap/darwin/tizen/restore-from-1password.ts) |
 
 - The 1Password helper requires `TIZEN_1PASSWORD_REFERENCE` from the operator.
-- Installation verifies `tizen`, `sdb`, and package-manager info.
 - Use `--show-pkgs` only when needed: Samsung's catalog download can hang.

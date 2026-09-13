@@ -1,9 +1,17 @@
 import { NodeServices } from "@effect/platform-node";
 import assert from "node:assert/strict";
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import test from "node:test";
+import { test } from "vite-plus/test";
 import { Effect, Fiber, FileSystem } from "effect";
 import { TestClock } from "effect/testing";
 import { CommandRunner } from "../lib/command.ts";
@@ -34,17 +42,20 @@ function createFixture(
   return { cache, root };
 }
 
-function run<A>(effect: Effect.Effect<A, unknown, FileSystem.FileSystem | CommandRunner>): Promise<A> {
-  return Effect.runPromise(effect.pipe(
-    Effect.provide(CommandRunner.layer),
-    Effect.provide(NodeServices.layer),
-  ));
+function run<A>(
+  effect: Effect.Effect<A, unknown, FileSystem.FileSystem | CommandRunner>,
+): Promise<A> {
+  return Effect.runPromise(
+    effect.pipe(Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer)),
+  );
 }
 
 async function captureWarnings<A>(action: (warnings: string[]) => Promise<A>): Promise<A> {
   const warnings: string[] = [];
   const originalWarn = console.warn;
-  console.warn = (...values: unknown[]) => { warnings.push(values.map(String).join(" ")); };
+  console.warn = (...values: unknown[]) => {
+    warnings.push(values.map(String).join(" "));
+  };
   try {
     return await action(warnings);
   } finally {
@@ -53,10 +64,14 @@ async function captureWarnings<A>(action: (warnings: string[]) => Promise<A>): P
 }
 
 test("parses a strict ordered HTTPS source config", async () => {
-  const parsed = await Effect.runPromise(parseRuleSourceConfig(JSON.stringify({
-    version: 1,
-    sources: ["https://rules.example.test/first.md", "https://rules.example.test/second.md"],
-  })));
+  const parsed = await Effect.runPromise(
+    parseRuleSourceConfig(
+      JSON.stringify({
+        version: 1,
+        sources: ["https://rules.example.test/first.md", "https://rules.example.test/second.md"],
+      }),
+    ),
+  );
   assert.deepEqual(parsed.sources, [
     "https://rules.example.test/first.md",
     "https://rules.example.test/second.md",
@@ -66,23 +81,29 @@ test("parses a strict ordered HTTPS source config", async () => {
     /sources|extra/,
   );
   await assert.rejects(
-    Effect.runPromise(parseRuleSourceConfig('{"version":1,"sources":["http:\/\/rules.example.test"]}')),
+    Effect.runPromise(
+      parseRuleSourceConfig('{"version":1,"sources":["http://rules.example.test"]}'),
+    ),
     /sources/,
   );
 });
 
 test("composes normalized source fragments in configured order", async () => {
-  const contents = await Effect.runPromise(composeRuleSources([
-    { source: "first", contents: "\r\n## General guidelines\r\n\r\nFirst.\r\n" },
-    { source: "second", contents: "\n### Delivery\n\nSecond.\n\n" },
-  ]));
+  const contents = await Effect.runPromise(
+    composeRuleSources([
+      { source: "first", contents: "\r\n## General guidelines\r\n\r\nFirst.\r\n" },
+      { source: "second", contents: "\n### Delivery\n\nSecond.\n\n" },
+    ]),
+  );
   assert.equal(contents, "## General guidelines\n\nFirst.\n\n### Delivery\n\nSecond.\n");
   await assert.rejects(
     Effect.runPromise(composeRuleSources([{ source: "empty", contents: " \n" }])),
     /source is empty/,
   );
   await assert.rejects(
-    Effect.runPromise(composeRuleSources([{ source: "frontmatter", contents: "---\ntitle: rules\n---\n" }])),
+    Effect.runPromise(
+      composeRuleSources([{ source: "frontmatter", contents: "---\ntitle: rules\n---\n" }]),
+    ),
     /has frontmatter/,
   );
   await assert.rejects(
@@ -101,7 +122,10 @@ test("refreshes the cache only after every source and the secret scan succeed", 
   let scanned = "";
   const runtime: RuleRuntime = {
     fetch: (url) => Effect.succeed(fetched.get(url) ?? ""),
-    scan: (contents) => Effect.sync(() => { scanned = contents; }),
+    scan: (contents) =>
+      Effect.sync(() => {
+        scanned = contents;
+      }),
   };
   try {
     assert.equal(await run(refreshAgentRules(root, cache, { runtime })), "updated");
@@ -143,7 +167,10 @@ test("includes HTTP failures in the machine-local cache warning", async () => {
   globalThis.fetch = async () => new Response("", { status: 503 });
   try {
     await captureWarnings(async (warnings) => {
-      assert.equal(await run(refreshAgentRules(root, cache, { runtime: liveRuleRuntime })), "offline");
+      assert.equal(
+        await run(refreshAgentRules(root, cache, { runtime: liveRuleRuntime })),
+        "offline",
+      );
       assert.deepEqual(warnings, [
         "cannot fetch agent rule source: https://rules.example.test/shared.md: HTTP 503; using the machine-local cache",
       ]);
@@ -156,13 +183,14 @@ test("includes HTTP failures in the machine-local cache warning", async () => {
 
 test("includes timeout failures in the machine-local cache warning", async () => {
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = async (_input, init) => new Promise((_resolve, reject) => {
-    init?.signal?.addEventListener("abort", () => reject(new Error("aborted")), { once: true });
-  });
+  globalThis.fetch = async (_input, init) =>
+    new Promise((_resolve, reject) => {
+      init?.signal?.addEventListener("abort", () => reject(new Error("aborted")), { once: true });
+    });
   let timeoutError: RuleRefreshUnavailable;
   try {
     timeoutError = await Effect.runPromise(
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const fiber = yield* Effect.forkChild(
           liveRuleRuntime.fetch("https://rules.example.test/shared.md").pipe(Effect.flip),
         );
@@ -205,7 +233,10 @@ test("rejects invalid or secret-bearing fetched content without replacing the ca
   for (const runtime of runtimes) {
     const { cache, root } = createFixture();
     try {
-      await assert.rejects(run(refreshAgentRules(root, cache, { runtime })), /frontmatter|possible secret/);
+      await assert.rejects(
+        run(refreshAgentRules(root, cache, { runtime })),
+        /frontmatter|possible secret/,
+      );
       assert.equal(readFileSync(cache, "utf8"), originalRules);
     } finally {
       rmSync(root, { force: true, recursive: true });
@@ -220,8 +251,14 @@ test("requires a machine-local cache when offline or refresh is unavailable", as
     scan: () => Effect.succeed(undefined),
   };
   try {
-    await assert.rejects(run(refreshAgentRules(root, cache, { offline: true })), /cache is unavailable/);
-    await assert.rejects(run(refreshAgentRules(root, cache, { runtime })), /offline.*cache is unavailable/);
+    await assert.rejects(
+      run(refreshAgentRules(root, cache, { offline: true })),
+      /cache is unavailable/,
+    );
+    await assert.rejects(
+      run(refreshAgentRules(root, cache, { runtime })),
+      /offline.*cache is unavailable/,
+    );
   } finally {
     rmSync(root, { force: true, recursive: true });
   }

@@ -12,12 +12,28 @@ export type CommandResult = {
 };
 
 export type CommandOptions = { output?: "capture" | "discard" };
-export type CommandRunner = (command: string, args: readonly string[], options?: CommandOptions) => CommandResult;
+export type CommandRunner = (
+  command: string,
+  args: readonly string[],
+  options?: CommandOptions,
+) => CommandResult;
 
-export function runCommand(command: string, args: readonly string[], options: CommandOptions = {}): CommandResult {
+export function runCommand(
+  command: string,
+  args: readonly string[],
+  options: CommandOptions = {},
+): CommandResult {
   const output = options.output === "discard" ? "ignore" : "pipe";
-  const result = spawnSync(command, [...args], { encoding: "utf8", stdio: ["inherit", output, output] });
-  return { status: result.status, stdout: result.stdout ?? "", stderr: result.stderr ?? "", error: result.error };
+  const result = spawnSync(command, [...args], {
+    encoding: "utf8",
+    stdio: ["inherit", output, output],
+  });
+  return {
+    status: result.status,
+    stdout: result.stdout ?? "",
+    stderr: result.stderr ?? "",
+    error: result.error,
+  };
 }
 
 export function canAccess(path: string, mode: number): boolean {
@@ -39,7 +55,9 @@ export type AuditDependencies = {
 
 type Finding = { severity: FindingSeverity; message: string };
 
-export type AuditSummary<Name extends string, Fields extends object> = AuditBaseSummary & { audit: Name } & Fields;
+export type AuditSummary<Name extends string, Fields extends object> = AuditBaseSummary & {
+  audit: Name;
+} & Fields;
 
 export class AuditReport {
   readonly findings: Finding[] = [];
@@ -86,7 +104,11 @@ export class AuditReport {
     if (result.stderr) this.stderr(result.stderr);
   }
 
-  finish<Name extends string, Fields extends object>(audit: Name, label: string, fields: Fields): { status: number; summary: AuditSummary<Name, Fields> } {
+  finish<Name extends string, Fields extends object>(
+    audit: Name,
+    label: string,
+    fields: Fields,
+  ): { status: number; summary: AuditSummary<Name, Fields> } {
     const failed = this.findings.filter(({ severity }) => severity === "fail").length;
     const warnings = this.findings.filter(({ severity }) => severity === "warn").length;
     const status: "pass" | "warn" | "fail" = failed > 0 ? "fail" : warnings > 0 ? "warn" : "pass";
@@ -103,7 +125,7 @@ export class AuditReport {
   }
 }
 
-export type AuditBaseSummary = {
+type AuditBaseSummary = {
   audit: string;
   status: "pass" | "warn" | "fail";
   failed: number;

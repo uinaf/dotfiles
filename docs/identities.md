@@ -3,9 +3,10 @@
 Provision credentials per Unix user and host. Keep age, SSH, GitHub, and provider
 credentials independently replaceable; profiles select software, not access.
 
-All developer profiles require explicit Git authorship and local SSH signing.
-Every profile except `developer` and `workstation` requires a SOPS age
-identity; those two need one when they consume encrypted secrets.
+Configure explicit Git authorship and local SSH signing. The
+[profile model](../chezmoi/.chezmoidata/profiles.json) declares
+`capabilities.requiresSopsIdentity`; other profiles need an age identity when
+they consume encrypted secrets.
 
 ## Developer Git and SSH
 
@@ -51,17 +52,14 @@ An age **identity** is the private decryption key; its public address is the
 ./identity/configure-sops-age-identity.ts --print-recipient
 ```
 
-- Provisioning creates a missing key and proves a SOPS round trip.
-- Identity file: `0600`; parent directory: `0700`.
-- `--check` makes no changes; `--print-recipient` outputs only the public recipient.
+Provisioning creates a missing key and proves a SOPS round trip. `--check`
+verifies without changing the identity; `--print-recipient` prints only the
+public recipient.
 
-| Platform | Default identity path |
-| --- | --- |
-| macOS | `~/Library/Application Support/sops/age/keys.txt` |
-| Linux | `~/.config/sops/age/keys.txt` |
-
-`XDG_CONFIG_HOME` changes the config root; `SOPS_AGE_KEY_FILE` selects an explicit
-owner-only file. Keep the [sudo identity](devbox.md#sudo-without-a-plaintext-password-file)
+The [identity helper](../identity/configure-sops-age-identity.ts) owns
+`identityPath()` and `validateIdentity()`: platform paths,
+`XDG_CONFIG_HOME`/`SOPS_AGE_KEY_FILE` overrides, and ownership requirements.
+Keep the [sudo identity](devbox.md#sudo-without-a-plaintext-password-file)
 separate from this general identity.
 
 Before protecting live ciphertext:

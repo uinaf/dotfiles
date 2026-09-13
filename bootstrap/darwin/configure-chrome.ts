@@ -9,9 +9,7 @@ import { fail, runMain } from "../../lib/program.ts";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const policyDomain = "com.google.Chrome";
-const flagOverrides = [
-  { name: "vertical-tabs", value: "vertical-tabs@1" },
-] as const;
+const flagOverrides = [{ name: "vertical-tabs", value: "vertical-tabs@1" }] as const;
 // Chrome reads this preference domain as mandatory platform policy on macOS, so
 // these apply to every Chrome profile without an MDM. The chrome://flags override
 // for the Lens "Ask Google" chip expired in Chrome 145 and is ignored since.
@@ -38,8 +36,10 @@ Options:
   --allow-running    write even when Chrome appears to be running
   -h, --help`;
 
-const program = Effect.gen(function*() {
-  let statePath = process.env.CHROME_LOCAL_STATE || `${process.env.HOME || ""}/Library/Application Support/Google/Chrome/Local State`;
+const program = Effect.gen(function* () {
+  let statePath =
+    process.env.CHROME_LOCAL_STATE ||
+    `${process.env.HOME || ""}/Library/Application Support/Google/Chrome/Local State`;
   let mode: "disable" | "enable" = "enable";
   let allowRunning = false;
   const args = process.argv.slice(2);
@@ -65,43 +65,57 @@ const program = Effect.gen(function*() {
 
   const runner = yield* CommandRunner;
   for (const policy of policies) {
-    const args = mode === "enable"
-      ? ["write", policyDomain, policy.key, policy.type, policy.value]
-      : ["delete", policyDomain, policy.key];
-    const result = yield* runner.run("defaults", args, { output: mode === "enable" ? "inherit" : "ignore" });
+    const args =
+      mode === "enable"
+        ? ["write", policyDomain, policy.key, policy.type, policy.value]
+        : ["delete", policyDomain, policy.key];
+    const result = yield* runner.run("defaults", args, {
+      output: mode === "enable" ? "inherit" : "ignore",
+    });
     if (mode === "enable" && result.status !== 0) {
       return yield* fail(`defaults write ${policyDomain} ${policy.key} exited ${result.status}`);
     }
   }
-  const policySummary = policies.map((policy) => mode === "enable" ? `${policy.key}=${policy.value}` : policy.key).join(", ");
-  yield* Console.log(mode === "enable"
-    ? `configured Chrome policies: ${policySummary}`
-    : `removed Chrome policies: ${policySummary}`);
+  const policySummary = policies
+    .map((policy) => (mode === "enable" ? `${policy.key}=${policy.value}` : policy.key))
+    .join(", ");
+  yield* Console.log(
+    mode === "enable"
+      ? `configured Chrome policies: ${policySummary}`
+      : `removed Chrome policies: ${policySummary}`,
+  );
   if (!allowRunning) {
     const running = yield* runner.run("pgrep", ["-x", "Google Chrome"]);
     if (running.status === 0) {
-      return yield* fail("quit Google Chrome before changing Local State, or rerun with --allow-running");
+      return yield* fail(
+        "quit Google Chrome before changing Local State, or rerun with --allow-running",
+      );
     }
   }
   for (const flag of flagOverrides) {
-    const result = yield* runner.run(process.execPath, [
-      resolve(repoRoot, "bootstrap/darwin/chrome-state.ts"),
-      statePath,
-      mode,
-      flag.name,
-      flag.value,
-    ], { output: "inherit" });
+    const result = yield* runner.run(
+      process.execPath,
+      [
+        resolve(repoRoot, "bootstrap/darwin/chrome-state.ts"),
+        statePath,
+        mode,
+        flag.name,
+        flag.value,
+      ],
+      { output: "inherit" },
+    );
     if (result.status !== 0) {
       return yield* fail(`Chrome Local State update for ${flag.name} exited ${result.status}`);
     }
   }
-  const summary = flagOverrides.map((flag) => mode === "enable" ? flag.value : flag.name).join(", ");
-  yield* Console.log(mode === "enable"
-    ? `configured Chrome flags: ${summary} in ${statePath}`
-    : `removed Chrome flag overrides: ${summary} in ${statePath}`);
-}).pipe(
-  Effect.provide(CommandRunner.layer),
-  Effect.provide(NodeServices.layer),
-);
+  const summary = flagOverrides
+    .map((flag) => (mode === "enable" ? flag.value : flag.name))
+    .join(", ");
+  yield* Console.log(
+    mode === "enable"
+      ? `configured Chrome flags: ${summary} in ${statePath}`
+      : `removed Chrome flag overrides: ${summary} in ${statePath}`,
+  );
+}).pipe(Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer));
 
 runMain(program);

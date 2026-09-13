@@ -1,8 +1,7 @@
 # Bootstrap Guide
 
 Run commands from the repository root as the target Unix user. Choose a
-[profile](profiles.md): `developer`, `devbox`, `workstation`,
-`personal-devbox`, or `personal-workstation`.
+[profile](profiles.md#choose-a-profile) first.
 
 ## First-Time Prerequisites
 
@@ -41,15 +40,10 @@ probed by `./dotfiles check devbox`:
   [maintenance timer](software-updates.md) and the
   [T3 Code service](devbox.md#system-services) stop at logout without it.
 
-Every other tool comes from the profile's [mise configuration](profiles.md#choose-a-profile).
-Cursor uses its own installer. `age` and `sops` stay host packages on both
-platforms because the sudo askpass helper calls them by fixed path.
-Android SDK and emulator tooling stay a per-user install; put the SDK at
-`~/Android/Sdk` and the shell exports `ANDROID_HOME`.
-
-`./dotfiles apply` also renders `~/.config/environment.d/50-dotfiles.conf`
-and hands the running systemd user manager the same `PATH`, so user services
-find the mise shims and the dotfiles agent launchers.
+Tool pins live in the [mise configuration](mise.md#runtime-pins).
+`age` and `sops` stay host packages on both platforms because the
+[sudo askpass helper](../lib/sudo-age-askpass.sh) calls them by fixed path.
+For per-user SDK setup, follow [Mobile and TV development](mobile-and-tv-development.md).
 
 ### macOS
 
@@ -102,7 +96,7 @@ Before applying a personal profile, provision the owner-only
 saved coding-client logins except those listed in `preservedLogins`.
 
 ```zsh
-profile=workstation # or developer, devbox, personal-devbox, personal-workstation
+profile=workstation # choose your profile
 ./homebrew/brew-bundle.ts "$profile" # macOS only
 mise trust
 ./dotfiles diff "$profile"
@@ -114,9 +108,8 @@ mise trust
   from explicit operator values.
 - On macOS, install [the pinned Xcode](mobile-and-tv-development.md) with
   `mise run xcode:install`.
-- Every profile except `developer` and `workstation` requires a
-  [backed-up SOPS age identity](identities.md#sops-age-identity); those two
-  need one when they consume secrets.
+- Provision a [backed-up SOPS age identity](identities.md#sops-age-identity)
+  when the profile's `requiresSopsIdentity` capability is set or you consume secrets.
 - For machine-specific Homebrew packages, add a gitignored
   [local Brewfile](profiles.md#local-homebrew-additions).
 - For externally supplied Homebrew packages or refused tap trust, configure
@@ -222,19 +215,20 @@ git pull --ff-only
 Follow [Apply a profile](#apply-a-profile) with the installed role, including
 its verification step. Personal `apply` retires unpreserved coding-client logins. Unattended
 [convergence](software-updates.md#dotfiles-convergence) uses `./dotfiles maintain`,
-which preserves saved logins. For package-only refreshes, use
+which preserves [gateway client logins](devbox.md#opt-in-coding-llm-gateway).
+For package-only refreshes, use
 [Software updates](software-updates.md).
 
 ## Troubleshooting
 
-| Failure | Recovery |
-| --- | --- |
-| Missing Homebrew packages | Rerun `brew-bundle.ts` with the selected profile. |
-| Missing `chezmoi` or another mise tool | Rerun `./dotfiles apply`; the first apply borrows the pinned `chezmoi` through `mise x` and `install-runtimes` installs the rest. |
-| A systemd user service cannot find `codex`, `claude`, or another mise tool | Rerun `./dotfiles apply`, which hands the user manager the shim `PATH`, then restart the service. |
-| Homebrew drift | Keep intentional machine-specific packages in a [local Brewfile](profiles.md#local-homebrew-additions), then review and run `./homebrew/brew-bundle.ts --cleanup <profile>`. This removes undeclared packages; shared devboxes use the personal-devbox package union. |
-| Shared prefix permissions | Run `./homebrew/brew-devbox.ts --repair-shared-readability` as the prefix owner. Foreign-owned content needs an administrator to correct ownership. |
-| Git dubious ownership under `/opt/homebrew` | Rerun `configure-git.ts` with the selected profile. |
-| GitHub SSH authentication | Check the local key and rerun [Git configuration](identities.md#developer-git-and-ssh). |
-| Secret access over SSH | Check the deployment recipient and encrypted repository policy in [Identity provisioning](identities.md). |
-| Gatekeeper blocks a Cursor Agent `.node` module | Remove the Homebrew `cursor-cli` cask and run `./bootstrap/install-cursor-agent.ts` for the per-user vendor installation. |
+| Failure                                                                    | Recovery                                                                                                                                                                                                                                                              |
+| -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Missing Homebrew packages                                                  | Rerun `brew-bundle.ts` with the selected profile.                                                                                                                                                                                                                     |
+| Missing `chezmoi` or another mise tool                                     | Rerun `./dotfiles apply`; the first apply borrows the pinned `chezmoi` through `mise x` and `install-runtimes` installs the rest.                                                                                                                                     |
+| A systemd user service cannot find `codex`, `claude`, or another mise tool | Rerun `./dotfiles apply`, which hands the user manager the shim `PATH`, then restart the service.                                                                                                                                                                     |
+| Homebrew drift                                                             | Keep intentional machine-specific packages in a [local Brewfile](profiles.md#local-homebrew-additions), then review and run `./homebrew/brew-bundle.ts --cleanup <profile>`. This removes undeclared packages; shared devboxes use the personal-devbox package union. |
+| Shared prefix permissions                                                  | Run `./homebrew/brew-devbox.ts --repair-shared-readability` as the prefix owner. Foreign-owned content needs an administrator to correct ownership.                                                                                                                   |
+| Git dubious ownership under `/opt/homebrew`                                | Rerun `configure-git.ts` with the selected profile.                                                                                                                                                                                                                   |
+| GitHub SSH authentication                                                  | Check the local key and rerun [Git configuration](identities.md#developer-git-and-ssh).                                                                                                                                                                               |
+| Secret access over SSH                                                     | Check the deployment recipient and encrypted repository policy in [Identity provisioning](identities.md).                                                                                                                                                             |
+| Gatekeeper blocks a Cursor Agent `.node` module                            | Remove the Homebrew `cursor-cli` cask and run `./bootstrap/install-cursor-agent.ts` for the per-user vendor installation.                                                                                                                                             |

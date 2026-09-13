@@ -43,7 +43,9 @@ type Arguments = {
   readonly maintenance: boolean;
 };
 
-const parseArguments = Effect.fn("parseBrewBundleArguments")(function*(raw: readonly string[]): Effect.fn.Return<Arguments, CliFailure> {
+const parseArguments = Effect.fn("parseBrewBundleArguments")(function* (
+  raw: readonly string[],
+): Effect.fn.Return<Arguments, CliFailure> {
   let profile = "";
   let sharedOnly = false;
   let printFiles = false;
@@ -76,23 +78,24 @@ const parseArguments = Effect.fn("parseBrewBundleArguments")(function*(raw: read
       return yield* fail("multiple profiles are unsupported", 2);
     }
   }
-  if (!profile || (cleanup && (sharedOnly || maintenance))) return yield* fail("invalid brew bundle arguments", 2);
+  if (!profile || (cleanup && (sharedOnly || maintenance)))
+    return yield* fail("invalid brew bundle arguments", 2);
   return { profile, sharedOnly, printFiles, cleanup, maintenance };
 });
 
-const execute = Effect.fn("executeBrewBundleCommand")(function*(
+const execute = Effect.fn("executeBrewBundleCommand")(function* (
   command: string,
   args: readonly string[],
   env: Readonly<Record<string, string>>,
 ) {
   const runner = yield* CommandRunner;
-  const result = yield* runner.run(command, args, { env, extendEnv: true, stdin: "inherit", output: "inherit" }).pipe(
-    Effect.mapError((error) => new CliFailure({ exitCode: 1, message: error.message })),
-  );
+  const result = yield* runner
+    .run(command, args, { env, extendEnv: true, stdin: "inherit", output: "inherit" })
+    .pipe(Effect.mapError((error) => new CliFailure({ exitCode: 1, message: error.message })));
   if (result.status !== 0) return yield* fail(`${command} exited ${result.status}`, result.status);
 });
 
-const program = Effect.gen(function*() {
+const program = Effect.gen(function* () {
   const raw = process.argv.slice(2);
   if (raw.length === 1 && (raw[0] === "-h" || raw[0] === "--help")) {
     yield* Console.log(usage);
@@ -104,12 +107,15 @@ const program = Effect.gen(function*() {
   );
   const model = yield* readProfileModelEffect(profileModelFile());
   const profileConfig = requireProfile(model, profile);
-  const files = args.sharedOnly ? profileConfig.brewfiles.slice(0, 1) : yield* withLocalBrewfile(repoRoot, profileBrewfiles(model, profile));
+  const files = args.sharedOnly
+    ? profileConfig.brewfiles.slice(0, 1)
+    : yield* withLocalBrewfile(repoRoot, profileBrewfiles(model, profile));
   if (args.printFiles) {
     for (const file of files) yield* Console.log(brewfilePath(repoRoot, file));
     return;
   }
-  if (!(yield* commandAvailable("brew"))) return yield* fail("brew is required before running this script");
+  if (!(yield* commandAvailable("brew")))
+    return yield* fail("brew is required before running this script");
   const external = yield* configureExternalCapabilities(repoRoot, model, profile);
   let checkOnly = false;
   if (args.maintenance && profileConfig.capabilities.sharedHomebrew) {
@@ -118,14 +124,29 @@ const program = Effect.gen(function*() {
     checkOnly = Option.getOrUndefined((yield* fs.stat(prefix)).uid) !== process.getuid?.();
   }
   if (checkOnly) {
-    for (const file of files) yield* execute("brew", ["bundle", "check", "--no-upgrade", "--file", brewfilePath(repoRoot, file)],
-      { ...external, HOMEBREW_BUNDLE_DOTFILES_PROFILE: profile, HOMEBREW_NO_AUTO_UPDATE: "1" });
+    for (const file of files)
+      yield* execute(
+        "brew",
+        ["bundle", "check", "--no-upgrade", "--file", brewfilePath(repoRoot, file)],
+        { ...external, HOMEBREW_BUNDLE_DOTFILES_PROFILE: profile, HOMEBREW_NO_AUTO_UPDATE: "1" },
+      );
     yield* Console.log("Shared packages checked; the prefix owner's job installs declarations.");
     return;
   }
   if (args.maintenance) {
-    const checks = yield* Effect.forEach(files, (file) => runHomebrewRaw("brew", ["bundle", "check", "--no-upgrade", "--file", brewfilePath(repoRoot, file)],
-      { env: { ...external, HOMEBREW_BUNDLE_DOTFILES_PROFILE: profile, HOMEBREW_NO_AUTO_UPDATE: "1" } }));
+    const checks = yield* Effect.forEach(files, (file) =>
+      runHomebrewRaw(
+        "brew",
+        ["bundle", "check", "--no-upgrade", "--file", brewfilePath(repoRoot, file)],
+        {
+          env: {
+            ...external,
+            HOMEBREW_BUNDLE_DOTFILES_PROFILE: profile,
+            HOMEBREW_NO_AUTO_UPDATE: "1",
+          },
+        },
+      ),
+    );
     if (checks.every((result) => result.status === 0)) {
       yield* Console.log("All declared Homebrew packages are installed.");
       return;
@@ -138,26 +159,41 @@ const program = Effect.gen(function*() {
     const env = { ...external, HOMEBREW_BUNDLE_DOTFILES_PROFILE: profile };
     const bundleArgs = ["bundle", ...(args.maintenance ? ["--no-upgrade"] : []), "--file", path];
     if (profileConfig.capabilities.sharedHomebrew) {
-      yield* execute(process.execPath, [join(repoRoot, "homebrew/brew-devbox.ts"), ...bundleArgs], env);
+      yield* execute(
+        process.execPath,
+        [join(repoRoot, "homebrew/brew-devbox.ts"), ...bundleArgs],
+        env,
+      );
     } else {
       yield* execute("brew", bundleArgs, env);
     }
   }
   if (!args.cleanup) return;
-  const composed = yield* composeBrewfile(repoRoot, yield* withLocalBrewfile(repoRoot, cleanupFiles(model, profile)));
-  yield* Effect.gen(function*() {
+  const composed = yield* composeBrewfile(
+    repoRoot,
+    yield* withLocalBrewfile(repoRoot, cleanupFiles(model, profile)),
+  );
+  yield* Effect.gen(function* () {
     yield* trustTaps(repoRoot, [composed]);
     yield* Console.log(`\n## brew bundle cleanup --force (composed ${profile} host contract)`);
     const env = { ...external, HOMEBREW_BUNDLE_DOTFILES_PROFILE: cleanupProfile(model, profile) };
     if (profileConfig.capabilities.sharedHomebrew) {
-      yield* execute(process.execPath, [join(repoRoot, "homebrew/brew-devbox.ts"), "bundle", "cleanup", "--force", "--file", composed], env);
+      yield* execute(
+        process.execPath,
+        [
+          join(repoRoot, "homebrew/brew-devbox.ts"),
+          "bundle",
+          "cleanup",
+          "--force",
+          "--file",
+          composed,
+        ],
+        env,
+      );
     } else {
       yield* execute("brew", ["bundle", "cleanup", "--force", "--file", composed], env);
     }
   }).pipe(Effect.ensuring(removeComposedBrewfile(repoRoot, composed).pipe(Effect.orDie)));
-}).pipe(
-  Effect.provide(CommandRunner.layer),
-  Effect.provide(NodeServices.layer),
-);
+}).pipe(Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer));
 
 runMain(program);

@@ -1,6 +1,14 @@
 #!/usr/bin/env node
 
-import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  statSync,
+} from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -36,8 +44,12 @@ function newestAuthFile(projectsRoot: string): string | undefined {
     } catch {
       continue;
     }
-    const hasTokens = typeof parsed === "object" && parsed !== null
-      && Object.values(parsed).some((server) => typeof server === "object" && server !== null && "tokens" in server);
+    const hasTokens =
+      typeof parsed === "object" &&
+      parsed !== null &&
+      Object.values(parsed).some(
+        (server) => typeof server === "object" && server !== null && "tokens" in server,
+      );
     if (!hasTokens) continue;
     const mtime = statSync(candidate).mtimeMs;
     if (best === undefined || mtime > best.mtime) best = { path: candidate, mtime };
@@ -67,11 +79,14 @@ const program = Effect.sync(() => {
   }
 
   const projectsRoot = join(homedir(), ".cursor", "projects");
-  const source = from === undefined
-    ? newestAuthFile(projectsRoot)
-    : join(projectsRoot, cursorProjectSlug(from), "mcp-auth.json");
+  const source =
+    from === undefined
+      ? newestAuthFile(projectsRoot)
+      : join(projectsRoot, cursorProjectSlug(from), "mcp-auth.json");
   if (source === undefined || !existsSync(source)) {
-    throw new Error("no Cursor MCP tokens to copy; run `cursor-agent mcp login <server>` in any project first");
+    throw new Error(
+      "no Cursor MCP tokens to copy; run `cursor-agent mcp login <server>` in any project first",
+    );
   }
   const destinationDir = join(projectsRoot, cursorProjectSlug(target));
   const destination = join(destinationDir, "mcp-auth.json");
@@ -81,7 +96,9 @@ const program = Effect.sync(() => {
   }
   mkdirSync(destinationDir, { recursive: true });
   copyFileSync(source, destination);
-  process.stdout.write(`Seeded ${destination} from ${source}\nVerify with: cursor-agent mcp list\n`);
+  process.stdout.write(
+    `Seeded ${destination} from ${source}\nVerify with: cursor-agent mcp list\n`,
+  );
 });
 
 const entrypoint = process.argv[1];

@@ -30,17 +30,13 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Set up Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - name: Set up Vite+
+        uses: voidzero-dev/setup-vp@9fd26ff49f9b5e6276c2b493da4454ad4527f7f4 # v1.20.0
         with:
           node-version-file: ".node-version"
-          package-manager-cache: false
 
       - name: Install verification tools
         run: brew install actionlint chezmoi mise shellcheck
-
-      - name: Install repository dependencies
-        run: corepack pnpm install --frozen-lockfile
 
       - name: Verify repository
         run: ./verify/run.ts --skip-security
@@ -63,11 +59,10 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Set up Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - name: Set up Vite+
+        uses: voidzero-dev/setup-vp@9fd26ff49f9b5e6276c2b493da4454ad4527f7f4 # v1.20.0
         with:
           node-version-file: ".node-version"
-          package-manager-cache: false
 
       - name: Install mise and the verification tools
         env:
@@ -92,9 +87,6 @@ jobs:
           printf 'MISE_DATA_DIR=%s\nMISE_GLOBAL_CONFIG_FILE=%s\n' "$HOME/.local/share/mise" "$HOME/.config/mise/config.toml" >> "$GITHUB_ENV"
           sudo apt-get install -y -qq zsh >/dev/null
 
-      - name: Install repository dependencies
-        run: corepack pnpm install --frozen-lockfile
-
       - name: Verify repository
         run: ./verify/run.ts --skip-security
 
@@ -114,6 +106,7 @@ jobs:
           # Every pinned tool must resolve to a concrete release on Linux; a bad
           # short name or asset regex fails here instead of on a user's first apply.
           MISE_GLOBAL_CONFIG_FILE="$home/mise.toml" mise install --dry-run
+          MISE_GLOBAL_CONFIG_FILE="$home/mise.toml" mise exec github:uinaf/ffss -- slopguard version
 
       - name: Verify the rendered systemd user units
         run: |

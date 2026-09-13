@@ -29,7 +29,11 @@ export function auditCommand(scope: AuditScope, format: AuditFormat): [string, s
   return [process.execPath, [resolve(repoRoot, `audit/${script}.ts`), ...args]];
 }
 
-export function runAudit(scope: AuditScope, format: AuditFormat, run: Runner = defaultRunner): number {
+export function runAudit(
+  scope: AuditScope,
+  format: AuditFormat,
+  run: Runner = defaultRunner,
+): number {
   const [command, args] = auditCommand(scope, format);
   const result = run(command, args);
   if (result.error) {
@@ -44,14 +48,23 @@ function defaultRunner(command: string, args: string[]): Result {
 }
 
 if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
-  const program = Effect.gen(function*() {
-    const [scope, format] = yield* Schema.decodeUnknownEffect(Arguments)(process.argv.slice(2)).pipe(
-      Effect.mapError(() => new Error("Usage: audit/run.ts <repo|mscp|host|workstation|devbox> <text|json>")),
+  const program = Effect.gen(function* () {
+    const [scope, format] = yield* Schema.decodeUnknownEffect(Arguments)(
+      process.argv.slice(2),
+    ).pipe(
+      Effect.mapError(
+        () => new Error("Usage: audit/run.ts <repo|mscp|host|workstation|devbox> <text|json>"),
+      ),
     );
     const runner = yield* CommandRunner;
     const [command, args] = auditCommand(scope, format);
-    const result = yield* runner.run(command, args, { cwd: repoRoot, output: "inherit", stdin: "inherit" });
-    if (result.status !== 0) return yield* fail(`${scope} audit exited ${result.status}`, result.status);
+    const result = yield* runner.run(command, args, {
+      cwd: repoRoot,
+      output: "inherit",
+      stdin: "inherit",
+    });
+    if (result.status !== 0)
+      return yield* fail(`${scope} audit exited ${result.status}`, result.status);
   }).pipe(Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer));
   runMain(program);
 }

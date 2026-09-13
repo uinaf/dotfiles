@@ -15,7 +15,7 @@ const caches = [
   ["Library/Logs/DiagnosticReports", 30],
 ] as const;
 
-export const cacheCleanup = Effect.fn("cacheCleanup")(function*(
+export const cacheCleanup = Effect.fn("cacheCleanup")(function* (
   home: string,
   apply: boolean,
   timeoutMs = cacheCleanupTimeoutMs,
@@ -24,15 +24,25 @@ export const cacheCleanup = Effect.fn("cacheCleanup")(function*(
   const fs = yield* FileSystem.FileSystem;
   const lines: string[] = [];
   let failed = false;
-  const log = Effect.fn("cacheCleanup.log")(function*(message: string) {
+  const log = Effect.fn("cacheCleanup.log")(function* (message: string) {
     lines.push(`${DateTime.formatIso(yield* DateTime.now)} cache-cleanup ${message}`);
   });
-  const command = Effect.fn("cacheCleanup.command")(function*(name: string, args: readonly string[]) {
-    return yield* runner.run(name, args, {
-      cwd: home, output: "capture", env: { HOME: home, GIT_TERMINAL_PROMPT: "0", GCM_INTERACTIVE: "never" },
-    }).pipe(Effect.catch(() => Effect.succeed({ status: 1, stdout: "", stderr: "" })));
+  const command = Effect.fn("cacheCleanup.command")(function* (
+    name: string,
+    args: readonly string[],
+  ) {
+    return yield* runner
+      .run(name, args, {
+        cwd: home,
+        output: "capture",
+        env: { HOME: home, GIT_TERMINAL_PROMPT: "0", GCM_INTERACTIVE: "never" },
+      })
+      .pipe(Effect.catch(() => Effect.succeed({ status: 1, stdout: "", stderr: "" })));
   });
-  const checked = Effect.fn("cacheCleanup.checked")(function*(name: string, args: readonly string[]) {
+  const checked = Effect.fn("cacheCleanup.checked")(function* (
+    name: string,
+    args: readonly string[],
+  ) {
     const result = yield* command(name, args);
     if (result.status !== 0) {
       failed = true;
@@ -40,11 +50,14 @@ export const cacheCleanup = Effect.fn("cacheCleanup")(function*(
     }
     return result;
   });
-  const mutate = Effect.fn("cacheCleanup.mutate")(function*(name: string, args: readonly string[]) {
+  const mutate = Effect.fn("cacheCleanup.mutate")(function* (
+    name: string,
+    args: readonly string[],
+  ) {
     if (!apply) return yield* log(`dry-run: ${[name, ...args].join(" ")}`);
     yield* checked(name, args);
   });
-  const used = Effect.fn("cacheCleanup.used")(function*() {
+  const used = Effect.fn("cacheCleanup.used")(function* () {
     const volume = (yield* fs.exists("/System/Volumes/Data")) ? "/System/Volumes/Data" : "/";
     const result = yield* checked("df", ["-k", volume]);
     const value = Number(result.stdout.trim().split("\n")[1]?.trim().split(/\s+/)[2]);
@@ -53,8 +66,9 @@ export const cacheCleanup = Effect.fn("cacheCleanup")(function*(
     yield* log("warning: disk usage unavailable");
     return undefined;
   });
-  const gigabytes = (value: number | undefined) => value === undefined ? "unknown" : `${(value / 1048576).toFixed(1)}G`;
-  const cleanup = Effect.gen(function*() {
+  const gigabytes = (value: number | undefined) =>
+    value === undefined ? "unknown" : `${(value / 1048576).toFixed(1)}G`;
+  const cleanup = Effect.gen(function* () {
     const before = yield* used();
     yield* log(`start used=${gigabytes(before)} dry_run=${apply ? 0 : 1}`);
     for (const [relative, days] of caches) {
@@ -62,11 +76,21 @@ export const cacheCleanup = Effect.fn("cacheCleanup")(function*(
       const info = yield* fs.stat(path).pipe(Effect.option);
       if (Option.isNone(info) || info.value.type !== "Directory") continue;
       yield* log(`prune files older than ${days} days under ${path}`);
-      const result = yield* checked("find", [path, "-type", "f", "-mtime", `+${days}`, apply ? "-delete" : "-print0"]);
+      const result = yield* checked("find", [
+        path,
+        "-type",
+        "f",
+        "-mtime",
+        `+${days}`,
+        apply ? "-delete" : "-print0",
+      ]);
       if (apply) yield* checked("find", [path, "-type", "d", "-empty", "-delete"]);
       else lines.push(`  would remove ${result.stdout.split("\0").filter(Boolean).length} files`);
     }
-    if ((yield* commandAvailable("xcrun")) && (yield* command("xcrun", ["--find", "simctl"])).status === 0) {
+    if (
+      (yield* commandAvailable("xcrun")) &&
+      (yield* command("xcrun", ["--find", "simctl"])).status === 0
+    ) {
       yield* log("delete unavailable simulators");
       yield* mutate("xcrun", ["simctl", "delete", "unavailable"]);
     }
@@ -79,14 +103,18 @@ export const cacheCleanup = Effect.fn("cacheCleanup")(function*(
       yield* mutate("docker", ["builder", "prune", "-f", "--filter", "until=168h"]);
     }
     const after = yield* used();
-    yield* log(`done used=${gigabytes(after)} freed=${gigabytes(before === undefined || after === undefined ? undefined : before - after)}`);
+    yield* log(
+      `done used=${gigabytes(after)} freed=${gigabytes(before === undefined || after === undefined ? undefined : before - after)}`,
+    );
   });
   yield* cleanup.pipe(
     Effect.timeout(timeoutMs),
-    Effect.catchTag("TimeoutError", () => Effect.gen(function*() {
-      failed = true;
-      yield* log(`warning: cleanup timed out after ${timeoutMs}ms`);
-    })),
+    Effect.catchTag("TimeoutError", () =>
+      Effect.gen(function* () {
+        failed = true;
+        yield* log(`warning: cleanup timed out after ${timeoutMs}ms`);
+      }),
+    ),
   );
   return { status: failed ? 1 : 0, stdout: lines.join("\n") + "\n" };
 });

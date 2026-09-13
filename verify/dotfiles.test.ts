@@ -2,10 +2,18 @@
 
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { chmodSync, cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  cpSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import test from "node:test";
+import { test } from "vite-plus/test";
 import { fileURLToPath } from "node:url";
 
 import { readProfileModel } from "../profiles/model.ts";
@@ -17,13 +25,16 @@ const profiles = Object.keys(readProfileModel(modelPath).profiles);
 type RunResult = { status: number | null; stdout: string; stderr: string };
 
 function writeDelegate(path: string, label: string): void {
-  writeFileSync(path, `#!/usr/bin/env bash
+  writeFileSync(
+    path,
+    `#!/usr/bin/env bash
 printf '%s' '${label}' >> "\${DOTFILES_TEST_LOG:?}"
 printf ' %q' "$@" >> "\${DOTFILES_TEST_LOG:?}"
 printf '\\n' >> "\${DOTFILES_TEST_LOG:?}"
 if [ "\${DOTFILES_TEST_EXIT:-0}" -ne 0 ]; then exit "\${DOTFILES_TEST_EXIT}"; fi
 if [ '${label}' = install.ts ] && [ "\${1:-}" = --print-steps ]; then printf 'apply-dotfiles\\ninstall-runtimes\\n'; fi
-`);
+`,
+  );
   chmodSync(path, 0o755);
 }
 
@@ -44,8 +55,12 @@ test("operator command validates and delegates every profile", async () => {
       });
       let stdout = "";
       let stderr = "";
-      child.stdout.setEncoding("utf8").on("data", (chunk: string) => { stdout += chunk; });
-      child.stderr.setEncoding("utf8").on("data", (chunk: string) => { stderr += chunk; });
+      child.stdout.setEncoding("utf8").on("data", (chunk: string) => {
+        stdout += chunk;
+      });
+      child.stderr.setEncoding("utf8").on("data", (chunk: string) => {
+        stderr += chunk;
+      });
       child.on("error", rejectPromise);
       child.on("close", (status) => resolvePromise({ status, stdout, stderr }));
     });
@@ -60,37 +75,39 @@ test("operator command validates and delegates every profile", async () => {
     writeDelegate(join(fixture, "repo/bootstrap/apply-dotfiles.ts"), "apply-dotfiles.ts");
     writeDelegate(join(fixture, "repo/verify/bootstrap.ts"), "verify-bootstrap.ts");
 
-    await Promise.all(profiles.map(async (profile) => {
-      const log = join(fixture, `commands-${profile}.log`);
+    await Promise.all(
+      profiles.map(async (profile) => {
+        const log = join(fixture, `commands-${profile}.log`);
 
-      writeFileSync(log, "");
-      const diff = await run(["diff", profile], log);
-      assert.equal(diff.status, 0, diff.stderr);
-      assert.match(diff.stdout, new RegExp(`Per-user convergence steps for ${profile}:`));
-      assert.match(diff.stderr, /Homebrew packages, identities, secrets, or host-wide settings/);
-      assert.equal(
-        readFileSync(log, "utf8"),
-        `install.ts --print-steps --profile ${profile}\napply-dotfiles.ts --profile ${profile} --dry-run --verbose\n`,
-      );
+        writeFileSync(log, "");
+        const diff = await run(["diff", profile], log);
+        assert.equal(diff.status, 0, diff.stderr);
+        assert.match(diff.stdout, new RegExp(`Per-user convergence steps for ${profile}:`));
+        assert.match(diff.stderr, /Homebrew packages, identities, secrets, or host-wide settings/);
+        assert.equal(
+          readFileSync(log, "utf8"),
+          `install.ts --print-steps --profile ${profile}\napply-dotfiles.ts --profile ${profile} --dry-run --verbose\n`,
+        );
 
-      writeFileSync(log, "");
-      const apply = await run(["apply", profile], log);
-      assert.equal(apply.status, 0, apply.stderr);
-      assert.match(apply.stderr, /Homebrew packages, identities, secrets, or host-wide settings/);
-      assert.equal(readFileSync(log, "utf8"), `install.ts --profile ${profile}\n`);
-      const secondApply = await run(["apply", profile], log);
-      assert.equal(secondApply.status, 0, secondApply.stderr);
-      assert.equal(
-        readFileSync(log, "utf8"),
-        `install.ts --profile ${profile}\ninstall.ts --profile ${profile}\n`,
-      );
+        writeFileSync(log, "");
+        const apply = await run(["apply", profile], log);
+        assert.equal(apply.status, 0, apply.stderr);
+        assert.match(apply.stderr, /Homebrew packages, identities, secrets, or host-wide settings/);
+        assert.equal(readFileSync(log, "utf8"), `install.ts --profile ${profile}\n`);
+        const secondApply = await run(["apply", profile], log);
+        assert.equal(secondApply.status, 0, secondApply.stderr);
+        assert.equal(
+          readFileSync(log, "utf8"),
+          `install.ts --profile ${profile}\ninstall.ts --profile ${profile}\n`,
+        );
 
-      writeFileSync(log, "");
-      const check = await run(["check", profile], log);
-      assert.equal(check.status, 0, check.stderr);
-      assert.match(check.stderr, /Homebrew packages, identities, secrets, or host-wide settings/);
-      assert.equal(readFileSync(log, "utf8"), `verify-bootstrap.ts --profile ${profile}\n`);
-    }));
+        writeFileSync(log, "");
+        const check = await run(["check", profile], log);
+        assert.equal(check.status, 0, check.stderr);
+        assert.match(check.stderr, /Homebrew packages, identities, secrets, or host-wide settings/);
+        assert.equal(readFileSync(log, "utf8"), `verify-bootstrap.ts --profile ${profile}\n`);
+      }),
+    );
 
     const log = join(fixture, "commands.log");
     writeFileSync(log, "");
@@ -132,24 +149,52 @@ test("fresh checkout launcher prepares dependencies without applying a profile",
     const bin = join(root, "bin");
     mkdirSync(bin);
     const log = join(root, "commands");
-    writeFileSync(join(bin, "mise"), '#!/bin/sh\nprintf "%s\\n" "$*" >> "$TEST_LOG"\nexit "${TEST_EXIT:-0}"\n', { mode: 0o755 });
+    writeFileSync(
+      join(bin, "mise"),
+      '#!/bin/sh\nprintf "%s\\n" "$*" >> "$TEST_LOG"\nexit "${TEST_EXIT:-0}"\n',
+      { mode: 0o755 },
+    );
     const env = { ...process.env, PATH: `${bin}:/usr/bin:/bin`, TEST_LOG: log };
-    const help = spawnSync("/bin/sh", [join(root, "dotfiles"), "--help"], { env, encoding: "utf8" });
+    const help = spawnSync("/bin/sh", [join(root, "dotfiles"), "--help"], {
+      env,
+      encoding: "utf8",
+    });
     assert.equal(help.status, 0, help.stderr);
-    assert.deepEqual((await import("node:fs")).readdirSync(root).sort(), [".node-version", "bin", "dotfiles"]);
-    const prepared = spawnSync("/bin/sh", [join(root, "dotfiles"), "prepare"], { env, encoding: "utf8" });
+    assert.deepEqual((await import("node:fs")).readdirSync(root).sort(), [
+      ".node-version",
+      "bin",
+      "dotfiles",
+    ]);
+    const prepared = spawnSync("/bin/sh", [join(root, "dotfiles"), "prepare"], {
+      env,
+      encoding: "utf8",
+    });
     assert.equal(prepared.status, 0, prepared.stderr);
-    assert.equal(readFileSync(log, "utf8"), `--no-config x node@${nodeVersion} -- corepack pnpm --dir ${root} install --frozen-lockfile\n`);
-    const failed = spawnSync("/bin/sh", [join(root, "dotfiles"), "prepare"], { env: { ...env, TEST_EXIT: "23" }, encoding: "utf8" });
+    assert.equal(
+      readFileSync(log, "utf8"),
+      `--no-config x node@${nodeVersion} -- corepack pnpm --dir ${root} install --frozen-lockfile\n`,
+    );
+    const failed = spawnSync("/bin/sh", [join(root, "dotfiles"), "prepare"], {
+      env: { ...env, TEST_EXIT: "23" },
+      encoding: "utf8",
+    });
     assert.equal(failed.status, 23);
     writeFileSync(log, "");
-    const maintained = spawnSync("/bin/sh", [join(root, "dotfiles"), "maintain"], { env, encoding: "utf8" });
+    const maintained = spawnSync("/bin/sh", [join(root, "dotfiles"), "maintain"], {
+      env,
+      encoding: "utf8",
+    });
     assert.equal(maintained.status, 0, maintained.stderr);
-    assert.equal(readFileSync(log, "utf8"),
+    assert.equal(
+      readFileSync(log, "utf8"),
       `--no-config x node@${nodeVersion} -- corepack pnpm --dir ${root} install --frozen-lockfile\n` +
-      `--no-config x node@${nodeVersion} -- node ${root}/bootstrap/install.ts --maintenance\n`);
+        `--no-config x node@${nodeVersion} -- node ${root}/bootstrap/install.ts --maintenance\n`,
+    );
     writeFileSync(log, "");
-    const failedMaintenance = spawnSync("/bin/sh", [join(root, "dotfiles"), "maintain"], { env: { ...env, TEST_EXIT: "23" }, encoding: "utf8" });
+    const failedMaintenance = spawnSync("/bin/sh", [join(root, "dotfiles"), "maintain"], {
+      env: { ...env, TEST_EXIT: "23" },
+      encoding: "utf8",
+    });
     assert.equal(failedMaintenance.status, 23);
     assert.doesNotMatch(readFileSync(log, "utf8"), /install.ts/);
   } finally {

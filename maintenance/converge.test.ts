@@ -3,21 +3,32 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import test from "node:test";
+import { test, type TestContext } from "vite-plus/test";
 import { acquireCheckoutLock, converge, syncCheckout } from "./converge.ts";
 
 function git(cwd: string, ...args: string[]) {
-  const result = spawnSync("git", ["-c", "commit.gpgsign=false", "-c", "core.hooksPath=/dev/null", ...args], {
-    cwd, encoding: "utf8", env: { ...process.env, GIT_AUTHOR_NAME: "Fixture", GIT_AUTHOR_EMAIL: "fixture@example.com",
-      GIT_COMMITTER_NAME: "Fixture", GIT_COMMITTER_EMAIL: "fixture@example.com" },
-  });
+  const result = spawnSync(
+    "git",
+    ["-c", "commit.gpgsign=false", "-c", "core.hooksPath=/dev/null", ...args],
+    {
+      cwd,
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        GIT_AUTHOR_NAME: "Fixture",
+        GIT_AUTHOR_EMAIL: "fixture@example.com",
+        GIT_COMMITTER_NAME: "Fixture",
+        GIT_COMMITTER_EMAIL: "fixture@example.com",
+      },
+    },
+  );
   assert.equal(result.status, 0, result.stderr);
   return result.stdout.trim();
 }
 
-function fixture(t: test.TestContext) {
+function fixture(t: TestContext) {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-converge."));
-  t.after(() => rmSync(root, { recursive: true, force: true }));
+  t.onTestFinished(() => rmSync(root, { recursive: true, force: true }));
   const upstream = join(root, "upstream");
   const repo = join(root, "checkout");
   mkdirSync(upstream);
@@ -34,7 +45,7 @@ function fixture(t: test.TestContext) {
   return { root, repo, upstream, advance };
 }
 
-test("clean default checkout advances and repeat convergence preserves the revision", t => {
+test("clean default checkout advances and repeat convergence preserves the revision", (t) => {
   const { repo, advance } = fixture(t);
   const next = advance();
   assert.equal(syncCheckout(repo), next);
@@ -43,7 +54,7 @@ test("clean default checkout advances and repeat convergence preserves the revis
 });
 
 for (const state of ["dirty", "untracked", "branch", "detached", "ahead", "diverged", "rebase"]) {
-  test(`preserves ${state} work without updating the checkout`, t => {
+  test(`preserves ${state} work without updating the checkout`, (t) => {
     const { repo, advance } = fixture(t);
     if (state !== "ahead") advance();
     if (state === "dirty") writeFileSync(join(repo, "policy"), "local\n");
@@ -64,7 +75,7 @@ for (const state of ["dirty", "untracked", "branch", "detached", "ahead", "diver
   });
 }
 
-test("failed fetch preserves the checkout and a held lock prevents a second updater", t => {
+test("failed fetch preserves the checkout and a held lock prevents a second updater", (t) => {
   const { repo, upstream } = fixture(t);
   const before = git(repo, "rev-parse", "HEAD");
   rmSync(upstream, { recursive: true });
@@ -76,11 +87,14 @@ test("failed fetch preserves the checkout and a held lock prevents a second upda
   assert.ok(existsSync(lock));
 });
 
-test("a stale checkout lock is reclaimed and a live one is awaited with backoff", t => {
+test("a stale checkout lock is reclaimed and a live one is awaited with backoff", (t) => {
   const { repo } = fixture(t);
   const lock = join(repo, ".git/dotfiles-converge.lock");
   mkdirSync(lock);
-  writeFileSync(join(lock, "owner.json"), `${JSON.stringify({ pid: 4_000_000, bootTime: Date.now() })}\n`);
+  writeFileSync(
+    join(lock, "owner.json"),
+    `${JSON.stringify({ pid: 4_000_000, bootTime: Date.now() })}\n`,
+  );
   const release = acquireCheckoutLock(repo, { processAlive: () => false, log: () => {} });
   assert.equal(JSON.parse(readFileSync(join(lock, "owner.json"), "utf8")).pid, process.pid);
   release();
@@ -94,7 +108,7 @@ test("a stale checkout lock is reclaimed and a live one is awaited with backoff"
     uptimeMs: () => time,
     processAlive: () => true,
     log: () => {},
-    sleep: ms => {
+    sleep: (ms) => {
       slept.push(ms);
       time += ms;
       if (time >= 30_000) rmSync(lock, { recursive: true, force: true });
@@ -105,7 +119,7 @@ test("a stale checkout lock is reclaimed and a live one is awaited with backoff"
   assert.equal(existsSync(lock), false);
 });
 
-test("bootstrap failure preserves exit status and releases the lock", t => {
+test("bootstrap failure preserves exit status and releases the lock", (t) => {
   const { root, repo, upstream } = fixture(t);
   const bin = join(root, "bin");
   mkdirSync(bin);
@@ -117,15 +131,17 @@ test("bootstrap failure preserves exit status and releases the lock", t => {
   git(repo, "push", "origin", "main");
   const previousPath = process.env.PATH;
   process.env.PATH = `${bin}:${previousPath}`;
-  t.after(() => { process.env.PATH = previousPath; });
+  t.onTestFinished(() => {
+    process.env.PATH = previousPath;
+  });
   assert.throws(() => converge(repo), { exitCode: 23 });
   assert.equal(existsSync(join(repo, ".git/dotfiles-converge.lock")), false);
 });
 
 for (const failure of [false, true]) {
-  test(`maintenance reuses profile setup with saved logins preserved${failure ? " and stops on failure" : ""}`, t => {
+  test(`maintenance reuses profile setup with saved logins preserved${failure ? " and stops on failure" : ""}`, (t) => {
     const root = mkdtempSync(join(tmpdir(), "dotfiles-install-maintenance."));
-    t.after(() => rmSync(root, { recursive: true, force: true }));
+    t.onTestFinished(() => rmSync(root, { recursive: true, force: true }));
     const source = resolve(import.meta.dirname, "..");
     const log = join(root, "steps");
     const bin = join(root, "bin");
@@ -133,22 +149,52 @@ for (const failure of [false, true]) {
     mkdirSync(join(root, ".config/dotfiles"), { recursive: true });
     writeFileSync(join(root, ".config/dotfiles/llm-gateway.json"), "{}", { mode: 0o600 });
     mkdirSync(join(root, "chezmoi/.chezmoidata"), { recursive: true });
-    writeFileSync(join(root, "chezmoi/.chezmoidata/profiles.json"), readFileSync(join(source, "chezmoi/.chezmoidata/profiles.json")));
+    writeFileSync(
+      join(root, "chezmoi/.chezmoidata/profiles.json"),
+      readFileSync(join(source, "chezmoi/.chezmoidata/profiles.json")),
+    );
     function stub(path: string, name: string) {
       mkdirSync(resolve(path, ".."), { recursive: true });
-      writeFileSync(path, `#!/bin/sh\nprintf '%s %s\\n' '${name}' "$*" >> "$TEST_LOG"\nexit ${failure && name === "apply-dotfiles.ts" ? 19 : 0}\n`, { mode: 0o755 });
+      writeFileSync(
+        path,
+        `#!/bin/sh\nprintf '%s %s\\n' '${name}' "$*" >> "$TEST_LOG"\nexit ${failure && name === "apply-dotfiles.ts" ? 19 : 0}\n`,
+        { mode: 0o755 },
+      );
     }
     stub(join(root, "homebrew/brew-bundle.ts"), "brew-bundle.ts");
-    for (const name of ["apply-dotfiles.ts", "install-oh-my-zsh.ts", "install-t3-service.ts", "install-cursor-agent.ts", "trust-agent-worktrees.ts", "install-gh-extensions.ts", "configure-codex.ts", "configure-llm-gateway.ts", "configure-bifrost-clients.ts"]) stub(join(root, "bootstrap", name), name);
+    for (const name of [
+      "apply-dotfiles.ts",
+      "install-oh-my-zsh.ts",
+      "install-t3-service.ts",
+      "install-cursor-agent.ts",
+      "trust-agent-worktrees.ts",
+      "install-gh-extensions.ts",
+      "configure-codex.ts",
+      "configure-llm-gateway.ts",
+      "configure-bifrost-clients.ts",
+    ])
+      stub(join(root, "bootstrap", name), name);
     for (const name of ["sync.ts", "plugins.ts", "mcps.ts"]) stub(join(root, "agents", name), name);
     stub(join(bin, "mise"), "mise");
-    const result = spawnSync(process.execPath, [join(source, "bootstrap/install.ts"), "--profile", "personal-devbox", "--maintenance"], {
-      encoding: "utf8", env: { ...process.env, HOME: root, DOTFILES_INSTALL_REPO_ROOT: root,
-        LLM_GATEWAY_CONFIG: join(root, ".config/dotfiles/llm-gateway.json"), TEST_LOG: log, PATH: `${bin}:${process.env.PATH}` },
-    });
+    const result = spawnSync(
+      process.execPath,
+      [join(source, "bootstrap/install.ts"), "--profile", "personal-devbox", "--maintenance"],
+      {
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          HOME: root,
+          DOTFILES_INSTALL_REPO_ROOT: root,
+          LLM_GATEWAY_CONFIG: join(root, ".config/dotfiles/llm-gateway.json"),
+          TEST_LOG: log,
+          PATH: `${bin}:${process.env.PATH}`,
+        },
+      },
+    );
     assert.equal(result.status, failure ? 19 : 0, result.stderr);
     const steps = readFileSync(log, "utf8");
-    if (process.platform === "darwin") assert.match(steps, /^brew-bundle.ts --maintenance personal-devbox$/m);
+    if (process.platform === "darwin")
+      assert.match(steps, /^brew-bundle.ts --maintenance personal-devbox$/m);
     else assert.doesNotMatch(steps, /brew-bundle/);
     assert.doesNotMatch(steps, /--retire-auth/);
     assert.doesNotMatch(steps, /install-t3-service/);

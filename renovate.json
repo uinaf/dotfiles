@@ -1,8 +1,6 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": [
-    "github>uinaf/renovate-config"
-  ],
+  "extends": ["github>uinaf/renovate-config"],
   "platformAutomerge": true,
   "packageRules": [
     {
@@ -17,75 +15,54 @@
     },
     {
       "description": "Keep CI, bootstrap, and installed Node on the same release; follow patch and minor after one day",
-      "matchPackageNames": [
-        "node"
-      ],
+      "matchPackageNames": ["node"],
       "groupName": "Node.js",
       "rangeStrategy": "bump",
       "minimumReleaseAge": "1 day",
-      "schedule": [
-        "at any time"
-      ]
+      "schedule": ["at any time"]
     },
     {
       "description": "Mise toolchain pins can follow patch and minor after one day; majors stay on the shared gate",
-      "matchManagers": [
-        "mise"
-      ],
-      "matchUpdateTypes": [
-        "patch",
-        "minor",
-        "pin"
-      ],
+      "matchManagers": ["mise"],
+      "matchUpdateTypes": ["patch", "minor", "pin"],
       "minimumReleaseAge": "1 day",
-      "schedule": [
-        "at any time"
-      ]
+      "schedule": ["at any time"]
     },
     {
       "description": "Keep repository and installed pnpm together on the shared seven-day gate",
-      "matchPackageNames": [
-        "pnpm"
-      ],
+      "matchPackageNames": ["pnpm"],
       "groupName": "pnpm"
     },
     {
       "description": "Keep PyYAML install and live verification together",
-      "matchPackageNames": [
-        "PyYAML"
-      ],
+      "matchPackageNames": ["PyYAML"],
       "groupName": "PyYAML"
+    },
+    {
+      "matchManagers": ["mise"],
+      "matchPackageNames": ["uinaf/ffss"],
+      "extractVersion": "^slopguard/v(?<version>.+)$"
     }
   ],
   "customManagers": [
     {
       "customType": "regex",
       "description": "npm, pnpm, and Corepack installed by the mise runtime package task",
-      "managerFilePatterns": [
-        "/^chezmoi/\\.chezmoitemplates/mise-tasks\\.toml$/"
-      ],
-      "matchStrings": [
-        "(?<depName>npm|pnpm|corepack)@(?<currentValue>[0-9][^\\s\"&]+)"
-      ],
+      "managerFilePatterns": ["/^chezmoi/\\.chezmoitemplates/mise-tasks\\.toml$/"],
+      "matchStrings": ["(?<depName>npm|pnpm|corepack)@(?<currentValue>[0-9][^\\s\"&]+)"],
       "datasourceTemplate": "npm"
     },
     {
       "customType": "regex",
       "description": "PyYAML installed into mise Python",
-      "managerFilePatterns": [
-        "/^chezmoi/\\.chezmoitemplates/mise-tasks\\.toml$/"
-      ],
-      "matchStrings": [
-        "(?<depName>PyYAML)==(?<currentValue>[0-9.]+)"
-      ],
+      "managerFilePatterns": ["/^chezmoi/\\.chezmoitemplates/mise-tasks\\.toml$/"],
+      "matchStrings": ["(?<depName>PyYAML)==(?<currentValue>[0-9.]+)"],
       "datasourceTemplate": "pypi"
     },
     {
       "customType": "regex",
       "description": "Annotated TypeScript dependency constants",
-      "managerFilePatterns": [
-        "/^(agents/sync|verify/bootstrap)\\.ts$/"
-      ],
+      "managerFilePatterns": ["/^(agents/sync|verify/bootstrap)\\.ts$/"],
       "matchStrings": [
         "// renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)\\s+(?:export )?const [A-Z_]+ = \"(?<currentValue>[^\"]+)\";"
       ]
@@ -93,31 +70,23 @@
     {
       "customType": "regex",
       "description": "Pinned oh-my-zsh revision, followed as a digest of its default branch",
-      "managerFilePatterns": [
-        "/^bootstrap/install-oh-my-zsh\\.ts$/"
-      ],
+      "managerFilePatterns": ["/^bootstrap/install-oh-my-zsh\\.ts$/"],
       "matchStrings": [
-        "// renovate: datasource=(?<datasource>git-refs) depName=(?<depName>[^\\s]+) branch=(?<currentValue>[^\\s]+)\\s+export const OH_MY_ZSH_REVISION = \"(?<currentDigest>[0-9a-f]{40})\";"
+        "// renovate: datasource=(?<datasource>git-refs) depName=(?<depName>[^\\s]+) branch=(?<currentValue>[^\\s]+)\\s+const OH_MY_ZSH_REVISION = \"(?<currentDigest>[0-9a-f]{40})\";"
       ]
     },
     {
       "customType": "regex",
       "description": "semantic-release action runtime and plugins",
-      "managerFilePatterns": [
-        "/^\\.github/workflows/verify\\.yml$/"
-      ],
-      "matchStrings": [
-        "semantic_version: (?<currentValue>[0-9.]+)"
-      ],
+      "managerFilePatterns": ["/^\\.github/workflows/verify\\.yml$/"],
+      "matchStrings": ["semantic_version: (?<currentValue>[0-9.]+)"],
       "depNameTemplate": "semantic-release",
       "datasourceTemplate": "npm"
     },
     {
       "customType": "regex",
       "description": "Exact semantic-release plugin versions",
-      "managerFilePatterns": [
-        "/^\\.github/workflows/verify\\.yml$/"
-      ],
+      "managerFilePatterns": ["/^\\.github/workflows/verify\\.yml$/"],
       "matchStrings": [
         "\\n +(?<depName>@semantic-release/[a-z-]+|conventional-changelog-conventionalcommits)@(?<currentValue>[0-9.]+)"
       ],

@@ -1,43 +1,43 @@
 {
   "project_panel": {
-    "dock": "left",
+    "dock": "left"
   },
   "outline_panel": {
-    "dock": "left",
+    "dock": "left"
   },
   "collaboration_panel": {
     "button": false,
-    "dock": "left",
+    "dock": "left"
   },
   "agent": {
-    "button": false,
+    "button": false
   },
   "git_panel": {
-    "dock": "left",
+    "dock": "left"
   },
   "disable_ai": true,
   "show_call_status_icon": false,
   "title_bar": {
     "show_onboarding_banner": false,
     "show_user_picture": false,
-    "show_sign_in": false,
+    "show_sign_in": false
   },
   "toolbar": {
-    "agent_review": false,
+    "agent_review": false
   },
   "telemetry": {
     "diagnostics": false,
-    "metrics": false,
+    "metrics": false
   },
   "vim_mode": true,
   "base_keymap": "VSCode",
   "auto_install_extensions": {
-    "vscode-dark-modern": true,
+    "vscode-dark-modern": true
   },
   "theme": {
     "mode": "system",
     "light": "Ayu Light",
-    "dark": "VSCode Dark Modern",
+    "dark": "VSCode Dark Modern"
   },
   "ui_font_family": "Berkeley Mono Variable",
   "ui_font_fallbacks": ["Menlo"],
@@ -48,6 +48,6 @@
   "terminal": {
     "font_size": 16.0,
     "font_family": "Berkeley Mono Variable",
-    "font_fallbacks": ["Menlo"],
-  },
+    "font_fallbacks": ["Menlo"]
+  }
 }

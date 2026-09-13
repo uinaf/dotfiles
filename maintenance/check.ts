@@ -112,7 +112,12 @@ export function parseBrewBacklog(contents: string): BrewBacklog {
 }
 
 function firstLine(result: RawCommandResult): string {
-  return `${result.stdout}\n${result.stderr}`.split(/\r?\n/).map((line) => line.trim()).find(Boolean) ?? "";
+  return (
+    `${result.stdout}\n${result.stderr}`
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .find(Boolean) ?? ""
+  );
 }
 
 function parseDisk(result: RawCommandResult) {
@@ -146,11 +151,16 @@ function parseGitStatus(result: RawCommandResult) {
 }
 
 function parseWorktrees(result: RawCommandResult) {
-  return { count: result.stdout.split(/\r?\n/).filter((line) => line.startsWith("worktree ")).length };
+  return {
+    count: result.stdout.split(/\r?\n/).filter((line) => line.startsWith("worktree ")).length,
+  };
 }
 
 function summaryLine(result: RawCommandResult) {
-  return { passed: result.status === 0, summary: firstLine({ ...result, stdout: result.stdout.trim().split(/\r?\n/).at(-1) ?? "" }) };
+  return {
+    passed: result.status === 0,
+    summary: firstLine({ ...result, stdout: result.stdout.trim().split(/\r?\n/).at(-1) ?? "" }),
+  };
 }
 
 function probe(
@@ -173,12 +183,14 @@ function agentProbes(profile: ProfileConfig): Probe[] {
     ["cursor_agent", "cursor-agent", ["--version"]],
   ];
   if (profile.capabilities.personal) versions.push(["pi", "pi", ["--version"]]);
-  if (profile.capabilities.personal && profile.capabilities.workstation) versions.push(["grok", "grok", ["--version"]]);
+  if (profile.capabilities.personal && profile.capabilities.workstation)
+    versions.push(["grok", "grok", ["--version"]]);
   return versions.map(([id, command, args]) => probe(`version_${id}`, command, args, firstLine));
 }
 
 function checkoutPath(context: MaintenanceContext): string | undefined {
-  return context.repoRoot.startsWith(`${context.home}/`) && existsSync(join(context.repoRoot, ".git"))
+  return context.repoRoot.startsWith(`${context.home}/`) &&
+    existsSync(join(context.repoRoot, ".git"))
     ? context.repoRoot
     : undefined;
 }
@@ -186,10 +198,14 @@ function checkoutPath(context: MaintenanceContext): string | undefined {
 function selectedSkillNames(context: MaintenanceContext): string[] {
   const names = new Set<string>();
   for (const layer of context.profileConfig.skillLayers) {
-    const value = parseJsonObject(readFileSync(join(context.repoRoot, `agents/skills/${layer}.json`), "utf8"), `${layer} skills`);
+    const value = parseJsonObject(
+      readFileSync(join(context.repoRoot, `agents/skills/${layer}.json`), "utf8"),
+      `${layer} skills`,
+    );
     if (!Array.isArray(value.skills)) throw new Error(`${layer} skills are missing`);
     for (const skill of value.skills) {
-      if (!isRecord(skill) || typeof skill.name !== "string") throw new Error(`${layer} skills contain an invalid entry`);
+      if (!isRecord(skill) || typeof skill.name !== "string")
+        throw new Error(`${layer} skills contain an invalid entry`);
       names.add(skill.name);
     }
   }
@@ -197,14 +213,19 @@ function selectedSkillNames(context: MaintenanceContext): string[] {
 }
 
 function skillFacts(context: MaintenanceContext) {
-  if (context.profileConfig.skillLayers.length === 0) return { managed: false, selected: 0, locked: 0, installed: 0 };
+  if (context.profileConfig.skillLayers.length === 0)
+    return { managed: false, selected: 0, locked: 0, installed: 0 };
   const selected = selectedSkillNames(context);
   const lockPath = join(context.repoRoot, "agents/skills.lock.json");
-  const lock = existsSync(lockPath) ? parseJsonObject(readFileSync(lockPath, "utf8"), "skill lock") : {};
+  const lock = existsSync(lockPath)
+    ? parseJsonObject(readFileSync(lockPath, "utf8"), "skill lock")
+    : {};
   const locked = Array.isArray(lock.skills) ? lock.skills.length : 0;
   const installedRoot = join(context.home, ".agents/skills");
   const installed = existsSync(installedRoot)
-    ? readdirSync(installedRoot, { withFileTypes: true }).filter((entry) => entry.isDirectory() && existsSync(join(installedRoot, entry.name, "SKILL.md"))).length
+    ? readdirSync(installedRoot, { withFileTypes: true }).filter(
+        (entry) => entry.isDirectory() && existsSync(join(installedRoot, entry.name, "SKILL.md")),
+      ).length
     : 0;
   return { managed: true, selected: selected.length, locked, installed };
 }
@@ -212,70 +233,158 @@ function skillFacts(context: MaintenanceContext) {
 function buildProbes(context: MaintenanceContext): Probe[] {
   const hostOwner = context.ownsHomebrew || context.profileConfig.capabilities.workstation;
   const probes: Probe[] = [
-    probe("mise_outdated", "mise", ["outdated", "--json"], (result) => parseJsonObject(result.stdout, "mise"), { allowedStatuses: [0, 1] }),
-    probe("npm_outdated", "npm", ["outdated", "-g", "--json"], (result) => parseJsonObject(result.stdout, "npm"), { allowedStatuses: [0, 1] }),
+    probe(
+      "mise_outdated",
+      "mise",
+      ["outdated", "--json"],
+      (result) => parseJsonObject(result.stdout, "mise"),
+      { allowedStatuses: [0, 1] },
+    ),
+    probe(
+      "npm_outdated",
+      "npm",
+      ["outdated", "-g", "--json"],
+      (result) => parseJsonObject(result.stdout, "npm"),
+      { allowedStatuses: [0, 1] },
+    ),
     ...agentProbes(context.profileConfig),
   ];
 
   if (hostOwner) {
     probes.push(
-      probe("system", context.platform === "darwin" ? "sw_vers" : "uname", context.platform === "darwin" ? [] : ["-sr"], (result) => result.stdout.trim()),
+      probe(
+        "system",
+        context.platform === "darwin" ? "sw_vers" : "uname",
+        context.platform === "darwin" ? [] : ["-sr"],
+        (result) => result.stdout.trim(),
+      ),
       probe("disk", "df", ["-Pk", "/"], parseDisk),
       probe("uptime", "uptime", [], (result) => result.stdout.trim()),
       probe("tailscale_status", "tailscale", ["status", "--json"], parseTailscale),
       probe("tailscale_version", "tailscale", ["version"], firstLine),
     );
   }
-  if (context.profileConfig.capabilities.personal && context.profileConfig.capabilities.workstation) {
-    probes.push(probe("mas_outdated", "mas", ["outdated"], (result) => result.stdout.split(/\r?\n/).map((line) => line.trim()).filter(Boolean), {
-      env: { ...context.env, MAS_NO_AUTO_INDEX: "1" },
-      required: false,
-    }));
+  if (
+    context.profileConfig.capabilities.personal &&
+    context.profileConfig.capabilities.workstation
+  ) {
+    probes.push(
+      probe(
+        "mas_outdated",
+        "mas",
+        ["outdated"],
+        (result) =>
+          result.stdout
+            .split(/\r?\n/)
+            .map((line) => line.trim())
+            .filter(Boolean),
+        {
+          env: { ...context.env, MAS_NO_AUTO_INDEX: "1" },
+          required: false,
+        },
+      ),
+    );
   }
   if (context.profileConfig.capabilities.sharedHomebrew && process.platform === "darwin") {
-    probes.push(probe("devbox_services", process.execPath, [join(context.repoRoot, "verify/darwin/devbox-services.ts")], summaryLine, { timeoutMs: 30_000 }));
+    probes.push(
+      probe(
+        "devbox_services",
+        process.execPath,
+        [join(context.repoRoot, "verify/darwin/devbox-services.ts")],
+        summaryLine,
+        { timeoutMs: 30_000 },
+      ),
+    );
   }
   if (context.verify) {
-    probes.push(probe("bootstrap", process.execPath, [join(context.repoRoot, "verify/bootstrap.ts"), "--profile", context.profile], summaryLine, { timeoutMs: 60_000 }));
+    probes.push(
+      probe(
+        "bootstrap",
+        process.execPath,
+        [join(context.repoRoot, "verify/bootstrap.ts"), "--profile", context.profile],
+        summaryLine,
+        { timeoutMs: 60_000 },
+      ),
+    );
   }
 
   const checkout = checkoutPath(context);
   if (checkout) {
     probes.push(
-      probe("dotfiles_status", "git", ["status", "--short", "--branch"], parseGitStatus, { env: context.env }),
-      probe("dotfiles_worktrees", "git", ["worktree", "list", "--porcelain"], parseWorktrees, { env: context.env }),
+      probe("dotfiles_status", "git", ["status", "--short", "--branch"], parseGitStatus, {
+        env: context.env,
+      }),
+      probe("dotfiles_worktrees", "git", ["worktree", "list", "--porcelain"], parseWorktrees, {
+        env: context.env,
+      }),
     );
     for (const item of probes.slice(-2)) item.env = { ...item.env, DOTFILES_CHECKOUT: checkout };
   }
   return probes;
 }
 
-export async function runProbe(spec: Probe, context: MaintenanceContext, runner: CommandRunner): Promise<ProbeResult> {
+async function runProbe(
+  spec: Probe,
+  context: MaintenanceContext,
+  runner: CommandRunner,
+): Promise<ProbeResult> {
   const started = performance.now();
   const cwd = spec.env?.DOTFILES_CHECKOUT || context.cwd;
   const env = { ...context.env, ...spec.env };
   delete env.DOTFILES_CHECKOUT;
-  const result = await runner(spec.command, spec.args, { cwd, env, timeoutMs: spec.timeoutMs ?? defaultTimeoutMs });
+  const result = await runner(spec.command, spec.args, {
+    cwd,
+    env,
+    timeoutMs: spec.timeoutMs ?? defaultTimeoutMs,
+  });
   const duration_ms = Math.round(performance.now() - started);
-  if (result.timedOut) return { status: "timed_out", required: spec.required, duration_ms, error: `timed out after ${spec.timeoutMs ?? defaultTimeoutMs}ms` };
+  if (result.timedOut)
+    return {
+      status: "timed_out",
+      required: spec.required,
+      duration_ms,
+      error: `timed out after ${spec.timeoutMs ?? defaultTimeoutMs}ms`,
+    };
   if (result.error && (result.error as NodeJS.ErrnoException).code === "ENOENT") {
-    return { status: "unavailable", required: spec.required, duration_ms, error: `${spec.command} is unavailable` };
+    return {
+      status: "unavailable",
+      required: spec.required,
+      duration_ms,
+      error: `${spec.command} is unavailable`,
+    };
   }
   const allowed = spec.allowedStatuses ?? [0];
   if (result.error || !allowed.includes(result.status)) {
     const diagnostic = sanitizeDiagnostic(result.stderr || result.error?.message || result.stdout);
-    return { status: "failed", required: spec.required, duration_ms, error: diagnostic || `exit ${result.status}` };
+    return {
+      status: "failed",
+      required: spec.required,
+      duration_ms,
+      error: diagnostic || `exit ${result.status}`,
+    };
   }
   try {
     return { status: "ok", required: spec.required, duration_ms, value: spec.parse(result) };
   } catch (error) {
-    return { status: "failed", required: spec.required, duration_ms, error: error instanceof Error ? error.message : String(error) };
+    return {
+      status: "failed",
+      required: spec.required,
+      duration_ms,
+      error: error instanceof Error ? error.message : String(error),
+    };
   }
 }
 
-async function runBrewBacklogProbe(context: MaintenanceContext, runner: CommandRunner): Promise<ProbeResult> {
+async function runBrewBacklogProbe(
+  context: MaintenanceContext,
+  runner: CommandRunner,
+): Promise<ProbeResult> {
   const started = performance.now();
-  const refresh = await runProbe(probe("brew_update", "brew", ["update"], () => null), context, runner);
+  const refresh = await runProbe(
+    probe("brew_update", "brew", ["update"], () => null),
+    context,
+    runner,
+  );
   if (refresh.status !== "ok") {
     return {
       status: refresh.status,
@@ -286,7 +395,9 @@ async function runBrewBacklogProbe(context: MaintenanceContext, runner: CommandR
   }
 
   const backlog = await runProbe(
-    probe("brew_outdated_greedy", "brew", ["outdated", "--greedy", "--json=v2"], (result) => parseBrewBacklog(result.stdout)),
+    probe("brew_outdated_greedy", "brew", ["outdated", "--greedy", "--json=v2"], (result) =>
+      parseBrewBacklog(result.stdout),
+    ),
     context,
     runner,
   );
@@ -313,21 +424,34 @@ export async function collectMaintenanceSnapshot(
   context: MaintenanceContext,
   runner: CommandRunner = runProcess,
   macosUpdateIO: MacOSUpdateIO = defaultMacOSUpdateIO,
+  signal?: AbortSignal,
 ) {
   const hostOwner = context.ownsHomebrew || context.profileConfig.capabilities.workstation;
-  const inventory = hostOwner && context.platform === "darwin"
-    ? collectMacOSUpdateInventory({
-        cwd: context.cwd,
-        env: context.env,
-        fresh: context.fresh || context.verify,
-        home: context.home,
-      }, runner, macosUpdateIO)
-    : undefined;
+  const inventory =
+    hostOwner && context.platform === "darwin"
+      ? collectMacOSUpdateInventory(
+          {
+            cwd: context.cwd,
+            env: context.env,
+            fresh: context.fresh || context.verify,
+            home: context.home,
+          },
+          runner,
+          macosUpdateIO,
+          signal,
+        )
+      : undefined;
   const [entries, macosUpdates] = await Promise.all([
     Promise.all([
-      ...buildProbes(context).map(async (spec) => [spec.id, await runProbe(spec, context, runner)] as const),
+      ...buildProbes(context).map(
+        async (spec) => [spec.id, await runProbe(spec, context, runner)] as const,
+      ),
       ...(context.ownsHomebrew
-        ? [runBrewBacklogProbe(context, runner).then((result) => ["brew_outdated_greedy", result] as const)]
+        ? [
+            runBrewBacklogProbe(context, runner).then(
+              (result) => ["brew_outdated_greedy", result] as const,
+            ),
+          ]
         : []),
     ]),
     inventory,
@@ -340,11 +464,15 @@ export async function collectMaintenanceSnapshot(
       required: true,
       duration_ms: macosUpdates.duration_ms,
       value: macosUpdates,
-      ...(macosUpdates.applicability.status === "unknown" ? { error: "macOS update applicability could not be established" } : {}),
+      ...(macosUpdates.applicability.status === "unknown"
+        ? { error: "macOS update applicability could not be established" }
+        : {}),
     };
   }
   const backlog_count = backlogCount(probes);
-  const required_failures = Object.values(probes).filter((result) => result.required && result.status !== "ok").length;
+  const required_failures = Object.values(probes).filter(
+    (result) => result.required && result.status !== "ok",
+  ).length;
   const software = macosUpdates as MacOSUpdateInventory | undefined;
   const software_update_status = software?.applicability.status ?? "not_applicable";
   const software_update_available = software?.applicability.status === "updates_available";
@@ -356,7 +484,12 @@ export async function collectMaintenanceSnapshot(
     checkout: checkoutPath(context) ?? null,
     skills: skillFacts(context),
     summary: {
-      status: required_failures > 0 ? "incomplete" : backlog_count > 0 || software_update_available ? "attention" : "clean",
+      status:
+        required_failures > 0
+          ? "incomplete"
+          : backlog_count > 0 || software_update_available
+            ? "attention"
+            : "clean",
       backlog_count,
       required_failures,
       software_update_status,
@@ -366,13 +499,27 @@ export async function collectMaintenanceSnapshot(
   };
 }
 
-export function runProcess(command: string, args: readonly string[], options: { cwd: string; env: NodeJS.ProcessEnv; timeoutMs: number | null }): Promise<RawCommandResult> {
+export function runProcess(
+  command: string,
+  args: readonly string[],
+  options: { cwd: string; env: NodeJS.ProcessEnv; timeoutMs: number | null; signal?: AbortSignal },
+): Promise<RawCommandResult> {
   return new Promise((finish) => {
-    const child = spawn(command, [...args], { cwd: options.cwd, env: options.env, stdio: ["ignore", "pipe", "pipe"] });
+    if (options.signal?.aborted) {
+      finish({ status: 1, stdout: "", stderr: "", error: new Error("maintenance probe canceled") });
+      return;
+    }
+    const child = spawn(command, [...args], {
+      cwd: options.cwd,
+      env: options.env,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
     const stdout: Buffer[] = [];
     const stderr: Buffer[] = [];
     let settled = false;
     let timedOut = false;
+    let canceled = false;
+    let exited = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let killTimer: ReturnType<typeof setTimeout> | undefined;
     let drainTimer: ReturnType<typeof setTimeout> | undefined;
@@ -383,12 +530,40 @@ export function runProcess(command: string, args: readonly string[], options: { 
       clearTimeout(timer);
       clearTimeout(killTimer);
       clearTimeout(drainTimer);
+      options.signal?.removeEventListener("abort", cancel);
       child.stdout.destroy();
       child.stderr.destroy();
       // A timed-out child must not retain the collector if it cannot be reaped yet.
       if (timedOut) child.unref();
-      finish(result);
+      finish(canceled ? { ...result, error: new Error("maintenance probe canceled") } : result);
     };
+    const cancel = () => {
+      if (settled || canceled) return;
+      canceled = true;
+      clearTimeout(timer);
+      clearTimeout(killTimer);
+      clearTimeout(drainTimer);
+      const drain = () => {
+        drainTimer = setTimeout(
+          () =>
+            complete({
+              status: exitStatus ?? 1,
+              stdout: Buffer.concat(stdout).toString(),
+              stderr: Buffer.concat(stderr).toString(),
+              timedOut,
+            }),
+          200,
+        );
+      };
+      if (exited) drain();
+      else {
+        // Wait for the owned child to be reaped before finishing cancellation.
+        child.once("exit", drain);
+        child.kill("SIGTERM");
+        killTimer = setTimeout(() => child.kill("SIGKILL"), 200);
+      }
+    };
+    options.signal?.addEventListener("abort", cancel, { once: true });
     if (options.timeoutMs !== null) {
       timer = setTimeout(() => {
         timedOut = true;
@@ -396,7 +571,12 @@ export function runProcess(command: string, args: readonly string[], options: { 
           // Own only the direct ChildProcess; descendants may still hold its pipes.
           // Never signal a saved PID after Node has reaped the direct child.
           drainTimer = setTimeout(() => {
-            complete({ status: exitStatus ?? 1, stdout: Buffer.concat(stdout).toString(), stderr: Buffer.concat(stderr).toString(), timedOut });
+            complete({
+              status: exitStatus ?? 1,
+              stdout: Buffer.concat(stdout).toString(),
+              stderr: Buffer.concat(stderr).toString(),
+              timedOut,
+            });
           }, 200);
           child.kill("SIGKILL");
         }, 200);
@@ -405,9 +585,28 @@ export function runProcess(command: string, args: readonly string[], options: { 
     }
     child.stdout.on("data", (chunk: Buffer) => stdout.push(chunk));
     child.stderr.on("data", (chunk: Buffer) => stderr.push(chunk));
-    child.on("error", (error) => complete({ status: 127, stdout: Buffer.concat(stdout).toString(), stderr: Buffer.concat(stderr).toString(), error, timedOut }));
-    child.on("exit", (status) => { exitStatus = status; });
-    child.on("close", (status) => complete({ status: status ?? 1, stdout: Buffer.concat(stdout).toString(), stderr: Buffer.concat(stderr).toString(), timedOut }));
+    child.on("error", (error) =>
+      complete({
+        status: 127,
+        stdout: Buffer.concat(stdout).toString(),
+        stderr: Buffer.concat(stderr).toString(),
+        error,
+        timedOut,
+      }),
+    );
+    child.on("exit", (status) => {
+      exitStatus = status;
+      exited = true;
+      if (canceled) clearTimeout(killTimer);
+    });
+    child.on("close", (status) =>
+      complete({
+        status: status ?? 1,
+        stdout: Buffer.concat(stdout).toString(),
+        stderr: Buffer.concat(stderr).toString(),
+        timedOut,
+      }),
+    );
   });
 }
 
@@ -421,17 +620,58 @@ function ownsHomebrew(env: NodeJS.ProcessEnv): boolean {
   }
 }
 
-async function main(): Promise<number> {
+export const collectMaintenanceSnapshotEffect = Effect.fn("collectMaintenanceSnapshot")(function* (
+  context: MaintenanceContext,
+  macosUpdateIO: MacOSUpdateIO = defaultMacOSUpdateIO,
+) {
+  const active = new Set<Promise<RawCommandResult>>();
+  let collection: Promise<unknown> | undefined;
+  const controller = yield* Effect.acquireRelease(
+    Effect.sync(() => new AbortController()),
+    (controller) =>
+      Effect.promise(async () => {
+        controller.abort();
+        await Promise.allSettled([...active, ...(collection ? [collection] : [])]);
+      }),
+  );
+  const runner: CommandRunner = (command, args, options) => {
+    const pending = runProcess(command, args, { ...options, signal: controller.signal });
+    active.add(pending);
+    void pending.then(
+      () => active.delete(pending),
+      () => active.delete(pending),
+    );
+    return pending;
+  };
+  return yield* Effect.tryPromise({
+    try: () => {
+      const pending = collectMaintenanceSnapshot(context, runner, macosUpdateIO, controller.signal);
+      collection = pending;
+      return pending;
+    },
+    catch: (error) => error,
+  });
+}, Effect.scoped);
+
+const main = Effect.fn("maintenanceCheck")(function* () {
   const args = process.argv.slice(2);
-  if (args.some((argument) => argument !== "--fresh" && argument !== "--verify") || new Set(args).size !== args.length) {
+  if (
+    args.some((argument) => argument !== "--fresh" && argument !== "--verify") ||
+    new Set(args).size !== args.length
+  ) {
     process.stderr.write("Usage: maintenance/check.ts [--fresh] [--verify]\n");
     return 2;
   }
   const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
   const home = process.env.HOME || homedir();
-  const profile = readFileSync(join(home, ".config/dotfiles/profile"), "utf8").trim();
-  const model = readProfileModel(join(repoRoot, "chezmoi/.chezmoidata/profiles.json"));
-  const snapshot = await collectMaintenanceSnapshot({
+  const profile = yield* Effect.try(() =>
+    readFileSync(join(home, ".config/dotfiles/profile"), "utf8").trim(),
+  );
+  const model = yield* Effect.try(() =>
+    readProfileModel(join(repoRoot, "chezmoi/.chezmoidata/profiles.json")),
+  );
+  const profileConfig = yield* Effect.try(() => requireProfile(model, profile));
+  const snapshot = yield* collectMaintenanceSnapshotEffect({
     cwd: repoRoot,
     env: process.env,
     home,
@@ -439,7 +679,7 @@ async function main(): Promise<number> {
     ownsHomebrew: ownsHomebrew(process.env),
     platform: process.platform,
     profile,
-    profileConfig: requireProfile(model, profile),
+    profileConfig,
     repoRoot,
     user: process.env.USER || "unknown",
     fresh: args.includes("--fresh"),
@@ -447,11 +687,17 @@ async function main(): Promise<number> {
   });
   process.stdout.write(`${JSON.stringify(snapshot)}\n`);
   return 0;
-}
+});
 
 if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
-  runMain(Effect.tryPromise({ try: main, catch: (error) => error }).pipe(
-    Effect.tap((status) => Effect.sync(() => { process.exitCode = status; })),
-    Effect.asVoid,
-  ));
+  runMain(
+    main().pipe(
+      Effect.tap((status) =>
+        Effect.sync(() => {
+          process.exitCode = status;
+        }),
+      ),
+      Effect.asVoid,
+    ),
+  );
 }

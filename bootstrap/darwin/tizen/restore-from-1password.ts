@@ -16,16 +16,27 @@ const run = (command: string, args: readonly string[], inherit = false) =>
     output: inherit ? "inherit" : "capture",
   });
 
-const program = Effect.gen(function*() {
+const program = Effect.gen(function* () {
   const args = process.argv.slice(2);
-  if (args.length > 1) return yield* fail("usage: bootstrap/darwin/tizen/restore-from-1password.ts [OUTPUT]", 2);
+  if (args.length > 1)
+    return yield* fail("usage: bootstrap/darwin/tizen/restore-from-1password.ts [OUTPUT]", 2);
   const account = process.env.TIZEN_1PASSWORD_ACCOUNT || "";
   const reference = process.env.TIZEN_1PASSWORD_REFERENCE;
   const expectedInput = process.env.TIZEN_CERTS_SHA256;
-  if (!reference) return yield* fail("TIZEN_1PASSWORD_REFERENCE is required, for example op://Vault/Item/archive", 2);
+  if (!reference)
+    return yield* fail(
+      "TIZEN_1PASSWORD_REFERENCE is required, for example op://Vault/Item/archive",
+      2,
+    );
   if (!expectedInput) return yield* fail("TIZEN_CERTS_SHA256 is required", 2);
   const expected = yield* Schema.decodeUnknownEffect(Sha256)(expectedInput).pipe(
-    Effect.mapError(() => new CliFailure({ exitCode: 2, message: "TIZEN_CERTS_SHA256 must be a lowercase SHA-256 digest" })),
+    Effect.mapError(
+      () =>
+        new CliFailure({
+          exitCode: 2,
+          message: "TIZEN_CERTS_SHA256 must be a lowercase SHA-256 digest",
+        }),
+    ),
   );
   const output = args[0] || join(process.env.HOME || "", "Downloads/tizen-certs.tar.gz");
   const fs = yield* FileSystem.FileSystem;
@@ -39,15 +50,19 @@ const program = Effect.gen(function*() {
     : ["read", "--out-file", output, reference];
   yield* run("op", readArgs);
   const checksum = yield* run("shasum", ["-a", "256", output]);
-  const actual = yield* Schema.decodeUnknownEffect(Sha256)(checksum.stdout.trim().split(/\s+/)[0]).pipe(
-    Effect.mapError(() => new CliFailure({ exitCode: 1, message: "shasum returned an invalid SHA-256 digest" })),
+  const actual = yield* Schema.decodeUnknownEffect(Sha256)(
+    checksum.stdout.trim().split(/\s+/)[0],
+  ).pipe(
+    Effect.mapError(
+      () => new CliFailure({ exitCode: 1, message: "shasum returned an invalid SHA-256 digest" }),
+    ),
   );
-  if (actual !== expected) return yield* fail(`checksum mismatch for ${output}\nexpected: ${expected}\nactual:   ${actual}`);
+  if (actual !== expected)
+    return yield* fail(
+      `checksum mismatch for ${output}\nexpected: ${expected}\nactual:   ${actual}`,
+    );
   yield* Console.log(`checksum ok: ${actual}`);
   yield* run(join(scriptDir, "restore.ts"), [output], true);
-}).pipe(
-  Effect.provide(CommandRunner.layer),
-  Effect.provide(NodeServices.layer),
-);
+}).pipe(Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer));
 
 runMain(program);

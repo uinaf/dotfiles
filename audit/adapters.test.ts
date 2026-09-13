@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import test from "node:test";
+import { test } from "vite-plus/test";
 
 import { parseHostArgs, runHostAudit } from "./host.ts";
 import type { CommandOptions, CommandRunner } from "./report.ts";
@@ -14,28 +14,47 @@ test("host adapter summarizes Lynis without exposing its report", () => {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-host-audit-test-"));
   const output: string[] = [];
   const command: CommandRunner = (_command, args) => {
-    writeFileSync(args[args.indexOf("--report-file") + 1], [
-      "lynis_version=3.1.4",
-      "hardening_index=72",
-      "lynis_tests_done=191",
-      "warning[]=AUTH-9262|Password policy is weak|",
-      "suggestion[]=BOOT-5122|Protect startup mode|",
-    ].join("\n"));
+    writeFileSync(
+      args[args.indexOf("--report-file") + 1],
+      [
+        "lynis_version=3.1.4",
+        "hardening_index=72",
+        "lynis_tests_done=191",
+        "warning[]=AUTH-9262|Password policy is weak|",
+        "suggestion[]=BOOT-5122|Protect startup mode|",
+      ].join("\n"),
+    );
     writeFileSync(args[args.indexOf("--log-file") + 1], "private host data");
     return { status: 0, stdout: "", stderr: "" };
   };
   try {
-    const result = runHostAudit({ format: "json", allowSudoPrompt: false, minHardeningIndex: 70 }, {
-      command, env: { TMPDIR: root }, uid: 501, stdout: (value) => output.push(value),
-    });
+    const result = runHostAudit(
+      { format: "json", allowSudoPrompt: false, minHardeningIndex: 70 },
+      {
+        command,
+        env: { TMPDIR: root },
+        uid: 501,
+        stdout: (value) => output.push(value),
+      },
+    );
     assert.equal(result.status, 0);
     assert.deepEqual(result.summary, {
-      audit: "host-security", status: "warn", failed: 0, warnings: 2,
-      lynis_version: "3.1.4", hardening_index: 72, tests_performed: 191,
-      lynis_warnings: 1, lynis_suggestions: 1, privileged: false,
+      audit: "host-security",
+      status: "warn",
+      failed: 0,
+      warnings: 2,
+      lynis_version: "3.1.4",
+      hardening_index: 72,
+      tests_performed: 191,
+      lynis_warnings: 1,
+      lynis_suggestions: 1,
+      privileged: false,
     });
     assert.deepEqual(JSON.parse(output.join("")), result.summary);
-    assert.throws(() => parseHostArgs(["--min-hardening-index", "nope"]), /invalid --min-hardening-index/);
+    assert.throws(
+      () => parseHostArgs(["--min-hardening-index", "nope"]),
+      /invalid --min-hardening-index/,
+    );
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -43,24 +62,30 @@ test("host adapter summarizes Lynis without exposing its report", () => {
 
 test("privileged host adapter checks Lynis before invoking sudo", () => {
   const calls: string[] = [];
-  const result = runHostAudit({ format: "json", allowSudoPrompt: true }, {
-    uid: 501,
-    command: (command, args) => {
-      calls.push(`${command} ${args.join(" ")}`);
-      return { status: null, stdout: "", stderr: "", error: new Error("spawn lynis ENOENT") };
+  const result = runHostAudit(
+    { format: "json", allowSudoPrompt: true },
+    {
+      uid: 501,
+      command: (command, args) => {
+        calls.push(`${command} ${args.join(" ")}`);
+        return { status: null, stdout: "", stderr: "", error: new Error("spawn lynis ENOENT") };
+      },
+      stdout: () => {},
     },
-    stdout: () => {},
-  });
+  );
   assert.equal(result.summary.failed, 1);
   assert.equal(result.summary.privileged, false);
   assert.deepEqual(calls, ["lynis --version"]);
 });
 
 test("host adapter rejects an empty Lynis report", () => {
-  const result = runHostAudit({ format: "json", allowSudoPrompt: false }, {
-    command: () => ({ status: 0, stdout: "", stderr: "" }),
-    stdout: () => {},
-  });
+  const result = runHostAudit(
+    { format: "json", allowSudoPrompt: false },
+    {
+      command: () => ({ status: 0, stdout: "", stderr: "" }),
+      stdout: () => {},
+    },
+  );
   assert.equal(result.summary.failed, 1);
   assert.equal(result.summary.warnings, 1);
 });
@@ -82,24 +107,53 @@ test("repository adapter selects the mSCP 2.0 artifact and only checks it", () =
   writeFileSync(compliance, "#!/bin/zsh\n");
   chmodSync(compliance, 0o755);
   try {
-    const result = runRepoAudit({
-      format: "json", mscp: true, mscpDir: mscp,
-      mscpBaseline: "800-53r5_moderate", allowSudoPrompt: false,
-    }, { command, repoRoot: repo, uid: 0, stdout: () => {} });
+    const result = runRepoAudit(
+      {
+        format: "json",
+        mscp: true,
+        mscpDir: mscp,
+        mscpBaseline: "800-53r5_moderate",
+        allowSudoPrompt: false,
+      },
+      { command, repoRoot: repo, uid: 0, stdout: () => {} },
+    );
     assert.deepEqual(result.summary, {
-      audit: "repo-security", status: "pass", failed: 0, warnings: 0, mscp: "enabled",
+      audit: "repo-security",
+      status: "pass",
+      failed: 0,
+      warnings: 0,
+      mscp: "enabled",
     });
-    assert.ok(calls.some(([name, args, options]) => name === "zsh" && args[0] === compliance && args[1] === "--check" && options?.output === "discard"));
-    assert.ok(calls.some(([name, args]) =>
-      name === "gitleaks" && args.includes("--log-opts=HEAD --branches --remotes --tags")
-    ));
+    assert.ok(
+      calls.some(
+        ([name, args, options]) =>
+          name === "zsh" &&
+          args[0] === compliance &&
+          args[1] === "--check" &&
+          options?.output === "discard",
+      ),
+    );
+    assert.ok(
+      calls.some(
+        ([name, args]) =>
+          name === "gitleaks" && args.includes("--log-opts=HEAD --branches --remotes --tags"),
+      ),
+    );
     assert.ok(calls.every(([, args]) => !args.includes("--fix")));
-    assert.ok(calls.filter(([name]) => name === "gitleaks" || name === "trufflehog").every(([, , options]) => options?.output === "discard"));
+    assert.ok(
+      calls
+        .filter(([name]) => name === "gitleaks" || name === "trufflehog")
+        .every(([, , options]) => options?.output === "discard"),
+    );
     assert.equal(mscpPlatformVersion("14.7.7"), "14.0");
     assert.equal(mscpPlatformVersion("unknown"), undefined);
     assert.deepEqual(parseRepoArgs(["--skip-mscp"], { HOME: "/tmp/home" }), {
-      format: "text", mscp: false, mscpDir: "/tmp/home/projects/security/macos_security",
-      mscpBaseline: "800-53r5_moderate", mscpScript: undefined, allowSudoPrompt: false,
+      format: "text",
+      mscp: false,
+      mscpDir: "/tmp/home/projects/security/macos_security",
+      mscpBaseline: "800-53r5_moderate",
+      mscpScript: undefined,
+      allowSudoPrompt: false,
     });
   } finally {
     rmSync(root, { recursive: true, force: true });

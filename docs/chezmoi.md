@@ -3,10 +3,8 @@
 Edit tracked files under [chezmoi/](../chezmoi/).
 [Profile data](../chezmoi/.chezmoidata/profiles.json) selects their targets;
 [apply-dotfiles.ts](../bootstrap/apply-dotfiles.ts) handles preview,
-backups, and apply. Runtime and command-line tool pins belong to
-[mise](mise.md#runtime-pins); Homebrew keeps the macOS packages that need a
-compiler, a GUI, or a system service. [.chezmoiignore](../chezmoi/.chezmoiignore.tmpl)
-drops `Library/` on Linux and the systemd and `environment.d` files on macOS.
+backups, and apply. [.chezmoiignore](../chezmoi/.chezmoiignore.tmpl) owns platform
+and profile exclusions; [mise](mise.md#runtime-pins) owns runtime pins.
 
 ## Workflow
 
@@ -39,13 +37,13 @@ node verify/home-fixture.ts
 
 ## Local Overrides
 
-| Path | Use |
-| --- | --- |
-| `~/.ssh/config.local` | Host-specific SSH directives |
-| `~/.ssh/config.d/*.conf` | Fragments written by other tools |
-| `~/.config/dotfiles/zshenv.local` | Machine-specific, non-secret shell exports |
-| `~/.config/dotfiles/agents.start.md`, `agents.end.md` | Private agent rules |
-| `~/.config/dotfiles/devbox.env` | [Per-user devbox settings](devbox.md#local-configuration), including the T3 service opt-in |
+| Path                                                  | Use                                                                                        |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `~/.ssh/config.local`                                 | Host-specific SSH directives                                                               |
+| `~/.ssh/config.d/*.conf`                              | Fragments written by other tools                                                           |
+| `~/.config/dotfiles/zshenv.local`                     | Machine-specific, non-secret shell exports                                                 |
+| `~/.config/dotfiles/agents.start.md`, `agents.end.md` | Private agent rules                                                                        |
+| `~/.config/dotfiles/devbox.env`                       | [Per-user devbox settings](devbox.md#local-configuration), including the T3 service opt-in |
 
 - SSH includes Colima's generated `~/.colima/ssh_config`. Route writers to
   their own fragments rather than modifying `~/.ssh/config`.

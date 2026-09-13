@@ -13,7 +13,10 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const sourceDir = join(repoRoot, "chezmoi");
 const home = process.env.HOME || "";
 const configDir = join(home, ".config/dotfiles");
-const agentRulesPath = join(process.env.XDG_STATE_HOME || join(home, ".local/state"), "dotfiles/agent-rules.md");
+const agentRulesPath = join(
+  process.env.XDG_STATE_HOME || join(home, ".local/state"),
+  "dotfiles/agent-rules.md",
+);
 const usage = `Usage:
   bootstrap/apply-dotfiles.ts [--profile PROFILE] [--dry-run] [--verbose]
 
@@ -27,8 +30,13 @@ const Arguments = Schema.Struct({
 });
 type Arguments = typeof Arguments.Type;
 
-const parseArguments = Effect.fn("parseApplyDotfilesArguments")(function*(args: readonly string[]) {
-  const parsed: { profile?: string; dryRun: boolean; verbose: boolean } = { dryRun: false, verbose: false };
+const parseArguments = Effect.fn("parseApplyDotfilesArguments")(function* (
+  args: readonly string[],
+) {
+  const parsed: { profile?: string; dryRun: boolean; verbose: boolean } = {
+    dryRun: false,
+    verbose: false,
+  };
   for (let index = 0; index < args.length; index += 1) {
     switch (args[index]) {
       case "--profile": {
@@ -61,39 +69,54 @@ type ChezmoiContext = {
 // chezmoi and gitleaks are mise tools declared by the very config this script
 // renders, so the first apply borrows the pinned releases through `mise x`
 // until the shims exist.
-const ensureBootstrapTools = Effect.fn("ensureBootstrapTools")(function*() {
+const ensureBootstrapTools = Effect.fn("ensureBootstrapTools")(function* () {
   const runner = yield* CommandRunner;
   const fs = yield* FileSystem.FileSystem;
   const template = yield* fs.readFileString(join(sourceDir, ".chezmoitemplates/mise.toml"));
   const offline = process.env.DOTFILES_AGENT_RULES_OFFLINE === "1";
   for (const tool of offline ? ["chezmoi"] : ["chezmoi", "gitleaks"]) {
-    const onPath = yield* runner.run("sh", ["-c", `command -v ${tool}`], { output: "capture" }).pipe(Effect.option);
+    const onPath = yield* runner
+      .run("sh", ["-c", `command -v ${tool}`], { output: "capture" })
+      .pipe(Effect.option);
     if (Option.isSome(onPath) && onPath.value.status === 0) continue;
     const pin = new RegExp(`^${tool} = "([^"]+)"$`, "m").exec(template)?.[1];
     if (!pin) return yield* fail(`${tool} is not on PATH and the mise template has no ${tool} pin`);
-    const located = yield* runner.run("mise", ["--no-config", "x", `${tool}@${pin}`, "--", "sh", "-c", `dirname "$(command -v ${tool})"`], { output: "capture" }).pipe(
-      Effect.mapError((error) => new CliFailure({ exitCode: 1, message: `cannot provision ${tool}@${pin} through mise: ${error.message}` })),
-    );
+    const located = yield* runner
+      .run(
+        "mise",
+        ["--no-config", "x", `${tool}@${pin}`, "--", "sh", "-c", `dirname "$(command -v ${tool})"`],
+        { output: "capture" },
+      )
+      .pipe(
+        Effect.mapError(
+          (error) =>
+            new CliFailure({
+              exitCode: 1,
+              message: `cannot provision ${tool}@${pin} through mise: ${error.message}`,
+            }),
+        ),
+      );
     const directory = located.stdout.trim().split("\n").at(-1) || "";
-    if (located.status !== 0 || !directory.startsWith("/")) return yield* fail(`cannot provision ${tool}@${pin} through mise`);
+    if (located.status !== 0 || !directory.startsWith("/"))
+      return yield* fail(`cannot provision ${tool}@${pin} through mise`);
     process.env.PATH = `${directory}:${process.env.PATH || ""}`;
   }
 });
 
-const runCommand = Effect.fn("runApplyDotfilesCommand")(function*(
+const runCommand = Effect.fn("runApplyDotfilesCommand")(function* (
   command: string,
   args: readonly string[],
   output: "capture" | "inherit" = "capture",
 ) {
   const runner = yield* CommandRunner;
-  const result = yield* runner.run(command, args, { cwd: repoRoot, stdin: "inherit", output }).pipe(
-    Effect.mapError((error) => new CliFailure({ exitCode: 1, message: error.message })),
-  );
+  const result = yield* runner
+    .run(command, args, { cwd: repoRoot, stdin: "inherit", output })
+    .pipe(Effect.mapError((error) => new CliFailure({ exitCode: 1, message: error.message })));
   if (result.status !== 0) return yield* fail(`${command} exited ${result.status}`, result.status);
   return result;
 });
 
-const runChezmoi = Effect.fn("runChezmoi")(function*(
+const runChezmoi = Effect.fn("runChezmoi")(function* (
   context: ChezmoiContext,
   args: readonly string[],
   output: "capture" | "inherit" = "capture",
@@ -101,7 +124,7 @@ const runChezmoi = Effect.fn("runChezmoi")(function*(
   return yield* runCommand("chezmoi", [...context.baseArgs, ...args], output);
 });
 
-const matchesManagedTarget = Effect.fn("matchesManagedTarget")(function*(
+const matchesManagedTarget = Effect.fn("matchesManagedTarget")(function* (
   context: ChezmoiContext,
   target: string,
   expectedType: "file" | "symlink" | "remove",
@@ -129,7 +152,10 @@ const matchesManagedTarget = Effect.fn("matchesManagedTarget")(function*(
 // backup written by this run is the most recent by definition and is never a
 // prune candidate: timestamps come from the host clock, so a clock behind an
 // existing backup would otherwise prune the file just written.
-export const pruneOlderBackups = Effect.fn("pruneOlderBackups")(function*(target: string, created?: string) {
+export const pruneOlderBackups = Effect.fn("pruneOlderBackups")(function* (
+  target: string,
+  created?: string,
+) {
   const fs = yield* FileSystem.FileSystem;
   const directory = dirname(target);
   const prefix = `${basename(target)}.backup.`;
@@ -143,7 +169,7 @@ export const pruneOlderBackups = Effect.fn("pruneOlderBackups")(function*(target
   }
 });
 
-const backupPath = Effect.fn("backupPath")(function*(
+const backupPath = Effect.fn("backupPath")(function* (
   context: ChezmoiContext,
   target: string,
   expectedType: "file" | "symlink",
@@ -168,7 +194,7 @@ const backupPath = Effect.fn("backupPath")(function*(
   yield* pruneOlderBackups(target, backup);
 });
 
-const replaceAgentPath = Effect.fn("replaceAgentPath")(function*(
+const replaceAgentPath = Effect.fn("replaceAgentPath")(function* (
   context: ChezmoiContext,
   target: string,
   expectedType: "file" | "symlink" | "remove",
@@ -190,7 +216,7 @@ const replaceAgentPath = Effect.fn("replaceAgentPath")(function*(
 // explicitly before chezmoi removes the file. Idempotent: not-loaded is a no-op.
 export const retiredAgentLabels = ["local.dotfiles.disk-cleanup"] as const;
 
-export const retireLaunchAgents = Effect.fn("retireLaunchAgents")(function*(
+export const retireLaunchAgents = Effect.fn("retireLaunchAgents")(function* (
   uid: number,
   dryRun: boolean,
   platform: NodeJS.Platform = process.platform,
@@ -208,30 +234,46 @@ export const retireLaunchAgents = Effect.fn("retireLaunchAgents")(function*(
       yield* Console.log(`would boot out retired LaunchAgent ${service}`);
       continue;
     }
-    const result = yield* runner.run("launchctl", ["bootout", service]).pipe(
-      Effect.mapError((error) => new CliFailure({ exitCode: 1, message: error.message })),
-    );
-    if (result.status !== 0) return yield* fail(`launchctl bootout ${service} exited ${result.status}`, result.status);
+    const result = yield* runner
+      .run("launchctl", ["bootout", service])
+      .pipe(Effect.mapError((error) => new CliFailure({ exitCode: 1, message: error.message })));
+    if (result.status !== 0)
+      return yield* fail(`launchctl bootout ${service} exited ${result.status}`, result.status);
     yield* Console.log(`booted out retired LaunchAgent ${service}`);
   }
 });
 
-const managedTargets = Effect.fn("managedTargets")(function*(context: ChezmoiContext, include: "files" | "symlinks") {
-  const result = yield* runChezmoi(context, ["managed", `--include=${include}`, "--path-style", "absolute"]);
+const managedTargets = Effect.fn("managedTargets")(function* (
+  context: ChezmoiContext,
+  include: "files" | "symlinks",
+) {
+  const result = yield* runChezmoi(context, [
+    "managed",
+    `--include=${include}`,
+    "--path-style",
+    "absolute",
+  ]);
   return result.stdout.split("\n").filter((target) => target.length > 0);
 });
 
-const validateLocalAgentRules = Effect.fn("validateLocalAgentRules")(function*() {
+const validateLocalAgentRules = Effect.fn("validateLocalAgentRules")(function* () {
   const fs = yield* FileSystem.FileSystem;
   for (const path of [join(configDir, "agents.start.md"), join(configDir, "agents.end.md")]) {
     const link = yield* fs.readLink(path).pipe(Effect.option);
     const exists = yield* fs.exists(path);
-    if (Option.isSome(link) && !exists) return yield* fail(`local agent rules link is broken: ${path}`);
+    if (Option.isSome(link) && !exists)
+      return yield* fail(`local agent rules link is broken: ${path}`);
     if (!exists) continue;
-    const info = yield* fs.stat(path).pipe(
-      Effect.mapError(() => new CliFailure({ exitCode: 1, message: `cannot inspect local agent rules: ${path}` })),
-    );
-    if (info.type !== "File") return yield* fail(`local agent rules must resolve to a regular file: ${path}`);
+    const info = yield* fs
+      .stat(path)
+      .pipe(
+        Effect.mapError(
+          () =>
+            new CliFailure({ exitCode: 1, message: `cannot inspect local agent rules: ${path}` }),
+        ),
+      );
+    if (info.type !== "File")
+      return yield* fail(`local agent rules must resolve to a regular file: ${path}`);
     if (Option.getOrUndefined(info.uid) !== process.getuid?.()) {
       return yield* fail(`local agent rules must be owned by the current user: ${path}`);
     }
@@ -241,7 +283,7 @@ const validateLocalAgentRules = Effect.fn("validateLocalAgentRules")(function*()
   }
 });
 
-const backupPreexistingTargets = Effect.fn("backupPreexistingTargets")(function*(
+const backupPreexistingTargets = Effect.fn("backupPreexistingTargets")(function* (
   context: ChezmoiContext,
 ) {
   yield* replaceAgentPath(context, join(home, ".agents/AGENTS.md"), "remove");
@@ -261,7 +303,7 @@ const backupPreexistingTargets = Effect.fn("backupPreexistingTargets")(function*
   }
 });
 
-export const convergeUserManager = Effect.fn("convergeUserManager")(function*(
+export const convergeUserManager = Effect.fn("convergeUserManager")(function* (
   home: string,
   dryRun: boolean,
   platform: NodeJS.Platform = process.platform,
@@ -269,43 +311,65 @@ export const convergeUserManager = Effect.fn("convergeUserManager")(function*(
   if (platform !== "linux" || dryRun) return;
   const runner = yield* CommandRunner;
   // Containers and non-systemd sessions can apply without a user manager.
-  const environment = yield* runner.run("systemctl", ["--user", "show-environment"], { output: "capture" }).pipe(
-    Effect.catch(() => Effect.succeed(undefined)),
-  );
+  const environment = yield* runner
+    .run("systemctl", ["--user", "show-environment"], { output: "capture" })
+    .pipe(Effect.catch(() => Effect.succeed(undefined)));
   if (!environment || environment.status !== 0) return;
-  const current = environment.stdout.split("\n").find((line) => line.startsWith("PATH="))?.slice(5) ?? "/usr/local/bin:/usr/bin:/bin";
-  const front = [".local/share/mise/shims", ".local/libexec/dotfiles/bin", ".local/bin"].map((part) => join(home, part));
-  const merged = [...front, ...current.split(":").filter((part) => part && !front.includes(part))].join(":");
+  const current =
+    environment.stdout
+      .split("\n")
+      .find((line) => line.startsWith("PATH="))
+      ?.slice(5) ?? "/usr/local/bin:/usr/bin:/bin";
+  const front = [".local/share/mise/shims", ".local/libexec/dotfiles/bin", ".local/bin"].map(
+    (part) => join(home, part),
+  );
+  const merged = [
+    ...front,
+    ...current.split(":").filter((part) => part && !front.includes(part)),
+  ].join(":");
   for (const args of [["daemon-reload"], ["set-environment", `PATH=${merged}`]]) {
     const operation = `systemctl --user ${args[0]}`;
-    const result = yield* runner.run("systemctl", ["--user", ...args], { output: "capture" }).pipe(
-      Effect.mapError((error) => new CliFailure({ exitCode: 1, message: `${operation} failed: ${error.message}` })),
-    );
-    if (result.status !== 0) return yield* fail(`${operation} exited ${result.status}: ${result.stderr.trim()}`, result.status);
+    const result = yield* runner
+      .run("systemctl", ["--user", ...args], { output: "capture" })
+      .pipe(
+        Effect.mapError(
+          (error) =>
+            new CliFailure({ exitCode: 1, message: `${operation} failed: ${error.message}` }),
+        ),
+      );
+    if (result.status !== 0)
+      return yield* fail(
+        `${operation} exited ${result.status}: ${result.stderr.trim()}`,
+        result.status,
+      );
   }
 });
 
-const program = Effect.gen(function*() {
+const program = Effect.gen(function* () {
   const rawArgs = process.argv.slice(2);
   if (rawArgs.length === 1 && (rawArgs[0] === "-h" || rawArgs[0] === "--help")) {
     yield* Console.log(usage);
     return;
   }
-  const args = yield* parseArguments(rawArgs).pipe(
-    Effect.tapError(() => Console.error(usage)),
-  );
+  const args = yield* parseArguments(rawArgs).pipe(Effect.tapError(() => Console.error(usage)));
   const fs = yield* FileSystem.FileSystem;
-  if (!(yield* fs.exists(sourceDir))) return yield* fail(`missing chezmoi source directory: ${sourceDir}`);
+  if (!(yield* fs.exists(sourceDir)))
+    return yield* fail(`missing chezmoi source directory: ${sourceDir}`);
   if (!home) return yield* fail("HOME is required");
   yield* ensureBootstrapTools();
   const profile = yield* resolveProfile(args.profile).pipe(
-    Effect.mapError(() => new CliFailure({
-      exitCode: 2,
-      message: "a supported profile is required: developer, devbox, workstation, personal-devbox, or personal-workstation",
-    })),
+    Effect.mapError(
+      () =>
+        new CliFailure({
+          exitCode: 2,
+          message:
+            "a supported profile is required: developer, devbox, workstation, personal-devbox, or personal-workstation",
+        }),
+    ),
   );
   const configLink = yield* fs.readLink(configDir).pipe(Effect.option);
-  if (Option.isSome(configLink)) return yield* fail(`canonical config directory must not be a symlink: ${configDir}`);
+  if (Option.isSome(configLink))
+    return yield* fail(`canonical config directory must not be a symlink: ${configDir}`);
   const configExists = yield* fs.exists(configDir);
   if (configExists && (yield* fs.stat(configDir)).type !== "Directory") {
     return yield* fail(`canonical config path must be a directory: ${configDir}`);
@@ -332,11 +396,10 @@ const program = Effect.gen(function*() {
   if (args.verbose) applyArgs.push("--verbose");
   yield* runCommand("chezmoi", applyArgs, "inherit");
   yield* convergeUserManager(home, args.dryRun);
-  yield* Console.log(`dotfiles ${args.dryRun ? "previewed" : "applied"} for ${profile} with chezmoi source ${sourceDir}`);
-}).pipe(
-  Effect.provide(CommandRunner.layer),
-  Effect.provide(NodeServices.layer),
-);
+  yield* Console.log(
+    `dotfiles ${args.dryRun ? "previewed" : "applied"} for ${profile} with chezmoi source ${sourceDir}`,
+  );
+}).pipe(Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer));
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
   runMain(program);

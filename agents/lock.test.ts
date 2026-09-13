@@ -1,19 +1,34 @@
 import assert from "node:assert/strict";
-import { chmodSync, existsSync, linkSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  linkSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import test from "node:test";
+import { test, type TestContext } from "vite-plus/test";
 import { migrateLegacyLock } from "./lock.ts";
 
-function fixture(t: test.TestContext) {
+function fixture(t: TestContext) {
   const repo = mkdtempSync(join(tmpdir(), "agent-lock-migration-"));
-  t.after(() => rmSync(repo, { recursive: true, force: true }));
+  t.onTestFinished(() => rmSync(repo, { recursive: true, force: true }));
   mkdirSync(join(repo, "scripts/agents"), { recursive: true });
   mkdirSync(join(repo, "agents"));
-  return { repo, old: join(repo, "scripts/agents/skills.lock.json"), current: join(repo, "agents/skills.lock.json") };
+  return {
+    repo,
+    old: join(repo, "scripts/agents/skills.lock.json"),
+    current: join(repo, "agents/skills.lock.json"),
+  };
 }
 
-test("legacy ownership survives relocation and repeated sync", t => {
+test("legacy ownership survives relocation and repeated sync", (t) => {
   const f = fixture(t);
   writeFileSync(f.old, '{"version":1,"skills":[]}', { mode: 0o600 });
   assert.equal(migrateLegacyLock(f.repo, "skills"), f.current);
@@ -23,13 +38,13 @@ test("legacy ownership survives relocation and repeated sync", t => {
   assert.equal(migrateLegacyLock(f.repo, "skills"), f.current);
 });
 
-test("a fresh checkout returns the new path without manufacturing ownership", t => {
+test("a fresh checkout returns the new path without manufacturing ownership", (t) => {
   const f = fixture(t);
   assert.equal(migrateLegacyLock(f.repo, "skills"), f.current);
   assert.equal(existsSync(f.current), false);
 });
 
-test("conflicting ownership files are both preserved", t => {
+test("conflicting ownership files are both preserved", (t) => {
   const f = fixture(t);
   writeFileSync(f.old, "old", { mode: 0o600 });
   writeFileSync(f.current, "current", { mode: 0o600 });
@@ -38,7 +53,7 @@ test("conflicting ownership files are both preserved", t => {
   assert.equal(readFileSync(f.current, "utf8"), "current");
 });
 
-test("an interrupted exclusive move resumes", t => {
+test("an interrupted exclusive move resumes", (t) => {
   const f = fixture(t);
   writeFileSync(f.old, "ownership", { mode: 0o600 });
   linkSync(f.old, f.current);
@@ -47,7 +62,7 @@ test("an interrupted exclusive move resumes", t => {
   assert.equal(readFileSync(f.current, "utf8"), "ownership");
 });
 
-test("unsafe legacy files and symlinked directories are rejected", t => {
+test("unsafe legacy files and symlinked directories are rejected", (t) => {
   const f = fixture(t);
   symlinkSync(join(f.repo, "missing"), f.old);
   assert.throws(() => migrateLegacyLock(f.repo, "skills"), /owner-only regular file/);

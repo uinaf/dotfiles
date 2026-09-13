@@ -1,11 +1,10 @@
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import test from "node:test";
+import { test } from "vite-plus/test";
 
-import { commit, init, installer, invoke, run, type Repository } from "./pre-push-fixture.ts";
+import { commit, init, invoke, run } from "./pre-push-fixture.ts";
 
 test("empty input and deletions succeed without inspecting the worktree", () => {
   const root = mkdtempSync(join(tmpdir(), "pre-push-empty-"));

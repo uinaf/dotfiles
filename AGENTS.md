@@ -5,21 +5,22 @@ private machine state outside Git. `CLAUDE.md` links here; keep one authored age
 
 ## Layout
 
-| Path | Responsibility |
-| --- | --- |
-| [dotfiles](dotfiles) | Public launcher |
-| [mise.toml](mise.toml) | Public tasks |
-| [bootstrap/](bootstrap/) | Per-user setup orchestration |
-| [maintenance/](maintenance/) | Updates, scheduling, and cleanup |
-| [homebrew/](homebrew/) | Brewfiles, composition, prefix management, and tests |
-| [agents/](agents/) | Harness integration and manifests |
-| [profiles/](profiles/) | Profile resolution and validation |
-| [identity/](identity/) | Git, SSH, and age setup |
-| [audit/](audit/) | Security audits |
-| [verify/](verify/) | Repository gates and integration fixtures |
-| [lib/](lib/) | Infrastructure shared across domains |
-| [chezmoi/](chezmoi/) | Managed home files in Chezmoi's source layout |
-| [docs/](docs/) | Operator procedures and rationale |
+| Path                             | Responsibility                                       |
+| -------------------------------- | ---------------------------------------------------- |
+| [dotfiles](dotfiles)             | Public launcher                                      |
+| [mise.toml](mise.toml)           | Public tasks                                         |
+| [vite.config.ts](vite.config.ts) | Lint, formatting, and test configuration             |
+| [bootstrap/](bootstrap/)         | Per-user setup orchestration                         |
+| [maintenance/](maintenance/)     | Updates, scheduling, and cleanup                     |
+| [homebrew/](homebrew/)           | Brewfiles, composition, prefix management, and tests |
+| [agents/](agents/)               | Harness integration and manifests                    |
+| [profiles/](profiles/)           | Profile resolution and validation                    |
+| [identity/](identity/)           | Git, SSH, and age setup                              |
+| [audit/](audit/)                 | Security audits                                      |
+| [verify/](verify/)               | Repository gates and integration fixtures            |
+| [lib/](lib/)                     | Infrastructure shared across domains                 |
+| [chezmoi/](chezmoi/)             | Managed home files in Chezmoi's source layout        |
+| [docs/](docs/)                   | Operator procedures and rationale                    |
 
 Keep implementations, configuration, and unit tests with their domain. Put
 platform implementations under that domain's `darwin/` or `linux/` directory;
@@ -29,7 +30,6 @@ Markdown links to their owners and explains manual actions, recovery, and ration
 
 ## Work
 
-- Check `git status --short --branch`; preserve unrelated changes.
 - Identify the affected profile or repository-only tooling. Read the relevant [task guide](README.md#guides).
 - Edit tracked sources at the domain owner above; preserve Chezmoi's required file layout.
 - Keep repository-local instructions, secrets, and services with their consumer. Linux host packages and provisioning belong to the host, not here.
@@ -38,6 +38,7 @@ Markdown links to their owners and explains manual actions, recovery, and ration
 - Document manual setup when automation would need opaque app-state edits or machine-specific credential juggling.
 - Before writing Effect code, read `node_modules/effect/AGENTS.md` completely and follow required links. Look up uncovered APIs in `node_modules/effect/src`.
 - Write automation in TypeScript/Effect. Bundle installed client adapters so they run without the checkout or its dependencies. Keep shell limited to the pre-Node launcher and small native exec shims such as sudo askpass and Git signing.
+- Use `vite-plus/test` for unit tests and [vite.config.ts](vite.config.ts) for tooling policy. Keep Chezmoi templates in their native syntax.
 
 ## Boundaries
 
@@ -48,8 +49,6 @@ Markdown links to their owners and explains manual actions, recovery, and ration
 
 ## Verify and Deliver
 
-- Follow [Contributing](CONTRIBUTING.md) for setup and delivery.
-- Run the affected domain, for example `mise run verify:domain config`. Direct pushes require `mise run verify`.
+- Follow [Contributing](CONTRIBUTING.md) for setup, checks, and delivery. Direct pushes require `mise run verify`.
 - Run live checks only on the matching host and user. PR CI runs the deterministic checks on macOS and Ubuntu; a successful push workflow proves release evaluation, not verification.
-- Use Conventional Commits. Git tags own release versions; keep `package.json` private and unversioned.
-- Update the owning doc when behavior changes. Prefer short bullets and commands; keep paragraphs for necessary rationale. Use proper-case headings and sentence-case prose. No emoji, marketing copy, or configuration narration.
+- Update the owning doc when behavior changes. Use proper-case headings and sentence-case prose; keep configuration facts in their source owners.

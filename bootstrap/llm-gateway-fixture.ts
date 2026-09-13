@@ -6,7 +6,9 @@ export const script = resolve(dirname(fileURLToPath(import.meta.url)), "configur
 export const codexInstalled = spawnSync("codex", ["--version"], { stdio: "ignore" }).status === 0;
 
 export function fixturePath(bin: string): string {
-  const ambient = (process.env.PATH || "").split(":").filter((entry) => entry && !entry.endsWith("/mise/shims"));
+  const ambient = (process.env.PATH || "")
+    .split(":")
+    .filter((entry) => entry && !entry.endsWith("/mise/shims"));
   return [bin, ...ambient].join(":");
 }
 

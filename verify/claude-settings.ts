@@ -3,7 +3,15 @@
 import assert from "node:assert/strict";
 import { Console, Effect } from "effect";
 import { spawn } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { runMain } from "../lib/program.ts";
 import { dirname, join, resolve } from "node:path";
@@ -28,7 +36,10 @@ const templatePath = join(sourceDir, "private_dot_claude/modify_private_settings
 const managedMode = "defaultMode";
 const fixtures: Fixture[] = [
   { contents: "", expected: {} },
-  { contents: '{"theme":"dark","cleanupPeriodDays":30}', expected: { theme: "dark", cleanupPeriodDays: 30 } },
+  {
+    contents: '{"theme":"dark","cleanupPeriodDays":30}',
+    expected: { theme: "dark", cleanupPeriodDays: 30 },
+  },
   {
     contents: '{"env":{"KEEP":"yes"},"permissions":{"allow":["Read"]}}',
     expected: { env: { KEEP: "yes" }, permissions: { allow: ["Read"] } },
@@ -67,32 +78,38 @@ function renderFixture(fixture: Fixture, root: string): Promise<void> {
     mkdirSync(home, { recursive: true });
     mkdirSync(temp, { recursive: true });
     mkdirSync(dirname(agentRulesPath), { recursive: true });
-    writeFileSync(agentRulesPath, "## General guidelines\n\nFixture shared rule.\n", { mode: 0o600 });
-    const child = spawn("chezmoi", [
-      "--source",
-      sourceDir,
-      "--override-data",
-      JSON.stringify({ agentRulesPath, dotfilesProfile: "workstation" }),
-      "execute-template",
-      "--with-stdin",
-      "--file",
-      templatePath,
-    ], {
-      cwd: repoRoot,
-      env: {
-        ...process.env,
-        HOME: home,
-        XDG_CONFIG_HOME: join(root, "xdg/config"),
-        XDG_CACHE_HOME: join(root, "xdg/cache"),
-        XDG_DATA_HOME: join(root, "xdg/data"),
-        XDG_STATE_HOME: join(root, "xdg/state"),
-        TMPDIR: temp,
-        GIT_CONFIG_GLOBAL: join(root, "gitconfig"),
-        GIT_CONFIG_NOSYSTEM: "1",
-        NO_COLOR: "1",
-      },
-      stdio: ["pipe", "pipe", "pipe"],
+    writeFileSync(agentRulesPath, "## General guidelines\n\nFixture shared rule.\n", {
+      mode: 0o600,
     });
+    const child = spawn(
+      "chezmoi",
+      [
+        "--source",
+        sourceDir,
+        "--override-data",
+        JSON.stringify({ agentRulesPath, dotfilesProfile: "workstation" }),
+        "execute-template",
+        "--with-stdin",
+        "--file",
+        templatePath,
+      ],
+      {
+        cwd: repoRoot,
+        env: {
+          ...process.env,
+          HOME: home,
+          XDG_CONFIG_HOME: join(root, "xdg/config"),
+          XDG_CACHE_HOME: join(root, "xdg/cache"),
+          XDG_DATA_HOME: join(root, "xdg/data"),
+          XDG_STATE_HOME: join(root, "xdg/state"),
+          TMPDIR: temp,
+          GIT_CONFIG_GLOBAL: join(root, "gitconfig"),
+          GIT_CONFIG_NOSYSTEM: "1",
+          NO_COLOR: "1",
+        },
+        stdio: ["pipe", "pipe", "pipe"],
+      },
+    );
     const stdout: Buffer[] = [];
     const stderr: Buffer[] = [];
     child.stdout.on("data", (chunk: Buffer) => stdout.push(chunk));
@@ -158,7 +175,10 @@ async function verifyMalformedFile(root: string): Promise<void> {
   const fixtureRoot = join(root, "malformed");
   const original = '{"env":';
   writeSettings(fixtureRoot, original);
-  await assert.rejects(runApply("workstation", fixtureRoot), /fromJson|invalid character|unexpected end/i);
+  await assert.rejects(
+    runApply("workstation", fixtureRoot),
+    /fromJson|invalid character|unexpected end/i,
+  );
   assert.equal(readFileSync(settingsPath(fixtureRoot), "utf8"), original);
 }
 
@@ -198,6 +218,8 @@ async function main(): Promise<void> {
   }
 }
 
-runMain(Effect.tryPromise({ try: main, catch: (error) => error }).pipe(
-  Effect.tap(() => Console.log("ok Claude user settings preserve unrelated state")),
-));
+runMain(
+  Effect.tryPromise({ try: main, catch: (error) => error }).pipe(
+    Effect.tap(() => Console.log("ok Claude user settings preserve unrelated state")),
+  ),
+);

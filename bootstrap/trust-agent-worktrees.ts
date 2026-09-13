@@ -15,7 +15,9 @@ trusted.`;
 
 const configNames = ["mise.toml", ".mise.toml"] as const;
 
-export const discoverMiseConfigs = Effect.fn("discoverMiseConfigs")(function*(roots: ReadonlyArray<string>) {
+export const discoverMiseConfigs = Effect.fn("discoverMiseConfigs")(function* (
+  roots: ReadonlyArray<string>,
+) {
   const fs = yield* FileSystem.FileSystem;
   const configs: string[] = [];
   for (const root of roots) {
@@ -33,7 +35,7 @@ export const discoverMiseConfigs = Effect.fn("discoverMiseConfigs")(function*(ro
   return [...new Set(configs)].sort();
 });
 
-const program = Effect.gen(function*() {
+const program = Effect.gen(function* () {
   let mode: "check" | "trust" = "trust";
   for (const argument of process.argv.slice(2)) {
     if (argument === "--check") {
@@ -49,9 +51,9 @@ const program = Effect.gen(function*() {
 
   const fs = yield* FileSystem.FileSystem;
   const runner = yield* CommandRunner;
-  yield* runner.run("mise", ["--version"]).pipe(
-    Effect.catch(() => fail("missing required command: mise")),
-  );
+  yield* runner
+    .run("mise", ["--version"])
+    .pipe(Effect.catch(() => fail("missing required command: mise")));
   const home = process.env.HOME || "";
   const roots = [
     join(process.env.CODEX_HOME || join(home, ".codex"), "worktrees"),
@@ -65,19 +67,25 @@ const program = Effect.gen(function*() {
   let failed = false;
   for (const configPath of paths) {
     if (mode === "trust") {
-      const result = yield* runner.run("mise", ["trust", "--yes", configPath], { output: "inherit" });
+      const result = yield* runner.run("mise", ["trust", "--yes", configPath], {
+        output: "inherit",
+      });
       if (result.status !== 0) {
         return yield* fail(`mise trust exited ${result.status}: ${configPath}`);
       }
       continue;
     }
     const configDirectory = yield* fs.realPath(dirname(configPath));
-    const displayDirectory = configDirectory.startsWith(home) ? `~${configDirectory.slice(home.length)}` : configDirectory;
+    const displayDirectory = configDirectory.startsWith(home)
+      ? `~${configDirectory.slice(home.length)}`
+      : configDirectory;
     const result = yield* runner.run("mise", ["trust", "--show", "-C", configDirectory]);
-    const trusted = result.status === 0 && result.stdout.split(/\r?\n/).some((line) => {
-      const [path, state] = line.split(": ", 2);
-      return (path === configDirectory || path === displayDirectory) && state === "trusted";
-    });
+    const trusted =
+      result.status === 0 &&
+      result.stdout.split(/\r?\n/).some((line) => {
+        const [path, state] = line.split(": ", 2);
+        return (path === configDirectory || path === displayDirectory) && state === "trusted";
+      });
     if (trusted) {
       yield* Console.log(`ok trusted ${configPath}`);
     } else {
@@ -86,15 +94,16 @@ const program = Effect.gen(function*() {
     }
   }
   if (paths.length === 0) {
-    yield* Console.log(mode === "check" ? "ok no agent worktree mise configs found" : "no agent worktree mise configs found");
+    yield* Console.log(
+      mode === "check"
+        ? "ok no agent worktree mise configs found"
+        : "no agent worktree mise configs found",
+    );
   }
   if (failed) {
     return yield* fail("run bootstrap/trust-agent-worktrees.ts");
   }
-}).pipe(
-  Effect.provide(CommandRunner.layer),
-  Effect.provide(NodeServices.layer),
-);
+}).pipe(Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer));
 
 if (import.meta.main) {
   runMain(program);

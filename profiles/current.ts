@@ -6,16 +6,19 @@ import { readProfileModelEffect, requireProfile } from "./model.ts";
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const profileModelPath = resolve(repoRoot, "chezmoi/.chezmoidata/profiles.json");
 
-export class ProfileResolutionError extends Schema.TaggedError<ProfileResolutionError>()("ProfileResolutionError", {
-  exitCode: Schema.Int,
-  message: Schema.String,
-}) {}
+export class ProfileResolutionError extends Schema.TaggedError<ProfileResolutionError>()(
+  "ProfileResolutionError",
+  {
+    exitCode: Schema.Int,
+    message: Schema.String,
+  },
+) {}
 
 function resolutionFailure(message: string, exitCode: number): ProfileResolutionError {
   return new ProfileResolutionError({ exitCode, message });
 }
 
-export const normalizeProfile = Effect.fn("normalizeProfile")(function*(requested: string) {
+export const normalizeProfile = Effect.fn("normalizeProfile")(function* (requested: string) {
   const name = requested.trim();
   if (!/^[a-z][a-z-]*$/.test(name)) {
     return yield* resolutionFailure(`unsupported profile: ${requested}`, 2);
@@ -32,7 +35,10 @@ export const normalizeProfile = Effect.fn("normalizeProfile")(function*(requeste
   });
 });
 
-export const readPersistedProfile = Effect.fn("readPersistedProfile")(function*(path: string, expectedUid?: number) {
+export const readPersistedProfile = Effect.fn("readPersistedProfile")(function* (
+  path: string,
+  expectedUid?: number,
+) {
   const fs = yield* FileSystem.FileSystem;
   const unsafe = () => resolutionFailure(`profile marker is missing or unsafe: ${path}`, 3);
   const link = yield* fs.readLink(path).pipe(Effect.option);
@@ -53,7 +59,7 @@ export const readPersistedProfile = Effect.fn("readPersistedProfile")(function*(
   return yield* normalizeProfile(contents).pipe(Effect.mapError(unsafe));
 });
 
-export const resolveProfile = Effect.fn("resolveProfile")(function*(
+export const resolveProfile = Effect.fn("resolveProfile")(function* (
   requested: string | undefined,
   env: NodeJS.ProcessEnv = process.env,
   expectedUid: number | undefined = process.getuid?.(),
@@ -62,9 +68,13 @@ export const resolveProfile = Effect.fn("resolveProfile")(function*(
   let candidate = requested;
   if (!candidate) {
     const fs = yield* FileSystem.FileSystem;
-    const exists = yield* fs.exists(profileFile).pipe(
-      Effect.mapError(() => resolutionFailure(`profile marker is missing or unsafe: ${profileFile}`, 3)),
-    );
+    const exists = yield* fs
+      .exists(profileFile)
+      .pipe(
+        Effect.mapError(() =>
+          resolutionFailure(`profile marker is missing or unsafe: ${profileFile}`, 3),
+        ),
+      );
     const link = yield* fs.readLink(profileFile).pipe(Effect.option);
     if (exists || Option.isSome(link) || env.DOTFILES_PROFILE_FILE !== undefined) {
       return yield* readPersistedProfile(profileFile, expectedUid);

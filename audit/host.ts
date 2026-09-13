@@ -1,6 +1,15 @@
 #!/usr/bin/env node
 
-import { chmodSync, constants, copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  constants,
+  copyFileSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { Effect } from "effect";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -8,7 +17,14 @@ import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 
 import { runMain } from "../lib/program.ts";
-import { AuditReport, type AuditDependencies, type AuditFormat, canAccess, type CommandResult, runCommand } from "./report.ts";
+import {
+  AuditReport,
+  type AuditDependencies,
+  type AuditFormat,
+  canAccess,
+  type CommandResult,
+  runCommand,
+} from "./report.ts";
 
 export type HostAuditOptions = {
   format: AuditFormat;
@@ -31,14 +47,22 @@ Options:
 `;
 
 function reportValue(report: string, key: string): string {
-  return report.split("\n").find((line) => line.startsWith(`${key}=`))?.slice(key.length + 1) ?? "";
+  return (
+    report
+      .split("\n")
+      .find((line) => line.startsWith(`${key}=`))
+      ?.slice(key.length + 1) ?? ""
+  );
 }
 
 function reportEntries(report: string, key: string): Array<{ id: string; text: string }> {
-  return report.split("\n").filter((line) => line.startsWith(`${key}[]=`)).map((line) => {
-    const [id = "unknown", text = ""] = line.slice(key.length + 3).split("|");
-    return { id, text };
-  });
+  return report
+    .split("\n")
+    .filter((line) => line.startsWith(`${key}[]=`))
+    .map((line) => {
+      const [id = "unknown", text = ""] = line.slice(key.length + 3).split("|");
+      return { id, text };
+    });
 }
 
 function positiveInteger(value: string, option: string): number {
@@ -62,9 +86,10 @@ export function parseHostArgs(args: readonly string[]): HostAuditOptions | "help
   return {
     format: values.json ? "json" : "text",
     allowSudoPrompt: values["allow-sudo-prompt"] ?? false,
-    minHardeningIndex: values["min-hardening-index"] === undefined
-      ? undefined
-      : positiveInteger(values["min-hardening-index"], "--min-hardening-index"),
+    minHardeningIndex:
+      values["min-hardening-index"] === undefined
+        ? undefined
+        : positiveInteger(values["min-hardening-index"], "--min-hardening-index"),
     keepArtifacts: values["keep-artifacts"],
   };
 }
@@ -94,8 +119,19 @@ export function runHostAudit(options: HostAuditOptions, dependencies: AuditDepen
     const logFile = join(temporaryDirectory, "lynis.log");
     writeFileSync(reportFile, "", { mode: 0o600 });
     writeFileSync(logFile, "", { mode: 0o600 });
-    const args = ["audit", "system", "--quick", "--no-colors", "--report-file", reportFile, "--log-file", logFile];
-    const commandOptions = { output: options.format === "json" ? "discard" as const : "capture" as const };
+    const args = [
+      "audit",
+      "system",
+      "--quick",
+      "--no-colors",
+      "--report-file",
+      reportFile,
+      "--log-file",
+      logFile,
+    ];
+    const commandOptions = {
+      output: options.format === "json" ? ("discard" as const) : ("capture" as const),
+    };
     let result: CommandResult | undefined;
     let executable = "lynis";
     if (uid !== 0 && options.allowSudoPrompt) {
@@ -116,10 +152,14 @@ export function runHostAudit(options: HostAuditOptions, dependencies: AuditDepen
       if (result.error?.message.includes("ENOENT")) report.fail(`${executable} is missing`);
       else if (result.error) report.fail(`lynis could not start: ${result.error.message}`);
       else {
-        if (uid !== 0 && !options.allowSudoPrompt) report.warn("running Lynis without sudo; rerun with --allow-sudo-prompt for deeper OS checks");
+        if (uid !== 0 && !options.allowSudoPrompt)
+          report.warn(
+            "running Lynis without sudo; rerun with --allow-sudo-prompt for deeper OS checks",
+          );
         if (result.status !== 0) {
           report.fail(`lynis exited with status ${result.status ?? "unknown"}`);
-          if (options.format === "text") stderr(`${result.stdout}\n${result.stderr}`.split("\n").slice(0, 40).join("\n") + "\n");
+          if (options.format === "text")
+            stderr(`${result.stdout}\n${result.stderr}`.split("\n").slice(0, 40).join("\n") + "\n");
         }
       }
     }
@@ -135,14 +175,22 @@ export function runHostAudit(options: HostAuditOptions, dependencies: AuditDepen
         testsPerformed = Number(reportValue(contents, "lynis_tests_done")) || 0;
         warningEntries = reportEntries(contents, "warning");
         suggestionEntries = reportEntries(contents, "suggestion");
-        if (warningEntries.length > 0) report.warn(`lynis reported ${warningEntries.length} warnings`);
+        if (warningEntries.length > 0)
+          report.warn(`lynis reported ${warningEntries.length} warnings`);
         else report.ok("lynis reported no warnings");
         if (options.minHardeningIndex !== undefined && hardeningIndex < options.minHardeningIndex) {
-          report.fail(`lynis hardening index ${hardeningIndex} is below ${options.minHardeningIndex}`);
+          report.fail(
+            `lynis hardening index ${hardeningIndex} is below ${options.minHardeningIndex}`,
+          );
         } else report.ok(`lynis hardening index ${hardeningIndex}`);
         if (options.format === "text") {
-          stdout(`lynis tests performed: ${testsPerformed}\nlynis suggestions: ${suggestionEntries.length}\n`);
-          for (const [title, entries] of [["Lynis warnings", warningEntries], ["Top Lynis suggestions", suggestionEntries]] as const) {
+          stdout(
+            `lynis tests performed: ${testsPerformed}\nlynis suggestions: ${suggestionEntries.length}\n`,
+          );
+          for (const [title, entries] of [
+            ["Lynis warnings", warningEntries],
+            ["Top Lynis suggestions", suggestionEntries],
+          ] as const) {
             if (entries.length === 0) continue;
             stdout(`\n${title}:\n`);
             for (const entry of entries.slice(0, 10)) stdout(`  - ${entry.id}: ${entry.text}\n`);
@@ -154,9 +202,14 @@ export function runHostAudit(options: HostAuditOptions, dependencies: AuditDepen
     if (options.keepArtifacts) {
       mkdirSync(options.keepArtifacts, { recursive: true, mode: 0o700 });
       chmodSync(options.keepArtifacts, 0o700);
-      if (canAccess(reportFile, constants.R_OK)) copyFileSync(reportFile, join(options.keepArtifacts, "lynis-report.dat"));
-      if (canAccess(logFile, constants.R_OK)) copyFileSync(logFile, join(options.keepArtifacts, "lynis.log"));
-      if (options.format === "text") report.warn(`kept full Lynis artifacts under ${options.keepArtifacts}; review before sharing`);
+      if (canAccess(reportFile, constants.R_OK))
+        copyFileSync(reportFile, join(options.keepArtifacts, "lynis-report.dat"));
+      if (canAccess(logFile, constants.R_OK))
+        copyFileSync(logFile, join(options.keepArtifacts, "lynis.log"));
+      if (options.format === "text")
+        report.warn(
+          `kept full Lynis artifacts under ${options.keepArtifacts}; review before sharing`,
+        );
     }
   } catch (error) {
     report.fail(`host audit failed: ${error instanceof Error ? error.message : String(error)}`);
@@ -189,7 +242,14 @@ function main(args: readonly string[]): number {
 }
 
 if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
-  runMain(Effect.try({ try: () => main(process.argv.slice(2)), catch: (error) => error }).pipe(
-    Effect.tap((status) => Effect.sync(() => { process.exitCode = status; })), Effect.asVoid,
-  ));
+  runMain(
+    Effect.try({ try: () => main(process.argv.slice(2)), catch: (error) => error }).pipe(
+      Effect.tap((status) =>
+        Effect.sync(() => {
+          process.exitCode = status;
+        }),
+      ),
+      Effect.asVoid,
+    ),
+  );
 }

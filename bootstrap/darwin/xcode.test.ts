@@ -3,7 +3,7 @@ import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import test from "node:test";
+import { test } from "vite-plus/test";
 
 import { parseCatalog, pickInstallTarget, satisfiesPin } from "./xcode.ts";
 
@@ -41,34 +41,60 @@ test("the declared pin matches only the numbered stable release", () => {
   );
 });
 
-test("check fails when the selected Xcode is behind the pin", t => {
+test("check fails when the selected Xcode is behind the pin", (t) => {
   const home = mkdtempSync(join(tmpdir(), "xcode-check."));
-  t.after(() => rmSync(home, { recursive: true, force: true }));
+  t.onTestFinished(() => rmSync(home, { recursive: true, force: true }));
   const bin = join(home, "bin");
   mkdirSync(bin);
   writeFileSync(join(home, "xcode.json"), `${JSON.stringify({ version: 1, release: "27.0" })}\n`);
   writeFileSync(join(home, "installed.txt"), installed);
-  writeFileSync(join(bin, "xcodes"), `#!/bin/sh\nif [ "$1" = installed ]; then cat "$HOME/installed.txt"; exit 0; fi\nexit 1\n`, { mode: 0o755 });
-  const result = spawnSync(process.execPath, [resolve(import.meta.dirname, "xcode.ts"), "--check"], {
-    encoding: "utf8",
-    env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, HOME: home, DOTFILES_XCODE_FILE: join(home, "xcode.json") },
-  });
+  writeFileSync(
+    join(bin, "xcodes"),
+    `#!/bin/sh\nif [ "$1" = installed ]; then cat "$HOME/installed.txt"; exit 0; fi\nexit 1\n`,
+    { mode: 0o755 },
+  );
+  const result = spawnSync(
+    process.execPath,
+    [resolve(import.meta.dirname, "xcode.ts"), "--check"],
+    {
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        PATH: `${bin}:${process.env.PATH}`,
+        HOME: home,
+        DOTFILES_XCODE_FILE: join(home, "xcode.json"),
+      },
+    },
+  );
   assert.equal(result.status, 1, result.stderr);
   assert.match(result.stderr, /selected Xcode is 26\.6 \(17F113\); pin is 27\.0/);
 });
 
-test("check passes when the selected Xcode is the pinned stable release", t => {
+test("check passes when the selected Xcode is the pinned stable release", (t) => {
   const home = mkdtempSync(join(tmpdir(), "xcode-ok."));
-  t.after(() => rmSync(home, { recursive: true, force: true }));
+  t.onTestFinished(() => rmSync(home, { recursive: true, force: true }));
   const bin = join(home, "bin");
   mkdirSync(bin);
   writeFileSync(join(home, "xcode.json"), `${JSON.stringify({ version: 1, release: "26.6" })}\n`);
   writeFileSync(join(home, "installed.txt"), installed);
-  writeFileSync(join(bin, "xcodes"), `#!/bin/sh\nif [ "$1" = installed ]; then cat "$HOME/installed.txt"; exit 0; fi\nexit 1\n`, { mode: 0o755 });
-  const result = spawnSync(process.execPath, [resolve(import.meta.dirname, "xcode.ts"), "--check"], {
-    encoding: "utf8",
-    env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, HOME: home, DOTFILES_XCODE_FILE: join(home, "xcode.json") },
-  });
+  writeFileSync(
+    join(bin, "xcodes"),
+    `#!/bin/sh\nif [ "$1" = installed ]; then cat "$HOME/installed.txt"; exit 0; fi\nexit 1\n`,
+    { mode: 0o755 },
+  );
+  const result = spawnSync(
+    process.execPath,
+    [resolve(import.meta.dirname, "xcode.ts"), "--check"],
+    {
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        PATH: `${bin}:${process.env.PATH}`,
+        HOME: home,
+        DOTFILES_XCODE_FILE: join(home, "xcode.json"),
+      },
+    },
+  );
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /Xcode 26\.6 \(17F113\) matches pin 26\.6/);
 });

@@ -50,7 +50,7 @@ const MARKETPLACE_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*\/[A-Za-z0-9][A-Za-z0-9.
 // How Cursor installs a plugin: through its marketplace and the interactive
 // /plugins flow, or by linking standard skill directories into Cursor's
 // native discovery path when team policy blocks third-party imports.
-export type CursorMode = "marketplace" | "skills";
+type CursorMode = "marketplace" | "skills";
 
 export type Plugin = {
   marketplace: string;
@@ -82,14 +82,14 @@ type PluginFailure = SyncFailure;
 type HarnessSpec = {
   binary: string;
   label: string;
-  marketplaceArgs?(plugin: Plugin): string[];
+  marketplaceArgs?: (plugin: Plugin) => string[];
   // Codex refreshes Git marketplace snapshots by configured name, not plugin ref.
-  upgradeMarketplaceArgs?(plugin: Plugin): string[];
+  upgradeMarketplaceArgs?: (plugin: Plugin) => string[];
   // Cursor exposes no non-interactive install subcommand; installation happens via /plugins.
-  installArgs?(plugin: Plugin): string[];
+  installArgs?: (plugin: Plugin) => string[];
   // `--update` refreshes an already-installed plugin. Claude needs `-y` because
   // apply captures stdout and is therefore not a TTY.
-  updateArgs?(plugin: Plugin): string[];
+  updateArgs?: (plugin: Plugin) => string[];
   // Grok installs a source repository once, not a plugin ref, and re-installing
   // an installed source exits non-zero; apply consults `plugin list` first.
   installsMarketplace?: {
@@ -116,7 +116,12 @@ const HARNESS_SPECS: Record<Harness, HarnessSpec> = {
   },
   cursor: {
     ...HARNESS_INFO.cursor,
-    marketplaceArgs: (plugin) => ["plugin", "marketplace", "add", `github.com/${plugin.marketplace}`],
+    marketplaceArgs: (plugin) => [
+      "plugin",
+      "marketplace",
+      "add",
+      `github.com/${plugin.marketplace}`,
+    ],
   },
   grok: {
     ...HARNESS_INFO.grok,
@@ -138,7 +143,11 @@ export function pluginRef(plugin: Plugin): string {
   return `${plugin.name}@${plugin.marketplaceId}`;
 }
 
-function readManifestHarnesses(value: unknown, manifestPath: string, name: string): readonly Harness[] {
+function readManifestHarnesses(
+  value: unknown,
+  manifestPath: string,
+  name: string,
+): readonly Harness[] {
   if (value === undefined) {
     return HARNESSES;
   }
@@ -168,7 +177,9 @@ function readPlugin(value: unknown, manifestPath: string): Plugin {
   // Harnesses register a marketplace under the name its manifest declares, which is the
   // repository name for every marketplace we ship; `marketplaceId` overrides the divergent case.
   const marketplaceId =
-    "marketplaceId" in value && value.marketplaceId !== undefined ? value.marketplaceId : repository;
+    "marketplaceId" in value && value.marketplaceId !== undefined
+      ? value.marketplaceId
+      : repository;
   if (typeof marketplaceId !== "string" || !isSafeName(marketplaceId)) {
     throw new Error(
       `Invalid plugins manifest at ${manifestPath}: ${value.name} marketplaceId must be a safe name`,
@@ -225,7 +236,9 @@ export function readPlugins(manifestPath: string): Plugin[] {
   for (const plugin of plugins) {
     const ref = pluginRef(plugin);
     if (refs.has(ref)) {
-      throw new Error(`Invalid plugins manifest at ${manifestPath}: ${ref} is defined more than once`);
+      throw new Error(
+        `Invalid plugins manifest at ${manifestPath}: ${ref} is defined more than once`,
+      );
     }
     refs.add(ref);
   }
@@ -243,10 +256,7 @@ export function readLayeredPlugins(
 
   const manifests = new Map<SkillLayer, Plugin[]>();
   for (const layer of ["developer", "workstation", "devbox", "personal"] as const) {
-    manifests.set(
-      layer,
-      readPlugins(join(repoDir, "agents", "plugins", `${layer}.json`)),
-    );
+    manifests.set(layer, readPlugins(join(repoDir, "agents", "plugins", `${layer}.json`)));
   }
 
   const plugins = composeLayers(
@@ -400,7 +410,10 @@ function removeStalePlugins(
         continue;
       }
 
-      writeLine(runtime.stdout, `Removing stale managed plugin: ${pluginRef(plugin)} from ${spec.label}`);
+      writeLine(
+        runtime.stdout,
+        `Removing stale managed plugin: ${pluginRef(plugin)} from ${spec.label}`,
+      );
       const result = runtime.run(spec.binary, args, { stdout: "capture", stderr: "capture" });
       if (result.status !== 0) {
         leftoverHarnesses.push(harness);
@@ -899,7 +912,7 @@ function applyHarness(
   }
 }
 
-export type PluginOptions = {
+type PluginOptions = {
   profile?: string;
   update: boolean;
 };
@@ -944,7 +957,10 @@ function apply(runtime: Runtime, options: PluginOptions): number {
       writeLine(runtime.stdout, "Done.");
       return 0;
     }
-    writeLine(runtime.stdout, "Initializing managed plugins lock without removing existing plugins");
+    writeLine(
+      runtime.stdout,
+      "Initializing managed plugins lock without removing existing plugins",
+    );
     writePluginLock(pluginLockPath, presentHarnessEntries(runtime, plugins));
     writeLine(runtime.stdout, "Done.");
     return 0;
@@ -992,5 +1008,9 @@ export function main(args: readonly string[], runtime: Runtime = createRuntime()
 
 const entrypoint = process.argv[1];
 if (entrypoint !== undefined && resolve(entrypoint) === fileURLToPath(import.meta.url)) {
-  runMain(Effect.sync(() => { process.exitCode = main(process.argv.slice(2)); }));
+  runMain(
+    Effect.sync(() => {
+      process.exitCode = main(process.argv.slice(2));
+    }),
+  );
 }

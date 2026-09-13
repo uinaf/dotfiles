@@ -4,17 +4,18 @@ import { Effect } from "effect";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import test from "node:test";
+import { test, vi } from "vite-plus/test";
 import { CommandRunner } from "../lib/command.ts";
 import { runChecks } from "./run.ts";
 
 test("verification reports completed checks before a stalled child and cleans it up", async () => {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-runner-"));
   const pidFile = join(root, "pid");
-  const errorWrite = process.stderr.write;
   const output: string[] = [];
   let failedBeforeTermination = false;
-  process.stderr.write = function(chunk: string | Uint8Array) {
+  const errorWrite = vi.spyOn(process.stderr, "write").mockImplementation(function (
+    chunk: string | Uint8Array,
+  ) {
     const text = String(chunk);
     output.push(text);
     if (text.includes("FAILED: quick")) {
@@ -28,21 +29,52 @@ test("verification reports completed checks before a stalled child and cleans it
       }
     }
     return true;
-  };
+  });
   try {
     const started = Date.now();
-    const result = await Effect.runPromise(runChecks([
-      { id: "quick", domain: "static", command: [process.execPath, "-e", `
+    const result = await Effect.runPromise(
+      runChecks(
+        [
+          {
+            id: "quick",
+            domain: "static",
+            command: [
+              process.execPath,
+              "-e",
+              `
         const fs = require('node:fs');
         setInterval(() => { if (fs.existsSync(${JSON.stringify(pidFile)})) process.exit(7); }, 20);
         setTimeout(() => process.exit(8), 9000);
-      `], output: "failure" },
-      { id: "success", domain: "static", command: [process.execPath, "-e", ""], output: "success" },
-      { id: "stalled", domain: "static", command: [process.execPath, "-e", `require('node:fs').writeFileSync(${JSON.stringify(pidFile)}, String(process.pid)); process.stdout.write('progress before stall\\n'); process.stderr.write('warning before stall\\n'); setTimeout(() => process.exit(8), 9000)`], output: "timeout" },
-    ], 1500, 3).pipe(Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer)));
+      `,
+            ],
+            output: "failure",
+          },
+          {
+            id: "success",
+            domain: "static",
+            command: [process.execPath, "-e", ""],
+            output: "success",
+          },
+          {
+            id: "stalled",
+            domain: "static",
+            command: [
+              process.execPath,
+              "-e",
+              `require('node:fs').writeFileSync(${JSON.stringify(pidFile)}, String(process.pid)); process.stdout.write('progress before stall\\n'); process.stderr.write('warning before stall\\n'); setTimeout(() => process.exit(8), 9000)`,
+            ],
+            output: "timeout",
+          },
+        ],
+        1500,
+        3,
+      ).pipe(Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer)),
+    );
     assert.equal(result, false);
     assert.equal(failedBeforeTermination, true);
-    assert.ok(output.join("").indexOf("FAILED: quick") < output.join("").indexOf("FAILED: stalled"));
+    assert.ok(
+      output.join("").indexOf("FAILED: quick") < output.join("").indexOf("FAILED: stalled"),
+    );
     assert.match(output.join(""), /progress before stall\n/);
     assert.match(output.join(""), /warning before stall\n/);
     assert.match(output.join(""), /timed out after 1500ms/);
@@ -51,7 +83,7 @@ test("verification reports completed checks before a stalled child and cleans it
     const pid = Number(readFileSync(pidFile, "utf8"));
     assert.throws(() => process.kill(pid, 0), { code: "ESRCH" });
   } finally {
-    process.stderr.write = errorWrite;
+    errorWrite.mockRestore();
     rmSync(root, { recursive: true, force: true });
   }
 });
@@ -61,21 +93,25 @@ test("verification bounds active checks and drains queued checks after failure",
   let peak = 0;
   const completed: string[] = [];
   const runner = CommandRunner.of({
-    run: (command) => Effect.gen(function*() {
-      active += 1;
-      peak = Math.max(peak, active);
-      yield* Effect.yieldNow;
-      active -= 1;
-      completed.push(command);
-      return { status: command === "first" ? 7 : 0, stdout: "", stderr: "" };
-    }),
+    run: (command) =>
+      Effect.gen(function* () {
+        active += 1;
+        peak = Math.max(peak, active);
+        yield* Effect.yieldNow;
+        active -= 1;
+        completed.push(command);
+        return { status: command === "first" ? 7 : 0, stdout: "", stderr: "" };
+      }),
   });
   const checks = ["first", "second", "third", "fourth"].map((id) => ({
-    id, domain: "static", command: [id] as [string], output: id,
+    id,
+    domain: "static",
+    command: [id] as [string],
+    output: id,
   }));
-  const result = await Effect.runPromise(runChecks(checks, 300_000, 2).pipe(
-    Effect.provideService(CommandRunner, runner),
-  ));
+  const result = await Effect.runPromise(
+    runChecks(checks, 300_000, 2).pipe(Effect.provideService(CommandRunner, runner)),
+  );
   assert.equal(result, false);
   assert.equal(peak, 2);
   assert.equal(active, 0);

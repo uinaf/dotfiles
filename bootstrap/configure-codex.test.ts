@@ -2,17 +2,28 @@
 
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import test from "node:test";
+import { test } from "vite-plus/test";
 import { fileURLToPath } from "node:url";
 
 const script = resolve(dirname(fileURLToPath(import.meta.url)), "configure-codex.ts");
 const codexInstalled = spawnSync("codex", ["--version"], { stdio: "ignore" }).status === 0;
 
 function run(home: string, profile = "workstation") {
-  return spawnSync(script, ["--profile", profile], { encoding: "utf8", env: { ...process.env, CODEX_HOME: home } });
+  return spawnSync(script, ["--profile", profile], {
+    encoding: "utf8",
+    env: { ...process.env, CODEX_HOME: home },
+  });
 }
 
 function assertDefaults(contents: string): void {
@@ -27,38 +38,48 @@ function assertDefaults(contents: string): void {
   assert.doesNotMatch(root, /^service_tier\s*=/m);
   assert.doesNotMatch(features, /^fast_mode\s*=/m);
   assert.match(contents, /^\[features\.context_management\]$/m);
-  assert.match(contents.split(/^\[features\.context_management\][ \t]*$/m)[1].split(/^\[/m)[0], /^experimental_mode = true$/m);
+  assert.match(
+    contents.split(/^\[features\.context_management\][ \t]*$/m)[1].split(/^\[/m)[0],
+    /^experimental_mode = true$/m,
+  );
   const multiAgent = contents.split(/^\[features\.multi_agent_v2\][ \t]*$/m)[1]?.split(/^\[/m)[0];
   assert.ok(multiAgent, "native config writer must create the multi_agent_v2 table");
   assert.match(multiAgent, /^min_wait_timeout_ms = 120000$/m);
   assert.match(multiAgent, /^default_wait_timeout_ms = 120000$/m);
 }
 
-test("installed Codex removes forced login, preserves unrelated config, and is idempotent", { skip: !codexInstalled }, () => {
-  const root = mkdtempSync(join(tmpdir(), "dotfiles-codex-config-"));
-  const home = join(root, "codex");
-  const config = join(home, "config.toml");
-  try {
-    mkdirSync(home);
-    writeFileSync(config, 'forced_login_method = "chatgpt"\nservice_tier = "default"\n# keep this comment\napproval_policy = "never"\n\n[features]\nfast_mode = false\n\n[mcp_servers.fixture]\ncommand = "example"\n');
-    chmodSync(config, 0o644);
+test(
+  "installed Codex removes forced login, preserves unrelated config, and is idempotent",
+  { skip: !codexInstalled },
+  () => {
+    const root = mkdtempSync(join(tmpdir(), "dotfiles-codex-config-"));
+    const home = join(root, "codex");
+    const config = join(home, "config.toml");
+    try {
+      mkdirSync(home);
+      writeFileSync(
+        config,
+        'forced_login_method = "chatgpt"\nservice_tier = "default"\n# keep this comment\napproval_policy = "never"\n\n[features]\nfast_mode = false\n\n[mcp_servers.fixture]\ncommand = "example"\n',
+      );
+      chmodSync(config, 0o644);
 
-    const first = run(home);
-    assert.equal(first.status, 0, first.stderr);
-    const contents = readFileSync(config, "utf8");
-    assert.ok(contents.includes("# keep this comment"));
-    assert.ok(contents.includes('approval_policy = "never"'));
-    assert.ok(contents.includes('[mcp_servers.fixture]\ncommand = "example"'));
-    assertDefaults(contents);
-    assert.equal(statSync(config).mode & 0o777, 0o600);
+      const first = run(home);
+      assert.equal(first.status, 0, first.stderr);
+      const contents = readFileSync(config, "utf8");
+      assert.ok(contents.includes("# keep this comment"));
+      assert.ok(contents.includes('approval_policy = "never"'));
+      assert.ok(contents.includes('[mcp_servers.fixture]\ncommand = "example"'));
+      assertDefaults(contents);
+      assert.equal(statSync(config).mode & 0o777, 0o600);
 
-    const second = run(home);
-    assert.equal(second.status, 0, second.stderr);
-    assert.equal(readFileSync(config, "utf8"), contents);
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
-});
+      const second = run(home);
+      assert.equal(second.status, 0, second.stderr);
+      assert.equal(readFileSync(config, "utf8"), contents);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  },
+);
 
 test("installed Codex clears Fast mode on personal profiles too", { skip: !codexInstalled }, () => {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-codex-personal-config-"));

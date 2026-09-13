@@ -5,9 +5,14 @@ import { spawnSync } from "node:child_process";
 import { copyFile, mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import test from "node:test";
+import { test } from "vite-plus/test";
 import { readProfileModel } from "../../profiles/model.ts";
-import { cleanupFiles, composeBrewfile, profileBrewfiles, removeComposedBrewfile } from "../homebrew.ts";
+import {
+  cleanupFiles,
+  composeBrewfile,
+  profileBrewfiles,
+  removeComposedBrewfile,
+} from "../homebrew.ts";
 
 const repoRoot = resolve(import.meta.dirname, "../..");
 const model = readProfileModel(join(repoRoot, "chezmoi/.chezmoidata/profiles.json"));
@@ -42,16 +47,22 @@ for (const profile of Object.keys(model.profiles)) {
       const entries = evaluate(layers.map((layer) => join(root, layer)));
       const desktop = evaluate([join(repoRoot, "homebrew/Brewfile.personal-workstation")]);
       for (const entry of desktop) {
-        assert.equal(entries.includes(entry), profile === "personal-workstation", `${profile}: ${entry}`);
+        assert.equal(
+          entries.includes(entry),
+          profile === "personal-workstation",
+          `${profile}: ${entry}`,
+        );
       }
-      await Effect.runPromise(Effect.gen(function*() {
-        const composed = yield* composeBrewfile(root, layers);
-        try {
-          assert.deepEqual(evaluate([composed]), entries);
-        } finally {
-          yield* removeComposedBrewfile(root, composed);
-        }
-      }).pipe(Effect.provide(NodeServices.layer)));
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const composed = yield* composeBrewfile(root, layers);
+          try {
+            assert.deepEqual(evaluate([composed]), entries);
+          } finally {
+            yield* removeComposedBrewfile(root, composed);
+          }
+        }).pipe(Effect.provide(NodeServices.layer)),
+      );
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -59,7 +70,9 @@ for (const profile of Object.keys(model.profiles)) {
 }
 
 test("shared-prefix cleanup includes personal headless packages and excludes personal desktop packages", () => {
-  const expected = evaluate(profileBrewfiles(model, "personal-devbox").map((layer) => join(repoRoot, layer)));
+  const expected = evaluate(
+    profileBrewfiles(model, "personal-devbox").map((layer) => join(repoRoot, layer)),
+  );
   for (const profile of ["devbox", "personal-devbox"]) {
     const actual = evaluate(cleanupFiles(model, profile).map((layer) => join(repoRoot, layer)));
     assert.deepEqual(actual, expected);

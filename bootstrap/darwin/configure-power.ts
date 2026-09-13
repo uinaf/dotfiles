@@ -21,7 +21,7 @@ function readAcSettings(output: string): ReadonlyMap<string, string> {
   const values = new Map<string, string>();
   let inAc = false;
   for (const line of output.split(/\r?\n/)) {
-    if (/^AC Power:/.test(line)) {
+    if (line.startsWith("AC Power:")) {
       inAc = true;
       continue;
     }
@@ -36,7 +36,7 @@ function readAcSettings(output: string): ReadonlyMap<string, string> {
   return values;
 }
 
-const checkPolicy = Effect.fn("checkPowerPolicy")(function*() {
+const checkPolicy = Effect.fn("checkPowerPolicy")(function* () {
   const runner = yield* CommandRunner;
   const result = yield* runner.run("pmset", ["-g", "custom"]);
   if (result.status !== 0) return yield* fail(`pmset -g custom exited ${result.status}`);
@@ -53,7 +53,7 @@ const checkPolicy = Effect.fn("checkPowerPolicy")(function*() {
   if (failed) return yield* fail("plugged-in power policy drift detected");
 });
 
-const program = Effect.gen(function*() {
+const program = Effect.gen(function* () {
   let profileInput = "personal-workstation";
   let profileSet = false;
   let checkOnly = false;
@@ -78,7 +78,9 @@ const program = Effect.gen(function*() {
       return yield* fail(`unsupported argument ${argument}`, 2);
     }
   }
-  const profile = yield* normalizeProfile(profileInput).pipe(Effect.mapError(() => new Error("unsupported profile")));
+  const profile = yield* normalizeProfile(profileInput).pipe(
+    Effect.mapError(() => new Error("unsupported profile")),
+  );
   if (process.platform !== "darwin") return yield* fail("configure-power is macOS-only");
   if (checkOnly) {
     yield* checkPolicy();
@@ -86,17 +88,16 @@ const program = Effect.gen(function*() {
   }
   const runner = yield* CommandRunner;
   const command = process.getuid?.() === 0 ? "pmset" : "sudo";
-  const commandArgs = process.getuid?.() === 0
-    ? ["-c", "sleep", "0", "displaysleep", "0", "disksleep", "0"]
-    : ["pmset", "-c", "sleep", "0", "displaysleep", "0", "disksleep", "0"];
-  if (command === "sudo") yield* Console.error("configure-power needs sudo to update system power settings");
+  const commandArgs =
+    process.getuid?.() === 0
+      ? ["-c", "sleep", "0", "displaysleep", "0", "disksleep", "0"]
+      : ["pmset", "-c", "sleep", "0", "displaysleep", "0", "disksleep", "0"];
+  if (command === "sudo")
+    yield* Console.error("configure-power needs sudo to update system power settings");
   const result = yield* runner.run(command, commandArgs, { output: "inherit" });
   if (result.status !== 0) return yield* fail(`${command} exited ${result.status}`);
   yield* checkPolicy();
   yield* Console.log(`plugged-in power policy configured (${profile})`);
-}).pipe(
-  Effect.provide(CommandRunner.layer),
-  Effect.provide(NodeServices.layer),
-);
+}).pipe(Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer));
 
 runMain(program);

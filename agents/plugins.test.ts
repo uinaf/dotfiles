@@ -14,11 +14,18 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import { afterEach, test } from "node:test";
+import { afterEach, test } from "vite-plus/test";
 import { fileURLToPath } from "node:url";
 
 import { readProfileModel } from "../profiles/model.ts";
-import { HARNESSES, main, planHarness, pluginRef, readLayeredPlugins, readPlugins } from "./plugins.ts";
+import {
+  HARNESSES,
+  main,
+  planHarness,
+  pluginRef,
+  readLayeredPlugins,
+  readPlugins,
+} from "./plugins.ts";
 import { type Runtime } from "./runtime.ts";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -71,7 +78,10 @@ class FixtureRuntime implements Runtime {
     return this.installedCommands.has(command);
   }
 
-  run(command: string, args: readonly string[]): { status: number; stdout: string; stderr: string } {
+  run(
+    command: string,
+    args: readonly string[],
+  ): { status: number; stdout: string; stderr: string } {
     this.calls.push({ command, args });
 
     if (command.endsWith("/resolve-profile.ts")) {
@@ -90,7 +100,11 @@ class FixtureRuntime implements Runtime {
     if (diagnostic !== undefined) {
       return { status: 1, stdout: diagnostic.stdout, stderr: diagnostic.stderr };
     }
-    return { status: 0, stdout: this.outputs.get(`${command} ${args.join(" ")}`) ?? "", stderr: "" };
+    return {
+      status: 0,
+      stdout: this.outputs.get(`${command} ${args.join(" ")}`) ?? "",
+      stderr: "",
+    };
   }
 }
 
@@ -136,7 +150,15 @@ function createFixture(): { repoDir: string; home: string } {
 
 function writeClaudeCheckout(home: string, marketplaceId: string, skills: readonly string[]): void {
   for (const skill of skills) {
-    const skillDir = join(home, ".claude", "plugins", "marketplaces", marketplaceId, "skills", skill);
+    const skillDir = join(
+      home,
+      ".claude",
+      "plugins",
+      "marketplaces",
+      marketplaceId,
+      "skills",
+      skill,
+    );
     mkdirSync(skillDir, { recursive: true });
     writeFileSync(join(skillDir, "SKILL.md"), `---\nname: ${skill}\n---\n`);
   }
@@ -162,9 +184,7 @@ function manifestPath(repoDir: string, layer: string): string {
 }
 
 function harnessCalls(runtime: FixtureRuntime, binary: string): string[] {
-  return runtime.calls
-    .filter((call) => call.command === binary)
-    .map((call) => call.args.join(" "));
+  return runtime.calls.filter((call) => call.command === binary).map((call) => call.args.join(" "));
 }
 
 function pluginLockPath(repoDir: string): string {
@@ -266,17 +286,26 @@ test("rejects an unknown or duplicated harness", () => {
   writeManifest(repoDir, "developer", [
     { marketplace: "fixture/market", name: "one", harnesses: ["claude", "windsurf"] },
   ]);
-  assert.throws(() => readPlugins(manifestPath(repoDir, "developer")), /harnesses must be a unique/);
+  assert.throws(
+    () => readPlugins(manifestPath(repoDir, "developer")),
+    /harnesses must be a unique/,
+  );
 
   writeManifest(repoDir, "developer", [
     { marketplace: "fixture/market", name: "one", harnesses: ["claude", "claude"] },
   ]);
-  assert.throws(() => readPlugins(manifestPath(repoDir, "developer")), /harnesses must be a unique/);
+  assert.throws(
+    () => readPlugins(manifestPath(repoDir, "developer")),
+    /harnesses must be a unique/,
+  );
 
   writeManifest(repoDir, "developer", [
     { marketplace: "fixture/market", name: "one", harnesses: [] },
   ]);
-  assert.throws(() => readPlugins(manifestPath(repoDir, "developer")), /harnesses must be a unique/);
+  assert.throws(
+    () => readPlugins(manifestPath(repoDir, "developer")),
+    /harnesses must be a unique/,
+  );
 });
 
 test("plans one marketplace add per marketplace followed by each install", () => {
@@ -492,13 +521,23 @@ test("keeps Cursor and OpenCode skill links after a Claude source refresh", () =
     { marketplace: "fixture/shared-market", name: "shared-plugin", cursorMode: "skills" },
   ]);
   assert.equal(main([], new FixtureRuntime(repoDir, home)), 0);
-  const alpha = join(home, ".claude", "plugins", "marketplaces", "shared-market", "skills", "alpha");
+  const alpha = join(
+    home,
+    ".claude",
+    "plugins",
+    "marketplaces",
+    "shared-market",
+    "skills",
+    "alpha",
+  );
   assert.equal(readlinkSync(opencodeLink(home, "alpha")), alpha);
   assert.equal(readlinkSync(cursorLink(home, "alpha")), alpha);
 
   const runtime = new FixtureRuntime(repoDir, home);
   assert.equal(main(["--update"], runtime), 0);
-  assert.ok(harnessCalls(runtime, "claude").includes("plugin update shared-plugin@shared-market -y"));
+  assert.ok(
+    harnessCalls(runtime, "claude").includes("plugin update shared-plugin@shared-market -y"),
+  );
   assert.deepEqual(harnessCalls(runtime, "cursor-agent"), []);
   assert.equal(readlinkSync(opencodeLink(home, "alpha")), alpha);
   assert.equal(readlinkSync(cursorLink(home, "alpha")), alpha);
@@ -598,7 +637,10 @@ test("fails OpenCode linking when the Claude checkout is missing", () => {
   const runtime = new FixtureRuntime(repoDir, home);
 
   assert.equal(main([], runtime), 1);
-  assert.match(runtime.stderr.value, /link shared-plugin@shared-market skills \(missing Claude checkout\)/);
+  assert.match(
+    runtime.stderr.value,
+    /link shared-plugin@shared-market skills \(missing Claude checkout\)/,
+  );
   assert.match(runtime.stderr.value, /the Claude Code plugin sync creates it/);
 });
 
@@ -653,8 +695,12 @@ test("adds the personal layer only for personal profiles", () => {
 
   assert.equal(main(["--profile", "personal-devbox"], runtime), 0);
   assert.match(runtime.stdout.value, /Plugin layers: developer, devbox, personal/);
-  assert.ok(harnessCalls(runtime, "claude").includes("plugin install personal-plugin@personal-market"));
-  assert.ok(harnessCalls(runtime, "claude").includes("plugin marketplace add fixture/personal-market"));
+  assert.ok(
+    harnessCalls(runtime, "claude").includes("plugin install personal-plugin@personal-market"),
+  );
+  assert.ok(
+    harnessCalls(runtime, "claude").includes("plugin marketplace add fixture/personal-market"),
+  );
   assert.equal(
     harnessCalls(runtime, "codex").some((call) => call.includes("personal-plugin")),
     false,
@@ -786,7 +832,10 @@ test("reports every failing command with a redacted diagnostic", () => {
 
   assert.equal(main([], runtime), 1);
   assert.match(runtime.stderr.value, /Plugin sync failed for 1 failure:/);
-  assert.match(runtime.stderr.value, /Claude Code: plugin marketplace add fixture\/shared-market \(exit 1\)/);
+  assert.match(
+    runtime.stderr.value,
+    /Claude Code: plugin marketplace add fixture\/shared-market \(exit 1\)/,
+  );
   assert.match(runtime.stderr.value, /token=\[REDACTED\]/);
   assert.doesNotMatch(runtime.stderr.value, /stderr-secret/);
   assert.doesNotMatch(runtime.stdout.value, /Done\./);
@@ -859,14 +908,14 @@ test("initializes a missing ownership lock without removing unowned plugins", ()
     harnessCalls(runtime, "claude").some((call) => call.includes("uninstall")),
     false,
   );
-  assert.deepEqual(
-    JSON.parse(readFileSync(pluginLockPath(repoDir), "utf8")),
-    {
-      version: 1,
-      plugins: readLayeredPlugins(repoDir, "workstation", ["developer", "workstation"]).plugins,
-    },
+  assert.deepEqual(JSON.parse(readFileSync(pluginLockPath(repoDir), "utf8")), {
+    version: 1,
+    plugins: readLayeredPlugins(repoDir, "workstation", ["developer", "workstation"]).plugins,
+  });
+  assert.match(
+    runtime.stdout.value,
+    /Initializing managed plugins lock without removing existing plugins/,
   );
-  assert.match(runtime.stdout.value, /Initializing managed plugins lock without removing existing plugins/);
 });
 
 test("removes only plugins dropped from the previous managed lock", () => {
@@ -876,7 +925,9 @@ test("removes only plugins dropped from the previous managed lock", () => {
   const runtime = new FixtureRuntime(repoDir, home);
 
   assert.equal(main([], runtime), 0);
-  assert.ok(harnessCalls(runtime, "claude").includes("plugin uninstall -y retired-plugin@retired-market"));
+  assert.ok(
+    harnessCalls(runtime, "claude").includes("plugin uninstall -y retired-plugin@retired-market"),
+  );
   assert.ok(harnessCalls(runtime, "codex").includes("plugin remove retired-plugin@retired-market"));
   assert.ok(harnessCalls(runtime, "grok").includes("plugin uninstall retired-plugin --confirm"));
   assert.match(
@@ -884,16 +935,21 @@ test("removes only plugins dropped from the previous managed lock", () => {
     /Cursor plugin removal is interactive; disable retired-plugin@retired-market in \/plugins/,
   );
   const locked = JSON.parse(readFileSync(pluginLockPath(repoDir), "utf8")).plugins;
-  assert.deepEqual(
-    locked.map(pluginRef),
-    ["shared-plugin@shared-market", "second-plugin@shared-market", "retired-plugin@retired-market"],
-  );
+  assert.deepEqual(locked.map(pluginRef), [
+    "shared-plugin@shared-market",
+    "second-plugin@shared-market",
+    "retired-plugin@retired-market",
+  ]);
   assert.deepEqual(locked[2]?.harnesses, ["cursor"]);
 });
 
 test("keeps a dropped plugin in the lock when its harness CLI is missing", () => {
   const { repoDir, home } = createFixture();
-  const retired = { marketplace: "fixture/retired-market", name: "retired-plugin", harnesses: ["codex"] };
+  const retired = {
+    marketplace: "fixture/retired-market",
+    name: "retired-plugin",
+    harnesses: ["codex"],
+  };
   writePluginLock(repoDir, [...fixtureSharedPlugins, retired]);
   const runtime = new FixtureRuntime(repoDir, home);
   runtime.installedCommands.delete("codex");
@@ -905,10 +961,11 @@ test("keeps a dropped plugin in the lock when its harness CLI is missing", () =>
   );
   assert.match(runtime.stdout.value, /Skipping Codex plugin removal: 'codex' is not installed/);
   const locked = JSON.parse(readFileSync(pluginLockPath(repoDir), "utf8")).plugins;
-  assert.deepEqual(
-    locked.map(pluginRef),
-    ["shared-plugin@shared-market", "second-plugin@shared-market", "retired-plugin@retired-market"],
-  );
+  assert.deepEqual(locked.map(pluginRef), [
+    "shared-plugin@shared-market",
+    "second-plugin@shared-market",
+    "retired-plugin@retired-market",
+  ]);
   assert.deepEqual(locked[2]?.harnesses, ["codex"]);
 });
 
@@ -919,7 +976,10 @@ test("does not prune or advance ownership when installation fails", () => {
   writePluginLock(repoDir, [...fixtureSharedPlugins, retired]);
   const runtime = new FixtureRuntime(repoDir, home, {
     failures: new Map([
-      ["claude plugin marketplace add fixture/shared-market", { stdout: "", stderr: "install failed" }],
+      [
+        "claude plugin marketplace add fixture/shared-market",
+        { stdout: "", stderr: "install failed" },
+      ],
     ]),
   });
 
@@ -938,12 +998,17 @@ test("does not advance ownership when a managed removal fails", () => {
   writePluginLock(repoDir, [...fixtureSharedPlugins, retired]);
   const runtime = new FixtureRuntime(repoDir, home, {
     failures: new Map([
-      ["claude plugin uninstall -y retired-plugin@retired-market", { stdout: "", stderr: "remove failed" }],
+      [
+        "claude plugin uninstall -y retired-plugin@retired-market",
+        { stdout: "", stderr: "remove failed" },
+      ],
     ]),
   });
 
   assert.equal(main([], runtime), 1);
-  assert.ok(harnessCalls(runtime, "claude").includes("plugin uninstall -y retired-plugin@retired-market"));
+  assert.ok(
+    harnessCalls(runtime, "claude").includes("plugin uninstall -y retired-plugin@retired-market"),
+  );
   assert.deepEqual(JSON.parse(readFileSync(pluginLockPath(repoDir), "utf8")), previous);
   assert.match(runtime.stderr.value, /Plugin sync failed for 1 failure:/);
 });
@@ -990,7 +1055,10 @@ test("rejects a lock that omits explicit harness membership", () => {
   const runtime = new FixtureRuntime(repoDir, home);
 
   assert.equal(main([], runtime), 1);
-  assert.match(runtime.stderr.value, /expected explicit marketplace, marketplaceId, name, cursorMode, and harnesses/);
+  assert.match(
+    runtime.stderr.value,
+    /expected explicit marketplace, marketplaceId, name, cursorMode, and harnesses/,
+  );
   assert.equal(harnessCalls(runtime, "claude").length, 0);
 });
 

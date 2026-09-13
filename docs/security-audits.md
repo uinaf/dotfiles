@@ -5,40 +5,35 @@ Audits report findings without applying remediation. Prepare tooling with
 
 ## Run an Audit
 
-| Command | Scope |
-| --- | --- |
-| `mise run verify` | Deterministic repository checks and secret scans |
-| `mise run audit repo` | Repository Gitleaks and TruffleHog scans |
-| `mise run audit workstation` | Local credentials, file permissions, identity, and workstation drift |
-| `mise run audit devbox` | Per-user devbox credentials, Codex privacy/trust, Git/SSH, and project-directory permissions |
-| `mise run audit host` | Lynis host hardening; no sudo prompt by default |
-| `mise run audit mscp` | External mSCP baseline plus repository secret scans |
+Choose a scope from the [`audit` task](../mise.toml) and its
+[scope dispatcher](../audit/run.ts). For example:
 
-- Use `--format json` for collection, for example
-  `mise run audit devbox --format json`. Direct scripts accept `--json`.
-- JSON status: `pass` means no warnings/failures; `warn` means warnings only;
-  `fail` means at least one failed check.
-- Treat scanner output and retained reports as sensitive. Local Gitleaks reports
-  sanitized locators/counts; other scanners may print matched secrets. Share
-  JSON summaries, not raw output.
+```zsh
+mise run audit workstation
+mise run audit devbox --format json
+```
+
+Use `mise run verify` for the repository’s full deterministic checks and
+secret scans. Direct audit entrypoints accept `--json`.
+
+Treat scanner output and retained reports as sensitive. Local Gitleaks reports
+sanitized locators/counts; other scanners may print matched secrets. Share
+JSON summaries, not raw output.
 
 ## Interpret Findings
 
-- [Gitleaks policy](../audit/gitleaks-policy.json): low/medium warn;
-  high/critical and unknown rules fail. Verified TruffleHog findings fail
-  independently.
-- [`generic-api-key`](../audit/gitleaks-policy.json) is low severity
-  because it frequently matches shell assignments. Inspect it before dismissing it.
+- [Gitleaks policy](../audit/gitleaks-policy.json) owns rule severity; the
+  [finding classifier](../audit/data.ts), `summarizeFindings()`, applies it.
+  Inspect `generic-api-key` findings before dismissing them: the detector
+  frequently matches shell assignments.
 - [Gitleaks allowlists](../.gitleaks.toml) may contain exact synthetic fixture
   values only; never real keys, whole paths, commits, or provider rules.
 - Live credential stores receive permission/structure checks. For example,
   `~/.npmrc` must be owner-only with registry-scoped auth; the generic scan
   excludes it. Backups remain scan targets.
 - Inspect the owning [workstation](../audit/workstation.ts) or
-  [devbox](../audit/devbox.ts) policy for individual checks. Devbox project
-  privacy checks cover `~/projects` and `~/projects/<devbox-user>`, not every
-  descendant. Codex log-size warnings distinguish live data from reclaimable
-  space where database headers are readable.
+  [devbox](../audit/devbox.ts) policy for individual checks and path coverage.
+  A passing devbox audit does not establish privacy for every project descendant.
 
 For a real secret:
 
@@ -48,14 +43,13 @@ For a real secret:
 
 ## Repository and Scope Policy
 
-- Local Gitleaks scans `HEAD`, branches, remote-tracking branches, and tags.
-  Nonstandard transient refs are excluded.
-- [CI scanning](../.github/workflows/secrets.yml) runs on pull requests, weekly,
-  and manual dispatch.
-- `~/.config/dotfiles/audit.env` configures accepted GitHub scopes and drift
-  thresholds. Keep it public-safe; no credentials or identity-specific values.
-- Scopes in `GH_SENSITIVE_SCOPES` warn unless also in `GH_ACCEPTED_SCOPES`.
-  Use `AUDIT_POLICY_FILE=/path/to/file` for a local override.
+- [Repository scan selection](../audit/repo.ts) and the
+  [CI workflow](../.github/workflows/secrets.yml) own scan scope and triggers.
+- Edit the installed `~/.config/dotfiles/audit.env` for accepted GitHub scopes
+  and drift thresholds; see the [policy template](../chezmoi/private_dot_config/private_dotfiles/audit.env)
+  and [policy loader](../audit/engine.ts), `loadAuditSettings()`. Keep it public-safe:
+  no credentials or identity-specific values. Use `AUDIT_POLICY_FILE=/path/to/file`
+  to select an override.
 
 ## Deeper Host Checks
 

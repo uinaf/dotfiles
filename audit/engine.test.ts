@@ -1,10 +1,19 @@
 #!/usr/bin/env node
 
 import assert from "node:assert/strict";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import test from "node:test";
+import { test } from "vite-plus/test";
 
 import { type AuditPolicy, runPolicy } from "./engine.ts";
 import { workstationPolicy } from "./workstation.ts";
@@ -18,18 +27,26 @@ function fixture(): { home: string; root: string } {
     writeFileSync(join(home, path), "fixture\n", { mode: 0o600 });
   }
   writeFileSync(join(home, ".zshrc"), "export EDITOR=vim\n");
-  writeFileSync(join(home, ".npmrc"), "//registry.npmjs.org/:_authToken=fixture\n", { mode: 0o600 });
+  writeFileSync(join(home, ".npmrc"), "//registry.npmjs.org/:_authToken=fixture\n", {
+    mode: 0o600,
+  });
   return { home, root };
 }
 
 function cleanCommand(command: string, args: readonly string[]) {
   if (command === "git") {
     const key = args.at(-1);
-    const values: Record<string, string> = { "user.name": "Fixture", "user.email": "fixture@example.invalid", "user.signingkey": "fixture-key", "commit.gpgsign": "true" };
+    const values: Record<string, string> = {
+      "user.name": "Fixture",
+      "user.email": "fixture@example.invalid",
+      "user.signingkey": "fixture-key",
+      "commit.gpgsign": "true",
+    };
     return { status: values[key ?? ""] ? 0 : 1, stdout: values[key ?? ""] ?? "", stderr: "" };
   }
   if (command === "gh") return { status: 0, stdout: "", stderr: "Token scopes: 'repo'\n" };
-  if (command === "gitleaks" && args[0] === "dir") writeFileSync(args[args.indexOf("--report-path") + 1], "[]");
+  if (command === "gitleaks" && args[0] === "dir")
+    writeFileSync(args[args.indexOf("--report-path") + 1], "[]");
   return { status: 0, stdout: "", stderr: "" };
 }
 
@@ -64,10 +81,20 @@ test("explicit symlink roots stay in the secret scan", () => {
   const policy = {
     name: "fixture",
     summary: "fixture summary",
-    sections: [{ title: "scan", checks: [{ kind: "secret-scan", sources: [{ kind: "path", path: ".aws" }] }] }],
+    sections: [
+      {
+        title: "scan",
+        checks: [{ kind: "secret-scan", sources: [{ kind: "path", path: ".aws" }] }],
+      },
+    ],
   } satisfies AuditPolicy;
   try {
-    const result = runPolicy(policy, "json", { home, command: cleanCommand, stdout: () => {}, stderr: () => {} });
+    const result = runPolicy(policy, "json", {
+      home,
+      command: cleanCommand,
+      stdout: () => {},
+      stderr: () => {},
+    });
     assert.equal(result.summary.secret_scan_count, 1);
   } finally {
     rmSync(root, { recursive: true, force: true });
@@ -104,16 +131,28 @@ test("typed checks reject unsafe npm auth and SSH key modes", () => {
   const policy = {
     name: "fixture",
     summary: "fixture summary",
-    sections: [{ title: "boundaries", checks: [
-      { kind: "npm-auth-boundary", path: ".npmrc" },
-      { kind: "ssh-private-key-modes", path: ".ssh" },
-    ] }],
+    sections: [
+      {
+        title: "boundaries",
+        checks: [
+          { kind: "npm-auth-boundary", path: ".npmrc" },
+          { kind: "ssh-private-key-modes", path: ".ssh" },
+        ],
+      },
+    ],
   } satisfies AuditPolicy;
   try {
     writeFileSync(join(home, ".npmrc"), "_authToken=fixture\n", { mode: 0o600 });
-    writeFileSync(join(home, ".ssh/id_fixture"), "-----BEGIN OPENSSH PRIVATE KEY-----\n", { mode: 0o644 });
+    writeFileSync(join(home, ".ssh/id_fixture"), "-----BEGIN OPENSSH PRIVATE KEY-----\n", {
+      mode: 0o644,
+    });
     chmodSync(join(home, ".ssh/id_fixture"), 0o644);
-    const result = runPolicy(policy, "json", { home, command: cleanCommand, stdout: () => {}, stderr: () => {} });
+    const result = runPolicy(policy, "json", {
+      home,
+      command: cleanCommand,
+      stdout: () => {},
+      stderr: () => {},
+    });
     assert.equal(result.summary.failed, 2);
     assert.equal(result.status, 1);
   } finally {
@@ -127,10 +166,22 @@ test("file-mode mismatch severity comes from policy", () => {
   const policy = {
     name: "fixture",
     summary: "fixture summary",
-    sections: [{ title: "mode", checks: [{ kind: "file-mode", path: ".zshrc", modes: [0o600], missing: "fail", mismatch: "warn" }] }],
+    sections: [
+      {
+        title: "mode",
+        checks: [
+          { kind: "file-mode", path: ".zshrc", modes: [0o600], missing: "fail", mismatch: "warn" },
+        ],
+      },
+    ],
   } satisfies AuditPolicy;
   try {
-    const result = runPolicy(policy, "json", { home, command: cleanCommand, stdout: () => {}, stderr: () => {} });
+    const result = runPolicy(policy, "json", {
+      home,
+      command: cleanCommand,
+      stdout: () => {},
+      stderr: () => {},
+    });
     assert.equal(result.status, 0);
     assert.equal(result.summary.warnings, 1);
   } finally {
@@ -146,7 +197,12 @@ test("secret scan reports only sanitized locators and removes staging data", () 
   const policy = {
     name: "fixture",
     summary: "fixture summary",
-    sections: [{ title: "scan", checks: [{ kind: "secret-scan", sources: [{ kind: "path", path: ".zshrc" }] }] }],
+    sections: [
+      {
+        title: "scan",
+        checks: [{ kind: "secret-scan", sources: [{ kind: "path", path: ".zshrc" }] }],
+      },
+    ],
   } satisfies AuditPolicy;
   try {
     const result = runPolicy(policy, "text", {
@@ -155,7 +211,16 @@ test("secret scan reports only sanitized locators and removes staging data", () 
       command: (command, args) => {
         if (command === "gitleaks" && args[0] === "dir") {
           const report = args[args.indexOf("--report-path") + 1];
-          writeFileSync(report, JSON.stringify([{ RuleID: "generic-api-key", File: join(args.at(-1)!, "home/.zshrc"), Secret: "never print this" }]));
+          writeFileSync(
+            report,
+            JSON.stringify([
+              {
+                RuleID: "generic-api-key",
+                File: join(args.at(-1)!, "home/.zshrc"),
+                Secret: "never print this",
+              },
+            ]),
+          );
           return { status: 183, stdout: "", stderr: "" };
         }
         return { status: 0, stdout: "", stderr: "" };
@@ -182,7 +247,12 @@ test("secret scan reports an unusable temporary root", () => {
   const policy = {
     name: "fixture",
     summary: "fixture summary",
-    sections: [{ title: "scan", checks: [{ kind: "secret-scan", sources: [{ kind: "path", path: ".zshrc" }] }] }],
+    sections: [
+      {
+        title: "scan",
+        checks: [{ kind: "secret-scan", sources: [{ kind: "path", path: ".zshrc" }] }],
+      },
+    ],
   } satisfies AuditPolicy;
   try {
     const result = runPolicy(policy, "json", {

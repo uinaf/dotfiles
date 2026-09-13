@@ -171,7 +171,9 @@ function readServerLock(lockPath: string): LockedServer[] | undefined {
     !("servers" in parsed) ||
     !Array.isArray(parsed.servers)
   ) {
-    throw new Error(`Invalid managed MCP lock at ${lockPath}: expected version 1 and a servers array`);
+    throw new Error(
+      `Invalid managed MCP lock at ${lockPath}: expected version 1 and a servers array`,
+    );
   }
 
   const servers = parsed.servers.map((server, index) => {
@@ -277,7 +279,10 @@ function applyCommandHarness(
   const selected = servers.filter((server) => server.harnesses.includes(harness));
 
   if (!runtime.commandExists(spec.binary)) {
-    writeLine(runtime.stdout, `Skipping ${spec.label} MCP servers: '${spec.binary}' is not installed`);
+    writeLine(
+      runtime.stdout,
+      `Skipping ${spec.label} MCP servers: '${spec.binary}' is not installed`,
+    );
     return;
   }
   if (selected.length === 0) {
@@ -344,7 +349,11 @@ function applyCodex(runtime: Runtime, servers: readonly McpServer[], failures: M
 
 // `claude mcp add` refuses an existing name instead of updating it, so converge
 // through get: matching URL is a no-op, anything else is removed and re-added.
-function applyClaude(runtime: Runtime, servers: readonly McpServer[], failures: McpFailure[]): void {
+function applyClaude(
+  runtime: Runtime,
+  servers: readonly McpServer[],
+  failures: McpFailure[],
+): void {
   const label = "Claude Code";
   const selected = servers.filter((server) => server.harnesses.includes("claude"));
 
@@ -389,7 +398,11 @@ function applyClaude(runtime: Runtime, servers: readonly McpServer[], failures: 
 }
 
 // cursor-agent has no `mcp add`; converge ~/.cursor/mcp.json directly.
-function applyCursor(runtime: Runtime, servers: readonly McpServer[], failures: McpFailure[]): void {
+function applyCursor(
+  runtime: Runtime,
+  servers: readonly McpServer[],
+  failures: McpFailure[],
+): void {
   const label = "Cursor";
   const selected = servers.filter((server) => server.harnesses.includes("cursor"));
 
@@ -423,7 +436,9 @@ function applyCursor(runtime: Runtime, servers: readonly McpServer[], failures: 
 
   const existingServers = Object.hasOwn(config, "mcpServers") ? config.mcpServers : undefined;
   const mcpServers: Record<string, unknown> =
-    typeof existingServers === "object" && existingServers !== null && !Array.isArray(existingServers)
+    typeof existingServers === "object" &&
+    existingServers !== null &&
+    !Array.isArray(existingServers)
       ? (existingServers as Record<string, unknown>)
       : {};
   config.mcpServers = mcpServers;
@@ -621,7 +636,11 @@ function removeCursorServers(
   }
 
   const existingServers = Object.hasOwn(config, "mcpServers") ? config.mcpServers : undefined;
-  if (typeof existingServers !== "object" || existingServers === null || Array.isArray(existingServers)) {
+  if (
+    typeof existingServers !== "object" ||
+    existingServers === null ||
+    Array.isArray(existingServers)
+  ) {
     return true;
   }
 
@@ -750,7 +769,9 @@ function removeStaleServers(
   }
   if (opencodeNames.length > 0 && !removeOpenCodeServers(runtime, opencodeNames, failures)) {
     for (const name of opencodeNames) {
-      if (!leftover.some((server) => server.name === name && server.harnesses.includes("opencode"))) {
+      if (
+        !leftover.some((server) => server.name === name && server.harnesses.includes("opencode"))
+      ) {
         leftover.push({ name, harnesses: ["opencode"] });
       }
     }
@@ -759,7 +780,7 @@ function removeStaleServers(
   return leftover;
 }
 
-export type McpOptions = {
+type McpOptions = {
   profile?: string;
 };
 
@@ -850,5 +871,9 @@ export function main(args: readonly string[], runtime: Runtime = createRuntime()
 
 const entrypoint = process.argv[1];
 if (entrypoint !== undefined && resolve(entrypoint) === fileURLToPath(import.meta.url)) {
-  runMain(Effect.sync(() => { process.exitCode = main(process.argv.slice(2)); }));
+  runMain(
+    Effect.sync(() => {
+      process.exitCode = main(process.argv.slice(2));
+    }),
+  );
 }

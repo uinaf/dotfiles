@@ -52,7 +52,7 @@ omits complete-only parity checks; request --domain security explicitly for
 secret scans.
 `;
 
-const parseOptions = Effect.fn("parseOptions")(function*(args: readonly string[]) {
+const parseOptions = Effect.fn("parseOptions")(function* (args: readonly string[]) {
   const domains = new Set<string>();
   let json = false;
   let list = false;
@@ -93,20 +93,32 @@ const parseOptions = Effect.fn("parseOptions")(function*(args: readonly string[]
   return { domains, json, list, skipSecurity } satisfies Options;
 });
 
-const readRegistry = Effect.fn("readRegistry")(function*() {
+const readRegistry = Effect.fn("readRegistry")(function* () {
   const fs = yield* FileSystem.FileSystem;
-  const contents = yield* fs.readFileString(registryPath).pipe(
-    Effect.mapError((error) => new CliFailure({ exitCode: 1, message: `cannot read ${registryPath}: ${error}` })),
-  );
+  const contents = yield* fs
+    .readFileString(registryPath)
+    .pipe(
+      Effect.mapError(
+        (error) =>
+          new CliFailure({ exitCode: 1, message: `cannot read ${registryPath}: ${error.message}` }),
+      ),
+    );
   const json = yield* Effect.try({
     try: () => JSON.parse(contents) as unknown,
-    catch: (error) => new CliFailure({ exitCode: 1, message: `${registryPath} is not valid JSON: ${String(error)}` }),
+    catch: (error) =>
+      new CliFailure({
+        exitCode: 1,
+        message: `${registryPath} is not valid JSON: ${String(error)}`,
+      }),
   });
   const registry = yield* Schema.decodeUnknownEffect(Registry, {
     errors: "all",
     onExcessProperty: "error",
   })(json).pipe(
-    Effect.mapError((error) => new CliFailure({ exitCode: 1, message: `${registryPath} is invalid: ${error.message}` })),
+    Effect.mapError(
+      (error) =>
+        new CliFailure({ exitCode: 1, message: `${registryPath} is invalid: ${error.message}` }),
+    ),
   );
   const ids = registry.checks.map((check) => check.id);
   if (new Set(ids).size !== ids.length) {
@@ -115,14 +127,19 @@ const readRegistry = Effect.fn("readRegistry")(function*() {
   return registry;
 });
 
-const runCheck = Effect.fn("runCheck")(function*(check: Check, timeoutMs = 300_000): Effect.fn.Return<Result, never, CommandRunner> {
+const runCheck = Effect.fn("runCheck")(function* (
+  check: Check,
+  timeoutMs = 300_000,
+): Effect.fn.Return<Result, never, CommandRunner> {
   const started = yield* Clock.currentTimeMillis;
   const runner = yield* CommandRunner;
   const [command, ...args] = check.command;
-  const execution = runner.run(command, args, { cwd: repoRoot, env: { NO_COLOR: "1" }, timeoutMs }).pipe(
-    Effect.map(({ status, stderr, stdout }) => ({ output: `${stdout}${stderr}`, status })),
-    Effect.catch((error) => Effect.succeed({ output: `${error.message}\n`, status: 1 })),
-  );
+  const execution = runner
+    .run(command, args, { cwd: repoRoot, env: { NO_COLOR: "1" }, timeoutMs })
+    .pipe(
+      Effect.map(({ status, stderr, stdout }) => ({ output: `${stdout}${stderr}`, status })),
+      Effect.catch((error) => Effect.succeed({ output: `${error.message}\n`, status: 1 })),
+    );
   const result = yield* execution;
   const finished = yield* Clock.currentTimeMillis;
   return { check, durationMs: finished - started, ...result };
@@ -131,25 +148,38 @@ const runCheck = Effect.fn("runCheck")(function*(check: Check, timeoutMs = 300_0
 // Checks can spawn their own workers; reserve capacity for their children and reporting.
 const checkConcurrency = Math.max(1, Math.min(4, availableParallelism() - 1));
 
-export const runChecks = Effect.fn("runChecks")(function*(checks: readonly Check[], timeoutMs = 300_000, concurrency = checkConcurrency) {
-  const results = yield* Effect.forEach(checks, (check) => runCheck(check, timeoutMs).pipe(
-    Effect.tap((result) => Effect.gen(function*() {
-      const seconds = (result.durationMs / 1000).toFixed(2);
-      if (result.status === 0) {
-        yield* Console.log(`ok ${result.check.id} (${seconds}s)`);
-        return;
-      }
-      yield* Effect.sync(() => {
-        process.stderr.write(`\n## ${result.check.id}\n${result.output}`);
-        if (!result.output.endsWith("\n")) process.stderr.write("\n");
-        process.stderr.write(`FAILED: ${result.check.id} exited ${result.status} (${seconds}s)\n`);
-      });
-    })),
-  ), { concurrency });
+export const runChecks = Effect.fn("runChecks")(function* (
+  checks: readonly Check[],
+  timeoutMs = 300_000,
+  concurrency = checkConcurrency,
+) {
+  const results = yield* Effect.forEach(
+    checks,
+    (check) =>
+      runCheck(check, timeoutMs).pipe(
+        Effect.tap((result) =>
+          Effect.gen(function* () {
+            const seconds = (result.durationMs / 1000).toFixed(2);
+            if (result.status === 0) {
+              yield* Console.log(`ok ${result.check.id} (${seconds}s)`);
+              return;
+            }
+            yield* Effect.sync(() => {
+              process.stderr.write(`\n## ${result.check.id}\n${result.output}`);
+              if (!result.output.endsWith("\n")) process.stderr.write("\n");
+              process.stderr.write(
+                `FAILED: ${result.check.id} exited ${result.status} (${seconds}s)\n`,
+              );
+            });
+          }),
+        ),
+      ),
+    { concurrency },
+  );
   return results.every((result) => result.status === 0);
 });
 
-const listRegistry = Effect.fn("listRegistry")(function*(registry: Registry, json: boolean) {
+const listRegistry = Effect.fn("listRegistry")(function* (registry: Registry, json: boolean) {
   if (json) {
     yield* Console.log(JSON.stringify(registry, null, 2));
     return;
@@ -158,7 +188,9 @@ const listRegistry = Effect.fn("listRegistry")(function*(registry: Registry, jso
   for (const domain of domains) {
     yield* Console.log(domain);
     for (const check of registry.checks.filter((candidate) => candidate.domain === domain)) {
-      yield* Console.log(`  ${check.id}${check.scope === "complete" ? " [complete only]" : ""}${check.platform ? ` [${check.platform}]` : ""}: ${check.output}`);
+      yield* Console.log(
+        `  ${check.id}${check.scope === "complete" ? " [complete only]" : ""}${check.platform ? ` [${check.platform}]` : ""}: ${check.output}`,
+      );
     }
   }
 });
@@ -171,7 +203,7 @@ process.env.MISE_DATA_DIR ||= join(home, ".local/share/mise");
 process.env.MISE_TRUSTED_CONFIG_PATHS ||= join(home, ".config/mise/config.toml");
 process.env.MISE_GLOBAL_CONFIG_FILE ||= join(home, ".config/mise/config.toml");
 
-const program = Effect.gen(function*() {
+const program = Effect.gen(function* () {
   const options = yield* parseOptions(process.argv.slice(2));
   if (options === undefined) {
     return;
@@ -180,7 +212,10 @@ const program = Effect.gen(function*() {
   const domains = [...new Set(registry.checks.map((check) => check.domain))].sort();
   for (const domain of options.domains) {
     if (!domains.includes(domain)) {
-      return yield* fail(`unknown verification domain ${domain}; choose from ${domains.join(", ")}`, 2);
+      return yield* fail(
+        `unknown verification domain ${domain}; choose from ${domains.join(", ")}`,
+        2,
+      );
     }
   }
   if (options.list) {
@@ -213,9 +248,6 @@ const program = Effect.gen(function*() {
   }
   const finished = yield* Clock.currentTimeMillis;
   yield* Console.log(`verification ok (${((finished - started) / 1000).toFixed(2)}s)`);
-}).pipe(
-  Effect.provide(CommandRunner.layer),
-  Effect.provide(NodeServices.layer),
-);
+}).pipe(Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer));
 
 if (import.meta.main) runMain(program);

@@ -101,14 +101,21 @@ function reclaimOwner(lock: string, probe: LockProbe): "won" | "lost" {
 export function acquireDirectoryLock(lock: string, options: LockOptions = {}): () => void {
   const now = options.now ?? Date.now;
   const sleep = options.sleep ?? sleepSync;
-  const log = options.log ?? ((message: string) => { console.error(message); });
+  const log =
+    options.log ??
+    ((message: string) => {
+      console.error(message);
+    });
   const deadline = now() + (options.waitMs ?? 0);
   let reclaimed = false;
   let announced = false;
   let delay = initialRetryDelayMs;
   const owner = join(lock, ownerFileName);
   const writeOwner = () => {
-    const metadata = { pid: process.pid, bootTime: now() - (options.uptimeMs?.() ?? uptime() * 1000) };
+    const metadata = {
+      pid: process.pid,
+      bootTime: now() - (options.uptimeMs?.() ?? uptime() * 1000),
+    };
     try {
       writeFileSync(owner, `${JSON.stringify(metadata)}\n`, { mode: 0o600 });
     } catch (cause) {
@@ -119,7 +126,9 @@ export function acquireDirectoryLock(lock: string, options: LockOptions = {}): (
       }
       throw cause;
     }
-    return () => { rmSync(lock, { recursive: true, force: true }); };
+    return () => {
+      rmSync(lock, { recursive: true, force: true });
+    };
   };
   for (;;) {
     try {
