@@ -74,23 +74,64 @@ Git access permits fetching ciphertext; the recipient policy permits decryption.
 
 ## Back Up and Verify Recovery
 
-Keep one human-controlled recovery item per deployment, with separately labeled
-attachments for the general age identity, any sudo age identity, SSH key, and
-applicable account recovery material. Record public recipients, creation dates,
-and local paths. Unattended workloads must not access the recovery system.
+Keep one human-controlled item per deployment or workload, with separately
+labeled key attachments. An independent recovery identity has its own item and
+must not be installed on an unattended deployment. Unattended workloads must
+not access the recovery system.
 
-Before using a new age identity:
+### 1Password Item Convention
 
-1. Attach its private identity file to the recovery item.
-2. Restore the attachment to an owner-only temporary path.
-3. Run `age-keygen -y /path/to/restored-keys.txt` and compare the recipient with
-   `./identity/configure-sops-age-identity.ts --print-recipient`.
-4. Verify other attachments against their own live source or public identity.
-5. Remove restored temporary copies.
+For 1Password, use this convention; other recovery systems should preserve the
+same distinction and verification evidence:
 
-Keep private keys, tokens, and decrypted files out of Git, logs, shell history,
-chat, and issue or pull-request bodies. Store files as attachments rather than
-pasting private values into recovery notes.
+| Metadata                                                        | Convention                                                                                              |
+| --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Deployment title                                                | `identity — <principal>@<host>`, where the principal is the Unix user or workload                       |
+| Independent recovery title                                      | `identity — <scope> recovery`                                                                           |
+| `Identity.kind`                                                 | `deployment` or `recovery`                                                                              |
+| `Identity.principal`                                            | The owning principal; use the recovery scope for an independent recovery identity                       |
+| `Identity.age-recipient`                                        | Public age recipient as a text field, not a concealed field; label additional recipients by key purpose |
+| `Deployment.host`, `Deployment.unix-user`, `Deployment.profile` | Current deployment metadata, where applicable                                                           |
+| `Lifecycle.status`                                              | `active`, `transitional`, or `retained-recovery` when lifecycle tracking is needed                      |
+| Tags                                                            | `identity`, `sops`, and exactly one of `deployment` or `recovery`                                       |
+
+Label attachments by purpose: `age-identity`, `sudo-age-identity`, `ssh-key`,
+or the applicable App key. Keep filenames, creation dates, public fingerprints
+and runtime paths clear; preserve additional account recovery artifacts.
+A workload item that groups deployments must label each attachment's deployment
+and recipient separately. Grouping does not grant shared access.
+
+Edit existing items in place to preserve their stable IDs and consumer
+references. Keep item IDs and private recovery references out of Git. Private
+keys belong in file attachments, not notes; public recipients remain readable
+metadata. An archived deployment key remains `Identity.kind=deployment` with
+`Lifecycle.status=retained-recovery`; retaining it does not make it an
+independent recovery identity.
+
+### Verify Recovery
+
+An interactive operator may back up and restore deployment attachments with
+the owner's authorization. This does not authorize access to independent human
+recovery keys or grant unattended workloads access to the recovery system.
+
+Before relying on an identity or retiring its predecessor:
+
+1. Attach its private identity file to the correct item.
+2. Restore the saved attachment to an owner-only temporary path.
+3. Run `age-keygen -y /path/to/restored-keys.txt` and compare its public recipient
+   with the intended deployment or recovery recipient. For a deployment, use
+   `./identity/configure-sops-age-identity.ts --print-recipient` on that host.
+4. Prove the restored key decrypts an authorized payload without printing its
+   contents, in an isolated environment where that attachment is the only
+   decryption source. Repeat the same probe without the attachment and require
+   failure. [SOPS loads multiple key sources](https://github.com/getsops/sops/blob/main/age/keysource.go);
+   setting `SOPS_AGE_KEY_FILE` alone does not isolate the test.
+5. Verify other attachments against their live source or public identity;
+   record the verification date and remove restored temporary copies.
+
+Matching an item's public metadata alone does not prove recovery. Keep private
+keys, tokens and decrypted files out of Git, logs, shell history, chat, and
+issue or pull-request bodies.
 
 ## Encrypted Secret Repositories
 
@@ -108,7 +149,7 @@ references may not.
 
 ## Move or Retire a Deployment
 
-Create a new age identity for a new host:
+By default, create a new age identity for a new host:
 
 1. Provision and verify its recovery copy.
 2. Add the new recipient to the owning `.sops.yaml`.
@@ -116,4 +157,17 @@ Create a new age identity for a new host:
 4. Prove access to its own payloads and exclusion from sibling identities' files.
 5. Remove the old recipient and update the encrypted files again.
 6. Rotate underlying secrets: old Git revisions remain decryptable by the old key.
-7. Remove the retired local identity and archive its recovery item.
+7. Remove the retired local identity only after its consumers have moved.
+
+An owner may explicitly approve moving a retained key instead. Verify the
+actual destination's public recipient and payload access, test the saved
+recovery attachment independently, and update deployment metadata and consumer
+references. A host-name change does not revoke a key; copies on the old and new
+hosts retain the same decryption authority. When the recipient is unchanged,
+metadata correction alone needs no `sops updatekeys` or ciphertext rewrap.
+
+Archive or delete an item only after proving it has no live consumers and its
+replacement and independent recovery work. Preserve any keys still needed to
+decrypt historical ciphertext: re-encrypting current files does not change old
+Git revisions. Keep required historical keys as labeled retained recovery
+material before deleting an obsolete item; do not remove the last copy.
