@@ -3,5 +3,5 @@
 # Claude Code comes from its GitHub release: the npm package fetches its native
 # binary in a postinstall that mise's npm backend does not run. ubi selects the
 # architecture from the assets the regex leaves.
-"ubi:anthropics/claude-code" = { version = "2.1.269", exe = "claude", matching_regex = "^claude-darwin-(arm64|x64)\\.tar\\.gz$" }
+"ubi:anthropics/claude-code" = { version = "2.1.270", exe = "claude", matching_regex = "^claude-darwin-(arm64|x64)\\.tar\\.gz$" }
 xcodegen = "2.46.0"
