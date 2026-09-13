@@ -169,9 +169,9 @@ For always-on hosts, provision an owner-only regular file at
 
 ## Headless Devbox Updates
 
-On Linux the user timer above already runs without a login once lingering is
-on; nothing else to enroll. On a shared Mac, prepare each user's persistent
-checkout and apply its devbox profile. As admin:
+On Linux, `mise run maintenance:enable` plus lingering is the whole
+enrollment; the user timer then runs without a login. On a shared Mac, prepare
+each user's persistent checkout and apply its devbox profile. As admin:
 
 ```sh
 sudo node scripts/darwin/bootstrap/install-devbox-service-daemons.ts \

@@ -18,8 +18,6 @@ Profiles configure one Unix user; host permissions provide isolation.
   [skill layers](agents.md), and install steps. Brewfiles own macOS packages.
 - `workstation` profiles configure a macOS desktop; `./dotfiles apply` refuses
   them on Linux. `developer` and the `devbox` profiles run on both.
-- macOS-only scripts live under `scripts/darwin/`, Linux-only ones under
-  `scripts/linux/`; everything else in `scripts/` runs on both.
 - Every profile installs [oh-my-zsh](https://ohmyzsh.sh) with the
   `robbyrussell` theme and `git` plugin at the revision pinned in
   [install-oh-my-zsh.ts](../scripts/bootstrap/install-oh-my-zsh.ts); Renovate

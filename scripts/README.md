@@ -16,7 +16,9 @@ Homebrew, launchd, and macOS desktop scripts with the same `bootstrap/`,
 `maintenance/`, `verify/`, and `lib/` shape as the shared tree; [linux/](linux/)
 holds the systemd counterparts. A script belongs at the top level only when it
 runs unchanged on both, or routes to the platform implementation the way
-[maintenance/schedule.ts](maintenance/schedule.ts) does.
+[maintenance/schedule.ts](maintenance/schedule.ts) does. The exception is
+[tizen/](tizen/): Tizen Studio only ships for macOS here, and its installer
+refuses other hosts.
 
 Shell is reserved for standalone process boundaries: the root launcher,
 external-client credential adapters in [agents/](agents/), sudo's
