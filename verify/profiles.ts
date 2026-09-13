@@ -27,6 +27,7 @@ const program = Effect.scoped(
       "devbox",
       "workstation",
       "personal-devbox",
+      "personal-solo-devbox",
       "personal-workstation",
     ] as const;
     assert.deepEqual(Object.keys(model.profiles).sort(), [...profiles].sort());
@@ -42,7 +43,12 @@ const program = Effect.scoped(
       assert.equal(requireProfile(model, profile).capabilities.requiresSopsIdentity, false);
     }
     assert.deepEqual(profileBrewfiles(model, "developer"), ["homebrew/Brewfile"]);
-    for (const profile of ["personal-workstation", "personal-devbox", "devbox"]) {
+    for (const profile of [
+      "personal-workstation",
+      "personal-devbox",
+      "personal-solo-devbox",
+      "devbox",
+    ]) {
       assert.equal(requireProfile(model, profile).capabilities.requiresSopsIdentity, true);
     }
     assert.deepEqual(profileBrewfiles(model, "devbox"), [
@@ -73,7 +79,7 @@ const program = Effect.scoped(
         "homebrew/Brewfile",
       ]);
     }
-    for (const profile of ["personal-workstation", "workstation"]) {
+    for (const profile of ["personal-workstation", "workstation", "personal-solo-devbox"]) {
       assert.deepEqual(bundleCheckArgs(model, profile, "homebrew/Brewfile"), [
         "bundle",
         "check",

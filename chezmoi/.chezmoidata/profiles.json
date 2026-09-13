@@ -88,6 +88,35 @@
           "install-t3-service"
         ]
       },
+      "personal-solo-devbox": {
+        "capabilities": {
+          "sharedHomebrew": false,
+          "requiresSopsIdentity": true,
+          "devbox": true,
+          "workstation": false,
+          "personal": true
+        },
+        "brewfiles": [
+          "homebrew/Brewfile",
+          "homebrew/Brewfile.devbox",
+          "homebrew/Brewfile.personal"
+        ],
+        "skillLayers": ["developer", "devbox", "personal"],
+        "installSteps": [
+          "apply-dotfiles",
+          "install-runtimes",
+          "install-repository-dependencies",
+          "install-oh-my-zsh",
+          "install-cursor-agent",
+          "trust-agent-worktrees",
+          "install-gh-extensions",
+          "configure-codex",
+          "configure-llm-gateway",
+          "configure-bifrost-clients",
+          "sync-agents",
+          "install-t3-service"
+        ]
+      },
       "workstation": {
         "capabilities": {
           "sharedHomebrew": false,

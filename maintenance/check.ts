@@ -285,7 +285,7 @@ function buildProbes(context: MaintenanceContext): Probe[] {
       ),
     );
   }
-  if (context.profileConfig.capabilities.sharedHomebrew && process.platform === "darwin") {
+  if (context.profileConfig.capabilities.devbox && context.platform === "darwin") {
     probes.push(
       probe(
         "devbox_services",

@@ -363,7 +363,13 @@ test("rendered profiles keep updater scope, scheduling, and paths valid", async 
     // Spaces and XML metacharacters must survive launchd's argument boundary.
     const home = join(root, "home & space");
     await mkdir(home);
-    for (const profile of ["workstation", "personal-workstation", "devbox", "personal-devbox"]) {
+    for (const profile of [
+      "workstation",
+      "personal-workstation",
+      "devbox",
+      "personal-devbox",
+      "personal-solo-devbox",
+    ]) {
       const render = (target: string) => {
         const result = spawnSync(
           "chezmoi",
@@ -427,7 +433,7 @@ test("rendered profiles keep updater scope, scheduling, and paths valid", async 
       assert.ok(selection);
       assert.deepEqual(
         JSON.parse(selection.slice("only = ".length)),
-        profile.endsWith("devbox")
+        ["devbox", "personal-devbox"].includes(profile)
           ? ["github_cli_extensions", "custom_commands"]
           : ["brew_formula", "brew_cask", "github_cli_extensions", "custom_commands"],
       );

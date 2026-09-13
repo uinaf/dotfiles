@@ -4,13 +4,14 @@ Profiles configure one Unix user; host permissions provide isolation.
 
 ## Choose a Profile
 
-| Profile                | Role                                                  |
-| ---------------------- | ----------------------------------------------------- |
-| `developer`            | Default: runtimes and coding agents for any Unix user |
-| `devbox`               | Human-operated SSH coding host                        |
-| `workstation`          | Human laptop or desktop                               |
-| `personal-devbox`      | Devbox with personal tools and gateway routing        |
-| `personal-workstation` | Workstation with personal apps and gateway routing    |
+| Profile                | Role                                                        |
+| ---------------------- | ----------------------------------------------------------- |
+| `developer`            | Default: runtimes and coding agents for any Unix user       |
+| `devbox`               | Human-operated SSH coding host                              |
+| `workstation`          | Human laptop or desktop                                     |
+| `personal-devbox`      | Devbox with personal tools and gateway routing              |
+| `personal-solo-devbox` | Single-owner devbox with personal tools and gateway routing |
+| `personal-workstation` | Workstation with personal apps and gateway routing          |
 
 - `./dotfiles diff|apply|check` without a profile uses the stored
   `~/.config/dotfiles/profile`, or `developer` on a fresh user.
@@ -26,6 +27,9 @@ Profiles configure one Unix user; host permissions provide isolation.
   Spotlight, LaunchDaemon, and systemd lingering changes.
 - Shared devbox Homebrew is owner-write, consumer-read-only. Other users check
   package presence; they do not update the prefix.
+- `personal-solo-devbox` uses the same packages and services as
+  `personal-devbox`, but manages Homebrew directly without shared-prefix
+  permission repair. Use it only when the user exclusively owns the prefix.
 - Use Unix ownership, groups, filesystem permissions, and scoped identities for
   isolation. Shared package visibility does not provide it.
 - Unattended runtime packages, machine credentials, and Linux host packages

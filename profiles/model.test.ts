@@ -15,6 +15,7 @@ const profileNames = [
   "devbox",
   "developer",
   "personal-devbox",
+  "personal-solo-devbox",
   "personal-workstation",
   "workstation",
 ];

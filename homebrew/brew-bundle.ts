@@ -24,7 +24,7 @@ import { readProfileModelEffect, requireProfile } from "../profiles/model.ts";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const usage = `Usage:
-  homebrew/brew-bundle.ts developer|devbox|workstation|personal-devbox|personal-workstation
+  homebrew/brew-bundle.ts developer|devbox|workstation|personal-devbox|personal-solo-devbox|personal-workstation
   homebrew/brew-bundle.ts --shared-only PROFILE
   homebrew/brew-bundle.ts --print-files PROFILE
   homebrew/brew-bundle.ts --cleanup PROFILE

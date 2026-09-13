@@ -363,7 +363,7 @@ const program = Effect.gen(function* () {
         new CliFailure({
           exitCode: 2,
           message:
-            "a supported profile is required: developer, devbox, workstation, personal-devbox, or personal-workstation",
+            "a supported profile is required: developer, devbox, workstation, personal-devbox, personal-solo-devbox, or personal-workstation",
         }),
     ),
   );

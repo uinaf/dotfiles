@@ -3,7 +3,8 @@ import { isAbsolute, join } from "node:path";
 import { runChecked, runCommand } from "../../lib/command.ts";
 import { launchdLabel, plistXml } from "../../lib/darwin/launchd.ts";
 import { fail } from "../../lib/program.ts";
-import { readPersistedProfile } from "../../profiles/current.ts";
+import { profileModelFile, readPersistedProfile } from "../../profiles/current.ts";
+import { readProfileModelEffect, requireProfile } from "../../profiles/model.ts";
 
 type Target = { user: string; uid: number; group: string; home: string };
 type UpdateOptions = {
@@ -21,7 +22,7 @@ function miseData(home: string): string {
   return join(home, ".local/share/mise");
 }
 
-export function updateJobs(options: UpdateOptions, prefix: string) {
+export function updateJobs(options: UpdateOptions, prefix: string, sharedHomebrew: boolean) {
   const { target, repository, namespace, node } = options;
   const logDirectory = join(target.home, "Library/Logs/dotfiles");
   const environment = {
@@ -54,6 +55,7 @@ export function updateJobs(options: UpdateOptions, prefix: string) {
         "--config",
         join(target.home, ".config/topgrade.toml"),
         "--only",
+        ...(!sharedHomebrew ? ["brew_formula", "brew_cask"] : []),
         "github_cli_extensions",
         "custom_commands",
         "--no-tmux",
@@ -120,15 +122,33 @@ export const installUpdateJobs = Effect.fn("installUpdateJobs")(function* (optio
       "the update checkout must be owned by the target user and not writable by others",
     );
   const profile = yield* readPersistedProfile(join(home, ".config/dotfiles/profile"), target.uid);
-  if (profile !== "devbox" && profile !== "personal-devbox")
-    return yield* fail("system updates require a devbox profile");
+  const model = yield* readProfileModelEffect(profileModelFile());
+  const { capabilities } = requireProfile(model, profile);
+  if (!capabilities.devbox) return yield* fail("system updates require a devbox profile");
+  if (!capabilities.sharedHomebrew && options.homebrew)
+    return yield* fail(
+      "single-owner profiles include Homebrew in software updates; omit --homebrew-updates",
+    );
+  if (!capabilities.sharedHomebrew) {
+    const label = launchdLabel("homebrew-update", target.user, options.namespace);
+    const oldPlist = `/Library/LaunchDaemons/${label}.plist`;
+    const loaded = yield* runCommand("/bin/launchctl", ["print", `system/${label}`]);
+    if ((yield* fs.exists(oldPlist)) || loaded.status === 0)
+      return yield* fail(
+        `wait for ${label} to finish, then disable, bootout, and remove its plist before enrolling single-owner updates`,
+      );
+  }
   yield* ownerFile(join(home, ".config/topgrade.toml"), target.uid);
-  yield* ownerFile(join(repo, "homebrew/brew-devbox.ts"), target.uid);
+  if (capabilities.sharedHomebrew)
+    yield* ownerFile(join(repo, "homebrew/brew-devbox.ts"), target.uid);
   yield* runChecked("/usr/bin/sudo", ["-u", target.user, "-H", node, "--version"], { cwd: home });
   const brew = process.arch === "arm64" ? "/opt/homebrew/bin/brew" : "/usr/local/bin/brew";
   const prefix = (yield* runChecked(brew, ["--prefix"])).stdout.trim();
-  if (options.homebrew && Option.getOrUndefined((yield* fs.stat(prefix)).uid) !== target.uid) {
-    return yield* fail("only the shared Homebrew prefix owner can enroll Homebrew updates");
+  if (
+    (options.homebrew || !capabilities.sharedHomebrew) &&
+    Option.getOrUndefined((yield* fs.stat(prefix)).uid) !== target.uid
+  ) {
+    return yield* fail("only the Homebrew prefix owner can enroll Homebrew updates");
   }
   yield* runChecked(
     "/usr/bin/sudo",
@@ -140,7 +160,7 @@ export const installUpdateJobs = Effect.fn("installUpdateJobs")(function* (optio
   if (gui.status === 0)
     return yield* fail(`disable the GUI updater before enrolling system updates: ${guiService}`);
 
-  const jobs = updateJobs(options, prefix);
+  const jobs = updateJobs(options, prefix, capabilities.sharedHomebrew);
   // Preflight every job before changing any plist or launchd state.
   const states = yield* Effect.forEach(
     jobs,

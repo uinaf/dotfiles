@@ -9,6 +9,7 @@ import { test } from "vite-plus/test";
 import { readProfileModel } from "../../profiles/model.ts";
 import {
   cleanupFiles,
+  cleanupProfile,
   composeBrewfile,
   profileBrewfiles,
   removeComposedBrewfile,
@@ -79,4 +80,14 @@ test("shared-prefix cleanup includes personal headless packages and excludes per
     assert.ok(!actual.includes(JSON.stringify(["cask", "firefox", {}])));
     assert.ok(actual.includes(JSON.stringify(["cask", "uinaf/tap/slopguard", {}])));
   }
+});
+
+test("single-owner cleanup uses its own profile without the shared-prefix union", () => {
+  assert.equal(cleanupProfile(model, "personal-solo-devbox"), "personal-solo-devbox");
+  assert.deepEqual(
+    cleanupFiles(model, "personal-solo-devbox"),
+    profileBrewfiles(model, "personal-solo-devbox"),
+  );
+  assert.equal(model.profiles["personal-solo-devbox"]?.capabilities.sharedHomebrew, false);
+  assert.equal(model.profiles["personal-solo-devbox"]?.capabilities.devbox, true);
 });

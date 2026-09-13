@@ -231,6 +231,9 @@ sudo node bootstrap/darwin/install-devbox-service-daemons.ts \
 
 - Only the Homebrew prefix owner gets `--homebrew-updates`; omit it for others.
   Each user must own their checkout/profile. Add `--check` for read-only validation.
+- For `personal-solo-devbox`, omit `--homebrew-updates`: the system software
+  updater includes Homebrew and records one combined result. It verifies prefix
+  ownership and does not run shared-prefix permission repair.
 - Disable the user's GUI updater before enrollment. System and GUI enrollment
   reject duplicates. [Devbox scheduling](../maintenance/darwin/devbox.ts)
   owns the staggered schedule; starts do not wait for earlier jobs to finish.
@@ -252,6 +255,28 @@ sudo launchctl bootout system/local.dotfiles.software-update.example
 - Disabled jobs stay disabled across boots; bootout stops active work.
 - Returning to GUI updates also requires removing the system plist before
   `maintenance:enable`. See [devbox administration](devbox.md).
+
+### Change a Shared Mac to One Owner
+
+First verify the departing user's destination and recovery, and obtain approval
+for account retirement. Preserve the current profile, Topgrade configuration,
+and both updater plists for rollback. Wait for both owner's jobs to finish,
+then disable and bootout their system labels. Remove the obsolete Homebrew
+updater plist explicitly; single-owner enrollment refuses it while present or
+loaded. Retire the departing user's jobs separately.
+
+Apply `personal-solo-devbox`, then re-enroll the remaining owner's system
+updates without `--homebrew-updates`. Run enrollment again with `--check`,
+request an update, and verify its result includes successful package and tool
+updates. Keep the GUI updater disabled. After replacement proof, update any
+external health consumer to require the combined `software-update` result with
+its existing failure and freshness checks, instead of two separate results.
+
+To roll back, wait for the new updater to finish, disable and bootout it,
+restore the old profile and configuration, and re-enroll with
+`--software-updates --homebrew-updates`. Verify both jobs and restore the
+external health contract. Account deletion and credential retirement require
+their own recovery procedure.
 
 ## Check Available Updates
 

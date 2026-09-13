@@ -12,7 +12,11 @@ import { installUpdateJobs, updateJobs } from "./devbox.ts";
 test("system jobs keep Homebrew with its owner and per-user Topgrade headless", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "dotfiles-system-updates-"));
   t.onTestFinished(() => rm(root, { recursive: true, force: true }));
-  for (const homebrew of [true, false]) {
+  for (const [homebrew, sharedHomebrew] of [
+    [true, true],
+    [false, true],
+    [false, false],
+  ] as const) {
     const target = { user: "example", uid: 502, group: "staff", home: "/Users/example & space" };
     const repository = join(target.home, "projects/dotfiles");
     const jobs = updateJobs(
@@ -25,6 +29,7 @@ test("system jobs keep Homebrew with its owner and per-user Topgrade headless", 
         check: false,
       },
       "/opt/homebrew",
+      sharedHomebrew,
     );
     assert.equal(jobs.length, homebrew ? 2 : 1);
     for (const job of jobs) {
@@ -67,6 +72,7 @@ test("system jobs keep Homebrew with its owner and per-user Topgrade headless", 
               "--config",
               join(target.home, ".config/topgrade.toml"),
               "--only",
+              ...(!sharedHomebrew ? ["brew_formula", "brew_cask"] : []),
               "github_cli_extensions",
               "custom_commands",
               "--no-tmux",
@@ -126,7 +132,7 @@ test("a consumer cannot enroll the shared-prefix updater", async (t) => {
       );
     }).pipe(Effect.provide(NodeServices.layer), Effect.provideService(CommandRunner, runner)),
   );
-  assert.match(String(failure), /only the shared Homebrew prefix owner/);
+  assert.match(String(failure), /only the Homebrew prefix owner/);
   assert.equal(
     commands.some((command) => command.endsWith("/launchctl")),
     false,
@@ -189,3 +195,91 @@ test("enrollment works when launchd has a user domain but no GUI domain", async 
     false,
   );
 });
+
+for (const scenario of ["headless", "consumer", "separate", "loaded", "plist"] as const) {
+  test(`single-owner enrollment handles ${scenario} without a shared repair script`, async (t) => {
+    const uid = process.getuid?.();
+    assert.ok(uid);
+    const home = await mkdtemp(join(tmpdir(), "dotfiles-solo-update-"));
+    t.onTestFinished(() => rm(home, { recursive: true, force: true }));
+    const repository = join(home, "repo");
+    await mkdir(repository);
+    await mkdir(join(home, ".config/dotfiles"), { recursive: true });
+    await writeFile(join(home, ".config/dotfiles/profile"), "personal-solo-devbox\n", {
+      mode: 0o600,
+    });
+    await writeFile(join(home, ".config/topgrade.toml"), "", { mode: 0o600 });
+    const calls: string[][] = [];
+    const oldLabel = "local.dotfiles.homebrew-update.fixture";
+    const oldPlist = `/Library/LaunchDaemons/${oldLabel}.plist`;
+    const runner = CommandRunner.of({
+      run: (command, args = []) => {
+        calls.push([command, ...args]);
+        const loaded = scenario === "loaded" && args[1] === `system/${oldLabel}`;
+        return Effect.succeed({
+          status: args[0] === "print" && !loaded ? 113 : 0,
+          stdout: command.endsWith("/brew") ? "/fixture/prefix\n" : "",
+          stderr: "",
+        });
+      },
+    });
+    const getuid = vi.spyOn(process, "getuid").mockReturnValue(0);
+    t.onTestFinished(() => getuid.mockRestore());
+    const outcome = await Effect.runPromise(
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const info = yield* fs.stat(home);
+        return yield* installUpdateJobs({
+          target: { user: "fixture", uid, group: "staff", home },
+          repository,
+          node: "/fixture/node",
+          namespace: "local.dotfiles",
+          homebrew: scenario === "separate",
+          check: false,
+        }).pipe(
+          Effect.provideService(FileSystem.FileSystem, {
+            ...fs,
+            exists: (path) =>
+              path === oldPlist ? Effect.succeed(scenario === "plist") : fs.exists(path),
+            stat: (path) =>
+              path === "/fixture/prefix"
+                ? Effect.succeed({
+                    ...info,
+                    uid: Option.some(scenario === "consumer" ? uid + 1 : uid),
+                  })
+                : fs.stat(path),
+          }),
+          Effect.result,
+        );
+      }).pipe(Effect.provide(NodeServices.layer), Effect.provideService(CommandRunner, runner)),
+    );
+    if (scenario === "headless") {
+      assert.equal(outcome._tag, "Success");
+      assert.deepEqual(
+        calls.filter((call) => call[1] === "bootstrap"),
+        [
+          [
+            "/bin/launchctl",
+            "bootstrap",
+            "system",
+            "/Library/LaunchDaemons/local.dotfiles.software-update.fixture.plist",
+          ],
+        ],
+      );
+    } else {
+      assert.equal(outcome._tag, "Failure");
+      assert.match(
+        String(outcome),
+        scenario === "consumer"
+          ? /only the Homebrew prefix owner/
+          : scenario === "separate"
+            ? /omit --homebrew-updates/
+            : /remove its plist/,
+      );
+      assert.equal(
+        calls.some((call) => ["bootstrap", "disable", "bootout"].includes(call[1] || "")),
+        false,
+      );
+    }
+  });
+}

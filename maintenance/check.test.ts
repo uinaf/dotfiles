@@ -53,6 +53,27 @@ function result(stdout: string, status = 0) {
   return { status, stdout, stderr: "" };
 }
 
+test("single-owner Darwin devboxes retain the service probe without shared Homebrew", async () => {
+  const calls: string[][] = [];
+  await collectMaintenanceSnapshot(
+    {
+      ...context(),
+      platform: "darwin",
+      profile: "personal-solo-devbox",
+      profileConfig: {
+        ...profileConfig,
+        skillLayers: [],
+        capabilities: { ...profileConfig.capabilities, devbox: true, workstation: false },
+      },
+    },
+    async (command, args) => {
+      calls.push([command, ...args]);
+      return result("");
+    },
+  );
+  assert.ok(calls.some((call) => call.includes("/fixture/repo/verify/darwin/devbox-services.ts")));
+});
+
 test("Homebrew backlog parsing keeps exact installed and current versions", () => {
   assert.deepEqual(
     parseBrewBacklog(
