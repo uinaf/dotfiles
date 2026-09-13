@@ -191,10 +191,11 @@ const program = Effect.scoped(
       "glab",
       "git-filter-repo",
     ]) {
-      assert.ok(
-        !base.split("\n").includes(`brew "${tool}"`),
-        `${tool} must not stay in the Brewfile`,
-      );
+      if (tool !== "gh")
+        assert.ok(
+          !base.split("\n").includes(`brew "${tool}"`),
+          `${tool} must not stay in the Brewfile`,
+        );
       assert.match(
         miseTemplate,
         new RegExp(`^${tool} = "`, "m"),
@@ -202,8 +203,8 @@ const program = Effect.scoped(
       );
     }
     // btop has no macOS release asset; age, sops, and xcodes are called by fixed
-    // path from privileged flows.
-    for (const tool of ["btop", "age", "sops", "xcodes"])
+    // path from privileged flows; Homebrew discovers gh through its opt path.
+    for (const tool of ["btop", "age", "sops", "xcodes", "gh"])
       assert.ok(base.split("\n").includes(`brew "${tool}"`), `${tool} must stay in the Brewfile`);
     const renderedMise = (os: string) =>
       run("chezmoi", [
