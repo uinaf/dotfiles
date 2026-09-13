@@ -1,6 +1,6 @@
 # Shared Homebrew layer for every managed Unix user on macOS: packages that
-# need a compiler, a GUI, or a system service. Command-line tools with binary
-# releases are mise tools in chezmoi/.chezmoitemplates/mise.toml.
+# need a compiler, a GUI, a system service, or a fixed execution path. Other
+# binary-release tools belong in chezmoi/.chezmoitemplates/mise.toml.
 # Role-specific additions belong in Brewfile.<profile>.
 
 # Bootstrap and runtime tools
@@ -14,6 +14,10 @@ brew "tmux"
 brew "age"
 brew "sops"
 brew "xcodes"
+
+# Homebrew discovers gh through opt/gh/bin after filtering PATH. Mise retains
+# the pinned cross-platform CLI for interactive use.
+brew "gh"
 
 # Taps
 tap "teamookla/speedtest", trusted: true
