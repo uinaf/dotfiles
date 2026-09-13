@@ -87,15 +87,13 @@ const program = Effect.scoped(Effect.gen(function*() {
   const base = yield* brewfile("Brewfile");
   for (const entry of ['brew "git"', 'brew "mise"', 'cask "android-commandlinetools"']) assert.match(base, new RegExp(`^${entry.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "m"));
   for (const entry of ['brew "watchman"', 'brew "ffmpeg"']) assert.ok(base.split("\n").includes(entry));
-  // Binary-release tools and the coding agents are mise tools shared by both platforms.
   const miseTemplate = yield* fs.readFileString(join(repoRoot, "chezmoi/.chezmoitemplates/mise.toml"));
   for (const tool of ["gh", "jq", "ripgrep", "shellcheck", "actionlint", "chezmoi", "direnv", "gitleaks", "trufflehog", "topgrade", "opencode", "awscli", "glab", "git-filter-repo"]) {
     assert.ok(!base.split("\n").includes(`brew "${tool}"`), `${tool} must not stay in the Brewfile`);
     assert.match(miseTemplate, new RegExp(`^${tool} = "`, "m"), `${tool} must be pinned in the mise template`);
   }
-  // btop has no macOS asset. age, sops, and xcodes are called by fixed path
-  // from privileged flows, so they stay Homebrew on macOS; on Linux the host
-  // supplies age and sops and xcodes does not apply.
+  // btop has no macOS release asset; age, sops, and xcodes are called by fixed
+  // path from privileged flows.
   for (const tool of ["btop", "age", "sops", "xcodes"]) assert.ok(base.split("\n").includes(`brew "${tool}"`), `${tool} must stay in the Brewfile`);
   const renderedMise = (os: string) => run("chezmoi", ["--source", join(repoRoot, "chezmoi"), "--destination", temporary, "--override-data", `{"dotfilesProfile":"developer","chezmoi":{"os":"${os}","arch":"arm64"}}`, "cat", join(temporary, ".config/mise/config.toml")]);
   const darwinMise = yield* renderedMise("darwin");
@@ -109,7 +107,6 @@ const program = Effect.scoped(Effect.gen(function*() {
   assert.match(darwinMise.stdout, /^"ubi:anthropics\/claude-code" = \{ version = "[^"]+", exe = "claude", matching_regex = "\^claude-darwin-/m);
   assert.match(linuxMise.stdout, /^"ubi:anthropics\/claude-code" = \{ version = "[^"]+", exe = "claude", matching_regex = "\^claude-linux-/m);
   for (const rendered of [darwinMise.stdout, linuxMise.stdout]) assert.equal(rendered.match(/^\[tools\]$/mg)?.length, 1, "one [tools] table per rendered config");
-  // age and sops are host packages on Linux (privileged flows call them by fixed path).
   for (const tool of ["age", "sops"]) assert.doesNotMatch(linuxMise.stdout, new RegExp(`^${tool} = "`, "m"));
   for (const entry of ['cask "codex"', 'cask "claude-code@latest"', 'brew "xcodegen"']) assert.ok(!base.split("\n").includes(entry));
   assert.match(miseTemplate, /^"npm:@openai\/codex" = "/m);

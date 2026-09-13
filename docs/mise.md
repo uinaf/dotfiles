@@ -1,8 +1,12 @@
 # Mise Tasks
 
 [Root mise.toml](../mise.toml) owns repository tasks.
-[The profile template](../chezmoi/.chezmoitemplates/mise.toml) owns installed
-runtime pins and runtime packages. Keep task entries as command delegations;
+[The profile template](../chezmoi/.chezmoitemplates/mise.toml) and its
+[darwin](../chezmoi/.chezmoitemplates/darwin/mise.toml) and
+[linux](../chezmoi/.chezmoitemplates/linux/mise.toml) siblings own installed
+runtime and tool pins; [mise-tasks.toml](../chezmoi/.chezmoitemplates/mise-tasks.toml)
+owns the packages installed inside those runtimes. Chezmoi concatenates them
+into `~/.config/mise/config.toml`. Keep task entries as command delegations;
 parsing and policy belong in `scripts/`.
 
 ## Tasks
@@ -39,7 +43,7 @@ profile; these are separate from repository verification:
 
 ```zsh
 mise run verify:bootstrap workstation # or developer, devbox, personal-devbox, personal-workstation
-mise run verify:devbox-services
+mise run verify:devbox-services       # macOS only
 ```
 
 For generated agent worktrees whose mise configs need trust:
@@ -53,8 +57,10 @@ Bootstrap runs this helper for existing configs near `~/.codex/worktrees` and
 
 ## Runtime Pins
 
-Edit [the profile template](../chezmoi/.chezmoitemplates/mise.toml), preview with
-`mise run dotfiles:diff <profile>`, and run `mise run verify`.
+Edit [the profile template](../chezmoi/.chezmoitemplates/mise.toml) or the
+OS sibling that owns the pin, preview with `mise run dotfiles:diff <profile>`,
+and run `mise run verify`. The templates stay plain TOML so Renovate can parse
+them; the Linux CI job resolves every pinned tool with `mise install --dry-run`.
 Use exact versions where practical. Keep these pairs aligned:
 
 - Profile Node, repository [.node-version](../.node-version), and

@@ -20,7 +20,8 @@ cd ~/projects/dotfiles
 ./dotfiles check
 ```
 
-Homebrew packages, identities, and host settings have separate bootstrap steps.
+Homebrew packages, Linux host packages, identities, and host settings have
+separate bootstrap steps.
 
 ## Guides
 
@@ -33,7 +34,7 @@ Homebrew packages, identities, and host settings have separate bootstrap steps.
 | Configure coding agents | [Agents](docs/agents.md) |
 | Edit managed files | [Chezmoi](docs/chezmoi.md) |
 | Change runtime pins or find tasks | [Mise](docs/mise.md) |
-| Audit a repository or Mac | [Security audits](docs/security-audits.md) |
+| Audit a repository or host | [Security audits](docs/security-audits.md) |
 | Install mobile and TV tooling | [Mobile and TV development](docs/mobile-and-tv-development.md) |
 | Change this repository | [Contributing](CONTRIBUTING.md) |
 

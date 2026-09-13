@@ -5,10 +5,10 @@ import { Console, Effect, FileSystem, Option } from "effect";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { CommandRunner } from "../../lib/command.ts";
+import { commandAvailable } from "../../lib/command-available.ts";
 import { CliFailure, fail, runMain } from "../../lib/program.ts";
 import {
   brewfilePath,
-  commandAvailable,
   cleanupFiles,
   cleanupProfile,
   composeBrewfile,

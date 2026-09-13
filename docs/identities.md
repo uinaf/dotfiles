@@ -42,7 +42,8 @@ GIT_SSH_IDENTITY_FILE="$HOME/.ssh/developer_ed25519" \
 ## SOPS Age Identity
 
 An age **identity** is the private decryption key; its public address is the
-**recipient**. After installing the profile's Homebrew packages:
+**recipient**. After the host supplies `age` and `sops` (Homebrew on macOS,
+[host packages](bootstrap.md#linux-ubuntu) on Linux):
 
 ```zsh
 ./scripts/secrets/configure-sops-age-identity.ts

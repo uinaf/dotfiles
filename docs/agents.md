@@ -112,9 +112,9 @@ Over SSH the callback port stays on the remote host: run the login under
 `ssh -t` (Claude and Codex need a TTY) and forward the printed loopback port
 with `ssh -L PORT:127.0.0.1:PORT` before opening the URL locally.
 
-The doctor also reports Grok installation drift: every profile installs the
-`grok-build` cask, so an npm global or a `~/.grok/bin` self-updater copy is
-removed rather than kept.
+The doctor also reports Grok installation drift: `grok` must resolve to the
+Homebrew `grok-build` cask (installed by `personal-workstation`), so an npm
+global or a `~/.grok/bin` self-updater copy is removed rather than kept.
 
 ## Verify
 

@@ -1,6 +1,9 @@
 # Software Updates
 
 Topgrade updates installed software and applies the enrolled dotfiles profile.
+A launchd agent schedules it on macOS; a systemd user timer does on Linux.
+[schedule.ts](../scripts/maintenance/schedule.ts) routes the commands below to
+the platform implementation.
 
 ## Enable And Use
 
@@ -15,9 +18,9 @@ mise run maintenance:update
 
 | Command | Purpose |
 | --- | --- |
-| `maintenance:status` | Loaded state, last exit, receipt, and plist drift |
+| `maintenance:status` | Scheduler state, last exit, receipt, and (macOS) plist drift |
 | `maintenance:check` | JSON update inventory; refreshes metadata without installing |
-| `maintenance:verify` | Post-update live macOS scan and full bootstrap verification |
+| `maintenance:verify` | Post-update live scan and full bootstrap verification |
 | `maintenance:hygiene` | Cleanup preview; reads remote refs, deletes nothing |
 | `maintenance:clean` | Apply eligible cleanup now |
 | `maintenance:disable` | Persistently disable and stop the scheduled update job |
@@ -25,15 +28,16 @@ mise run maintenance:update
 Prefix these commands with `mise run`.
 
 - Applying dotfiles does not enable updates; enrollment is explicit.
-- GUI schedule: 00:23, 06:23, 12:23, 18:23 local time, plus login/load.
+- macOS schedule: 00:00, 06:00, 12:00, 18:00 local time, plus login/load.
   Missed sleep events coalesce on wake; powered-off machines wait until startup.
-- On Linux the same commands manage a systemd user timer
-  (`dotfiles-software-update.timer`, every six hours with up to fifteen
-  minutes of jitter, catching up after downtime). Console output goes to
-  `journalctl --user -u dotfiles-software-update`; receipts and history live
-  under `~/.local/state/dotfiles`. Homebrew steps are absent there; topgrade
+- Linux schedule: the same hours with up to fifteen minutes of jitter, catching
+  up after downtime (`dotfiles-software-update.timer`). `maintenance:enable`
+  needs the rendered units from `./dotfiles apply` and systemd lingering
+  (`sudo loginctl enable-linger <user>`, an administrator step); without
+  lingering the timer stops at logout and `maintenance:status` fails. Console
+  output goes to `journalctl --user -u dotfiles-software-update`. Topgrade
   runs GitHub CLI extension updates plus the managed-dotfiles and hygiene
-  commands.
+  commands; the host owns its packages.
 - Requests acknowledge launch, not completion. Check status and the log summary.
   A stuck run blocks later runs.
 - `maintenance:update` preserves an active run. Separate `topgrade` or `brew`
@@ -60,10 +64,10 @@ Prefix these commands with `mise run`.
   Runtime versions follow declarations; saved coding-client logins are preserved.
 - Shared Homebrew is updated only by its prefix owner. Other users check package
   presence. See [shared Homebrew updates](bootstrap.md#shared-homebrew-updates).
-- The update job runs `brew developer off` first. Any `brew audit` or other
-  developer command silently enables developer mode, which makes `brew update`
-  track Homebrew `main` instead of stable tags; an untagged sandbox commit hung
-  unattended builds on the devbox in September 2026.
+- The shared Homebrew update job runs `brew developer off` first. Any
+  `brew audit` or other developer command silently enables developer mode,
+  which makes `brew update` track Homebrew `main` instead of stable tags and
+  has hung unattended builds on an untagged commit.
 - Convergence and shared Homebrew serialize through a checkout lock, waiting up
   to 15 minutes. Dead/pre-boot owners are reclaimed; live or ambiguous owners
   retain the lock.
@@ -118,17 +122,24 @@ tail -n 20 ~/Library/Logs/dotfiles/software-update-history-*.log
 tail -n 100 ~/Library/Logs/dotfiles/hygiene-*.log
 ```
 
-- GUI failures request native notifications; permissions/Focus can suppress them.
-  Success stays silent. Headless jobs use logs and optional heartbeats.
+On Linux the console stream is in the user journal
+(`journalctl --user -u dotfiles-software-update`) and the history and hygiene
+logs live under `~/.local/state/dotfiles/logs/`.
+
+- macOS GUI failures request native notifications; permissions/Focus can
+  suppress them. Success stays silent. Headless jobs use logs and optional
+  heartbeats.
 - JSON history records start/finish, exit code, and heartbeat outcome. Applied
   hygiene logs removals/retentions and cache output; previews/skips do not append.
 - Each update archives the previous output. Dated logs retain today and six
   preceding UTC dates; pruning happens during maintenance. Weekly hygiene caps
   logs at 2 MB in place. History counts are retained totals, not lifetime totals.
 - Private receipts live at `~/.local/state/dotfiles/updates/<job>.json`.
-  Compare `running` receipts with launchd; they do not prove process liveness.
-- `maintenance:status` warns about plist drift and receipts older than 13 hours
-  while loaded. Notifications alone cannot detect a scheduler that never starts.
+  Compare `running` receipts with the scheduler; they do not prove process
+  liveness.
+- On macOS, `maintenance:status` warns about plist drift and receipts older
+  than 13 hours while loaded. Notifications alone cannot detect a scheduler
+  that never starts.
 
 For always-on hosts, provision an owner-only regular file at
 `~/.config/dotfiles/update-heartbeats.json` through the host's secret owner:
@@ -148,15 +159,19 @@ For always-on hosts, provision an owner-only regular file at
 
 ## Disable, Reload, And Recover
 
-- Wait for idle, disable, apply dotfiles, then enable to reload changed plists.
-  Re-enabling an already loaded job does not reload it. Script-only changes need
-  no launchd reload.
+- macOS: wait for idle, disable, apply dotfiles, then enable to reload changed
+  plists. Re-enabling an already loaded job does not reload it. Script-only
+  changes need no launchd reload.
+- Linux: `./dotfiles apply` runs `systemctl --user daemon-reload`, so changed
+  units take effect without re-enrolling.
 - Disabling stops the job and children. After interruption, inspect logs/package
   state before retrying. Never delete Homebrew locks during another package run.
 
 ## Headless Devbox Updates
 
-Prepare each user's persistent checkout and apply its devbox profile. As admin:
+On Linux, `mise run maintenance:enable` plus lingering is the whole
+enrollment; the user timer then runs without a login. On a shared Mac, prepare
+each user's persistent checkout and apply its devbox profile. As admin:
 
 ```sh
 sudo node scripts/darwin/bootstrap/install-devbox-service-daemons.ts \
@@ -194,6 +209,8 @@ sudo launchctl bootout system/local.dotfiles.software-update.example
 
 - `maintenance:check` refreshes Homebrew metadata and reports macOS baselines,
   cached applicability, live-scan decisions, and incomplete/timed-out probes.
+  On Linux it has no Homebrew or OS probes; the mise, npm, and coding-agent
+  inventories remain.
 - macOS source caches last 24 hours. Stale/unavailable sources remain visible;
   cached applicability is never presented as live.
 - Live scans run when freshness/applicability requires them or after 24 hours.

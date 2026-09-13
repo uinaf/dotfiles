@@ -13,9 +13,9 @@ DEVBOX_USER=example
 T3_SERVICE=1
 ```
 
-`T3_SERVICE=1` opts the user into the T3 Code background service below; a
-devbox identity reached only through the desktop app's SSH launcher leaves it
-out.
+`T3_SERVICE=1` opts the user into the
+[T3 Code background service](#system-services); a devbox identity reached only
+through the desktop app's SSH launcher leaves it out.
 
 - Resolve SOPS secrets only in the consuming process. Keep plaintext tokens out
   of shell startup, plists, and supervisor configuration.
@@ -122,8 +122,8 @@ owning private system and use the version 3 schema:
 
 ## System Services
 
-Install Colima's boot service from an authorized administrator account for the
-user who owns Colima:
+On macOS, install Colima's boot service from an authorized administrator
+account for the user who owns Colima:
 
 ```zsh
 sudo ./scripts/darwin/bootstrap/install-devbox-service-daemons.ts --user example --colima
@@ -135,34 +135,40 @@ sudo ./scripts/darwin/bootstrap/install-devbox-service-daemons.ts --user example
 - Reference owner-only wrappers or files; never embed secrets.
 
 The `devbox` profiles install the T3 Code background service through the
-`install-t3-service` step (`t3 service install --base-dir ~/.t3`, with the CLI
-pinned in the mise template) for users whose `devbox.env` sets
-`T3_SERVICE=1` and whose unit is absent. Only an explicit `./dotfiles apply`
-installs it; unattended maintenance never adds a background service. T3 owns
-later updates and `./dotfiles check` proves the unit exists for opted-in
-users. Inspect it with:
+[`install-t3-service` step](../scripts/bootstrap/install-t3-service.ts)
+(`t3 service install --base-dir ~/.t3`, with the CLI pinned in the mise
+template) for users whose `devbox.env` sets `T3_SERVICE=1` and whose unit is
+absent. Only an explicit `./dotfiles apply` installs it; `./dotfiles maintain`
+never adds a background service. T3 owns later updates. Inspect it with:
 
 ```zsh
 t3 service status
 ```
 
-On Linux, `~/.config/environment.d/50-dotfiles.conf` fronts the mise shims and
-the dotfiles launchers on the user manager's `PATH`, so the service finds
-`codex`, `claude`, and `cursor-agent`; `./dotfiles apply` also hands the
-running manager that `PATH`. On macOS, keep the user logged in and the Mac
-awake; the LaunchAgent stops at logout. Installing over SSH for a user with no GUI session writes the
+`./dotfiles check` proves the unit exists for opted-in users. On Linux it
+also proves lingering is on and the running service's `PATH` includes the
+mise shims: the systemd user manager does not read shell startup files, so
+`~/.config/environment.d/50-dotfiles.conf` fronts the shims and the dotfiles
+launchers there, and `./dotfiles apply` hands the running manager the same
+`PATH`. Lingering is an administrator step:
+`sudo loginctl enable-linger <user>`.
+
+On macOS, keep the user logged in and the Mac awake; the LaunchAgent stops at
+logout. Installing over SSH for a user with no GUI session writes the
 LaunchAgent but cannot start it; the step reports the deferred start and the
-service comes up at that user's next login, so a green maintenance run does
-not by itself prove the service is running. On Linux the systemd user service needs lingering, which an
-administrator enables once with `sudo loginctl enable-linger <user>`. Keep
-`--base-dir` stable across updates; see the upstream
+service comes up at that user's next login, so a green apply does not by
+itself prove the service is running.
+
+Keep `--base-dir` stable across updates; see the upstream
 [background service guide](https://github.com/pingdotgg/t3code/blob/main/docs/user/background-service.md).
 
 ## Software Updates and Cleanup
 
-Use the [shared Homebrew wrapper](bootstrap.md#shared-homebrew-updates) as the
-prefix owner. [Headless update enrollment](software-updates.md#headless-devbox-updates)
-runs shared packages and per-user updates without a GUI login.
+On macOS, use the [shared Homebrew wrapper](bootstrap.md#shared-homebrew-updates)
+as the prefix owner and enroll
+[headless updates](software-updates.md#headless-devbox-updates) to run shared
+packages and per-user updates without a GUI login. On Linux, each user
+enables the [systemd maintenance timer](software-updates.md#enable-and-use).
 
 [Host hygiene](software-updates.md#host-hygiene) runs when due during updates:
 
@@ -177,7 +183,7 @@ Run as the intended Unix user:
 
 ```zsh
 ./dotfiles check devbox # use personal-devbox for that profile
-./scripts/darwin/verify/devbox-services.ts
+./scripts/darwin/verify/devbox-services.ts # macOS only
 mise run audit devbox --format json
 ```
 

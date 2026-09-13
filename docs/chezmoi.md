@@ -5,7 +5,8 @@ Edit tracked files under [chezmoi/](../chezmoi/).
 [apply-dotfiles.ts](../scripts/bootstrap/apply-dotfiles.ts) handles preview,
 backups, and apply. Runtime and command-line tool pins belong to
 [mise](mise.md#runtime-pins); Homebrew keeps the macOS packages that need a
-compiler, a GUI, or a system service.
+compiler, a GUI, or a system service. [.chezmoiignore](../chezmoi/.chezmoiignore.tmpl)
+drops `Library/` on Linux and the systemd and `environment.d` files on macOS.
 
 ## Workflow
 
@@ -18,7 +19,8 @@ mise run dotfiles:apply workstation
 ```
 
 - `./dotfiles apply <profile>` also runs the remaining
-  [bootstrap steps](bootstrap.md).
+  [bootstrap steps](bootstrap.md). On Linux it reloads the systemd user
+  manager and hands it the shim `PATH` from `environment.d`.
 - Both preview and apply refresh [agent rules](agents.md#global-rules),
   including during a dry run.
 - The wrapper backs up conflicting files and links before force-applying,
@@ -43,6 +45,7 @@ node scripts/verify/home-fixture.ts
 | `~/.ssh/config.d/*.conf` | Fragments written by other tools |
 | `~/.config/dotfiles/zshenv.local` | Machine-specific, non-secret shell exports |
 | `~/.config/dotfiles/agents.start.md`, `agents.end.md` | Private agent rules |
+| `~/.config/dotfiles/devbox.env` | [Per-user devbox settings](devbox.md#local-configuration), including the T3 service opt-in |
 
 - SSH includes Colima's generated `~/.colima/ssh_config`. Route writers to
   their own fragments rather than modifying `~/.ssh/config`.

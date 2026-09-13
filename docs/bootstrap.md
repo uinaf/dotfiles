@@ -30,23 +30,26 @@ cd ~/projects/dotfiles
 ```
 
 Skip the Homebrew steps below; `gh auth login` comes after the first apply
-installs `gh`. `workstation` profiles are macOS-only; use `developer` or
-`devbox` here.
+installs `gh`. `workstation` profiles are macOS-only; `./dotfiles apply`
+refuses them here, so use `developer` or `devbox`.
 
-The `devbox` profile also expects two host-provided prerequisites, both
+The `devbox` profiles also expect two host-provided prerequisites, both
 probed by `./dotfiles check devbox`:
 
 - Tailscale installed and joined.
-- systemd lingering for the user: `sudo loginctl enable-linger <user>`.
+- systemd lingering for the user: `sudo loginctl enable-linger <user>`. The
+  [maintenance timer](software-updates.md) and the
+  [T3 Code service](devbox.md#system-services) stop at logout without it.
 
-Every other tool comes from the profile's mise configuration: `gh`, `jq`,
-`ripgrep`, `shellcheck`, `actionlint`, `chezmoi`, `direnv`, `btop`,
-`gitleaks`, `trufflehog`, `topgrade`, OpenCode, `awscli`, `glab`,
-`git-filter-repo`, Codex, Claude Code, and the T3 CLI. Cursor uses its own
-installer. `age` and `sops` stay host packages on both platforms because the
-sudo askpass helper calls them by fixed path.
-Android SDK and emulator tooling stay a per-user install; set `ANDROID_HOME`
-to `~/Android/Sdk` and the shell picks it up.
+Every other tool comes from the profile's [mise configuration](profiles.md#choose-a-profile).
+Cursor uses its own installer. `age` and `sops` stay host packages on both
+platforms because the sudo askpass helper calls them by fixed path.
+Android SDK and emulator tooling stay a per-user install; put the SDK at
+`~/Android/Sdk` and the shell exports `ANDROID_HOME`.
+
+`./dotfiles apply` also renders `~/.config/environment.d/50-dotfiles.conf`
+and hands the running systemd user manager the same `PATH`, so user services
+find the mise shims and the dotfiles agent launchers.
 
 ### macOS
 
@@ -109,17 +112,17 @@ mise trust
 
 - Configure [Git authorship and local SSH keys](identities.md#developer-git-and-ssh)
   from explicit operator values.
-- Install [the pinned Xcode](mobile-and-tv-development.md) with
+- On macOS, install [the pinned Xcode](mobile-and-tv-development.md) with
   `mise run xcode:install`.
-- Every profile except `workstation` requires a
-  [backed-up SOPS age identity](identities.md#sops-age-identity).
-  `workstation` needs one when it consumes secrets.
+- Every profile except `developer` and `workstation` requires a
+  [backed-up SOPS age identity](identities.md#sops-age-identity); those two
+  need one when they consume secrets.
 - For machine-specific Homebrew packages, add a gitignored
   [local Brewfile](profiles.md#local-homebrew-additions).
 - For externally supplied Homebrew packages or refused tap trust, configure
   [external capabilities](profiles.md#externally-managed-homebrew-capabilities).
 
-Run these host-wide steps once from the administrator account:
+On macOS, run these host-wide steps once from the administrator account:
 
 ```zsh
 ./scripts/darwin/bootstrap/configure-power.ts --profile "$profile"
@@ -132,7 +135,7 @@ removing existing index data.
 
 ### Spotlight Policy
 
-Developer profile checks require Spotlight indexing to be disabled by default.
+On macOS, profile checks require Spotlight indexing to be disabled by default.
 If indexing is intentional, omit the `configure-spotlight.ts` setup step and
 skip its verification with:
 
@@ -159,8 +162,8 @@ the result, even with this flag set.
 
 ### Devbox Options
 
-Follow [Devbox setup](devbox.md) for services and secret consumers. The logged-in
-owner may apply the optional desktop baseline:
+Follow [Devbox setup](devbox.md) for services and secret consumers. On macOS,
+the logged-in owner may apply the optional desktop baseline:
 
 ```zsh
 ./scripts/darwin/bootstrap/configure-desktop.ts
@@ -180,13 +183,14 @@ mise run audit host
 For workstations, also run `mise run audit workstation`. For devbox profiles:
 
 ```zsh
-./scripts/darwin/verify/devbox-services.ts
+./scripts/darwin/verify/devbox-services.ts # macOS only
 mise run audit devbox
 ```
 
 ## Shared Homebrew Updates
 
-The prefix owner must use the wrapper for shared-devbox mutations:
+On a shared Mac, the prefix owner must use the wrapper for shared-devbox
+mutations:
 
 ```zsh
 ./scripts/darwin/bootstrap/brew-devbox.ts upgrade
@@ -209,7 +213,7 @@ Refresh the checkout, review the selected profile, then converge it:
 cd ~/projects/dotfiles
 git pull --ff-only
 profile=workstation # select the installed profile
-./scripts/darwin/bootstrap/brew-bundle.ts "$profile"
+./scripts/darwin/bootstrap/brew-bundle.ts "$profile" # macOS only
 mise trust
 ./dotfiles diff "$profile"
 ./dotfiles apply "$profile"
@@ -227,6 +231,7 @@ which preserves saved logins. For package-only refreshes, use
 | --- | --- |
 | Missing Homebrew packages | Rerun `brew-bundle.ts` with the selected profile. |
 | Missing `chezmoi` or another mise tool | Rerun `./dotfiles apply`; the first apply borrows the pinned `chezmoi` through `mise x` and `install-runtimes` installs the rest. |
+| A systemd user service cannot find `codex`, `claude`, or another mise tool | Rerun `./dotfiles apply`, which hands the user manager the shim `PATH`, then restart the service. |
 | Homebrew drift | Keep intentional machine-specific packages in a [local Brewfile](profiles.md#local-homebrew-additions), then review and run `./scripts/darwin/bootstrap/brew-bundle.ts --cleanup <profile>`. This removes undeclared packages; shared devboxes use the personal-devbox package union. |
 | Shared prefix permissions | Run `./scripts/darwin/bootstrap/brew-devbox.ts --repair-shared-readability` as the prefix owner. Foreign-owned content needs an administrator to correct ownership. |
 | Git dubious ownership under `/opt/homebrew` | Rerun `configure-git.ts` with the selected profile. |
