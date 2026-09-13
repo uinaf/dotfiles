@@ -3,25 +3,36 @@ import { spawnSync } from "node:child_process";
 import { chmod, mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import test from "node:test";
+import { test } from "vite-plus/test";
 import { fileURLToPath } from "node:url";
 import { Effect, FileSystem } from "effect";
 import { NodeServices } from "@effect/platform-node";
 import { CommandRunner } from "../../lib/command.ts";
 import { CliFailure } from "../../lib/program.ts";
-import { comparePlist, manageSchedule, parseLaunchdPrint, receiptWarning, staleReceiptMs, updateLabel } from "./schedule.ts";
+import {
+  comparePlist,
+  manageSchedule,
+  parseLaunchdPrint,
+  receiptWarning,
+  updateLabel,
+} from "./schedule.ts";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
 test("on-demand updates reuse the loaded service without killing its current work", async () => {
   const calls: string[][] = [];
-  const runner = CommandRunner.of({ run: (command, args = []) => {
-    calls.push([command, ...args]);
-    return Effect.succeed({ status: 0, stdout: "loaded", stderr: "" });
-  } });
-  await Effect.runPromise(manageSchedule("run", "/fixture/home", 501).pipe(
-    Effect.provideService(CommandRunner, runner), Effect.provide(NodeServices.layer),
-  ));
+  const runner = CommandRunner.of({
+    run: (command, args = []) => {
+      calls.push([command, ...args]);
+      return Effect.succeed({ status: 0, stdout: "loaded", stderr: "" });
+    },
+  });
+  await Effect.runPromise(
+    manageSchedule("run", "/fixture/home", 501).pipe(
+      Effect.provideService(CommandRunner, runner),
+      Effect.provide(NodeServices.layer),
+    ),
+  );
   assert.deepEqual(calls, [
     ["launchctl", "print", `gui/501/${updateLabel}`],
     ["launchctl", "kickstart", `gui/501/${updateLabel}`],
@@ -30,24 +41,39 @@ test("on-demand updates reuse the loaded service without killing its current wor
 
 test("a missing job cannot silently run an uncoordinated updater", async () => {
   const calls: string[][] = [];
-  const runner = CommandRunner.of({ run: (command, args = []) => {
-    calls.push([command, ...args]);
-    return Effect.succeed({ status: 113, stdout: "", stderr: "service not found" });
-  } });
-  const failure = await Effect.runPromise(manageSchedule("run", "/fixture/home", 501).pipe(
-    Effect.provideService(CommandRunner, runner), Effect.provide(NodeServices.layer), Effect.flip,
-  ));
+  const runner = CommandRunner.of({
+    run: (command, args = []) => {
+      calls.push([command, ...args]);
+      return Effect.succeed({ status: 113, stdout: "", stderr: "service not found" });
+    },
+  });
+  const failure = await Effect.runPromise(
+    manageSchedule("run", "/fixture/home", 501).pipe(
+      Effect.provideService(CommandRunner, runner),
+      Effect.provide(NodeServices.layer),
+      Effect.flip,
+    ),
+  );
   assert.match(String(failure), /enable the scheduler first/);
   assert.deepEqual(calls, [["launchctl", "print", `gui/501/${updateLabel}`]]);
 });
 
 test("on-demand launch failures reach the caller", async () => {
-  const runner = CommandRunner.of({ run: (_command, args = []) =>
-    Effect.succeed({ status: args[0] === "kickstart" ? 5 : 0, stdout: "", stderr: "launch failed" }),
+  const runner = CommandRunner.of({
+    run: (_command, args = []) =>
+      Effect.succeed({
+        status: args[0] === "kickstart" ? 5 : 0,
+        stdout: "",
+        stderr: "launch failed",
+      }),
   });
-  const failure = await Effect.runPromise(manageSchedule("run", "/fixture/home", 501).pipe(
-    Effect.provideService(CommandRunner, runner), Effect.provide(NodeServices.layer), Effect.flip,
-  ));
+  const failure = await Effect.runPromise(
+    manageSchedule("run", "/fixture/home", 501).pipe(
+      Effect.provideService(CommandRunner, runner),
+      Effect.provide(NodeServices.layer),
+      Effect.flip,
+    ),
+  );
   assert.ok(failure instanceof CliFailure);
   assert.equal(failure.exitCode, 5);
 });
@@ -55,13 +81,22 @@ test("on-demand launch failures reach the caller", async () => {
 for (const loaded of [false, true]) {
   test(`disabling a ${loaded ? "loaded" : "missing"} job persists its disabled state`, async () => {
     const calls: string[][] = [];
-    const runner = CommandRunner.of({ run: (command, args = []) => {
-      calls.push([command, ...args]);
-      return Effect.succeed({ status: args[0] === "print" && !loaded ? 113 : 0, stdout: "", stderr: "" });
-    } });
-    await Effect.runPromise(manageSchedule("disable", "/fixture/home", 501).pipe(
-      Effect.provideService(CommandRunner, runner), Effect.provide(NodeServices.layer),
-    ));
+    const runner = CommandRunner.of({
+      run: (command, args = []) => {
+        calls.push([command, ...args]);
+        return Effect.succeed({
+          status: args[0] === "print" && !loaded ? 113 : 0,
+          stdout: "",
+          stderr: "",
+        });
+      },
+    });
+    await Effect.runPromise(
+      manageSchedule("disable", "/fixture/home", 501).pipe(
+        Effect.provideService(CommandRunner, runner),
+        Effect.provide(NodeServices.layer),
+      ),
+    );
     const service = `gui/501/${updateLabel}`;
     assert.deepEqual(calls, [
       ["launchctl", "print", service],
@@ -76,7 +111,7 @@ for (const kind of ["regular", "writable", "symlink", "system"] as const) {
     const uid = process.getuid?.();
     assert.ok(uid, "enrollment requires an unprivileged Unix user");
     const home = await mkdtemp(join(tmpdir(), "dotfiles-enrollment-"));
-    t.after(() => rm(home, { recursive: true, force: true }));
+    t.onTestFinished(() => rm(home, { recursive: true, force: true }));
     const plist = join(home, `Library/LaunchAgents/${updateLabel}.plist`);
     await mkdir(dirname(plist), { recursive: true });
     await mkdir(join(home, ".config/dotfiles"), { recursive: true });
@@ -89,21 +124,31 @@ for (const kind of ["regular", "writable", "symlink", "system"] as const) {
     }
     const calls: string[][] = [];
     let loaded = false;
-    const runner = CommandRunner.of({ run: (command, args = []) => {
-      calls.push([command, ...args]);
-      if (command === "id") return Effect.succeed({ status: 0, stdout: "fixture", stderr: "" });
-      if (args[0] === "bootstrap") loaded = true;
-      return Effect.succeed({ status: args[0] === "print" && !loaded ? 113 : 0, stdout: "", stderr: "" });
-    } });
-    const operation = Effect.gen(function*() {
+    const runner = CommandRunner.of({
+      run: (command, args = []) => {
+        calls.push([command, ...args]);
+        if (command === "id") return Effect.succeed({ status: 0, stdout: "fixture", stderr: "" });
+        if (args[0] === "bootstrap") loaded = true;
+        return Effect.succeed({
+          status: args[0] === "print" && !loaded ? 113 : 0,
+          stdout: "",
+          stderr: "",
+        });
+      },
+    });
+    const operation = Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
-      return yield* manageSchedule("enable", home, uid).pipe(Effect.provideService(FileSystem.FileSystem, {
-        ...fs, exists: (path) => kind === "system" && path === "/Library/LaunchDaemons/local.dotfiles.software-update.fixture.plist"
-          ? Effect.succeed(true) : fs.exists(path),
-      }));
-    }).pipe(
-      Effect.provideService(CommandRunner, runner), Effect.provide(NodeServices.layer),
-    );
+      return yield* manageSchedule("enable", home, uid).pipe(
+        Effect.provideService(FileSystem.FileSystem, {
+          ...fs,
+          exists: (path) =>
+            kind === "system" &&
+            path === "/Library/LaunchDaemons/local.dotfiles.software-update.fixture.plist"
+              ? Effect.succeed(true)
+              : fs.exists(path),
+        }),
+      );
+    }).pipe(Effect.provideService(CommandRunner, runner), Effect.provide(NodeServices.layer));
     const service = `gui/${uid}/${updateLabel}`;
     if (kind === "regular") {
       await Effect.runPromise(operation);
@@ -117,9 +162,18 @@ for (const kind of ["regular", "writable", "symlink", "system"] as const) {
       ]);
     } else {
       const failure = await Effect.runPromise(operation.pipe(Effect.flip));
-      assert.match(String(failure), kind === "system" ? /system updater already enrolled/
-        : kind === "symlink" ? /must not be a symlink/ : /owning user/);
-      assert.deepEqual(calls, [["launchctl", "print", service], ["id", "-un", String(uid)]]);
+      assert.match(
+        String(failure),
+        kind === "system"
+          ? /system updater already enrolled/
+          : kind === "symlink"
+            ? /must not be a symlink/
+            : /owning user/,
+      );
+      assert.deepEqual(calls, [
+        ["launchctl", "print", service],
+        ["id", "-un", String(uid)],
+      ]);
     }
   });
 }
@@ -170,16 +224,27 @@ const launchdPrintFixture = `gui/501/local.dotfiles.software-update = {
 const fixtureArguments = [
   "/Users/fixture/.local/share/mise/shims/node",
   "/Users/fixture/projects/dotfiles/maintenance/run.ts",
-  "software-update", "--", "/opt/homebrew/bin/topgrade", "--yes",
+  "software-update",
+  "--",
+  "/opt/homebrew/bin/topgrade",
+  "--yes",
 ];
 const fixturePlist = {
   ProgramArguments: fixtureArguments,
-  EnvironmentVariables: { GIT_TERMINAL_PROMPT: "0", PATH: "/Users/fixture/.local/bin:/usr/bin:/bin", NO_COLOR: "1" },
+  EnvironmentVariables: {
+    GIT_TERMINAL_PROMPT: "0",
+    PATH: "/Users/fixture/.local/bin:/usr/bin:/bin",
+    NO_COLOR: "1",
+  },
 };
 
 test("plist comparison covers only arguments and environment, never the schedule", () => {
   const loaded = parseLaunchdPrint(launchdPrintFixture);
-  const rescheduled = { ...fixturePlist, StartCalendarInterval: [{ Hour: 3, Minute: 0 }], WorkingDirectory: "/elsewhere" };
+  const rescheduled = {
+    ...fixturePlist,
+    StartCalendarInterval: [{ Hour: 3, Minute: 0 }],
+    WorkingDirectory: "/elsewhere",
+  };
   assert.deepEqual(comparePlist(loaded, rescheduled), { comparable: true, drift: [] });
 });
 
@@ -188,19 +253,40 @@ test("launchctl print parsing extracts only the job's own arguments and environm
   assert.deepEqual(loaded.arguments, fixtureArguments);
   assert.equal(loaded.environment?.GIT_TERMINAL_PROMPT, "0");
   assert.equal(loaded.environment?.XPC_SERVICE_NAME, "local.dotfiles.software-update");
-  assert.equal(loaded.environment?.SSH_AUTH_SOCK, undefined, "inherited environment must not leak in");
-  assert.equal(loaded.environment?.PATH, "/Users/fixture/.local/bin:/usr/bin:/bin", "default environment must not win");
+  assert.equal(
+    loaded.environment?.SSH_AUTH_SOCK,
+    undefined,
+    "inherited environment must not leak in",
+  );
+  assert.equal(
+    loaded.environment?.PATH,
+    "/Users/fixture/.local/bin:/usr/bin:/bin",
+    "default environment must not win",
+  );
   assert.deepEqual(parseLaunchdPrint("garbage without blocks"), {});
-  assert.deepEqual(parseLaunchdPrint("\targuments = {\n\t\tunclosed"), {}, "unterminated blocks parse to nothing");
+  assert.deepEqual(
+    parseLaunchdPrint("\targuments = {\n\t\tunclosed"),
+    {},
+    "unterminated blocks parse to nothing",
+  );
 });
 
 test("drift detection compares the loaded job against the rendered plist defensively", () => {
   const loaded = parseLaunchdPrint(launchdPrintFixture);
   assert.deepEqual(comparePlist(loaded, fixturePlist), { comparable: true, drift: [] });
-  const changedArguments = { ...fixturePlist, ProgramArguments: [...fixtureArguments.slice(0, -1), "--dry-run"] };
+  const changedArguments = {
+    ...fixturePlist,
+    ProgramArguments: [...fixtureArguments.slice(0, -1), "--dry-run"],
+  };
   assert.match(comparePlist(loaded, changedArguments).drift.join("\n"), /ProgramArguments differ/);
-  const changedEnvironment = { ...fixturePlist, EnvironmentVariables: { ...fixturePlist.EnvironmentVariables, NO_COLOR: "0" } };
-  assert.match(comparePlist(loaded, changedEnvironment).drift.join("\n"), /EnvironmentVariables\.NO_COLOR differs/);
+  const changedEnvironment = {
+    ...fixturePlist,
+    EnvironmentVariables: { ...fixturePlist.EnvironmentVariables, NO_COLOR: "0" },
+  };
+  assert.match(
+    comparePlist(loaded, changedEnvironment).drift.join("\n"),
+    /EnvironmentVariables\.NO_COLOR differs/,
+  );
   assert.equal(comparePlist(loaded, { ProgramArguments: "not-a-list" }).comparable, false);
   assert.equal(comparePlist({}, fixturePlist).comparable, false);
   assert.equal(comparePlist(loaded, null).comparable, false);
@@ -208,37 +294,63 @@ test("drift detection compares the loaded job against the rendered plist defensi
 
 test("stale, missing, and unreadable receipts are flagged while fresh ones pass", () => {
   const now = Date.parse("2026-09-07T12:00:00Z");
-  const receipt = (finishedAt: string) => JSON.stringify({ version: 1, job: "software-update", startedAt: finishedAt, finishedAt, exitCode: 0 });
+  const receipt = (finishedAt: string) =>
+    JSON.stringify({
+      version: 1,
+      job: "software-update",
+      startedAt: finishedAt,
+      finishedAt,
+      exitCode: 0,
+    });
   assert.equal(receiptWarning(receipt("2026-09-07T06:30:00Z"), now), undefined);
   assert.match(receiptWarning(receipt("2026-09-06T22:00:00Z"), now) ?? "", /older than 13 hours/);
-  assert.equal(receiptWarning(receipt("2026-09-06T23:30:00Z"), now), undefined, "12.5h stays inside the 13h budget");
+  assert.equal(
+    receiptWarning(receipt("2026-09-06T23:30:00Z"), now),
+    undefined,
+    "12.5h stays inside the 13h budget",
+  );
   assert.match(receiptWarning("not json", now) ?? "", /unreadable/);
   assert.match(receiptWarning(JSON.stringify({ startedAt: 42 }), now) ?? "", /unreadable/);
   assert.match(receiptWarning(undefined, now) ?? "", /no update receipt exists/);
   // A running receipt has no finishedAt yet; a fresh startedAt is enough.
-  assert.equal(receiptWarning(JSON.stringify({ state: "running", startedAt: "2026-09-07T11:00:00Z" }), now), undefined);
+  assert.equal(
+    receiptWarning(JSON.stringify({ state: "running", startedAt: "2026-09-07T11:00:00Z" }), now),
+    undefined,
+  );
 });
 
 test("status compares the loaded job with the rendered on-disk plist", async (t) => {
   const uid = process.getuid?.();
   assert.ok(uid);
   const home = await mkdtemp(join(tmpdir(), "dotfiles-status-"));
-  t.after(() => rm(home, { recursive: true, force: true }));
+  t.onTestFinished(() => rm(home, { recursive: true, force: true }));
   const plist = join(home, `Library/LaunchAgents/${updateLabel}.plist`);
   await mkdir(dirname(plist), { recursive: true });
   await writeFile(plist, "fixture: plutil is stubbed at the process boundary");
   await mkdir(join(home, ".local/state/dotfiles/updates"), { recursive: true });
-  await writeFile(join(home, ".local/state/dotfiles/updates/software-update.json"),
-    JSON.stringify({ startedAt: new Date().toISOString(), finishedAt: new Date().toISOString(), exitCode: 0 }));
+  await writeFile(
+    join(home, ".local/state/dotfiles/updates/software-update.json"),
+    JSON.stringify({
+      startedAt: new Date().toISOString(),
+      finishedAt: new Date().toISOString(),
+      exitCode: 0,
+    }),
+  );
   const calls: string[][] = [];
-  const runner = CommandRunner.of({ run: (command, args = []) => {
-    calls.push([command, ...args]);
-    if (command === "plutil") return Effect.succeed({ status: 0, stdout: JSON.stringify(fixturePlist), stderr: "" });
-    return Effect.succeed({ status: 0, stdout: launchdPrintFixture, stderr: "" });
-  } });
-  await Effect.runPromise(manageSchedule("status", home, uid).pipe(
-    Effect.provideService(CommandRunner, runner), Effect.provide(NodeServices.layer),
-  ));
+  const runner = CommandRunner.of({
+    run: (command, args = []) => {
+      calls.push([command, ...args]);
+      if (command === "plutil")
+        return Effect.succeed({ status: 0, stdout: JSON.stringify(fixturePlist), stderr: "" });
+      return Effect.succeed({ status: 0, stdout: launchdPrintFixture, stderr: "" });
+    },
+  });
+  await Effect.runPromise(
+    manageSchedule("status", home, uid).pipe(
+      Effect.provideService(CommandRunner, runner),
+      Effect.provide(NodeServices.layer),
+    ),
+  );
   assert.deepEqual(calls, [
     ["launchctl", "print", `gui/${uid}/${updateLabel}`],
     ["plutil", "-convert", "json", "-o", "-", plist],
@@ -253,40 +365,76 @@ test("rendered profiles keep updater scope, scheduling, and paths valid", async 
     await mkdir(home);
     for (const profile of ["workstation", "personal-workstation", "devbox", "personal-devbox"]) {
       const render = (target: string) => {
-        const result = spawnSync("chezmoi", ["--source", join(repoRoot, "chezmoi"), "--destination", home,
-          "--override-data", JSON.stringify({ dotfilesProfile: profile }), "cat", join(home, target)], {
-          encoding: "utf8", env: { ...process.env, HOME: home, XDG_CONFIG_HOME: join(root, "config") },
-        });
+        const result = spawnSync(
+          "chezmoi",
+          [
+            "--source",
+            join(repoRoot, "chezmoi"),
+            "--destination",
+            home,
+            "--override-data",
+            JSON.stringify({ dotfilesProfile: profile }),
+            "cat",
+            join(home, target),
+          ],
+          {
+            encoding: "utf8",
+            env: { ...process.env, HOME: home, XDG_CONFIG_HOME: join(root, "config") },
+          },
+        );
         assert.equal(result.status, 0, result.stderr);
         return result.stdout;
       };
       const plist = join(root, "update.plist");
       await writeFile(plist, render(`Library/LaunchAgents/${updateLabel}.plist`));
-      const parsed = spawnSync("plutil", ["-convert", "json", "-o", "-", plist], { encoding: "utf8" });
+      const parsed = spawnSync("plutil", ["-convert", "json", "-o", "-", plist], {
+        encoding: "utf8",
+      });
       assert.equal(parsed.status, 0, parsed.stderr);
       const job = JSON.parse(parsed.stdout);
       assert.equal(job.Label, "local.dotfiles.software-update");
       assert.equal(job.Disabled, true, "applying dotfiles alone must not enroll a scheduler");
       assert.equal(job.RunAtLoad, true);
       assert.equal(job.KeepAlive, undefined, "failures must not spin in a restart loop");
-      assert.deepEqual(job.StartCalendarInterval, [0, 6, 12, 18].map((Hour) => ({ Hour, Minute: 0 })));
+      assert.deepEqual(
+        job.StartCalendarInterval,
+        [0, 6, 12, 18].map((Hour) => ({ Hour, Minute: 0 })),
+      );
       assert.deepEqual(job.ProgramArguments, [
-        join(home, ".local/share/mise/installs/node/latest/bin/node"), join(repoRoot, "maintenance/run.ts"), "software-update", "--",
+        join(home, ".local/share/mise/installs/node/latest/bin/node"),
+        join(repoRoot, "maintenance/run.ts"),
+        "software-update",
+        "--",
         join(home, ".local/share/mise/shims/topgrade"),
-        "--config", join(home, ".config/topgrade.toml"), "--no-tmux", "--no-ask-retry",
-        "--no-self-update", "--notify-end", "on_failure", "--yes",
+        "--config",
+        join(home, ".config/topgrade.toml"),
+        "--no-tmux",
+        "--no-ask-retry",
+        "--no-self-update",
+        "--notify-end",
+        "on_failure",
+        "--yes",
       ]);
       assert.equal(job.EnvironmentVariables.HOMEBREW_NO_UPGRADE_QUIT_CASKS, "1");
       assert.equal(job.EnvironmentVariables.HOMEBREW_NO_INSTALL_CLEANUP, "1");
       assert.equal(job.EnvironmentVariables.GIT_TERMINAL_PROMPT, "0");
-      assert.ok(job.EnvironmentVariables.PATH.split(":").includes(join(home, ".local/bin")), "installed user harnesses must be available to scheduled agent sync");
+      assert.ok(
+        job.EnvironmentVariables.PATH.split(":").includes(join(home, ".local/bin")),
+        "installed user harnesses must be available to scheduled agent sync",
+      );
       const config = render(".config/topgrade.toml");
       const selection = config.split("\n").find((line) => line.startsWith("only = "));
       assert.ok(selection);
-      assert.deepEqual(JSON.parse(selection.slice("only = ".length)), profile.endsWith("devbox")
-        ? ["github_cli_extensions", "custom_commands"]
-        : ["brew_formula", "brew_cask", "github_cli_extensions", "custom_commands"]);
-      assert.ok(!config.includes("t3-server"), "the updater must not push T3 Code to other hosts; T3 Code manages its own server updates");
+      assert.deepEqual(
+        JSON.parse(selection.slice("only = ".length)),
+        profile.endsWith("devbox")
+          ? ["github_cli_extensions", "custom_commands"]
+          : ["brew_formula", "brew_cask", "github_cli_extensions", "custom_commands"],
+      );
+      assert.ok(
+        !config.includes("t3-server"),
+        "the updater must not push T3 Code to other hosts; T3 Code manages its own server updates",
+      );
     }
   } finally {
     await rm(root, { recursive: true, force: true });

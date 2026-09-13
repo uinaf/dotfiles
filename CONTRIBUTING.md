@@ -16,13 +16,31 @@ mise trust
 
 ## Verify
 
+Use the repository-local Vite+ CLI; no global installation is required:
+
+```zsh
+corepack pnpm exec vp check
+corepack pnpm exec vp test
+corepack pnpm exec knip
+corepack pnpm exec vp fmt # format before committing
+```
+
+[vite.config.ts](vite.config.ts) owns formatting, type-aware lint, and Vitest.
+[knip.ts](knip.ts) discovers CLI entrypoints and uses the adapter bundle's
+inventory to check unused files, exports, and dependencies.
+Chezmoi templates retain their native syntax and formatting. Tests import
+`vite-plus/test`; entrypoints and integration fixtures still run directly in Node.
+
+The full gate includes Vite+ plus platform and isolated-home checks:
+
 ```zsh
 mise run verify:domain config # choose the affected domain
 mise run verify:fast          # all deterministic checks
 mise run verify               # also scan Git history for secrets
 ```
 
-- Domains: [mise.toml](mise.toml). Checks: [checks.json](verify/checks.json).
+- [checks.json](verify/checks.json) owns domains, commands, and proof; focused
+  runs omit `scope: "complete"` fixtures.
 - Run live profile checks and [audits](docs/security-audits.md) only on the intended host and user.
 - The optional [pre-push hook](verify/install-pre-push-hook.ts) checks outgoing commits for whitespace and conflict markers; it does not run tests.
 

@@ -13,7 +13,12 @@ type Job = typeof Job.Type;
 const Config = Schema.Record(Schema.String, Schema.String);
 type Delivery = "not-configured" | "sent" | "failed";
 
-export const runUpdate = Effect.fn("runMonitoredUpdate")(function*(
+class HeartbeatFailure extends Schema.TaggedError<HeartbeatFailure>()("HeartbeatFailure", {
+  retryable: Schema.Boolean,
+  cause: Schema.Defect(),
+}) {}
+
+export const runUpdate = Effect.fn("runMonitoredUpdate")(function* (
   job: Job,
   home: string,
   command: string,
@@ -31,73 +36,122 @@ export const runUpdate = Effect.fn("runMonitoredUpdate")(function*(
   yield* Effect.try(() => rotateUpdateLog(home, job)).pipe(
     Effect.catch(() => Console.error("Could not rotate update logs; updates will continue.")),
   );
-  const receipt = Effect.fn("writeUpdateReceipt")(function*(fields: Record<string, unknown>) {
-    const record = `${JSON.stringify({ version: 1, job, startedAt, ...fields })}\n`;
-    yield* Console.log(`Update receipt: ${record.trim()}`);
-    yield* Effect.gen(function*() {
-      const history = yield* Effect.try(() => dailyLog(home, `${job}-history`));
-      yield* fs.writeFileString(history, record, { flag: "a", mode: 0o600 });
-    }).pipe(Effect.catch(() => Console.error("Could not append update history; inspect the update log.")));
-    yield* fs.makeDirectory(directory, { recursive: true, mode: 0o700 });
-    const temporary = `${path}.${process.pid}.tmp`;
-    yield* fs.writeFileString(temporary, record, { mode: 0o600 });
-    yield* fs.rename(temporary, path);
-  }, Effect.catch(() => Console.error("Could not write update receipt; inspect launchd and the update log.")));
+  const receipt = Effect.fn("writeUpdateReceipt")(
+    function* (fields: Record<string, unknown>) {
+      const record = `${JSON.stringify({ version: 1, job, startedAt, ...fields })}\n`;
+      yield* Console.log(`Update receipt: ${record.trim()}`);
+      yield* Effect.gen(function* () {
+        const history = yield* Effect.try(() => dailyLog(home, `${job}-history`));
+        yield* fs.writeFileString(history, record, { flag: "a", mode: 0o600 });
+      }).pipe(
+        Effect.catch(() =>
+          Console.error("Could not append update history; inspect the update log."),
+        ),
+      );
+      yield* fs.makeDirectory(directory, { recursive: true, mode: 0o700 });
+      const temporary = `${path}.${process.pid}.tmp`;
+      yield* fs.writeFileString(temporary, record, { mode: 0o600 });
+      yield* fs.rename(temporary, path);
+    },
+    Effect.catch(() =>
+      Console.error("Could not write update receipt; inspect launchd and the update log."),
+    ),
+  );
 
-  const destination = yield* Effect.gen(function*() {
+  const destination = yield* Effect.gen(function* () {
     if (!(yield* fs.exists(configPath))) return undefined;
     const link = yield* fs.readLink(configPath).pipe(Effect.option);
     const info = yield* fs.stat(configPath);
-    if (Option.isSome(link) || info.type !== "File" || Option.getOrUndefined(info.uid) !== process.getuid?.() || (info.mode & 0o077) !== 0) {
+    if (
+      Option.isSome(link) ||
+      info.type !== "File" ||
+      Option.getOrUndefined(info.uid) !== process.getuid?.() ||
+      (info.mode & 0o077) !== 0
+    ) {
       return yield* fail("heartbeat config must be an owner-only regular file");
     }
-    const config = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(Config))(yield* fs.readFileString(configPath));
+    const config = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(Config))(
+      yield* fs.readFileString(configPath),
+    );
     const value = config[job];
     if (!value) return undefined;
     const url = yield* Effect.try(() => new URL(value));
     if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash) {
-      return yield* fail("heartbeat destinations must be HTTPS URLs without credentials, queries, or fragments");
+      return yield* fail(
+        "heartbeat destinations must be HTTPS URLs without credentials, queries, or fragments",
+      );
     }
     return url.href.replace(/\/$/, "");
-  }).pipe(Effect.catch(() => Effect.gen(function*() {
-    delivery = "failed";
-    yield* Console.error("Invalid update heartbeat configuration; updates will continue without delivery.");
-    return undefined;
-  })));
+  }).pipe(
+    Effect.catch(() =>
+      Effect.gen(function* () {
+        delivery = "failed";
+        yield* Console.error(
+          "Invalid update heartbeat configuration; updates will continue without delivery.",
+        );
+        return undefined;
+      }),
+    ),
+  );
 
   yield* receipt({ state: "running" });
   const status = yield* runner.run(command, args, { output: "inherit" }).pipe(
-    Effect.map(result => result.status),
-    Effect.catch(() => Effect.gen(function*() {
-      yield* Console.error("Update command could not start.");
-      return 127;
-    })),
+    Effect.map((result) => result.status),
+    Effect.catch(() =>
+      Effect.gen(function* () {
+        yield* Console.error("Update command could not start.");
+        return 127;
+      }),
+    ),
   );
   if (destination) {
-    const deliver = Effect.tryPromise(async () => {
-      const response = await send(`${destination}${status === 0 ? "" : "/fail"}`, {
-        method: "GET", redirect: "error", signal: AbortSignal.timeout(15_000),
-      });
-      await response.body?.cancel();
-      if (!response.ok) throw new Error("heartbeat rejected");
-      return "sent" as const;
+    const deliver = Effect.tryPromise({
+      try: async (signal) => {
+        const response = await send(`${destination}${status === 0 ? "" : "/fail"}`, {
+          method: "GET",
+          redirect: "error",
+          signal: AbortSignal.any([signal, AbortSignal.timeout(15_000)]),
+        });
+        await response.body?.cancel();
+        if (!response.ok)
+          throw new HeartbeatFailure({
+            retryable: response.status === 408 || response.status === 429 || response.status >= 500,
+            cause: new Error(`heartbeat rejected with HTTP ${response.status}`),
+          });
+        return "sent" as const;
+      },
+      catch: (cause) =>
+        Schema.is(HeartbeatFailure)(cause)
+          ? cause
+          : new HeartbeatFailure({ retryable: true, cause }),
     });
     delivery = yield* deliver.pipe(
       // One bounded retry: a transient blip must not page as a missed heartbeat.
       // The update result is already final, so retrying repeats no package work.
-      Effect.catch(() => retryWait.pipe(Effect.flatMap(() => deliver))),
-      Effect.catch(() => Effect.gen(function*() {
-        yield* Console.error("Update heartbeat delivery failed; the update will not be repeated.");
-        return "failed" as const;
-      })),
+      Effect.catch((error) =>
+        error.retryable ? retryWait.pipe(Effect.flatMap(() => deliver)) : Effect.fail(error),
+      ),
+      Effect.catch(() =>
+        Effect.gen(function* () {
+          yield* Console.error(
+            "Update heartbeat delivery failed; the update will not be repeated.",
+          );
+          return "failed" as const;
+        }),
+      ),
     );
   }
-  yield* receipt({ state: "finished", finishedAt: new Date().toISOString(), exitCode: status, heartbeat: delivery });
+  yield* receipt({
+    state: "finished",
+    finishedAt: new Date().toISOString(),
+    exitCode: status,
+    heartbeat: delivery,
+  });
   return status;
 });
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
-  const program = Effect.gen(function*() {
+  const program = Effect.gen(function* () {
     const [job, separator, command, ...args] = process.argv.slice(2);
     if (!Schema.is(Job)(job) || separator !== "--" || !command || !process.env.HOME) {
       return yield* fail("Usage: run.ts <software-update|homebrew-update> -- COMMAND [ARGS...]", 2);

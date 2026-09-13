@@ -26,10 +26,16 @@ fi
 exec "$node_binary" "$repo_root/verify/pre-push.ts" "$@"
 `;
 
-const program = Effect.gen(function*() {
+const program = Effect.gen(function* () {
   const runner = yield* CommandRunner;
-  const commonDirResult = yield* runner.run("git", ["-C", repoRoot, "rev-parse", "--git-common-dir"]);
-  if (commonDirResult.status !== 0 || !commonDirResult.stdout.trim()) return yield* fail(`not a Git checkout: ${repoRoot}`);
+  const commonDirResult = yield* runner.run("git", [
+    "-C",
+    repoRoot,
+    "rev-parse",
+    "--git-common-dir",
+  ]);
+  if (commonDirResult.status !== 0 || !commonDirResult.stdout.trim())
+    return yield* fail(`not a Git checkout: ${repoRoot}`);
   const commonDir = commonDirResult.stdout.trim();
   const hooksDir = join(isAbsolute(commonDir) ? commonDir : join(repoRoot, commonDir), "hooks");
   const prePush = join(hooksDir, "pre-push");
@@ -53,7 +59,9 @@ const program = Effect.gen(function*() {
 }).pipe(
   Effect.provide(CommandRunner.layer),
   Effect.provide(NodeServices.layer),
-  Effect.mapError((error) => error instanceof CliFailure ? error : new CliFailure({ exitCode: 1, message: String(error) })),
+  Effect.mapError((error) =>
+    error instanceof CliFailure ? error : new CliFailure({ exitCode: 1, message: String(error) }),
+  ),
 );
 
 runMain(program);

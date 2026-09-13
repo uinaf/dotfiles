@@ -5,15 +5,15 @@ import { delimiter, join } from "node:path";
 const MAX_DIAGNOSTIC_LENGTH = 600;
 const MAX_DIAGNOSTIC_LINES = 3;
 
-export type CommandResult = {
+type CommandResult = {
   status: number;
   stdout: string;
   stderr: string;
 };
 
-export type StreamMode = "capture" | "ignore" | "inherit";
+type StreamMode = "capture" | "ignore" | "inherit";
 
-export type RunOptions = {
+type RunOptions = {
   stdout?: StreamMode;
   stderr?: StreamMode;
 };
@@ -91,6 +91,7 @@ export function errorMessage(error: unknown): string {
 
 export function sanitizeDiagnostic(stderr: string): string {
   const lines = stderr
+    // oxlint-disable-next-line no-control-regex -- Strip ANSI escape sequences before printing diagnostics.
     .replace(/\x1B\[[0-?]*[ -/]*[@-~]/g, "")
     .split(/\r?\n/)
     .map((line) => line.trim())
@@ -99,7 +100,10 @@ export function sanitizeDiagnostic(stderr: string): string {
     .map((line) =>
       line
         .replace(/\/\/[^/\s:@]+:[^/\s@]+@/g, "//[REDACTED]@")
-        .replace(/((?:authorization|api[-_ ]?key|password|secret|token)\s*[=:]\s*).+$/gi, "$1[REDACTED]")
+        .replace(
+          /((?:authorization|api[-_ ]?key|password|secret|token)\s*[=:]\s*).+$/gi,
+          "$1[REDACTED]",
+        )
         .replace(
           /\b(?:gh[pousr]_[A-Za-z0-9_]{20,}|npm_[A-Za-z0-9]{20,}|sk-[A-Za-z0-9_-]{20,})\b/g,
           "[REDACTED]",

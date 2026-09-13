@@ -4,6 +4,16 @@ allowBuilds:
 # Effect RC releases are excluded by name so version bumps touch only
 # package.json. Bare names exempt every version of these packages.
 minimumReleaseAgeExclude:
-  - '@effect/platform-node-shared'
-  - '@effect/platform-node'
+  - "@effect/platform-node-shared"
+  - "@effect/platform-node"
   - effect
+catalog:
+  vite: npm:@voidzero-dev/vite-plus-core@0.3.1
+  vite-plus: 0.3.1
+overrides:
+  vite@*: "catalog:"
+peerDependencyRules:
+  allowAny:
+    - vite
+  allowedVersions:
+    vite: "*"

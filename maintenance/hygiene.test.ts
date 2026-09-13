@@ -1,23 +1,52 @@
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
-import { chmodSync, closeSync, existsSync, mkdtempSync, mkdirSync, openSync, readFileSync, realpathSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync, writeSync, watch } from "node:fs";
+import {
+  chmodSync,
+  closeSync,
+  existsSync,
+  mkdtempSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  statSync,
+  symlinkSync,
+  utimesSync,
+  writeFileSync,
+  writeSync,
+  watch,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { logDirectory } from "./logs.ts";
 import { join } from "node:path";
-import { test } from "node:test";
-import { candidates, capLogs, cleanRepository, discoverRepositories, hygiene, lastChanged, openFiles, readState, type Runner } from "./hygiene.ts";
+import { test } from "vite-plus/test";
+import {
+  candidates,
+  capLogs,
+  cleanRepository,
+  discoverRepositories,
+  hygiene,
+  lastChanged,
+  openFiles,
+  readState,
+  type Runner,
+} from "./hygiene.ts";
 
 const gracePeriod = 3 * 86400_000;
 const baseline = Date.now();
 
-test("applied hygiene retains successive reports when stdout is not redirected", async t => {
+test("applied hygiene retains successive reports when stdout is not redirected", async (t) => {
   const home = mkdtempSync(join(tmpdir(), "hygiene-log-"));
-  t.after(() => rmSync(home, { recursive: true, force: true }));
+  t.onTestFinished(() => rmSync(home, { recursive: true, force: true }));
   const directory = join(home, ".local/state/dotfiles");
   mkdirSync(directory, { recursive: true });
   const now = Date.now();
   for (let pass = 0; pass < 2; pass++) {
-    writeFileSync(join(directory, "hygiene.json"), JSON.stringify({ lastRun: 0, lastCache: now, candidates: {} }));
+    writeFileSync(
+      join(directory, "hygiene.json"),
+      JSON.stringify({ lastRun: 0, lastCache: now, candidates: {} }),
+    );
     await hygiene(home, true, true, now + pass);
   }
   const path = join(logDirectory(home), `hygiene-${new Date(now).toISOString().slice(0, 10)}.log`);
@@ -29,7 +58,11 @@ test("applied hygiene retains successive reports when stdout is not redirected",
   assert.equal(readFileSync(path, "utf8"), log, "weekly skips do not append");
 });
 const runner: Runner = (cwd, command, args) => {
-  const result = spawnSync(command, args, { cwd, encoding: "utf8", env: { ...process.env, GIT_CONFIG_NOSYSTEM: "1", GIT_OPTIONAL_LOCKS: "0" } });
+  const result = spawnSync(command, args, {
+    cwd,
+    encoding: "utf8",
+    env: { ...process.env, GIT_CONFIG_NOSYSTEM: "1", GIT_OPTIONAL_LOCKS: "0" },
+  });
   return { status: result.status ?? 1, stdout: result.stdout ?? "" };
 };
 
@@ -56,24 +89,73 @@ function fixture() {
   const roots = [join(root, "worktrees")];
   const tree = join(roots[0], "finished");
   git(repo, "worktree", "add", "-b", "finished", tree);
-  return { root, repo, roots, tree, git, cleanup: () => rmSync(root, { recursive: true, force: true }) };
+  return {
+    root,
+    repo,
+    roots,
+    tree,
+    git,
+    cleanup: () => rmSync(root, { recursive: true, force: true }),
+  };
 }
 
 test("clean merged worktree waits three days, is removed without force, then its branch is separately eligible", () => {
   const f = fixture();
   try {
-    const first = cleanRepository(f.repo, f.roots, {}, baseline + gracePeriod, true, () => [], runner);
+    const first = cleanRepository(
+      f.repo,
+      f.roots,
+      {},
+      baseline + gracePeriod,
+      true,
+      () => [],
+      runner,
+    );
     assert.ok(existsSync(f.tree));
-    cleanRepository(f.repo, f.roots, first.candidates, baseline + 2 * gracePeriod - 1, true, () => [], runner);
+    cleanRepository(
+      f.repo,
+      f.roots,
+      first.candidates,
+      baseline + 2 * gracePeriod - 1,
+      true,
+      () => [],
+      runner,
+    );
     assert.ok(existsSync(f.tree), "retained until the full three-day grace period elapses");
-    const second = cleanRepository(f.repo, f.roots, first.candidates, baseline + 2 * gracePeriod, true, () => [], runner);
+    const second = cleanRepository(
+      f.repo,
+      f.roots,
+      first.candidates,
+      baseline + 2 * gracePeriod,
+      true,
+      () => [],
+      runner,
+    );
     assert.equal(existsSync(f.tree), false);
-    assert.ok(second.entries.some(entry => entry.result === "removed"));
-    const branch = cleanRepository(f.repo, f.roots, {}, baseline + 3 * gracePeriod, true, () => [], runner);
-    cleanRepository(f.repo, f.roots, branch.candidates, baseline + 4 * gracePeriod, true, () => [], runner);
+    assert.ok(second.entries.some((entry) => entry.result === "removed"));
+    const branch = cleanRepository(
+      f.repo,
+      f.roots,
+      {},
+      baseline + 3 * gracePeriod,
+      true,
+      () => [],
+      runner,
+    );
+    cleanRepository(
+      f.repo,
+      f.roots,
+      branch.candidates,
+      baseline + 4 * gracePeriod,
+      true,
+      () => [],
+      runner,
+    );
     assert.equal(f.git(f.repo, "for-each-ref", "--format=%(refname)", "refs/heads/finished"), "");
     assert.ok(existsSync(f.repo));
-  } finally { f.cleanup(); }
+  } finally {
+    f.cleanup();
+  }
 });
 
 test("dirty, ignored, locked and active worktrees are retained", () => {
@@ -94,7 +176,9 @@ test("dirty, ignored, locked and active worktrees are retained", () => {
     assert.equal(candidates(f.repo, f.roots, [], runner).eligible.length, 0);
     f.git(f.repo, "worktree", "unlock", f.tree);
     assert.equal(candidates(f.repo, f.roots, [], runner).eligible.length, 1);
-  } finally { f.cleanup(); }
+  } finally {
+    f.cleanup();
+  }
 });
 
 // A detached worktree has no branch to protect, so remote-default ancestry is
@@ -103,13 +187,24 @@ test("a detached worktree is removable once merged and retained while it is not"
   const f = fixture();
   try {
     f.git(f.tree, "checkout", "--detach");
-    assert.equal(candidates(f.repo, f.roots, [], runner).eligible.some(item => item.path === f.tree), true);
+    assert.equal(
+      candidates(f.repo, f.roots, [], runner).eligible.some((item) => item.path === f.tree),
+      true,
+    );
 
     f.git(f.tree, "commit", "--allow-empty", "-m", "unpushed work");
-    assert.ok(candidates(f.repo, f.roots, [], runner).kept
-      .some(entry => entry.target === f.tree && entry.result.startsWith("HEAD not in remote default")));
-    assert.equal(candidates(f.repo, f.roots, [], runner).eligible.some(item => item.path === f.tree), false);
-  } finally { f.cleanup(); }
+    assert.ok(
+      candidates(f.repo, f.roots, [], runner).kept.some(
+        (entry) => entry.target === f.tree && entry.result.startsWith("HEAD not in remote default"),
+      ),
+    );
+    assert.equal(
+      candidates(f.repo, f.roots, [], runner).eligible.some((item) => item.path === f.tree),
+      false,
+    );
+  } finally {
+    f.cleanup();
+  }
 });
 
 // A worktree created next to its owning clone, rather than under a harness
@@ -122,20 +217,31 @@ test("a worktree beside its owning clone is evaluated, and unpushed work still r
     f.git(f.repo, "worktree", "add", "-b", "stray", stray);
 
     assert.ok(
-      candidates(f.repo, f.roots, [], runner).kept.some(entry => entry.target === stray && entry.result === "outside cleanup roots"),
+      candidates(f.repo, f.roots, [], runner).kept.some(
+        (entry) => entry.target === stray && entry.result === "outside cleanup roots",
+      ),
       "unreachable while only harness roots are cleaned",
     );
     assert.ok(
-      candidates(f.repo, projectRoots, [], runner).eligible.some(item => item.path === stray),
+      candidates(f.repo, projectRoots, [], runner).eligible.some((item) => item.path === stray),
       "eligible once the project tree is a cleanup root",
     );
 
     f.git(stray, "commit", "--allow-empty", "-m", "unpushed work");
     const kept = candidates(f.repo, projectRoots, [], runner).kept;
-    assert.ok(kept.some(entry => entry.target === stray && entry.result.startsWith("HEAD not in remote default")));
-    assert.equal(candidates(f.repo, projectRoots, [], runner).eligible.some(item => item.path === stray), false);
+    assert.ok(
+      kept.some(
+        (entry) => entry.target === stray && entry.result.startsWith("HEAD not in remote default"),
+      ),
+    );
+    assert.equal(
+      candidates(f.repo, projectRoots, [], runner).eligible.some((item) => item.path === stray),
+      false,
+    );
     assert.ok(existsSync(stray));
-  } finally { f.cleanup(); }
+  } finally {
+    f.cleanup();
+  }
 });
 
 test("scheduled hygiene reports a stray worktree beside its owning clone", async () => {
@@ -144,19 +250,26 @@ test("scheduled hygiene reports a stray worktree beside its owning clone", async
     // fixture() already owns <root>/projects, which is the tree hygiene scans.
     const home = f.root;
     mkdirSync(join(home, ".local/state/dotfiles"), { recursive: true });
-    writeFileSync(join(home, ".local/state/dotfiles/hygiene.json"),
-      JSON.stringify({ lastRun: 0, lastCache: baseline, candidates: {} }));
+    writeFileSync(
+      join(home, ".local/state/dotfiles/hygiene.json"),
+      JSON.stringify({ lastRun: 0, lastCache: baseline, candidates: {} }),
+    );
     const stray = join(home, "projects/org/repo-stray");
     f.git(f.repo, "worktree", "add", "-b", "stray", stray);
     f.git(stray, "commit", "--allow-empty", "-m", "unpushed work");
 
     await hygiene(home, true, true, baseline);
 
-    const log = readFileSync(join(logDirectory(home), `hygiene-${new Date(baseline).toISOString().slice(0, 10)}.log`), "utf8");
+    const log = readFileSync(
+      join(logDirectory(home), `hygiene-${new Date(baseline).toISOString().slice(0, 10)}.log`),
+      "utf8",
+    );
     assert.ok(log.includes("repo-stray"), "the stray worktree appears in the report");
     assert.ok(log.includes("HEAD not in remote default"), "with the reason it was retained");
     assert.ok(existsSync(stray), "unpushed work is never removed");
-  } finally { f.cleanup(); }
+  } finally {
+    f.cleanup();
+  }
 });
 
 // Eligibility is judged against the remote default, `git branch -d` against
@@ -170,32 +283,89 @@ test("a branch merged upstream but absent from a lagging local HEAD names the ca
     f.git(f.repo, "checkout", "main");
     f.git(f.repo, "fetch", "origin");
 
-    const first = cleanRepository(f.repo, f.roots, {}, baseline + gracePeriod, true, () => [], runner);
-    const second = cleanRepository(f.repo, f.roots, first.candidates, baseline + 2 * gracePeriod, true, () => [], runner);
-    assert.ok(second.entries.some(entry => entry.target === "refs/heads/done"
-      && entry.result === "local default branch is behind the remote; pull before removal"));
+    const first = cleanRepository(
+      f.repo,
+      f.roots,
+      {},
+      baseline + gracePeriod,
+      true,
+      () => [],
+      runner,
+    );
+    const second = cleanRepository(
+      f.repo,
+      f.roots,
+      first.candidates,
+      baseline + 2 * gracePeriod,
+      true,
+      () => [],
+      runner,
+    );
+    assert.ok(
+      second.entries.some(
+        (entry) =>
+          entry.target === "refs/heads/done" &&
+          entry.result === "local default branch is behind the remote; pull before removal",
+      ),
+    );
     assert.equal(f.git(f.repo, "rev-parse", "--verify", "refs/heads/done").length, 40);
 
     f.git(f.repo, "merge", "--ff-only", "origin/main");
-    const third = cleanRepository(f.repo, f.roots, second.candidates, baseline + 3 * gracePeriod, true, () => [], runner);
-    assert.ok(third.entries.some(entry => entry.target === "refs/heads/done" && entry.result === "removed"));
-  } finally { f.cleanup(); }
+    const third = cleanRepository(
+      f.repo,
+      f.roots,
+      second.candidates,
+      baseline + 3 * gracePeriod,
+      true,
+      () => [],
+      runner,
+    );
+    assert.ok(
+      third.entries.some(
+        (entry) => entry.target === "refs/heads/done" && entry.result === "removed",
+      ),
+    );
+  } finally {
+    f.cleanup();
+  }
 });
 
 test("a recreated worktree cannot inherit an old HEAD's elapsed grace period", () => {
   const f = fixture();
   try {
     const now = Date.now();
-    const first = cleanRepository(f.repo, f.roots, {}, now - 2 * gracePeriod, true, () => [], runner);
+    const first = cleanRepository(
+      f.repo,
+      f.roots,
+      {},
+      now - 2 * gracePeriod,
+      true,
+      () => [],
+      runner,
+    );
     f.git(f.repo, "worktree", "remove", f.tree);
     f.git(f.repo, "worktree", "add", f.tree, "finished");
     const second = cleanRepository(f.repo, f.roots, first.candidates, now, true, () => [], runner);
     assert.ok(existsSync(f.tree));
-    assert.ok(second.entries.some(entry => entry.result === "changed within three days; grace period restarted"));
+    assert.ok(
+      second.entries.some(
+        (entry) => entry.result === "changed within three days; grace period restarted",
+      ),
+    );
     assert.equal(Object.values(second.candidates)[0]?.since, now);
-    cleanRepository(f.repo, f.roots, second.candidates, now + gracePeriod + 1000, true, () => [], runner);
+    cleanRepository(
+      f.repo,
+      f.roots,
+      second.candidates,
+      now + gracePeriod + 1000,
+      true,
+      () => [],
+      runner,
+    );
     assert.equal(existsSync(f.tree), false);
-  } finally { f.cleanup(); }
+  } finally {
+    f.cleanup();
+  }
 });
 
 for (const target of ["nested file", "Git index"] as const) {
@@ -209,14 +379,26 @@ for (const target of ["nested file", "Git index"] as const) {
       f.git(f.tree, "push", "origin", "HEAD:main");
       const now = Date.now() + 2 * gracePeriod;
       const first = cleanRepository(f.repo, f.roots, {}, now - gracePeriod, true, () => [], runner);
-      const path = target === "nested file" ? join(f.tree, "nested/file")
-        : join(f.git(f.tree, "rev-parse", "--absolute-git-dir"), "index");
+      const path =
+        target === "nested file"
+          ? join(f.tree, "nested/file")
+          : join(f.git(f.tree, "rev-parse", "--absolute-git-dir"), "index");
       utimesSync(path, new Date(now - 1000), new Date(now - 1000));
-      const second = cleanRepository(f.repo, f.roots, first.candidates, now, true, () => [], runner);
+      const second = cleanRepository(
+        f.repo,
+        f.roots,
+        first.candidates,
+        now,
+        true,
+        () => [],
+        runner,
+      );
       assert.ok(existsSync(f.tree));
-      assert.ok(second.entries.some(entry => entry.result.includes("changed within three days")));
+      assert.ok(second.entries.some((entry) => entry.result.includes("changed within three days")));
       assert.equal(f.git(f.tree, "status", "--porcelain"), "");
-    } finally { f.cleanup(); }
+    } finally {
+      f.cleanup();
+    }
   });
 }
 
@@ -230,7 +412,9 @@ test("activity inspection does not follow symlinks and fails on missing paths", 
     symlinkSync(outside, join(f.tree, "link"));
     assert.ok(lastChanged(f.tree) < future);
     assert.throws(() => lastChanged(join(f.root, "missing")), { code: "ENOENT" });
-  } finally { f.cleanup(); }
+  } finally {
+    f.cleanup();
+  }
 });
 
 test("unavailable worktree activity retains an otherwise removable tree", () => {
@@ -238,11 +422,17 @@ test("unavailable worktree activity retains an otherwise removable tree", () => 
   try {
     const now = Date.now() + 2 * gracePeriod;
     const first = cleanRepository(f.repo, f.roots, {}, now - gracePeriod, true, () => [], runner);
-    const unavailable: Runner = (cwd, command, args) => args.includes("--absolute-git-dir")
-      ? { status: 0, stdout: join(f.root, "missing") } : runner(cwd, command, args);
-    assert.throws(() => cleanRepository(f.repo, f.roots, first.candidates, now, true, () => [], unavailable));
+    const unavailable: Runner = (cwd, command, args) =>
+      args.includes("--absolute-git-dir")
+        ? { status: 0, stdout: join(f.root, "missing") }
+        : runner(cwd, command, args);
+    assert.throws(() =>
+      cleanRepository(f.repo, f.roots, first.candidates, now, true, () => [], unavailable),
+    );
     assert.ok(existsSync(f.tree));
-  } finally { f.cleanup(); }
+  } finally {
+    f.cleanup();
+  }
 });
 
 test("unmerged commits survive even when their remote branch is gone", () => {
@@ -253,19 +443,38 @@ test("unmerged commits survive even when their remote branch is gone", () => {
     f.git(f.tree, "push", "-u", "origin", "finished");
     f.git(f.repo, "push", "origin", "--delete", "finished");
     assert.equal(candidates(f.repo, f.roots, [], runner).eligible.length, 0);
-  } finally { f.cleanup(); }
+  } finally {
+    f.cleanup();
+  }
 });
 
 test("activity arriving at removal time cancels eligibility", () => {
   const f = fixture();
   try {
-    const first = cleanRepository(f.repo, f.roots, {}, baseline + gracePeriod, true, () => [], runner);
+    const first = cleanRepository(
+      f.repo,
+      f.roots,
+      {},
+      baseline + gracePeriod,
+      true,
+      () => [],
+      runner,
+    );
     let checks = 0;
-    const second = cleanRepository(f.repo, f.roots, first.candidates, baseline + 2 * gracePeriod, true,
-      () => ++checks === 1 ? [] : [f.tree], runner);
+    const second = cleanRepository(
+      f.repo,
+      f.roots,
+      first.candidates,
+      baseline + 2 * gracePeriod,
+      true,
+      () => (++checks === 1 ? [] : [f.tree]),
+      runner,
+    );
     assert.ok(existsSync(f.tree));
     assert.equal(Object.keys(second.candidates).length, 0);
-  } finally { f.cleanup(); }
+  } finally {
+    f.cleanup();
+  }
 });
 
 test("existing upstreams and long-lived branches stay, changed HEAD restarts the grace period", () => {
@@ -275,35 +484,107 @@ test("existing upstreams and long-lived branches stay, changed HEAD restarts the
     f.git(f.repo, "branch", "release/stable");
     assert.equal(candidates(f.repo, f.roots, [], runner).eligible.length, 0);
     f.git(f.repo, "push", "origin", "--delete", "finished");
-    const first = cleanRepository(f.repo, f.roots, {}, baseline + gracePeriod, true, () => [], runner);
+    const first = cleanRepository(
+      f.repo,
+      f.roots,
+      {},
+      baseline + gracePeriod,
+      true,
+      () => [],
+      runner,
+    );
     writeFileSync(join(f.tree, "tracked"), "more merged work\n");
     f.git(f.tree, "commit", "-am", "more work");
     f.git(f.tree, "push", "origin", "HEAD:main");
-    const second = cleanRepository(f.repo, f.roots, first.candidates, baseline + 2 * gracePeriod, true, () => [], runner);
+    const second = cleanRepository(
+      f.repo,
+      f.roots,
+      first.candidates,
+      baseline + 2 * gracePeriod,
+      true,
+      () => [],
+      runner,
+    );
     assert.ok(existsSync(f.tree));
     assert.equal(Object.values(second.candidates)[0]?.since, baseline + 2 * gracePeriod);
-    assert.equal(f.git(f.repo, "for-each-ref", "--format=%(refname)", "refs/heads/release/stable"), "refs/heads/release/stable");
-  } finally { f.cleanup(); }
+    assert.equal(
+      f.git(f.repo, "for-each-ref", "--format=%(refname)", "refs/heads/release/stable"),
+      "refs/heads/release/stable",
+    );
+  } finally {
+    f.cleanup();
+  }
 });
 
 test("dry-run never deletes, failed remote reads and activity probes fail closed", () => {
   const f = fixture();
   try {
-    const first = cleanRepository(f.repo, f.roots, {}, baseline + gracePeriod, true, () => [], runner);
+    const first = cleanRepository(
+      f.repo,
+      f.roots,
+      {},
+      baseline + gracePeriod,
+      true,
+      () => [],
+      runner,
+    );
     f.git(f.tree, "push", "-u", "origin", "finished");
-    f.git(f.root, "--git-dir", join(f.root, "remote.git"), "update-ref", "-d", "refs/heads/finished");
-    cleanRepository(f.repo, f.roots, first.candidates, baseline + 2 * gracePeriod, false, () => [], runner);
+    f.git(
+      f.root,
+      "--git-dir",
+      join(f.root, "remote.git"),
+      "update-ref",
+      "-d",
+      "refs/heads/finished",
+    );
+    cleanRepository(
+      f.repo,
+      f.roots,
+      first.candidates,
+      baseline + 2 * gracePeriod,
+      false,
+      () => [],
+      runner,
+    );
     assert.ok(existsSync(f.tree));
-    assert.equal(f.git(f.repo, "for-each-ref", "--format=%(refname)", "refs/remotes/origin/finished"), "refs/remotes/origin/finished");
-    const failed: Runner = (cwd, command, args) => args[0] === "ls-remote" ? { status: 1, stdout: "" } : runner(cwd, command, args);
-    assert.throws(() => cleanRepository(f.repo, f.roots, first.candidates, baseline + 2 * gracePeriod, true, () => [], failed));
+    assert.equal(
+      f.git(f.repo, "for-each-ref", "--format=%(refname)", "refs/remotes/origin/finished"),
+      "refs/remotes/origin/finished",
+    );
+    const failed: Runner = (cwd, command, args) =>
+      args[0] === "ls-remote" ? { status: 1, stdout: "" } : runner(cwd, command, args);
+    assert.throws(() =>
+      cleanRepository(
+        f.repo,
+        f.roots,
+        first.candidates,
+        baseline + 2 * gracePeriod,
+        true,
+        () => [],
+        failed,
+      ),
+    );
     assert.throws(() => openFiles(f.root, () => ({ status: 1, stdout: "" })));
     assert.ok(existsSync(f.tree));
-    const missing: Runner = (cwd, command, args) => args[0] === "cat-file" ? { status: 1, stdout: "" } : runner(cwd, command, args);
-    const skipped = cleanRepository(f.repo, f.roots, first.candidates, baseline + 2 * gracePeriod, true, () => [], missing);
-    assert.equal(skipped.entries[0]?.result, "remote default history missing locally; retained for normal sync");
+    const missing: Runner = (cwd, command, args) =>
+      args[0] === "cat-file" ? { status: 1, stdout: "" } : runner(cwd, command, args);
+    const skipped = cleanRepository(
+      f.repo,
+      f.roots,
+      first.candidates,
+      baseline + 2 * gracePeriod,
+      true,
+      () => [],
+      missing,
+    );
+    assert.equal(
+      skipped.entries[0]?.result,
+      "remote default history missing locally; retained for normal sync",
+    );
     assert.ok(existsSync(f.tree));
-  } finally { f.cleanup(); }
+  } finally {
+    f.cleanup();
+  }
 });
 
 test("repository discovery ignores symlinks and stays within its depth", () => {
@@ -311,7 +592,9 @@ test("repository discovery ignores symlinks and stays within its depth", () => {
   try {
     symlinkSync(f.repo, join(f.root, "projects/linked"));
     assert.deepEqual(discoverRepositories(join(f.root, "projects")), [f.repo]);
-  } finally { f.cleanup(); }
+  } finally {
+    f.cleanup();
+  }
 });
 
 test("inactive and explicitly excluded checkouts need no remote access", () => {
@@ -320,18 +603,37 @@ test("inactive and explicitly excluded checkouts need no remote access", () => {
     f.git(f.repo, "worktree", "remove", f.tree);
     f.git(f.repo, "branch", "-d", "finished");
     const offline: Runner = (cwd, command, args) => {
-      if (args[0] === "ls-remote" || args[0] === "remote") throw new Error("unexpected network access");
+      if (args[0] === "ls-remote" || args[0] === "remote")
+        throw new Error("unexpected network access");
       return runner(cwd, command, args);
     };
-    const result = cleanRepository(f.repo, f.roots, {}, baseline + gracePeriod, true, () => [], offline);
+    const result = cleanRepository(
+      f.repo,
+      f.roots,
+      {},
+      baseline + gracePeriod,
+      true,
+      () => [],
+      offline,
+    );
     assert.deepEqual(result, { entries: [], candidates: {} });
     assert.ok(existsSync(join(f.repo, "tracked")));
     f.git(f.repo, "worktree", "add", "-b", "finished", f.tree);
     f.git(f.repo, "config", "--local", "dotfiles.hygiene", "skip");
-    const excluded = cleanRepository(f.repo, f.roots, {}, baseline + gracePeriod, true, () => [], offline);
+    const excluded = cleanRepository(
+      f.repo,
+      f.roots,
+      {},
+      baseline + gracePeriod,
+      true,
+      () => [],
+      offline,
+    );
     assert.equal(excluded.entries[0]?.result, "excluded by local dotfiles.hygiene=skip");
     assert.ok(existsSync(f.tree));
-  } finally { f.cleanup(); }
+  } finally {
+    f.cleanup();
+  }
 });
 
 test("log capping rewrites the same inode at a line boundary and keeps append descriptors valid", () => {
@@ -341,7 +643,11 @@ test("log capping rewrites the same inode at a line boundary and keeps append de
     mkdirSync(logs);
     const cap = 4096;
     const big = join(logs, "software-update.log");
-    const content = Array.from({ length: 600 }, (_, index) => `line ${String(index).padStart(4, "0")} of the update log`).join("\n") + "\n";
+    const content =
+      Array.from(
+        { length: 600 },
+        (_, index) => `line ${String(index).padStart(4, "0")} of the update log`,
+      ).join("\n") + "\n";
     writeFileSync(big, content);
     writeFileSync(join(logs, "homebrew-update.log"), "short\n");
     writeFileSync(join(logs, "notes.txt"), "x".repeat(cap * 2));
@@ -349,7 +655,10 @@ test("log capping rewrites the same inode at a line boundary and keeps append de
     const before = statSync(big).ino;
     const appender = openSync(big, "a"); // simulates launchd's held O_APPEND descriptor
     const entries = capLogs(logs, cap);
-    assert.deepEqual(entries.map(entry => entry.target), [big]);
+    assert.deepEqual(
+      entries.map((entry) => entry.target),
+      [big],
+    );
     assert.match(entries[0]!.result, /^capped from \d+ to \d+ bytes$/);
     const after = statSync(big);
     assert.equal(after.ino, before, "rotation must not replace the inode");
@@ -363,7 +672,9 @@ test("log capping rewrites the same inode at a line boundary and keeps append de
     assert.equal(readFileSync(join(logs, "homebrew-update.log"), "utf8"), "short\n");
     assert.equal(statSync(join(logs, "notes.txt")).size, cap * 2);
     assert.deepEqual(capLogs(join(root, "missing")), []);
-  } finally { rmSync(root, { recursive: true, force: true }); }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test("a concurrent append between truncate and the tail write is interleaved, not overwritten", () => {
@@ -371,15 +682,27 @@ test("a concurrent append between truncate and the tail write is interleaved, no
   try {
     const cap = 512;
     const log = join(root, "homebrew-update.log");
-    writeFileSync(log, Array.from({ length: 100 }, (_, index) => `line ${String(index).padStart(3, "0")}`).join("\n") + "\n");
+    writeFileSync(
+      log,
+      Array.from({ length: 100 }, (_, index) => `line ${String(index).padStart(3, "0")}`).join(
+        "\n",
+      ) + "\n",
+    );
     const appender = openSync(log, "a"); // the other user's live launchd descriptor
-    const entries = capLogs(root, cap, () => { writeSync(appender, Buffer.from("concurrent append\n")); });
+    const entries = capLogs(root, cap, () => {
+      writeSync(appender, Buffer.from("concurrent append\n"));
+    });
     closeSync(appender);
     assert.equal(entries.length, 1);
     const text = readFileSync(log, "utf8");
-    assert.ok(text.startsWith("concurrent append\n"), `the concurrent line must survive: ${JSON.stringify(text.slice(0, 40))}`);
+    assert.ok(
+      text.startsWith("concurrent append\n"),
+      `the concurrent line must survive: ${JSON.stringify(text.slice(0, 40))}`,
+    );
     assert.ok(text.endsWith("line 099\n"), "the retained tail follows the concurrent line");
-  } finally { rmSync(root, { recursive: true, force: true }); }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test("process inventory suppresses lsof warning-induced exits but stays fail-closed", () => {
@@ -392,9 +715,15 @@ test("process inventory suppresses lsof warning-induced exits but stays fail-clo
   assert.equal(seen[0], "-w");
   assert.deepEqual(paths, ["/fixture/file"]);
   // A warning-free nonzero exit (a real lsof failure) still fails closed.
-  assert.throws(() => openFiles("/fixture", () => ({ status: 1, stdout: "" })), /retained local work/);
+  assert.throws(
+    () => openFiles("/fixture", () => ({ status: 1, stdout: "" })),
+    /retained local work/,
+  );
   // No paths at all is indistinguishable from a broken inventory: fail closed.
-  assert.throws(() => openFiles("/fixture", () => ({ status: 0, stdout: "" })), /process activity unavailable/);
+  assert.throws(
+    () => openFiles("/fixture", () => ({ status: 0, stdout: "" })),
+    /process activity unavailable/,
+  );
 });
 
 test("undecodable hygiene state is treated as empty so cleanup can continue", () => {
@@ -407,7 +736,11 @@ test("undecodable hygiene state is treated as empty so cleanup can continue", ()
     assert.deepEqual(readState(statePath), { state: empty, recovered: true });
     writeFileSync(statePath, JSON.stringify({ wrong: "shape" }));
     assert.deepEqual(readState(statePath), { state: empty, recovered: true });
-    const valid = { lastRun: 5, lastCache: 6, candidates: { key: { head: "a".repeat(40), since: 7 } } };
+    const valid = {
+      lastRun: 5,
+      lastCache: 6,
+      candidates: { key: { head: "a".repeat(40), since: 7 } },
+    };
     writeFileSync(statePath, JSON.stringify(valid));
     assert.deepEqual(readState(statePath), { state: valid, recovered: false });
     // A directory at the state path is neither missing nor undecodable JSON: it must not bypass the weekly gate.
@@ -419,18 +752,25 @@ test("undecodable hygiene state is treated as empty so cleanup can continue", ()
       assert.throws(() => readState(statePath), { code: "EACCES" });
       chmodSync(statePath, 0o600);
     }
-  } finally { rmSync(root, { recursive: true, force: true }); }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 for (const signal of ["SIGTERM", "SIGINT"] as const) {
-  test(`hygiene ${signal} waits for cache child cancellation and releases its lock`, { skip: process.getuid?.() === 0, timeout: 10_000 }, async t => {
-    const home = mkdtempSync(join(tmpdir(), "hygiene-signal-"));
-    const bin = join(home, "bin");
-    mkdirSync(bin);
-    const ready = join(home, "ready");
-    const stopped = join(home, "stopped");
-    const lock = join(home, ".local/state/dotfiles/hygiene.lock");
-    writeFileSync(join(bin, "df"), `#!${process.execPath}\n
+  test(
+    `hygiene ${signal} waits for cache child cancellation and releases its lock`,
+    { skip: process.getuid?.() === 0, timeout: 10_000 },
+    async (t) => {
+      const home = mkdtempSync(join(tmpdir(), "hygiene-signal-"));
+      const bin = join(home, "bin");
+      mkdirSync(bin);
+      const ready = join(home, "ready");
+      const stopped = join(home, "stopped");
+      const lock = join(home, ".local/state/dotfiles/hygiene.lock");
+      writeFileSync(
+        join(bin, "df"),
+        `#!${process.execPath}\n
       const fs = require('node:fs');
       process.on('SIGTERM', () => setTimeout(() => {
         fs.writeFileSync(${JSON.stringify(stopped)}, 'stopped');
@@ -439,49 +779,75 @@ for (const signal of ["SIGTERM", "SIGINT"] as const) {
       fs.writeFileSync(${JSON.stringify(ready + ".tmp")}, String(process.pid));
       fs.renameSync(${JSON.stringify(ready + ".tmp")}, ${JSON.stringify(ready)});
       setInterval(() => {}, 1000);
-    `, { mode: 0o755 });
-    let childPid: number | undefined;
-    let watcher: ReturnType<typeof watch> | undefined;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const childReady = new Promise<void>((resolveReady, reject) => {
-      watcher = watch(home, (_event, filename) => {
-        if (filename !== "ready") return;
-        childPid = Number(readFileSync(ready, "utf8"));
+    `,
+        { mode: 0o755 },
+      );
+      let childPid: number | undefined;
+      let watcher: ReturnType<typeof watch> | undefined;
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const childReady = new Promise<void>((resolveReady, reject) => {
+        watcher = watch(home, (_event, filename) => {
+          if (filename !== "ready") return;
+          childPid = Number(readFileSync(ready, "utf8"));
+          clearTimeout(timer);
+          watcher?.close();
+          resolveReady();
+        });
+        timer = setTimeout(() => reject(new Error("synthetic cache child did not start")), 5000);
+      });
+      const parent = spawn(
+        process.execPath,
+        [join(import.meta.dirname, "hygiene.ts"), "--dry-run"],
+        {
+          env: { ...process.env, HOME: home, PATH: bin },
+          stdio: ["ignore", "pipe", "pipe"],
+        },
+      );
+      let output = "";
+      parent.stdout.on("data", (chunk) => {
+        output += String(chunk);
+      });
+      parent.stderr.on("data", (chunk) => {
+        output += String(chunk);
+      });
+      const closed = new Promise<{ code: number | null; signal: NodeJS.Signals | null }>(
+        (resolveClosed, reject) => {
+          parent.once("error", reject);
+          parent.once("close", (code, exitSignal) => resolveClosed({ code, signal: exitSignal }));
+        },
+      );
+      t.onTestFinished(() => {
         clearTimeout(timer);
         watcher?.close();
-        resolveReady();
+        if (parent.exitCode === null && parent.signalCode === null) parent.kill("SIGKILL");
+        if (childPid !== undefined) {
+          try {
+            process.kill(childPid, "SIGKILL");
+          } catch {
+            /* Already reaped. */
+          }
+        }
+        rmSync(home, { recursive: true, force: true });
       });
-      timer = setTimeout(() => reject(new Error("synthetic cache child did not start")), 5000);
-    });
-    const parent = spawn(process.execPath, [join(import.meta.dirname, "hygiene.ts"), "--dry-run"], {
-      env: { ...process.env, HOME: home, PATH: bin }, stdio: ["ignore", "pipe", "pipe"],
-    });
-    let output = "";
-    parent.stdout.on("data", chunk => { output += String(chunk); });
-    parent.stderr.on("data", chunk => { output += String(chunk); });
-    const closed = new Promise<{ code: number | null; signal: NodeJS.Signals | null }>((resolveClosed, reject) => {
-      parent.once("error", reject);
-      parent.once("close", (code, exitSignal) => resolveClosed({ code, signal: exitSignal }));
-    });
-    t.after(() => {
-      clearTimeout(timer);
-      watcher?.close();
-      if (parent.exitCode === null && parent.signalCode === null) parent.kill("SIGKILL");
-      if (childPid !== undefined) {
-        try { process.kill(childPid, "SIGKILL"); } catch { /* Already reaped. */ }
-      }
-      rmSync(home, { recursive: true, force: true });
-    });
-    await childReady;
-    assert.equal(existsSync(lock), true);
-    parent.kill(signal);
-    assert.deepEqual(await closed, { code: null, signal }, output);
-    assert.equal(existsSync(stopped), true, "parent waits for the child termination handler");
-    assert.equal(existsSync(lock), false, "the hygiene finally block releases the lock before exit");
-    const reapedPid = childPid;
-    assert.ok(reapedPid !== undefined);
-    assert.throws(() => process.kill(reapedPid, 0), { code: "ESRCH" });
-    childPid = undefined;
-    assert.equal(existsSync(join(home, ".local/state/dotfiles/hygiene.json")), false, "cancellation never marks cleanup successful");
-  });
+      await childReady;
+      assert.equal(existsSync(lock), true);
+      parent.kill(signal);
+      assert.deepEqual(await closed, { code: null, signal }, output);
+      assert.equal(existsSync(stopped), true, "parent waits for the child termination handler");
+      assert.equal(
+        existsSync(lock),
+        false,
+        "the hygiene finally block releases the lock before exit",
+      );
+      const reapedPid = childPid;
+      assert.ok(reapedPid !== undefined);
+      assert.throws(() => process.kill(reapedPid, 0), { code: "ESRCH" });
+      childPid = undefined;
+      assert.equal(
+        existsSync(join(home, ".local/state/dotfiles/hygiene.json")),
+        false,
+        "cancellation never marks cleanup successful",
+      );
+    },
+  );
 }

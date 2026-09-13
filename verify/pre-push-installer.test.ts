@@ -3,7 +3,7 @@ import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import test from "node:test";
+import { test } from "vite-plus/test";
 
 import { commit, init, installer, invoke, run, type Repository } from "./pre-push-fixture.ts";
 
@@ -26,11 +26,15 @@ test("installed hook reports a missing Node runtime", () => {
     });
     assert.equal(install.status, 0, install.stderr);
 
-    const result = spawnSync("/bin/bash", [join(repo.path, ".git/hooks/pre-push"), "origin", "fixture"], {
-      cwd: repo.path,
-      encoding: "utf8",
-      env: { ...process.env, PATH: bin },
-    });
+    const result = spawnSync(
+      "/bin/bash",
+      [join(repo.path, ".git/hooks/pre-push"), "origin", "fixture"],
+      {
+        cwd: repo.path,
+        encoding: "utf8",
+        env: { ...process.env, PATH: bin },
+      },
+    );
     assert.equal(result.status, 1);
     assert.match(result.stderr, /missing node; run mise install .* before pushing/);
   } finally {
@@ -57,11 +61,15 @@ test("installed hook reports missing repository dependencies", () => {
     });
     assert.equal(install.status, 0, install.stderr);
 
-    const result = spawnSync("/bin/bash", [join(repo.path, ".git/hooks/pre-push"), "origin", "fixture"], {
-      cwd: repo.path,
-      encoding: "utf8",
-      env: { ...process.env, PATH: bin },
-    });
+    const result = spawnSync(
+      "/bin/bash",
+      [join(repo.path, ".git/hooks/pre-push"), "origin", "fixture"],
+      {
+        cwd: repo.path,
+        encoding: "utf8",
+        env: { ...process.env, PATH: bin },
+      },
+    );
     assert.equal(result.status, 1);
     assert.match(
       result.stderr,
@@ -100,7 +108,12 @@ test("shallow repositories can verify commits above the shallow boundary", () =>
 test("SHA-256 object IDs are supported when Git supports them", (context) => {
   const root = mkdtempSync(join(tmpdir(), "pre-push-sha256-"));
   try {
-    const probe = spawnSync("git", ["init", "--quiet", "--object-format=sha256", join(root, "probe")]);
+    const probe = spawnSync("git", [
+      "init",
+      "--quiet",
+      "--object-format=sha256",
+      join(root, "probe"),
+    ]);
     if (probe.status !== 0) {
       context.skip("installed Git does not support SHA-256 repositories");
       return;

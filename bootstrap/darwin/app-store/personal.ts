@@ -15,15 +15,18 @@ Removes bundled Mac App Store apps unused by the personal workstation profile.
 This script intentionally lives outside Brewfile because mas discovers installed
 apps through Spotlight and removal may require a local administrator password.`;
 
-const parseInstalledIds = Effect.fn("parseInstalledIds")(function*(output: string) {
-  const candidates = output.split(/\r?\n/).filter(Boolean).map((line) => line.split(/\s+/, 1)[0]);
+const parseInstalledIds = Effect.fn("parseInstalledIds")(function* (output: string) {
+  const candidates = output
+    .split(/\r?\n/)
+    .filter(Boolean)
+    .map((line) => line.split(/\s+/, 1)[0]);
   const ids = yield* Schema.decodeUnknownEffect(Schema.Array(AppId))(candidates).pipe(
     Effect.mapError((error) => new Error(`mas list returned invalid output: ${error.message}`)),
   );
   return new Set(ids);
 });
 
-const program = Effect.gen(function*() {
+const program = Effect.gen(function* () {
   let dryRun = false;
   for (const argument of process.argv.slice(2)) {
     if (argument === "--dry-run") {
@@ -38,9 +41,9 @@ const program = Effect.gen(function*() {
   }
 
   const runner = yield* CommandRunner;
-  const listing = yield* runner.run("mas", ["list"]).pipe(
-    Effect.catch(() => fail("mas is required; install the personal Brewfile first")),
-  );
+  const listing = yield* runner
+    .run("mas", ["list"])
+    .pipe(Effect.catch(() => fail("mas is required; install the personal Brewfile first")));
   if (listing.status !== 0) {
     return yield* fail(`mas list exited ${listing.status}`);
   }
@@ -60,9 +63,6 @@ const program = Effect.gen(function*() {
       return yield* fail(`sudo mas uninstall ${appId} exited ${result.status}`);
     }
   }
-}).pipe(
-  Effect.provide(CommandRunner.layer),
-  Effect.provide(NodeServices.layer),
-);
+}).pipe(Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer));
 
 runMain(program);

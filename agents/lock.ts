@@ -1,4 +1,15 @@
-import { existsSync, linkSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  linkSync,
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { dirname, join } from "node:path";
 
 import { errorMessage } from "./runtime.ts";
@@ -8,7 +19,8 @@ export function migrateLegacyLock(repo: string, name: "skills" | "plugins" | "mc
   const legacyDirectory = join(repo, "scripts", "agents");
   for (const directory of [join(repo, "scripts"), legacyDirectory, dirname(destination)]) {
     const info = lstatSync(directory, { throwIfNoEntry: false });
-    if (info && !info.isDirectory()) throw new Error(`Lock directory must not be a symlink or file: ${directory}`);
+    if (info && !info.isDirectory())
+      throw new Error(`Lock directory must not be a symlink or file: ${directory}`);
   }
   const legacy = join(legacyDirectory, `${name}.lock.json`);
   const source = lstatSync(legacy, { throwIfNoEntry: false });
@@ -23,7 +35,9 @@ export function migrateLegacyLock(repo: string, name: "skills" | "plugins" | "mc
       unlinkSync(legacy);
       return destination;
     }
-    throw new Error(`Both legacy and current managed locks exist; reconcile them before syncing: ${legacy}, ${destination}`);
+    throw new Error(
+      `Both legacy and current managed locks exist; reconcile them before syncing: ${legacy}, ${destination}`,
+    );
   }
   mkdirSync(dirname(destination), { recursive: true });
   // link is exclusive: a concurrent sync cannot have its ownership state overwritten.
@@ -32,7 +46,7 @@ export function migrateLegacyLock(repo: string, name: "skills" | "plugins" | "mc
   return destination;
 }
 
-export function readLockFile(lockPath: string, label: string): unknown | undefined {
+export function readLockFile(lockPath: string, label: string): unknown {
   if (!existsSync(lockPath)) {
     return undefined;
   }

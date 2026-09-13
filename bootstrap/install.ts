@@ -18,17 +18,30 @@ const usage = `Usage:
 
 Applies per-user dotfiles and runs only the setup steps owned by the selected
 role. An existing ~/.config/dotfiles/profile is used when --profile is omitted.
---maintenance also installs declared packages and updates agent assets, preserving saved logins.`;
+--maintenance also installs declared packages and updates agent assets, preserving
+Codex, Claude, Cursor, and Grok logins. Bifrost enrollment retires OpenCode's built-in credentials.`;
 
-const execute = Effect.fn("executeInstallCommand")(function*(label: string, command: string, args: readonly string[]) {
+const execute = Effect.fn("executeInstallCommand")(function* (
+  label: string,
+  command: string,
+  args: readonly string[],
+) {
   const runner = yield* CommandRunner;
-  const result = yield* runner.run(command, args, { cwd: repoRoot, stdin: "inherit", output: "inherit" }).pipe(
-    Effect.mapError((error) => new CliFailure({ exitCode: 1, message: `${label}: ${error.message}` })),
-  );
+  const result = yield* runner
+    .run(command, args, { cwd: repoRoot, stdin: "inherit", output: "inherit" })
+    .pipe(
+      Effect.mapError(
+        (error) => new CliFailure({ exitCode: 1, message: `${label}: ${error.message}` }),
+      ),
+    );
   if (result.status !== 0) return yield* fail(`${label} exited ${result.status}`, result.status);
 });
 
-const runStep = Effect.fn("runInstallStep")(function*(step: string, profile: string, maintenance: boolean) {
+const runStep = Effect.fn("runInstallStep")(function* (
+  step: string,
+  profile: string,
+  maintenance: boolean,
+) {
   const bootstrap = (name: string) => resolve(repoRoot, "bootstrap", name);
   switch (step) {
     case "apply-dotfiles":
@@ -49,27 +62,51 @@ const runStep = Effect.fn("runInstallStep")(function*(step: string, profile: str
       yield* execute(step, "mise", ["install"]);
       return yield* execute(step, "mise", ["run", "dotfiles:runtime-packages"]);
     case "install-repository-dependencies":
-      return yield* execute(step, "mise", ["exec", "--", "corepack", "pnpm", "--dir", repoRoot, "install", "--frozen-lockfile"]);
+      return yield* execute(step, "mise", [
+        "exec",
+        "--",
+        "corepack",
+        "pnpm",
+        "--dir",
+        repoRoot,
+        "install",
+        "--frozen-lockfile",
+      ]);
     case "configure-codex":
       return yield* execute(step, bootstrap("configure-codex.ts"), ["--profile", profile]);
     case "configure-llm-gateway": {
       const fs = yield* FileSystem.FileSystem;
-      const path = process.env.LLM_GATEWAY_CONFIG || join(process.env.HOME || "", ".config/dotfiles/llm-gateway.json");
+      const path =
+        process.env.LLM_GATEWAY_CONFIG ||
+        join(process.env.HOME || "", ".config/dotfiles/llm-gateway.json");
       const link = yield* fs.readLink(path).pipe(Effect.option);
       const info = yield* fs.stat(path).pipe(Effect.option);
-      if (Option.isSome(link) || Option.isNone(info) || info.value.type !== "File" || (info.value.mode & 0o077) !== 0) {
+      if (
+        Option.isSome(link) ||
+        Option.isNone(info) ||
+        info.value.type !== "File" ||
+        (info.value.mode & 0o077) !== 0
+      ) {
         return yield* fail(`personal setup requires an owner-only LLM gateway config: ${path}`);
       }
       yield* execute(step, bootstrap("configure-llm-gateway.ts"), []);
       if (maintenance) return;
-      return yield* execute(`${step} retire auth`, bootstrap("configure-llm-gateway.ts"), ["--retire-auth"]);
+      return yield* execute(`${step} retire auth`, bootstrap("configure-llm-gateway.ts"), [
+        "--retire-auth",
+      ]);
     }
     case "configure-bifrost-clients":
       yield* execute(step, bootstrap("configure-bifrost-clients.ts"), []);
-      return yield* execute(`${step} check`, bootstrap("configure-bifrost-clients.ts"), ["--check"]);
+      return yield* execute(`${step} check`, bootstrap("configure-bifrost-clients.ts"), [
+        "--check",
+      ]);
     case "sync-agents":
       for (const name of ["sync.ts", "plugins.ts", "mcps.ts"]) {
-        yield* execute(`${step} ${name}`, resolve(repoRoot, "agents", name), ["--profile", profile, ...(maintenance && name !== "mcps.ts" ? ["--update"] : [])]);
+        yield* execute(`${step} ${name}`, resolve(repoRoot, "agents", name), [
+          "--profile",
+          profile,
+          ...(maintenance && name !== "mcps.ts" ? ["--update"] : []),
+        ]);
       }
       return;
     default:
@@ -79,10 +116,14 @@ const runStep = Effect.fn("runInstallStep")(function*(step: string, profile: str
 
 // Steps after install-runtimes call tools mise just installed (gh, chezmoi on
 // Linux), and the launching shell may predate any mise activation.
-const miseShims = join(process.env.MISE_DATA_DIR || join(process.env.HOME || "", ".local/share/mise"), "shims");
-if (!(process.env.PATH || "").split(":").includes(miseShims)) process.env.PATH = `${miseShims}:${process.env.PATH || ""}`;
+const miseShims = join(
+  process.env.MISE_DATA_DIR || join(process.env.HOME || "", ".local/share/mise"),
+  "shims",
+);
+if (!(process.env.PATH || "").split(":").includes(miseShims))
+  process.env.PATH = `${miseShims}:${process.env.PATH || ""}`;
 
-const program = Effect.gen(function*() {
+const program = Effect.gen(function* () {
   let profileInput: string | undefined;
   let printSteps = false;
   let maintenance = false;
@@ -111,11 +152,19 @@ const program = Effect.gen(function*() {
   }
 
   const profile = yield* resolveProfile(profileInput).pipe(
-    Effect.mapError(() => new CliFailure({ exitCode: 2, message: "a supported profile is required: developer, devbox, workstation, personal-devbox, or personal-workstation" })),
+    Effect.mapError(
+      () =>
+        new CliFailure({
+          exitCode: 2,
+          message:
+            "a supported profile is required: developer, devbox, workstation, personal-devbox, or personal-workstation",
+        }),
+    ),
   );
-  const modelPath = repoRoot === sourceRoot
-    ? profileModelFile()
-    : resolve(repoRoot, "chezmoi/.chezmoidata/profiles.json");
+  const modelPath =
+    repoRoot === sourceRoot
+      ? profileModelFile()
+      : resolve(repoRoot, "chezmoi/.chezmoidata/profiles.json");
   const model = yield* readProfileModelEffect(modelPath).pipe(
     Effect.mapError((error) => new CliFailure({ exitCode: 2, message: error.message })),
   );
@@ -126,13 +175,17 @@ const program = Effect.gen(function*() {
     return;
   }
   if (selected.capabilities.workstation && process.platform !== "darwin") {
-    return yield* fail(`${profile} configures a macOS desktop; use developer or devbox on ${process.platform}`, 2);
+    return yield* fail(
+      `${profile} configures a macOS desktop; use developer or devbox on ${process.platform}`,
+      2,
+    );
   }
-  if (maintenance && process.platform === "darwin") yield* execute("converge packages", resolve(repoRoot, "homebrew/brew-bundle.ts"), ["--maintenance", profile]);
+  if (maintenance && process.platform === "darwin")
+    yield* execute("converge packages", resolve(repoRoot, "homebrew/brew-bundle.ts"), [
+      "--maintenance",
+      profile,
+    ]);
   yield* Effect.forEach(steps, (step) => runStep(step, profile, maintenance));
-}).pipe(
-  Effect.provide(CommandRunner.layer),
-  Effect.provide(NodeServices.layer),
-);
+}).pipe(Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer));
 
 runMain(program);

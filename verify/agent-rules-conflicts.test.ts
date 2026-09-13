@@ -1,7 +1,14 @@
 import assert from "node:assert/strict";
-import { chmodSync, mkdirSync, readFileSync, readdirSync, symlinkSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { dirname, join } from "node:path";
-import { afterEach, test } from "node:test";
+import { afterEach, test } from "vite-plus/test";
 
 import {
   assertManagedRules,
@@ -44,7 +51,10 @@ test("replaces a conflicting rule file without a backup", () => {
   runWrapper(home);
 
   assertManagedRules(home);
-  assert.equal(readdirSync(join(home, ".claude")).some((name) => name.includes(".backup.")), false);
+  assert.equal(
+    readdirSync(join(home, ".claude")).some((name) => name.includes(".backup.")),
+    false,
+  );
 });
 
 test("replaces a conflicting home rule file without a backup", () => {
@@ -54,7 +64,10 @@ test("replaces a conflicting home rule file without a backup", () => {
   runWrapper(home);
 
   assertManagedRules(home);
-  assert.equal(readdirSync(home).some((name) => name.startsWith("AGENTS.md.backup.")), false);
+  assert.equal(
+    readdirSync(home).some((name) => name.startsWith("AGENTS.md.backup.")),
+    false,
+  );
 });
 
 test("removes the retired rule file without a backup or removing installed skills", () => {
@@ -68,7 +81,10 @@ test("removes the retired rule file without a backup or removing installed skill
 
   assertManagedRules(home);
   assert.equal(readdirSync(join(home, ".agents")).includes("AGENTS.md"), false);
-  assert.equal(readdirSync(join(home, ".agents")).some((name) => name.includes(".backup.")), false);
+  assert.equal(
+    readdirSync(join(home, ".agents")).some((name) => name.includes(".backup.")),
+    false,
+  );
   assert.equal(readFileSync(installedSkill, "utf8"), "installed skill\n");
 });
 
@@ -80,7 +96,10 @@ test("replaces a broken rule link without a backup", () => {
   runWrapper(home);
 
   assertManagedRules(home);
-  assert.equal(readdirSync(join(home, ".codex")).some((name) => name.includes(".backup.")), false);
+  assert.equal(
+    readdirSync(join(home, ".codex")).some((name) => name.includes(".backup.")),
+    false,
+  );
 });
 
 test("replaces conflicting rule links without backups", () => {
@@ -97,7 +116,10 @@ test("replaces conflicting rule links without backups", () => {
 
   assertManagedRules(home);
   for (const directory of [".claude", ".codex"]) {
-    assert.equal(readdirSync(join(home, directory)).some((name) => name.includes(".backup.")), false);
+    assert.equal(
+      readdirSync(join(home, directory)).some((name) => name.includes(".backup.")),
+      false,
+    );
   }
 });
 
@@ -109,7 +131,16 @@ test("does not replace managed rule paths again", () => {
 
   assertManagedRules(home);
   assert.doesNotMatch(output, /removed conflicting generated agent rules/);
-  assert.equal(readdirSync(home).some((name) => name.startsWith("AGENTS.md.backup.")), false);
-  assert.equal(readdirSync(join(home, ".claude")).some((name) => name.includes(".backup.")), false);
-  assert.equal(readdirSync(join(home, ".codex")).some((name) => name.includes(".backup.")), false);
+  assert.equal(
+    readdirSync(home).some((name) => name.startsWith("AGENTS.md.backup.")),
+    false,
+  );
+  assert.equal(
+    readdirSync(join(home, ".claude")).some((name) => name.includes(".backup.")),
+    false,
+  );
+  assert.equal(
+    readdirSync(join(home, ".codex")).some((name) => name.includes(".backup.")),
+    false,
+  );
 });

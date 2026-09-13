@@ -18,20 +18,18 @@ runtime installation fail.
 mise trust
 mise tasks
 mise tasks validate
-mise run verify:domain config # focused domain
-mise run verify:fast          # all deterministic checks
-mise run verify               # deterministic checks plus full-history secret scan
 ```
 
 - The [verification registry](../verify/checks.json) lists commands,
   domains, and proof. Focused runs omit checks marked `scope: "complete"`.
-- [Contributing](../CONTRIBUTING.md#deliver) covers CI and delivery requirements.
+- [Contributing](../CONTRIBUTING.md#verify) owns repository verification commands
+  and their CI requirements.
 
 Live checks inspect the current Unix user's machine. Run only for its intended
 profile; these are separate from repository verification:
 
 ```zsh
-mise run verify:bootstrap workstation # or developer, devbox, personal-devbox, personal-workstation
+mise run verify:bootstrap workstation # choose the installed profile
 mise run verify:devbox-services       # macOS only
 ```
 

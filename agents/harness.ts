@@ -22,7 +22,7 @@ export function isSafeName(value: string): boolean {
   return NAME_PATTERN.test(value) && !RESERVED_NAMES.has(value);
 }
 
-export function isHarness(value: unknown): value is Harness {
+function isHarness(value: unknown): value is Harness {
   return typeof value === "string" && (HARNESSES as readonly string[]).includes(value);
 }
 
@@ -75,7 +75,11 @@ export type SyncArgs =
   | { kind: "help" }
   | { kind: "error"; message: string };
 
-export function parseSyncArgs(args: readonly string[], usage: string, allowUpdate: boolean): SyncArgs {
+export function parseSyncArgs(
+  args: readonly string[],
+  usage: string,
+  allowUpdate: boolean,
+): SyncArgs {
   let profile: string | undefined;
   let update = false;
 
@@ -196,8 +200,7 @@ export function retainAbsentEntries<P extends HarnessOwned, C extends HarnessOwn
     }
     const absent = owned.harnesses.filter(
       (harness) =>
-        next.harnesses.includes(harness) &&
-        !runtime.commandExists(HARNESS_INFO[harness].binary),
+        next.harnesses.includes(harness) && !runtime.commandExists(HARNESS_INFO[harness].binary),
     );
     if (absent.length > 0) {
       leftover.push({ ...owned, harnesses: absent });

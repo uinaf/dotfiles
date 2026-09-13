@@ -3,7 +3,7 @@ import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import test from "node:test";
+import { test } from "vite-plus/test";
 
 const read = (path: string) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 const tools = `${read("chezmoi/.chezmoitemplates/mise.toml")}\n${read("chezmoi/.chezmoitemplates/mise-tasks.toml")}`;
@@ -23,7 +23,10 @@ test("CI, bootstrap, and profile Node use the package engine floor", () => {
 });
 
 test("profile pnpm matches the repository package manager", () => {
-  assert.equal(`pnpm@${pin(tools, /corepack install --global pnpm@([\d.]+)/)}`, manifest.packageManager);
+  assert.equal(
+    `pnpm@${pin(tools, /corepack install --global pnpm@([\d.]+)/)}`,
+    manifest.packageManager,
+  );
 });
 
 test("package convergence pins Corepack before enable and pnpm", () => {
@@ -40,14 +43,17 @@ test("PyYAML live verification follows its installation pin", () => {
 });
 
 test("Xcode pin is a dotted release consumed by the installer", () => {
-  const xcode = JSON.parse(read("chezmoi/.chezmoidata/xcode.json")) as { version: number; release: string };
+  const xcode = JSON.parse(read("chezmoi/.chezmoidata/xcode.json")) as {
+    version: number;
+    release: string;
+  };
   assert.equal(xcode.version, 1);
   assert.match(xcode.release, /^\d+\.\d+$/);
 });
 
-test("mise package convergence repeats without runtime installs and stops on failure", t => {
+test("mise package convergence repeats without runtime installs and stops on failure", (t) => {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-runtime-packages-"));
-  t.after(() => rmSync(root, { recursive: true, force: true }));
+  t.onTestFinished(() => rmSync(root, { recursive: true, force: true }));
   const bin = join(root, "bin");
   mkdirSync(bin);
   // Keep the real task; runtime downloads are outside this fixture's scope.
@@ -57,13 +63,26 @@ test("mise package convergence repeats without runtime installs and stops on fai
   writeFileSync(join(root, "global.toml"), "");
   const log = join(root, "commands");
   for (const name of ["npm", "corepack", "python"]) {
-    writeFileSync(join(bin, name), `#!/bin/sh\nprintf '%s\\n' '${name}' >> "$TEST_LOG"\n[ '${name}' != "\${TEST_FAIL:-}" ]\n`, { mode: 0o755 });
+    writeFileSync(
+      join(bin, name),
+      `#!/bin/sh\nprintf '%s\\n' '${name}' >> "$TEST_LOG"\n[ '${name}' != "\${TEST_FAIL:-}" ]\n`,
+      { mode: 0o755 },
+    );
   }
-  const run = (failure = "") => spawnSync("mise", ["run", "dotfiles:runtime-packages"], {
-    cwd: root, encoding: "utf8", env: { ...process.env, PATH: `${bin}:${process.env.PATH}`,
-      MISE_GLOBAL_CONFIG_FILE: join(root, "global.toml"), MISE_CONFIG_DIR: join(root, "config"),
-      MISE_TRUSTED_CONFIG_PATHS: root, TEST_LOG: log, TEST_FAIL: failure },
-  });
+  const run = (failure = "") =>
+    spawnSync("mise", ["run", "dotfiles:runtime-packages"], {
+      cwd: root,
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        PATH: `${bin}:${process.env.PATH}`,
+        MISE_GLOBAL_CONFIG_FILE: join(root, "global.toml"),
+        MISE_CONFIG_DIR: join(root, "config"),
+        MISE_TRUSTED_CONFIG_PATHS: root,
+        TEST_LOG: log,
+        TEST_FAIL: failure,
+      },
+    });
   for (let i = 0; i < 2; i++) {
     const result = run();
     assert.equal(result.status, 0, result.stderr);

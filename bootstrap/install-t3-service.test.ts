@@ -1,54 +1,73 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { test } from "vite-plus/test";
 import { Effect, FileSystem } from "effect";
 import { CommandRunner } from "../lib/command.ts";
 import { installT3Service } from "./install-t3-service.ts";
 
 const home = "/home/test";
-function fixture(options: {
-  optIn?: string;
-  unreadable?: boolean;
-  present?: boolean;
-  linger?: string;
-  pid?: string;
-  environ?: string;
-  installStatus?: number;
-  writesUnit?: boolean;
-  reportedStatus?: string;
-} = {}) {
+function fixture(
+  options: {
+    optIn?: string;
+    unreadable?: boolean;
+    present?: boolean;
+    linger?: string;
+    pid?: string;
+    environ?: string;
+    installStatus?: number;
+    writesUnit?: boolean;
+    reportedStatus?: string;
+  } = {},
+) {
   let present = options.present ?? false;
   const calls: string[][] = [];
   const reads: string[] = [];
   const fs = FileSystem.makeNoop({
     exists: () => Effect.succeed(present),
-    ...(!options.unreadable ? { readFileString: (path: string) => {
-      reads.push(path);
-      return Effect.succeed(path.endsWith("devbox.env") ? options.optIn ?? "T3_SERVICE=1\n"
-        : options.environ ?? `HOME=${home}\0PATH=${home}/.local/share/mise/shims:/usr/bin\0`);
-    } } : {}),
+    ...(!options.unreadable
+      ? {
+          readFileString: (path: string) => {
+            reads.push(path);
+            return Effect.succeed(
+              path.endsWith("devbox.env")
+                ? (options.optIn ?? "T3_SERVICE=1\n")
+                : (options.environ ??
+                    `HOME=${home}\0PATH=${home}/.local/share/mise/shims:/usr/bin\0`),
+            );
+          },
+        }
+      : {}),
   });
-  const runner = CommandRunner.of({ run: (command, args = []) => {
-    calls.push([command, ...args]);
-    let stdout = "";
-    let status = 0;
-    if (command === "loginctl") stdout = options.linger ?? "yes\n";
-    if (command === "systemctl") stdout = options.pid ?? "123\n";
-    if (command === "t3" && args[1] === "install") {
-      present = options.writesUnit ?? true;
-      status = options.installStatus ?? 0;
-    }
-    if (command === "t3" && args[1] === "status") stdout = options.reportedStatus ?? "Status: installed\n";
-    return Effect.succeed({ status, stdout, stderr: "" });
-  } });
-  const run = (check = false, platform: NodeJS.Platform = "linux") => Effect.runPromise(
-    installT3Service(home, check, platform, 1000, `${home}/.t3`).pipe(
-      Effect.provideService(CommandRunner, runner), Effect.provideService(FileSystem.FileSystem, fs),
-    ),
-  );
+  const runner = CommandRunner.of({
+    run: (command, args = []) => {
+      calls.push([command, ...args]);
+      let stdout = "";
+      let status = 0;
+      if (command === "loginctl") stdout = options.linger ?? "yes\n";
+      if (command === "systemctl") stdout = options.pid ?? "123\n";
+      if (command === "t3" && args[1] === "install") {
+        present = options.writesUnit ?? true;
+        status = options.installStatus ?? 0;
+      }
+      if (command === "t3" && args[1] === "status")
+        stdout = options.reportedStatus ?? "Status: installed\n";
+      return Effect.succeed({ status, stdout, stderr: "" });
+    },
+  });
+  const run = (check = false, platform: NodeJS.Platform = "linux") =>
+    Effect.runPromise(
+      installT3Service(home, check, platform, 1000, `${home}/.t3`).pipe(
+        Effect.provideService(CommandRunner, runner),
+        Effect.provideService(FileSystem.FileSystem, fs),
+      ),
+    );
   return { calls, reads, run };
 }
 
-for (const options of [{ optIn: "" }, { optIn: "# T3_SERVICE=1\nT3_SERVICE=0\n" }, { unreadable: true }]) {
+for (const options of [
+  { optIn: "" },
+  { optIn: "# T3_SERVICE=1\nT3_SERVICE=0\n" },
+  { unreadable: true },
+]) {
   test(`absent opt-in skips T3 operations (${JSON.stringify(options)})`, async () => {
     const f = fixture(options);
     await f.run();
@@ -86,7 +105,7 @@ for (const present of [false, true]) {
   test(`Linux lingering prevents ${present ? "accepting" : "installing"} the service`, async () => {
     const f = fixture({ present, linger: "no\n" });
     await assert.rejects(f.run(), /lingering/);
-    assert.ok(f.calls.every(call => call[0] !== "t3"));
+    assert.ok(f.calls.every((call) => call[0] !== "t3"));
   });
 }
 
@@ -104,14 +123,17 @@ for (const pid of ["0\n", "invalid\n"]) {
   test(`Linux check rejects a non-running service (${pid.trim()})`, async () => {
     const f = fixture({ present: true, pid });
     await assert.rejects(f.run(true), /not running/);
-    assert.ok(f.reads.every(path => !path.startsWith("/proc/")));
+    assert.ok(f.reads.every((path) => !path.startsWith("/proc/")));
   });
 }
 
 test("Linux check requires the exact shim directory in the running PATH", async () => {
-  const f = fixture({ present: true, environ: `PATH=${home}/.local/share/mise/shims-extra:/usr/bin\0` });
+  const f = fixture({
+    present: true,
+    environ: `PATH=${home}/.local/share/mise/shims-extra:/usr/bin\0`,
+  });
   await assert.rejects(f.run(true), /PATH lacks the mise shims/);
-  assert.ok(f.calls.every(call => call[0] !== "t3"));
+  assert.ok(f.calls.every((call) => call[0] !== "t3"));
 });
 
 test("missing opted-in Linux service installs after the linger check", async () => {
@@ -148,5 +170,5 @@ test("headless macOS failure is deferred only with T3 installed-status evidence"
 test("Linux cannot defer failed installation even when the unit was written", async () => {
   const f = fixture({ installStatus: 1 });
   await assert.rejects(f.run(), /exited 1/);
-  assert.ok(f.calls.every(call => call[2] !== "status"));
+  assert.ok(f.calls.every((call) => call[2] !== "status"));
 });

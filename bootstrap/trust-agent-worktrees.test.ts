@@ -3,7 +3,7 @@ import { spawnSync } from "node:child_process";
 import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import test from "node:test";
+import { test } from "vite-plus/test";
 import { Effect, FileSystem } from "effect";
 
 import { discoverMiseConfigs } from "./trust-agent-worktrees.ts";
@@ -49,14 +49,25 @@ test("trusts configs through depth three and ignores a deep dependency tree", ()
     join(worktrees, "project", ".mise.toml"),
     join(worktrees, "project", "checkout", "mise.toml"),
   ].sort();
-  const excluded = join(worktrees, "project", "checkout", "node_modules", "dependency", "mise.toml");
+  const excluded = join(
+    worktrees,
+    "project",
+    "checkout",
+    "node_modules",
+    "dependency",
+    "mise.toml",
+  );
 
   try {
-    mkdirSync(join(worktrees, "project", "checkout", "node_modules", "dependency"), { recursive: true });
+    mkdirSync(join(worktrees, "project", "checkout", "node_modules", "dependency"), {
+      recursive: true,
+    });
     mkdirSync(bin);
     for (const path of [...expected, excluded]) writeFileSync(path, "[tools]\n");
     const mise = join(bin, "mise");
-    writeFileSync(mise, `#!/bin/sh
+    writeFileSync(
+      mise,
+      `#!/bin/sh
 if [ "$1" = "--version" ]; then
   exit 0
 fi
@@ -65,7 +76,8 @@ if [ "$1" = "trust" ] && [ "$2" = "--yes" ]; then
   exit 0
 fi
 exit 1
-`);
+`,
+    );
     chmodSync(mise, 0o755);
 
     const result = spawnSync(process.execPath, [script], {

@@ -2,7 +2,15 @@
 
 import assert from "node:assert/strict";
 import { Console, Effect } from "effect";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runMain } from "../lib/program.ts";
@@ -46,7 +54,10 @@ async function verifyMalformed(root: string): Promise<void> {
   const fixtureRoot = join(root, "malformed");
   const original = '{"model":';
   writeSettings(fixtureRoot, original);
-  await assert.rejects(runApply("workstation", fixtureRoot), /fromJson|invalid character|unexpected end/i);
+  await assert.rejects(
+    runApply("workstation", fixtureRoot),
+    /fromJson|invalid character|unexpected end/i,
+  );
   assert.equal(readFileSync(settingsPath(fixtureRoot), "utf8"), original);
 }
 
@@ -67,6 +78,12 @@ async function main(): Promise<void> {
   }
 }
 
-runMain(Effect.tryPromise({ try: main, catch: (error) => error }).pipe(
-  Effect.tap(() => Console.log("ok Cursor user settings preserve unrelated state and select profile-aware Grok defaults")),
-));
+runMain(
+  Effect.tryPromise({ try: main, catch: (error) => error }).pipe(
+    Effect.tap(() =>
+      Console.log(
+        "ok Cursor user settings preserve unrelated state and select profile-aware Grok defaults",
+      ),
+    ),
+  ),
+);

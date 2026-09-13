@@ -19,13 +19,22 @@ import {
   writeFileSync,
 } from "node:fs";
 import { dirname, isAbsolute, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 
 import { runMain } from "../lib/program.ts";
 import { writeConfigEdits } from "./configure-codex.ts";
 
-import { type GatewayConfig, type PreservedLogin, parseGatewayConfig, gatewayEdits, codexGatewaiOverrides } from "../agents/gateway/gateway-config.ts";
-export { parseGatewayConfig, gatewayEdits, codexGatewaiOverrides } from "../agents/gateway/gateway-config.ts";
+import {
+  type GatewayConfig,
+  type PreservedLogin,
+  parseGatewayConfig,
+  gatewayEdits,
+  codexGatewaiOverrides,
+} from "../agents/gateway/gateway-config.ts";
+export {
+  parseGatewayConfig,
+  gatewayEdits,
+  codexGatewaiOverrides,
+} from "../agents/gateway/gateway-config.ts";
 
 type CursorCommandState = {
   path: string;
@@ -51,7 +60,6 @@ type ClientStateV7 = Omit<ClientStateV6, "version"> & { version: 7 };
 
 type ClientState = ClientStateV6 | ClientStateV7;
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const legacyCursorLauncherHash = "c6f3c7b7047541909675004989a30cba726bb9970fad3549f4e6bdbed2da61d3";
 
 function exactKeys(value: Record<string, unknown>, expected: readonly string[]): boolean {
@@ -74,13 +82,23 @@ export function claudeGatewayBaseUrl(gatewaiBaseUrl: string): string {
   return url.toString().replace(/\/$/, "");
 }
 
-export function claudeGatewaySettings(contents: string, gatewaiBaseUrl: string, credentialPath: string): Record<string, unknown> {
+export function claudeGatewaySettings(
+  contents: string,
+  gatewaiBaseUrl: string,
+  credentialPath: string,
+): Record<string, unknown> {
   const value: unknown = contents.trim() === "" ? {} : JSON.parse(contents);
   if (!isRecord(value)) throw new Error("Claude settings must contain a JSON object");
   const currentEnv = value.env === undefined ? {} : value.env;
   if (!isRecord(currentEnv)) throw new Error("Claude settings env must contain a JSON object");
-  for (const key of ["ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "CLAUDE_CODE_USE_BEDROCK", "CLAUDE_CODE_USE_VERTEX"]) {
-    if (key in currentEnv) throw new Error(`Claude settings env conflicts with the gateway: ${key}`);
+  for (const key of [
+    "ANTHROPIC_API_KEY",
+    "ANTHROPIC_AUTH_TOKEN",
+    "CLAUDE_CODE_USE_BEDROCK",
+    "CLAUDE_CODE_USE_VERTEX",
+  ]) {
+    if (key in currentEnv)
+      throw new Error(`Claude settings env conflicts with the gateway: ${key}`);
   }
   return {
     ...value,
@@ -111,9 +129,14 @@ function atomicWriteText(target: string, value: string, mode: number): void {
   renameSync(temporary, target);
 }
 
-function captureOptionalBackup(source: string, backup: string, label: string): { existed: boolean; backupPath: string | null } {
+function captureOptionalBackup(
+  source: string,
+  backup: string,
+  label: string,
+): { existed: boolean; backupPath: string | null } {
   const existed = existsSync(source);
-  if (existed && existsSync(backup)) throw new Error(`refusing to overwrite existing ${label} backup: ${backup}`);
+  if (existed && existsSync(backup))
+    throw new Error(`refusing to overwrite existing ${label} backup: ${backup}`);
   if (existed) atomicCopy(source, backup, 0o600);
   return { existed, backupPath: existed ? backup : null };
 }
@@ -123,44 +146,69 @@ function readState(path: string): ClientState {
   if (!isRecord(value)) {
     throw new Error("LLM gateway state has an invalid shape");
   }
-  const versioned = (value.version === 6 || value.version === 7) && exactKeys(value, [
-    "version",
-    "codexConfigExisted",
-    "codexBackupPath",
-    "cursorCommands",
-    "claudeSettingsExisted",
-    "claudeBackupPath",
-    "authRetired",
-    "grokEnabled",
-    "grokConfigExisted",
-    "grokConfigBackupPath",
-    "grokAuthExisted",
-    "grokAuthBackupPath",
-  ]);
-  if (!versioned) throw new Error("LLM gateway state has an invalid shape; roll back and re-enroll pre-v6 hosts");
-  if (typeof value.codexConfigExisted !== "boolean" || !(value.codexBackupPath === null || typeof value.codexBackupPath === "string")) {
+  const versioned =
+    (value.version === 6 || value.version === 7) &&
+    exactKeys(value, [
+      "version",
+      "codexConfigExisted",
+      "codexBackupPath",
+      "cursorCommands",
+      "claudeSettingsExisted",
+      "claudeBackupPath",
+      "authRetired",
+      "grokEnabled",
+      "grokConfigExisted",
+      "grokConfigBackupPath",
+      "grokAuthExisted",
+      "grokAuthBackupPath",
+    ]);
+  if (!versioned)
+    throw new Error("LLM gateway state has an invalid shape; roll back and re-enroll pre-v6 hosts");
+  if (
+    typeof value.codexConfigExisted !== "boolean" ||
+    !(value.codexBackupPath === null || typeof value.codexBackupPath === "string")
+  ) {
     throw new Error("LLM gateway state has invalid values");
   }
   // Version 6 also managed the ambiguous `agent` name; version 7 manages only
   // `cursor-agent`.
   const expectedCommands = value.version === 6 ? [0, 2] : [0, 1];
-  if (!Array.isArray(value.cursorCommands) || !expectedCommands.includes(value.cursorCommands.length)) {
+  if (
+    !Array.isArray(value.cursorCommands) ||
+    !expectedCommands.includes(value.cursorCommands.length)
+  ) {
     throw new Error("LLM gateway state has invalid Cursor commands");
   }
   for (const command of value.cursorCommands) {
-    if (!isRecord(command) || !exactKeys(command, ["path", "target"]) || typeof command.path !== "string" || typeof command.target !== "string") {
+    if (
+      !isRecord(command) ||
+      !exactKeys(command, ["path", "target"]) ||
+      typeof command.path !== "string" ||
+      typeof command.target !== "string"
+    ) {
       throw new Error("LLM gateway state has invalid Cursor commands");
     }
   }
-  if (typeof value.claudeSettingsExisted !== "boolean" || !(value.claudeBackupPath === null || typeof value.claudeBackupPath === "string")) {
+  if (
+    typeof value.claudeSettingsExisted !== "boolean" ||
+    !(value.claudeBackupPath === null || typeof value.claudeBackupPath === "string")
+  ) {
     throw new Error("LLM gateway state has invalid Claude settings values");
   }
-  if (typeof value.authRetired !== "boolean") throw new Error("LLM gateway state has an invalid auth retirement value");
-  if (typeof value.grokEnabled !== "boolean") throw new Error("LLM gateway state has an invalid Grok value");
-  if (typeof value.grokConfigExisted !== "boolean" || !(value.grokConfigBackupPath === null || typeof value.grokConfigBackupPath === "string")) {
+  if (typeof value.authRetired !== "boolean")
+    throw new Error("LLM gateway state has an invalid auth retirement value");
+  if (typeof value.grokEnabled !== "boolean")
+    throw new Error("LLM gateway state has an invalid Grok value");
+  if (
+    typeof value.grokConfigExisted !== "boolean" ||
+    !(value.grokConfigBackupPath === null || typeof value.grokConfigBackupPath === "string")
+  ) {
     throw new Error("LLM gateway state has invalid Grok config values");
   }
-  if (typeof value.grokAuthExisted !== "boolean" || !(value.grokAuthBackupPath === null || typeof value.grokAuthBackupPath === "string")) {
+  if (
+    typeof value.grokAuthExisted !== "boolean" ||
+    !(value.grokAuthBackupPath === null || typeof value.grokAuthBackupPath === "string")
+  ) {
     throw new Error("LLM gateway state has invalid Grok auth values");
   }
   return value as ClientState;
@@ -169,7 +217,9 @@ function readState(path: string): ClientState {
 function captureCursorCommands(paths: readonly string[]): CursorCommandState[] {
   return paths.map((path) => {
     if (!existsSync(path) || !lstatSync(path).isSymbolicLink()) {
-      throw new Error(`Cursor command must be an installer-managed symlink before enrollment: ${path}`);
+      throw new Error(
+        `Cursor command must be an installer-managed symlink before enrollment: ${path}`,
+      );
     }
     return { path, target: readlinkSync(path) };
   });
@@ -183,25 +233,45 @@ function restoreCursorCommands(commands: readonly CursorCommandState[]): void {
   }
 }
 
-function assertStateCursorCommands(state: ClientState, expectedPaths: readonly string[], enabled = true): void {
+function assertStateCursorCommands(
+  state: ClientState,
+  expectedPaths: readonly string[],
+  enabled = true,
+): void {
   const expected = enabled ? expectedPaths : [];
-  if (state.cursorCommands.length !== expected.length || !state.cursorCommands.every((command, index) => command.path === expected[index])) {
+  if (
+    state.cursorCommands.length !== expected.length ||
+    !state.cursorCommands.every((command, index) => command.path === expected[index])
+  ) {
     throw new Error("LLM gateway state contains unexpected Cursor command paths");
   }
 }
 
-function runLogout(command: string, args: readonly string[], env: NodeJS.ProcessEnv, label: string): void {
+function runLogout(
+  command: string,
+  args: readonly string[],
+  env: NodeJS.ProcessEnv,
+  label: string,
+): void {
   const result = spawnSync(command, args, { encoding: "utf8", env });
-  if (result.status !== 0) throw new Error(`${label} logout failed: ${result.stderr.trim() || result.stdout.trim() || `exit ${result.status ?? 1}`}`);
+  if (result.status !== 0)
+    throw new Error(
+      `${label} logout failed: ${result.stderr.trim() || result.stdout.trim() || `exit ${result.status ?? 1}`}`,
+    );
 }
 
 function withoutEnvironmentKey(env: NodeJS.ProcessEnv, key: string): NodeJS.ProcessEnv {
   return Object.fromEntries(Object.entries(env).filter(([name]) => name !== key));
 }
 
-export function assertCursorAgentBinSafe(cursorAgentBin: string, managedPaths: readonly string[]): void {
+export function assertCursorAgentBinSafe(
+  cursorAgentBin: string,
+  managedPaths: readonly string[],
+): void {
   if (managedPaths.includes(resolve(cursorAgentBin))) {
-    throw new Error("cursorAgentBin must point to Cursor's versioned vendor executable, not a managed launcher path");
+    throw new Error(
+      "cursorAgentBin must point to Cursor's versioned vendor executable, not a managed launcher path",
+    );
   }
 }
 
@@ -228,8 +298,15 @@ function grokGatewayBlock(gatewaiBaseUrl: string, credentialPath: string): strin
   ].join("\n");
 }
 
-export function grokGatewaySettings(contents: string, gatewaiBaseUrl: string, credentialPath: string): string {
-  const managed = new RegExp(`${grokGatewayBegin.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[\\s\\S]*?${grokGatewayEnd.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\n?`, "g");
+export function grokGatewaySettings(
+  contents: string,
+  gatewaiBaseUrl: string,
+  credentialPath: string,
+): string {
+  const managed = new RegExp(
+    `${grokGatewayBegin.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[\\s\\S]*?${grokGatewayEnd.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\n?`,
+    "g",
+  );
   const original = contents.replace(managed, "").trimEnd();
   for (const section of ["models", "endpoints", "auth", 'model."grok-4.6"']) {
     const escaped = section.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -241,15 +318,26 @@ export function grokGatewaySettings(contents: string, gatewaiBaseUrl: string, cr
 }
 
 function validateLocalInputs(configPath: string): GatewayConfig {
-  if (!existsSync(configPath) || lstatSync(configPath).isSymbolicLink() || !lstatSync(configPath).isFile()) {
+  if (
+    !existsSync(configPath) ||
+    lstatSync(configPath).isSymbolicLink() ||
+    !lstatSync(configPath).isFile()
+  ) {
     throw new Error(`gateway config must be a regular file: ${configPath}`);
   }
-  if (!ownerOnly(configPath)) throw new Error("gateway config must not be accessible by group or other users");
+  if (!ownerOnly(configPath))
+    throw new Error("gateway config must not be accessible by group or other users");
   const config = parseGatewayConfig(readFileSync(configPath, "utf8"));
-  if (config.cursorAgentBin && (!existsSync(config.cursorAgentBin) || (statSync(config.cursorAgentBin).mode & 0o111) === 0)) {
+  if (
+    config.cursorAgentBin &&
+    (!existsSync(config.cursorAgentBin) || (statSync(config.cursorAgentBin).mode & 0o111) === 0)
+  ) {
     throw new Error("cursorAgentBin must be executable");
   }
-  if (config.grokBin && (!existsSync(config.grokBin) || (statSync(config.grokBin).mode & 0o111) === 0)) {
+  if (
+    config.grokBin &&
+    (!existsSync(config.grokBin) || (statSync(config.grokBin).mode & 0o111) === 0)
+  ) {
     throw new Error("grokBin must be executable");
   }
   return config;
@@ -259,7 +347,8 @@ function assertInstalledFile(source: string, target: string): void {
   if (!existsSync(target) || source !== readFileSync(target, "utf8")) {
     throw new Error(`installed helper drifted: ${target}`);
   }
-  if ((statSync(target).mode & 0o777) !== 0o700) throw new Error(`installed helper mode drifted: ${target}`);
+  if ((statSync(target).mode & 0o777) !== 0o700)
+    throw new Error(`installed helper mode drifted: ${target}`);
 }
 
 export function resolveOnPath(name: string, pathValue: string): string | null {
@@ -282,22 +371,34 @@ function assertPathResolvesToLauncher(source: string, pathValue: string): void {
   const resolved = resolveOnPath("cursor-agent", pathValue);
   if (!resolved) throw new Error("cursor-agent does not resolve on PATH");
   if (readFileSync(resolved, "utf8") !== source) {
-    throw new Error(`cursor-agent resolves to ${resolved}, which is not the managed API-key launcher`);
+    throw new Error(
+      `cursor-agent resolves to ${resolved}, which is not the managed API-key launcher`,
+    );
   }
 }
 
 async function run(): Promise<void> {
   const args = process.argv.slice(2);
-  const mode = args.length === 0 ? "apply" : args.length === 1 && ["--check", "--retire-auth", "--rollback"].includes(args[0]) ? args[0].slice(2) : "invalid";
-  if (mode === "invalid") throw new Error("usage: configure-llm-gateway.ts [--check|--retire-auth|--rollback]");
+  const mode =
+    args.length === 0
+      ? "apply"
+      : args.length === 1 && ["--check", "--retire-auth", "--rollback"].includes(args[0])
+        ? args[0].slice(2)
+        : "invalid";
+  if (mode === "invalid")
+    throw new Error("usage: configure-llm-gateway.ts [--check|--retire-auth|--rollback]");
 
   const home = resolve(process.env.HOME || "");
   const codexHome = resolve(process.env.CODEX_HOME || join(home, ".codex"));
   const codexConfig = resolve(process.env.CODEX_CONFIG_PATH || join(codexHome, "config.toml"));
   const codexAuth = join(codexHome, "auth.json");
-  const claudeSettings = resolve(process.env.CLAUDE_SETTINGS_PATH || join(home, ".claude/settings.json"));
+  const claudeSettings = resolve(
+    process.env.CLAUDE_SETTINGS_PATH || join(home, ".claude/settings.json"),
+  );
   const claudeAuth = join(home, ".claude/.credentials.json");
-  const configPath = resolve(process.env.LLM_GATEWAY_CONFIG || join(home, ".config/dotfiles/llm-gateway.json"));
+  const configPath = resolve(
+    process.env.LLM_GATEWAY_CONFIG || join(home, ".config/dotfiles/llm-gateway.json"),
+  );
   const statePath = join(home, ".config/dotfiles/llm-gateway-state.json");
   const credentialTarget = join(home, ".local/libexec/dotfiles/llm-gateway-credential");
   const codexGatewaiTarget = join(home, ".local/libexec/dotfiles/codex-gatewai");
@@ -315,9 +416,16 @@ async function run(): Promise<void> {
   // drops it and removes the artifact version 6 left behind.
   const retiredCursorCommandTarget = join(home, ".local/bin/agent");
   const stateCommandTargets = (state: ClientState): string[] =>
-    state.version === 6 ? [...cursorCommandTargets, retiredCursorCommandTarget] : cursorCommandTargets;
+    state.version === 6
+      ? [...cursorCommandTargets, retiredCursorCommandTarget]
+      : cursorCommandTargets;
   const cursorAuth = join(home, ".cursor/auth.json");
-  const managedCursorTargets = [cursorApiTarget, cursorApiCompatibilityTarget, cursorShimTarget, ...cursorCommandTargets];
+  const managedCursorTargets = [
+    cursorApiTarget,
+    cursorApiCompatibilityTarget,
+    cursorShimTarget,
+    ...cursorCommandTargets,
+  ];
   const grokHome = join(home, ".grok");
   const grokConfig = join(grokHome, "config.toml");
   const grokAuth = join(grokHome, "auth.json");
@@ -334,13 +442,15 @@ async function run(): Promise<void> {
     const state = readState(statePath);
     assertStateCursorCommands(state, stateCommandTargets(state), state.cursorCommands.length > 0);
     if (state.codexConfigExisted) {
-      if (!state.codexBackupPath || !existsSync(state.codexBackupPath)) throw new Error("Codex rollback backup is missing");
+      if (!state.codexBackupPath || !existsSync(state.codexBackupPath))
+        throw new Error("Codex rollback backup is missing");
       atomicCopy(state.codexBackupPath, codexConfig, 0o600);
     } else {
       rmSync(codexConfig, { force: true });
     }
     if (state.claudeSettingsExisted) {
-      if (!state.claudeBackupPath || !existsSync(state.claudeBackupPath)) throw new Error("Claude rollback backup is missing");
+      if (!state.claudeBackupPath || !existsSync(state.claudeBackupPath))
+        throw new Error("Claude rollback backup is missing");
       atomicCopy(state.claudeBackupPath, claudeSettings, 0o600);
     } else {
       rmSync(claudeSettings, { force: true });
@@ -354,13 +464,15 @@ async function run(): Promise<void> {
     if (state.cursorCommands.length > 0) restoreCursorCommands(state.cursorCommands);
     if (state.grokEnabled) {
       if (state.grokConfigExisted) {
-        if (!state.grokConfigBackupPath || !existsSync(state.grokConfigBackupPath)) throw new Error("Grok config rollback backup is missing");
+        if (!state.grokConfigBackupPath || !existsSync(state.grokConfigBackupPath))
+          throw new Error("Grok config rollback backup is missing");
         atomicCopy(state.grokConfigBackupPath, grokConfig, 0o600);
       } else {
         rmSync(grokConfig, { force: true });
       }
       if (state.grokAuthExisted) {
-        if (!state.grokAuthBackupPath || !existsSync(state.grokAuthBackupPath)) throw new Error("Grok auth rollback backup is missing");
+        if (!state.grokAuthBackupPath || !existsSync(state.grokAuthBackupPath))
+          throw new Error("Grok auth rollback backup is missing");
         atomicCopy(state.grokAuthBackupPath, grokAuth, 0o600);
       } else {
         rmSync(grokAuth, { force: true });
@@ -371,9 +483,11 @@ async function run(): Promise<void> {
     if (state.grokConfigBackupPath) rmSync(state.grokConfigBackupPath, { force: true });
     if (state.grokAuthBackupPath) rmSync(state.grokAuthBackupPath, { force: true });
     rmSync(statePath, { force: true });
-    process.stdout.write(state.authRetired
-      ? "rolled back LLM gateway; coding login state was retired and requires reauthentication\n"
-      : "rolled back LLM gateway; saved Codex, Claude, and Grok login state remains available\n");
+    process.stdout.write(
+      state.authRetired
+        ? "rolled back LLM gateway; coding login state was retired and requires reauthentication\n"
+        : "rolled back LLM gateway; saved Codex, Claude, and Grok login state remains available\n",
+    );
     return;
   }
 
@@ -390,7 +504,8 @@ async function run(): Promise<void> {
     credentialTarget,
   );
   if (mode === "check" || mode === "retire-auth") {
-    if (!existsSync(statePath) || !ownerOnly(statePath)) throw new Error("LLM gateway state is missing or not owner-only");
+    if (!existsSync(statePath) || !ownerOnly(statePath))
+      throw new Error("LLM gateway state is missing or not owner-only");
     const state = readState(statePath);
     assertStateCursorCommands(state, stateCommandTargets(state), Boolean(config.cursorAgentBin));
     assertInstalledFile(sourceCredential, credentialTarget);
@@ -401,8 +516,13 @@ async function run(): Promise<void> {
     });
     const launcherOverrides = overridesProbe.stdout.trim().split("\n").sort();
     const expectedOverrides = [...codexGatewaiOverrides(config, credentialTarget)].sort();
-    if (overridesProbe.status !== 0 || JSON.stringify(launcherOverrides) !== JSON.stringify(expectedOverrides)) {
-      throw new Error("codex-gatewai launcher overrides drifted from the Codex gateway config edits");
+    if (
+      overridesProbe.status !== 0 ||
+      JSON.stringify(launcherOverrides) !== JSON.stringify(expectedOverrides)
+    ) {
+      throw new Error(
+        "codex-gatewai launcher overrides drifted from the Codex gateway config edits",
+      );
     }
     if (config.cursorAgentBin) {
       assertInstalledFile(sourceCursorAcpAuth, cursorAcpAuthTarget);
@@ -413,10 +533,15 @@ async function run(): Promise<void> {
       const originalGrokConfig = state.grokConfigExisted
         ? readFileSync(state.grokConfigBackupPath || "", "utf8")
         : "";
-      if (!existsSync(grokConfig) || readFileSync(grokConfig, "utf8") !== grokGatewaySettings(originalGrokConfig, config.gatewaiBaseUrl, credentialTarget)) {
+      if (
+        !existsSync(grokConfig) ||
+        readFileSync(grokConfig, "utf8") !==
+          grokGatewaySettings(originalGrokConfig, config.gatewaiBaseUrl, credentialTarget)
+      ) {
         throw new Error("Grok gateway config drifted");
       }
-      if (!existsSync(grokAuth) || !ownerOnly(grokAuth)) throw new Error("Grok gateway authentication is missing or not owner-only");
+      if (!existsSync(grokAuth) || !ownerOnly(grokAuth))
+        throw new Error("Grok gateway authentication is missing or not owner-only");
     }
     const contents = readFileSync(codexConfig, "utf8");
     for (const expected of [
@@ -424,22 +549,31 @@ async function run(): Promise<void> {
       config.gatewaiBaseUrl,
       config.bifrostBaseUrl,
       credentialTarget,
-      '[model_providers.gatewai.auth]',
+      "[model_providers.gatewai.auth]",
       'X-OpenAI-Actor-Authorization = "local-proxy"',
       'args = ["gatewai"]',
-      '[model_providers.bifrost.auth]',
+      "[model_providers.bifrost.auth]",
       'args = ["bifrost"]',
     ]) {
       if (!contents.includes(expected)) throw new Error("Codex gateway config drifted");
     }
-    const claude = JSON.parse(readFileSync(claudeSettings, "utf8")) as { apiKeyHelper?: unknown; env?: Record<string, unknown> };
-    if (claude.apiKeyHelper !== `${credentialTarget} gatewai` || claude.env?.ANTHROPIC_BASE_URL !== claudeGatewayBaseUrl(config.gatewaiBaseUrl)) {
+    const claude = JSON.parse(readFileSync(claudeSettings, "utf8")) as {
+      apiKeyHelper?: unknown;
+      env?: Record<string, unknown>;
+    };
+    if (
+      claude.apiKeyHelper !== `${credentialTarget} gatewai` ||
+      claude.env?.ANTHROPIC_BASE_URL !== claudeGatewayBaseUrl(config.gatewaiBaseUrl)
+    ) {
       throw new Error("Claude gateway settings drifted");
     }
     const credentialKinds = ["gatewai", "bifrost"];
     if (config.cursorAgentBin) credentialKinds.push("cursor");
     for (const kind of credentialKinds) {
-      const result = spawnSync(credentialTarget, [kind], { encoding: "utf8", env: { ...process.env, LLM_GATEWAY_CONFIG: configPath } });
+      const result = spawnSync(credentialTarget, [kind], {
+        encoding: "utf8",
+        env: { ...process.env, LLM_GATEWAY_CONFIG: configPath },
+      });
       if (result.status !== 0 || result.stdout.trim().length === 0) {
         const detail = result.stderr.trim() || `exit ${result.status ?? "unknown"} without output`;
         throw new Error(`${kind} credential helper failed: ${detail}`);
@@ -447,46 +581,75 @@ async function run(): Promise<void> {
     }
     const preserved = new Set<PreservedLogin>(config.preservedLogins ?? []);
     if (mode === "check" && state.authRetired) {
-      const logins = [["Codex", "codex", codexAuth], ["Claude", "claude", claudeAuth], ["Cursor", "cursor", cursorAuth]] as const;
+      const logins = [
+        ["Codex", "codex", codexAuth],
+        ["Claude", "claude", claudeAuth],
+        ["Cursor", "cursor", cursorAuth],
+      ] as const;
       for (const [label, kind, path] of logins) {
-        if (!preserved.has(kind) && existsSync(path)) throw new Error(`${label} saved login state remains after retirement`);
+        if (!preserved.has(kind) && existsSync(path))
+          throw new Error(`${label} saved login state remains after retirement`);
       }
-      if (!preserved.has("grok") && state.grokAuthBackupPath && existsSync(state.grokAuthBackupPath)) {
+      if (
+        !preserved.has("grok") &&
+        state.grokAuthBackupPath &&
+        existsSync(state.grokAuthBackupPath)
+      ) {
         throw new Error("Grok saved vendor login remains after retirement");
       }
     }
     if (mode === "check") {
-      const preservedNote = preserved.size > 0 ? `, preserved-logins=${[...preserved].sort().join("+")}` : "";
-      process.stdout.write(`ok Gatewai/Bifrost config, helpers, resolved credentials, Codex and Claude on Gatewai, Cursor=${Boolean(config.cursorAgentBin)}, Grok=${Boolean(config.grokBin)}, and auth-retired=${state.authRetired}${preservedNote}\n`);
+      const preservedNote =
+        preserved.size > 0 ? `, preserved-logins=${[...preserved].sort().join("+")}` : "";
+      process.stdout.write(
+        `ok Gatewai/Bifrost config, helpers, resolved credentials, Codex and Claude on Gatewai, Cursor=${Boolean(config.cursorAgentBin)}, Grok=${Boolean(config.grokBin)}, and auth-retired=${state.authRetired}${preservedNote}\n`,
+      );
       return;
     }
 
-    const returnedAuth = state.authRetired && (
-      (!preserved.has("codex") && existsSync(codexAuth)) ||
-      (!preserved.has("claude") && existsSync(claudeAuth)) ||
-      (!preserved.has("cursor") && Boolean(config.cursorAgentBin) && existsSync(cursorAuth)) ||
-      (!preserved.has("grok") && Boolean(state.grokAuthBackupPath && existsSync(state.grokAuthBackupPath)))
-    );
+    const returnedAuth =
+      state.authRetired &&
+      ((!preserved.has("codex") && existsSync(codexAuth)) ||
+        (!preserved.has("claude") && existsSync(claudeAuth)) ||
+        (!preserved.has("cursor") && Boolean(config.cursorAgentBin) && existsSync(cursorAuth)) ||
+        (!preserved.has("grok") &&
+          Boolean(state.grokAuthBackupPath && existsSync(state.grokAuthBackupPath))));
     if (state.authRetired && !returnedAuth) {
-      process.stdout.write("coding vendor login state is already retired; gateway routing remains configured\n");
+      process.stdout.write(
+        "coding vendor login state is already retired; gateway routing remains configured\n",
+      );
       return;
     }
 
     if (!preserved.has("codex") && (!state.authRetired || existsSync(codexAuth))) {
-      runLogout(process.env.CODEX_BIN || "codex", ["logout"], { ...process.env, CODEX_HOME: codexHome }, "Codex");
+      runLogout(
+        process.env.CODEX_BIN || "codex",
+        ["logout"],
+        { ...process.env, CODEX_HOME: codexHome },
+        "Codex",
+      );
     }
     if (!preserved.has("claude") && (!state.authRetired || existsSync(claudeAuth))) {
       runLogout("claude", ["auth", "logout"], process.env, "Claude");
     }
-    if (!preserved.has("cursor") && config.cursorAgentBin && (!state.authRetired || existsSync(cursorAuth))) {
+    if (
+      !preserved.has("cursor") &&
+      config.cursorAgentBin &&
+      (!state.authRetired || existsSync(cursorAuth))
+    ) {
       runLogout(
         config.cursorAgentBin,
         ["logout"],
-        { ...withoutEnvironmentKey(process.env, "CURSOR_API_KEY"), AGENT_CLI_CREDENTIAL_STORE: "file" },
+        {
+          ...withoutEnvironmentKey(process.env, "CURSOR_API_KEY"),
+          AGENT_CLI_CREDENTIAL_STORE: "file",
+        },
         "Cursor",
       );
     }
-    await writeConfigEdits([{ keyPath: "forced_login_method", value: null, mergeStrategy: "replace" }]);
+    await writeConfigEdits([
+      { keyPath: "forced_login_method", value: null, mergeStrategy: "replace" },
+    ]);
     const retireGrok = !preserved.has("grok");
     if (retireGrok && state.grokAuthBackupPath) rmSync(state.grokAuthBackupPath, { force: true });
     atomicWriteJson(statePath, {
@@ -495,9 +658,11 @@ async function run(): Promise<void> {
       grokAuthExisted: retireGrok ? false : state.grokAuthExisted,
       grokAuthBackupPath: retireGrok ? null : state.grokAuthBackupPath,
     } satisfies ClientState);
-    process.stdout.write(state.authRetired
-      ? "retired returned coding vendor login state; gateway routing remains configured\n"
-      : `retired saved Codex, Claude${config.cursorAgentBin ? ", Cursor" : ""}, and Grok vendor logins; gateway routing remains configured\n`);
+    process.stdout.write(
+      state.authRetired
+        ? "retired returned coding vendor login state; gateway routing remains configured\n"
+        : `retired saved Codex, Claude${config.cursorAgentBin ? ", Cursor" : ""}, and Grok vendor logins; gateway routing remains configured\n`,
+    );
     return;
   }
 
@@ -505,8 +670,10 @@ async function run(): Promise<void> {
     const cursorCommands = config.cursorAgentBin ? captureCursorCommands(cursorCommandTargets) : [];
     const codexExisted = existsSync(codexConfig);
     const claudeExisted = existsSync(claudeSettings);
-    if (codexExisted && existsSync(codexBackupPath)) throw new Error(`refusing to overwrite existing backup: ${codexBackupPath}`);
-    if (claudeExisted && existsSync(claudeBackupPath)) throw new Error(`refusing to overwrite existing backup: ${claudeBackupPath}`);
+    if (codexExisted && existsSync(codexBackupPath))
+      throw new Error(`refusing to overwrite existing backup: ${codexBackupPath}`);
+    if (claudeExisted && existsSync(claudeBackupPath))
+      throw new Error(`refusing to overwrite existing backup: ${claudeBackupPath}`);
     if (codexExisted) atomicCopy(codexConfig, codexBackupPath, 0o600);
     if (claudeExisted) atomicCopy(claudeSettings, claudeBackupPath, 0o600);
     const grokConfigState = config.grokBin
@@ -538,16 +705,21 @@ async function run(): Promise<void> {
     if (state.version === 6) {
       // Remove only the launcher copy this repository installed; a vendor symlink
       // that the installer has since restored is left to its owner.
-      if (existsSync(retiredCursorCommandTarget)
-        && !lstatSync(retiredCursorCommandTarget).isSymbolicLink()
-        && (readFileSync(retiredCursorCommandTarget, "utf8") === sourceCursor
-          || createHash("sha256").update(readFileSync(retiredCursorCommandTarget)).digest("hex") === legacyCursorLauncherHash)) {
+      if (
+        existsSync(retiredCursorCommandTarget) &&
+        !lstatSync(retiredCursorCommandTarget).isSymbolicLink() &&
+        (readFileSync(retiredCursorCommandTarget, "utf8") === sourceCursor ||
+          createHash("sha256").update(readFileSync(retiredCursorCommandTarget)).digest("hex") ===
+            legacyCursorLauncherHash)
+      ) {
         rmSync(retiredCursorCommandTarget, { force: true });
       }
       atomicWriteJson(statePath, {
         ...state,
         version: 7,
-        cursorCommands: state.cursorCommands.filter((command) => command.path !== retiredCursorCommandTarget),
+        cursorCommands: state.cursorCommands.filter(
+          (command) => command.path !== retiredCursorCommandTarget,
+        ),
       } satisfies ClientStateV7);
     }
   }
@@ -561,7 +733,12 @@ async function run(): Promise<void> {
       const versions = join(home, ".local/share/cursor-agent/versions");
       if (dirname(dirname(target)) === versions && target.endsWith("/cursor-agent")) {
         const info = lstatSync(target);
-        if (!info.isFile() || info.uid !== process.getuid?.() || (info.mode & 0o022) !== 0 || (info.mode & 0o100) === 0) {
+        if (
+          !info.isFile() ||
+          info.uid !== process.getuid?.() ||
+          (info.mode & 0o022) !== 0 ||
+          (info.mode & 0o100) === 0
+        ) {
           throw new Error("updated Cursor executable must be an owner-controlled vendor file");
         }
         config = { ...config, cursorAgentBin: target };
@@ -576,19 +753,33 @@ async function run(): Promise<void> {
     const originalGrokConfig = state.grokConfigExisted
       ? readFileSync(state.grokConfigBackupPath || "", "utf8")
       : "";
-    atomicWriteText(grokConfig, grokGatewaySettings(originalGrokConfig, config.gatewaiBaseUrl, credentialTarget), 0o600);
+    atomicWriteText(
+      grokConfig,
+      grokGatewaySettings(originalGrokConfig, config.gatewaiBaseUrl, credentialTarget),
+      0o600,
+    );
     const login = spawnSync(config.grokBin, ["login"], {
       encoding: "utf8",
-      env: { ...withoutEnvironmentKey(process.env, "GROK_HOME"), HOME: home, LLM_GATEWAY_CONFIG: configPath },
+      env: {
+        ...withoutEnvironmentKey(process.env, "GROK_HOME"),
+        HOME: home,
+        LLM_GATEWAY_CONFIG: configPath,
+      },
     });
-    if (login.status !== 0) throw new Error(`Grok gateway login failed: ${login.stderr.trim() || login.stdout.trim() || `exit ${login.status ?? 1}`}`);
-    if (!existsSync(grokAuth) || !ownerOnly(grokAuth)) throw new Error("Grok gateway login did not create owner-only authentication");
+    if (login.status !== 0)
+      throw new Error(
+        `Grok gateway login failed: ${login.stderr.trim() || login.stdout.trim() || `exit ${login.status ?? 1}`}`,
+      );
+    if (!existsSync(grokAuth) || !ownerOnly(grokAuth))
+      throw new Error("Grok gateway login did not create owner-only authentication");
   }
   await writeConfigEdits(gatewayEdits(config, credentialTarget));
   chmodSync(codexConfig, 0o600);
   atomicWriteJson(claudeSettings, desiredClaudeSettings);
   const finalState = readState(statePath);
-  process.stdout.write(`configured Codex and Claude gateway routing${config.cursorAgentBin ? " plus canonical Cursor API-key commands" : ""}${config.grokBin ? " plus canonical Grok gateway routing" : ""}; ${finalState.authRetired ? "vendor logins remain retired" : "vendor login backups remain available"}\n`);
+  process.stdout.write(
+    `configured Codex and Claude gateway routing${config.cursorAgentBin ? " plus canonical Cursor API-key commands" : ""}${config.grokBin ? " plus canonical Grok gateway routing" : ""}; ${finalState.authRetired ? "vendor logins remain retired" : "vendor login backups remain available"}\n`,
+  );
 }
 
 if (import.meta.main) {

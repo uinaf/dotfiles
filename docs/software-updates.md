@@ -50,7 +50,8 @@ and [Linux timer](../chezmoi/private_dot_config/systemd/user/dotfiles-software-u
   Dirty, ahead, detached, or diverged checkouts retain local work and fail.
 - Commit and push source changes first. The job fast-forwards, trusts updated
   mise tasks, installs locked dependencies, and applies the selected profile.
-  Runtime versions follow declarations; saved coding-client logins are preserved.
+  Runtime versions follow declarations; [gateway client logins](devbox.md#opt-in-coding-llm-gateway)
+  are preserved.
 - Shared Homebrew is updated only by its prefix owner. Other users check package
   presence. See [shared Homebrew updates](bootstrap.md#shared-homebrew-updates).
 - The shared Homebrew update job runs `brew developer off` first. Any

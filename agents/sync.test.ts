@@ -1,16 +1,9 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import { afterEach, test } from "node:test";
+import { afterEach, test } from "vite-plus/test";
 import { fileURLToPath } from "node:url";
 
 import { readProfileModel } from "../profiles/model.ts";
@@ -74,7 +67,10 @@ class FixtureRuntime implements Runtime {
     return this.installedCommands.has(command);
   }
 
-  run(command: string, args: readonly string[]): { status: number; stdout: string; stderr: string } {
+  run(
+    command: string,
+    args: readonly string[],
+  ): { status: number; stdout: string; stderr: string } {
     this.calls.push({ command, args });
 
     if (command.endsWith("/resolve-profile.ts")) {
@@ -102,7 +98,10 @@ class FixtureRuntime implements Runtime {
       if (!this.falseSuccesses.has(skill)) {
         const skillDir = join(this.home, ".agents", "skills", skill);
         mkdirSync(skillDir, { recursive: true });
-        writeFileSync(join(skillDir, "SKILL.md"), `---\nname: ${skill}\ndescription: Fixture\n---\n`);
+        writeFileSync(
+          join(skillDir, "SKILL.md"),
+          `---\nname: ${skill}\ndescription: Fixture\n---\n`,
+        );
       }
       return { status: 0, stdout: "", stderr: "" };
     }
@@ -290,7 +289,10 @@ test("completes a successful skill sync without Git or rule changes", () => {
     runtime.calls.find((call) => call.command === "pnpm" && call.args[0] === "dlx")?.args[1],
     `skills@${DEFAULT_SKILLS_CLI_VERSION}`,
   );
-  assert.equal(runtime.calls.some((call) => call.command === "git"), false);
+  assert.equal(
+    runtime.calls.some((call) => call.command === "git"),
+    false,
+  );
   assert.equal(readFileSync(join(home, ".claude", "CLAUDE.md"), "utf8"), "existing Claude rules\n");
   assert.equal(readFileSync(join(home, ".codex", "AGENTS.md"), "utf8"), "existing Codex rules\n");
 });
@@ -300,7 +302,10 @@ test("installs the personal layer only for personal profiles", () => {
   const runtime = new FixtureRuntime(repoDir, home, { profile: "personal-devbox" });
 
   assert.equal(main(["--profile", "personal-devbox"], runtime), 0);
-  assert.deepEqual(installedSkillNames(runtime), [...fixtureSkills, ...fixturePersonalSkills].map((skill) => skill.name));
+  assert.deepEqual(
+    installedSkillNames(runtime),
+    [...fixtureSkills, ...fixturePersonalSkills].map((skill) => skill.name),
+  );
   assert.match(runtime.stdout.value, /Profile: personal-devbox/);
   assert.match(runtime.stdout.value, /Skill layers: developer, devbox, personal/);
 });
@@ -339,11 +344,14 @@ test("initializes a missing ownership lock without removing unowned skills", () 
   assert.equal(main([], runtime), 0);
   assert.deepEqual(removedSkillNames(runtime), []);
   assert.equal(existsSync(unownedSkill), true);
-  assert.deepEqual(
-    JSON.parse(readFileSync(skillLockPath(repoDir), "utf8")),
-    { version: 1, skills: fixtureSkills },
+  assert.deepEqual(JSON.parse(readFileSync(skillLockPath(repoDir), "utf8")), {
+    version: 1,
+    skills: fixtureSkills,
+  });
+  assert.match(
+    runtime.stdout.value,
+    /Initializing managed skills lock without removing existing skills/,
   );
-  assert.match(runtime.stdout.value, /Initializing managed skills lock without removing existing skills/);
 });
 
 test("removes only skills dropped from the previous managed lock", () => {
@@ -374,10 +382,10 @@ test("removes only skills dropped from the previous managed lock", () => {
   ]);
   assert.equal(existsSync(retiredDirectory), false);
   assert.equal(existsSync(unownedDirectory), true);
-  assert.deepEqual(
-    JSON.parse(readFileSync(skillLockPath(repoDir), "utf8")),
-    { version: 1, skills: fixtureSkills },
-  );
+  assert.deepEqual(JSON.parse(readFileSync(skillLockPath(repoDir), "utf8")), {
+    version: 1,
+    skills: fixtureSkills,
+  });
 });
 
 test("removes stale managed skills when no supported agent is installed", () => {
@@ -399,10 +407,10 @@ test("removes stale managed skills when no supported agent is installed", () => 
   assert.deepEqual(removedSkillNames(runtime), [retiredSkill.name]);
   assert.equal(existsSync(retiredDirectory), false);
   assert.equal(existsSync(unownedDirectory), true);
-  assert.deepEqual(
-    JSON.parse(readFileSync(skillLockPath(repoDir), "utf8")),
-    { version: 1, skills: fixtureSkills },
-  );
+  assert.deepEqual(JSON.parse(readFileSync(skillLockPath(repoDir), "utf8")), {
+    version: 1,
+    skills: fixtureSkills,
+  });
   assert.match(runtime.stdout.value, /skipping skill installation/);
 });
 
@@ -431,9 +439,7 @@ test("does not advance ownership when a managed removal fails", () => {
   const retiredDirectory = join(home, ".agents", "skills", retiredSkill.name);
   mkdirSync(retiredDirectory, { recursive: true });
   const runtime = new FixtureRuntime(repoDir, home, {
-    removalFailures: new Map([
-      [retiredSkill.name, { stdout: "", stderr: "remove failed" }],
-    ]),
+    removalFailures: new Map([[retiredSkill.name, { stdout: "", stderr: "remove failed" }]]),
   });
 
   assert.equal(main([], runtime), 1);
@@ -479,7 +485,10 @@ test("rejects unknown sync arguments without changing state", () => {
   const runtime = new FixtureRuntime(repoDir, home);
 
   assert.equal(main(["--refresh"], runtime), 2);
-  assert.match(runtime.stderr.value, /Usage: \.\/agents\/sync\.ts \[--profile PROFILE\] \[--update\]/);
+  assert.match(
+    runtime.stderr.value,
+    /Usage: \.\/agents\/sync\.ts \[--profile PROFILE\] \[--update\]/,
+  );
   assert.match(runtime.stderr.value, /Unknown argument: --refresh/);
   assert.equal(runtime.calls.length, 0);
 });
@@ -489,7 +498,10 @@ test("prints help without syncing", () => {
   const runtime = new FixtureRuntime(repoDir, home);
 
   assert.equal(main(["--help"], runtime), 0);
-  assert.match(runtime.stdout.value, /Usage: \.\/agents\/sync\.ts \[--profile PROFILE\] \[--update\]/);
+  assert.match(
+    runtime.stdout.value,
+    /Usage: \.\/agents\/sync\.ts \[--profile PROFILE\] \[--update\]/,
+  );
   assert.equal(runtime.calls.length, 0);
 });
 
@@ -507,9 +519,10 @@ test("runs skills update -g after a successful sync when --update is passed", ()
   const runtime = new FixtureRuntime(repoDir, home);
 
   assert.equal(main(["--update"], runtime), 0);
-  assert.deepEqual(updateCalls(runtime).map((call) => call.args), [
-    ["dlx", "skills@test-version", "update", "-g", "-y"],
-  ]);
+  assert.deepEqual(
+    updateCalls(runtime).map((call) => call.args),
+    [["dlx", "skills@test-version", "update", "-g", "-y"]],
+  );
   assert.match(runtime.stdout.value, /Updating globally installed skills\.\.\./);
   assert.match(runtime.stdout.value, /Done\./);
   assert.equal(installedSkillNames(runtime).length, fixtureSkills.length);

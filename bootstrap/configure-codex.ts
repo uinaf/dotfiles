@@ -16,22 +16,40 @@ const RpcMessage = Schema.Struct({
   result: Schema.optional(Schema.Unknown),
   error: Schema.optional(Schema.Struct({ message: Schema.optional(Schema.String) })),
 });
-type Scalar = boolean | null | number | string | readonly string[] | Readonly<Record<string, string>>;
+type Scalar =
+  | boolean
+  | null
+  | number
+  | string
+  | readonly string[]
+  | Readonly<Record<string, string>>;
 export type ConfigEdit = { keyPath: string; value: Scalar; mergeStrategy: "replace" | "upsert" };
 
-export function managedEdits(): ConfigEdit[] {
+function managedEdits(): ConfigEdit[] {
   return [
     { keyPath: "forced_login_method", value: null, mergeStrategy: "replace" },
     { keyPath: "model", value: "gpt-6-astra", mergeStrategy: "upsert" },
     { keyPath: "model_reasoning_effort", value: "medium", mergeStrategy: "upsert" },
     { keyPath: "service_tier", value: null, mergeStrategy: "replace" },
     { keyPath: "features.fast_mode", value: null, mergeStrategy: "replace" },
-    { keyPath: "features.context_management.experimental_mode", value: true, mergeStrategy: "upsert" },
+    {
+      keyPath: "features.context_management.experimental_mode",
+      value: true,
+      mergeStrategy: "upsert",
+    },
     // Every wait_agent poll re-sends the parent context. Codex defaults the
     // floor to 10 s and the default to 30 s; two minutes cuts empty polls
     // without stopping a worker from returning early on completion.
-    { keyPath: "features.multi_agent_v2.min_wait_timeout_ms", value: 120000, mergeStrategy: "upsert" },
-    { keyPath: "features.multi_agent_v2.default_wait_timeout_ms", value: 120000, mergeStrategy: "upsert" },
+    {
+      keyPath: "features.multi_agent_v2.min_wait_timeout_ms",
+      value: 120000,
+      mergeStrategy: "upsert",
+    },
+    {
+      keyPath: "features.multi_agent_v2.default_wait_timeout_ms",
+      value: 120000,
+      mergeStrategy: "upsert",
+    },
     { keyPath: "features.goals", value: true, mergeStrategy: "upsert" },
     { keyPath: "features.memories", value: false, mergeStrategy: "upsert" },
   ];
@@ -48,7 +66,9 @@ export async function writeConfigEdits(edits: readonly ConfigEdit[]): Promise<st
   });
   const lines = readline.createInterface({ input: child.stdout });
   let stderr = "";
-  child.stderr.on("data", (chunk: Buffer) => { stderr += chunk.toString(); });
+  child.stderr.on("data", (chunk: Buffer) => {
+    stderr += chunk.toString();
+  });
   const send = (message: unknown) => child.stdin.write(`${JSON.stringify(message)}\n`);
 
   await new Promise<void>((finish, reject) => {
@@ -78,12 +98,14 @@ export async function writeConfigEdits(edits: readonly ConfigEdit[]): Promise<st
         return;
       }
       if (message.id === 0) {
-        if (message.error) return fail(new Error(message.error.message || "Codex app-server initialization failed"));
+        if (message.error)
+          return fail(new Error(message.error.message || "Codex app-server initialization failed"));
         send({ method: "initialized", params: {} });
         send({ method: "config/batchWrite", id: 1, params: { edits, filePath: configPath } });
       }
       if (message.id === 1) {
-        if (message.error) return fail(new Error(message.error.message || "Codex config update failed"));
+        if (message.error)
+          return fail(new Error(message.error.message || "Codex config update failed"));
         completed = true;
         child.stdin.end();
       }
@@ -91,19 +113,21 @@ export async function writeConfigEdits(edits: readonly ConfigEdit[]): Promise<st
     send({
       method: "initialize",
       id: 0,
-      params: { clientInfo: { name: "dotfiles_bootstrap", title: "Dotfiles Bootstrap", version: "1" } },
+      params: {
+        clientInfo: { name: "dotfiles_bootstrap", title: "Dotfiles Bootstrap", version: "1" },
+      },
     });
   });
   chmodSync(configPath, 0o600);
   return configPath;
 }
 
-export async function configure(): Promise<string> {
+async function configure(): Promise<string> {
   return writeConfigEdits(managedEdits());
 }
 
 if (import.meta.main) {
-  const program = Effect.gen(function*() {
+  const program = Effect.gen(function* () {
     const args = process.argv.slice(2);
     const profileIndex = args.indexOf("--profile");
     if (args.length > 2 || (args.length > 0 && (profileIndex !== 0 || !args[1]))) {

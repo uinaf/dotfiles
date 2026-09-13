@@ -1,25 +1,40 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { test } from "vite-plus/test";
 import { Effect, FileSystem } from "effect";
 import { CommandError, CommandRunner } from "../../lib/command.ts";
 import { manageSchedule } from "./schedule.ts";
 
-function fixture(options: { missing?: string; linger?: boolean; failure?: string; spawnFailure?: boolean } = {}) {
+function fixture(
+  options: { missing?: string; linger?: boolean; failure?: string; spawnFailure?: boolean } = {},
+) {
   const calls: string[][] = [];
   const inspected: string[] = [];
-  const runner = CommandRunner.of({ run: (command, args = []) => {
-    calls.push([command, ...args]);
-    const failing = args.includes(options.failure ?? "never");
-    if (failing && options.spawnFailure) return Effect.fail(new CommandError({ command, message: "spawn failed" }));
-    return Effect.succeed({ status: failing ? 9 : 0, stdout: command === "loginctl" ? options.linger === false ? "no\n" : "yes\n" : "", stderr: failing ? "denied" : "" });
-  } });
-  const fs = FileSystem.makeNoop({ exists: path => {
-    inspected.push(path);
-    return Effect.succeed(!path.endsWith(options.missing ?? "never"));
-  } });
-  const run = (action: string) => Effect.runPromise(manageSchedule(action, "/home/test", 1000).pipe(
-    Effect.provideService(CommandRunner, runner), Effect.provideService(FileSystem.FileSystem, fs),
-  ));
+  const runner = CommandRunner.of({
+    run: (command, args = []) => {
+      calls.push([command, ...args]);
+      const failing = args.includes(options.failure ?? "never");
+      if (failing && options.spawnFailure)
+        return Effect.fail(new CommandError({ command, message: "spawn failed" }));
+      return Effect.succeed({
+        status: failing ? 9 : 0,
+        stdout: command === "loginctl" ? (options.linger === false ? "no\n" : "yes\n") : "",
+        stderr: failing ? "denied" : "",
+      });
+    },
+  });
+  const fs = FileSystem.makeNoop({
+    exists: (path) => {
+      inspected.push(path);
+      return Effect.succeed(!path.endsWith(options.missing ?? "never"));
+    },
+  });
+  const run = (action: string) =>
+    Effect.runPromise(
+      manageSchedule(action, "/home/test", 1000).pipe(
+        Effect.provideService(CommandRunner, runner),
+        Effect.provideService(FileSystem.FileSystem, fs),
+      ),
+    );
   return { calls, inspected, run };
 }
 
@@ -57,7 +72,9 @@ test("run is nonblocking and does not require unit files or lingering", async ()
   const f = fixture({ missing: "service", linger: false });
   await f.run("run");
   assert.deepEqual(f.inspected, []);
-  assert.deepEqual(f.calls, [["systemctl", "--user", "start", "--no-block", "dotfiles-software-update.service"]]);
+  assert.deepEqual(f.calls, [
+    ["systemctl", "--user", "start", "--no-block", "dotfiles-software-update.service"],
+  ]);
 });
 
 for (const failure of ["disable", "stop"]) {

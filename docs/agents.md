@@ -1,7 +1,7 @@
 # Agent Setup
 
-The five [profiles](profiles.md) install global rules, skills,
-plugins, and MCP servers.
+The selected [profile](profiles.md) controls global rules, skills, plugins,
+and MCP servers.
 
 ## Global Rules
 
@@ -10,25 +10,21 @@ plugins, and MCP servers.
 into `~/AGENTS.md`; `~/.claude/CLAUDE.md` and `~/.codex/AGENTS.md` link there.
 Edit shared rules at their configured source and private instructions in:
 
-| File | Position |
-| --- | --- |
+| File                                 | Position            |
+| ------------------------------------ | ------------------- |
 | `~/.config/dotfiles/agents.start.md` | Before shared rules |
-| `~/.config/dotfiles/agents.end.md` | After shared rules |
+| `~/.config/dotfiles/agents.end.md`   | After shared rules  |
 
 - Fragments are optional, literal Markdown. Each file or resolved symlink target
   must be a regular file owned by the current user with no group or other access.
-- Shared rules begin at `## General guidelines`; fragments own their headings.
 - Generated rule files are replaced without backups. Keep private edits in fragments.
-- Managed Claude and Codex settings disable native auto-memory.
 
 Preview and apply through the [profile setup workflow](bootstrap.md#apply-a-profile).
 
-- Both commands refresh `${XDG_STATE_HOME:-~/.local/state}/dotfiles/agent-rules.md`.
-- Fetched sources must be non-empty, have no frontmatter, compose under
-  `## General guidelines`, and pass Gitleaks.
-- Invalid content fails without replacing the cache. An unavailable source or
-  scanner uses a valid existing cache; without one, the command fails.
-- Set `DOTFILES_AGENT_RULES_OFFLINE=1` to require the cache and skip fetching.
+The [rule loader](../agents/rules.ts) owns validation and cache fallback.
+Invalid content leaves the existing cache intact. If fetching or scanning is
+unavailable, setup needs a valid cache to continue. Set
+`DOTFILES_AGENT_RULES_OFFLINE=1` to require cached rules without fetching.
 
 ## Skill Sync
 
@@ -39,7 +35,6 @@ mise run agents:sync
 mise run agents:update
 ```
 
-- `sync` applies skills, plugins, then MCP servers.
 - `update` also refreshes **all global skills**, including manually installed
   extras, and managed plugins.
 - A failed global skill update leaves the completed manifest sync in place.
@@ -47,16 +42,14 @@ mise run agents:update
 
 Edit the selected layer under each manifest directory:
 
-| Selection | Manifests | Implementation |
-| --- | --- | --- |
-| Skills | [skills/](../agents/skills/) | [sync.ts](../agents/sync.ts) |
-| Plugins | [plugins/](../agents/plugins/) | [plugins.ts](../agents/plugins.ts) |
-| MCP servers | [mcps/](../agents/mcps/) | [mcps.ts](../agents/mcps.ts) |
+| Selection   | Manifests                      | Implementation                     |
+| ----------- | ------------------------------ | ---------------------------------- |
+| Skills      | [skills/](../agents/skills/)   | [sync.ts](../agents/sync.ts)       |
+| Plugins     | [plugins/](../agents/plugins/) | [plugins.ts](../agents/plugins.ts) |
+| MCP servers | [mcps/](../agents/mcps/)       | [mcps.ts](../agents/mcps.ts)       |
 
-- The [profile model](../chezmoi/.chezmoidata/profiles.json) selects layer composition.
-- Skills install for available Claude and Codex CLIs.
-- Plugin and MCP entries can narrow `harnesses` to Claude, Codex, Cursor, Grok,
-  or OpenCode.
+The [profile model](../chezmoi/.chezmoidata/profiles.json) selects `skillLayers`;
+each parser defines its manifest fields and supported harnesses.
 
 Each sync keeps an ignored `agents/{skills,plugins,mcps}.lock.json`:
 
@@ -68,9 +61,6 @@ Each sync keeps an ignored `agents/{skills,plugins,mcps}.lock.json`:
 
 ## Plugin Sync
 
-- Plugin entries name a `marketplace` repository and plugin `name`.
-  `marketplaceId` overrides the registered marketplace name when needed.
-- The parser in [plugins.ts](../agents/plugins.ts) owns the schema.
 - Cursor marketplace installs need completion in `/plugins`. If imports are
   blocked, `cursorMode: "skills"` uses skill links and requires both `cursor`
   and `claude` in `harnesses`.
@@ -84,9 +74,6 @@ Each sync keeps an ignored `agents/{skills,plugins,mcps}.lock.json`:
 
 ## MCP Sync
 
-- MCP entries set `name`, an HTTPS `url`, and optional `harnesses`.
-- Sync preserves unrelated Cursor and OpenCode config fields.
-
 Executor and other OAuth servers expire their sessions per harness. Check
 every installed harness at once and get the repair command per row:
 
@@ -94,21 +81,16 @@ every installed harness at once and get the repair command per row:
 mise run agents:doctor
 ```
 
-| Harness | Re-authenticate |
-| --- | --- |
-| Claude Code | `claude mcp login <server>` (`--no-browser` over SSH) |
-| Codex | `codex mcp login <server>` |
-| Cursor | `cursor-agent mcp login <server>` in the project directory; tokens are per project, so seed a new checkout or worktree with `./agents/cursor-mcp-seed.ts` |
-| OpenCode | `opencode mcp auth <server>` |
-| Grok | `./agents/grok-mcp-login.ts <server>` (writes Grok 1.0.25's credential format; the TUI path is `/mcps`, select, `i`) |
+Use the repair command printed by [doctor.ts](../agents/doctor.ts). Cursor
+stores OAuth tokens per project; use [cursor-mcp-seed.ts](../agents/cursor-mcp-seed.ts)
+to seed a new checkout or worktree.
 
 Over SSH the callback port stays on the remote host: run the login under
 `ssh -t` (Claude and Codex need a TTY) and forward the printed loopback port
 with `ssh -L PORT:127.0.0.1:PORT` before opening the URL locally.
 
-The doctor also reports Grok installation drift: `grok` must resolve to the
-Homebrew `grok-build` cask (installed by `personal-workstation`), so an npm
-global or a `~/.grok/bin` self-updater copy is removed rather than kept.
+The doctor also reports Grok installation drift and prints the repair command.
+Review it before removing a conflicting installation.
 
 ## Verify
 

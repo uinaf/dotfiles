@@ -5,12 +5,17 @@
       "id": "dotfiles-convergence",
       "domain": "services",
       "command": [
-        "node",
-        "--test",
+        "corepack",
+        "pnpm",
+        "exec",
+        "vp",
+        "test",
         "maintenance/converge.test.ts",
         "lib/lock.test.ts",
         "lib/git-checkout.test.ts",
-        "bootstrap/install-cursor-agent.test.ts"
+        "bootstrap/install-cursor-agent.test.ts",
+        "lib/program.test.ts",
+        "lib/command.test.ts"
       ],
       "output": "Default-branch convergence, local-work preservation, lock ownership and reclaim, dependency failures, and unattended profile setup"
     },
@@ -18,8 +23,11 @@
       "id": "host-hygiene",
       "domain": "services",
       "command": [
-        "node",
-        "--test",
+        "corepack",
+        "pnpm",
+        "exec",
+        "vp",
+        "test",
         "maintenance/hygiene.test.ts",
         "maintenance/cache-cleanup.test.ts"
       ],
@@ -29,8 +37,11 @@
       "id": "maintenance-schedule",
       "domain": "services",
       "command": [
-        "node",
-        "--test",
+        "corepack",
+        "pnpm",
+        "exec",
+        "vp",
+        "test",
         "maintenance/darwin/schedule.test.ts",
         "maintenance/darwin/devbox.test.ts"
       ],
@@ -40,118 +51,90 @@
     {
       "id": "update-run",
       "domain": "services",
-      "command": [
-        "node",
-        "--test",
-        "maintenance/run.test.ts"
-      ],
+      "command": ["corepack", "pnpm", "exec", "vp", "test", "maintenance/run.test.ts"],
       "output": "Monitored update run receipts, heartbeat delivery, and on-demand serialization"
     },
     {
       "id": "static",
       "domain": "static",
-      "command": [
-        "node",
-        "verify/static.ts"
-      ],
+      "command": ["node", "verify/static.ts"],
       "output": "Syntax, lint, workflow, entrypoint, and Git diff hygiene"
     },
     {
       "id": "verification-runner",
       "domain": "static",
-      "command": [
-        "node",
-        "--test",
-        "verify/runner.test.ts"
-      ],
+      "command": ["corepack", "pnpm", "exec", "vp", "test", "verify/runner.test.ts"],
       "output": "Prompt check results, bounded timeout, and scoped child cleanup"
     },
     {
       "id": "mise-tasks",
       "domain": "static",
-      "command": [
-        "node",
-        "--test",
-        "verify/mise-tasks.test.ts"
-      ],
+      "command": ["corepack", "pnpm", "exec", "vp", "test", "verify/mise-tasks.test.ts"],
       "output": "Validated task graph, typed arguments, routing, and failure propagation"
     },
     {
-      "id": "typecheck",
+      "id": "toolchain",
       "domain": "static",
-      "command": [
-        "corepack",
-        "pnpm",
-        "typecheck"
-      ],
-      "output": "Strict TypeScript and Effect service contracts"
+      "command": ["corepack", "pnpm", "exec", "vp", "check"],
+      "output": "Oxfmt formatting, Oxlint type-aware lint, and strict TypeScript checks"
+    },
+    {
+      "id": "knip",
+      "domain": "static",
+      "command": ["corepack", "pnpm", "exec", "knip"],
+      "output": "Unused files, exports, and dependencies across CLI, adapter, and test entrypoints"
     },
     {
       "id": "vendor-neutral",
       "domain": "static",
-      "command": [
-        "verify/vendor-neutral.ts"
-      ],
+      "command": ["verify/vendor-neutral.ts"],
       "output": "Portable public interfaces"
     },
     {
       "id": "dotfiles",
       "domain": "config",
       "scope": "complete",
-      "command": [
-        "node",
-        "verify/home-fixture.ts"
-      ],
+      "command": ["node", "verify/home-fixture.ts"],
       "output": "All profiles apply in isolated disposable homes"
     },
     {
       "id": "apply-backups",
       "domain": "config",
-      "command": [
-        "node",
-        "--test",
-        "bootstrap/apply-dotfiles.test.ts"
-      ],
+      "command": ["corepack", "pnpm", "exec", "vp", "test", "bootstrap/apply-dotfiles.test.ts"],
       "output": "Home backups, retired LaunchAgents, and Linux user-manager PATH convergence"
     },
     {
       "id": "claude-settings",
       "domain": "config",
-      "command": [
-        "node",
-        "verify/claude-settings.ts"
-      ],
+      "command": ["node", "verify/claude-settings.ts"],
       "output": "Claude user settings preserve unrelated keys and select Fable 5.1 at medium effort"
     },
     {
       "id": "cursor-settings",
       "domain": "config",
-      "command": [
-        "node",
-        "verify/cursor-settings.ts"
-      ],
+      "command": ["node", "verify/cursor-settings.ts"],
       "output": "Cursor user settings preserve unrelated keys and select profile-aware Grok defaults"
     },
     {
       "id": "codex-settings",
       "domain": "config",
-      "command": [
-        "node",
-        "--test",
-        "bootstrap/configure-codex.test.ts"
-      ],
+      "command": ["corepack", "pnpm", "exec", "vp", "test", "bootstrap/configure-codex.test.ts"],
       "output": "Codex typed atomic edits plus native write integration when Codex is installed"
     },
     {
       "id": "llm-gateway",
       "domain": "config",
       "command": [
-        "node",
-        "--test",
+        "corepack",
+        "pnpm",
+        "exec",
+        "vp",
+        "test",
         "bootstrap/configure-llm-gateway.test.ts",
         "bootstrap/configure-llm-gateway-grok.test.ts",
         "agents/gateway/adapters.test.ts",
-        "agents/gateway/acp.test.ts"
+        "agents/gateway/acp.test.ts",
+        "agents/gateway/gateway-runtime.test.ts"
       ],
       "output": "Standalone Effect gateway adapters, ACP framing and lifecycle, credential isolation, provider routing, check, and exact rollback"
     },
@@ -159,8 +142,11 @@
       "id": "bifrost-clients",
       "domain": "config",
       "command": [
-        "node",
-        "--test",
+        "corepack",
+        "pnpm",
+        "exec",
+        "vp",
+        "test",
         "bootstrap/configure-bifrost-clients.test.ts"
       ],
       "output": "OpenCode and Pi Bifrost credential and six-model catalog convergence"
@@ -168,19 +154,18 @@
     {
       "id": "agent-rule-sources",
       "domain": "agents",
-      "command": [
-        "node",
-        "--test",
-        "agents/rules.test.ts"
-      ],
+      "command": ["corepack", "pnpm", "exec", "vp", "test", "agents/rules.test.ts"],
       "output": "Ordered remote rule validation, atomic machine-local cache updates, and offline fallback"
     },
     {
       "id": "agent-rules",
       "domain": "agents",
       "command": [
-        "node",
-        "--test",
+        "corepack",
+        "pnpm",
+        "exec",
+        "vp",
+        "test",
         "verify/agent-rules.test.ts",
         "verify/agent-rules-conflicts.test.ts",
         "verify/agent-rules-safety.test.ts"
@@ -191,8 +176,11 @@
       "id": "agent-worktree-trust",
       "domain": "agents",
       "command": [
-        "node",
-        "--test",
+        "corepack",
+        "pnpm",
+        "exec",
+        "vp",
+        "test",
         "bootstrap/trust-agent-worktrees.test.ts"
       ],
       "output": "Bounded generated-worktree mise config discovery and trust"
@@ -200,17 +188,18 @@
     {
       "id": "profiles",
       "domain": "profiles",
-      "command": [
-        "verify/profiles.ts"
-      ],
+      "command": ["verify/profiles.ts"],
       "output": "Profile package, install, and managed-path contracts"
     },
     {
       "id": "operator-command",
       "domain": "profiles",
       "command": [
-        "node",
-        "--test",
+        "corepack",
+        "pnpm",
+        "exec",
+        "vp",
+        "test",
         "verify/dotfiles.test.ts",
         "verify/runtime-pins.test.ts",
         "bootstrap/darwin/xcode.test.ts"
@@ -220,28 +209,20 @@
     {
       "id": "profile-model",
       "domain": "profiles",
-      "command": [
-        "node",
-        "--test",
-        "profiles/model.test.ts"
-      ],
+      "command": ["corepack", "pnpm", "exec", "vp", "test", "profiles/model.test.ts"],
       "output": "Strict profile model parsing and chezmoi consumption"
     },
     {
       "id": "brew-devbox",
       "domain": "profiles",
-      "command": [
-        "homebrew/verify/brew-devbox.ts"
-      ],
+      "command": ["homebrew/verify/brew-devbox.ts"],
       "output": "Devbox Homebrew behavior",
       "platform": "darwin"
     },
     {
       "id": "external-homebrew",
       "domain": "profiles",
-      "command": [
-        "homebrew/verify/external-homebrew.ts"
-      ],
+      "command": ["homebrew/verify/external-homebrew.ts"],
       "output": "External Homebrew capability boundary",
       "platform": "darwin"
     },
@@ -249,8 +230,11 @@
       "id": "chrome-state",
       "domain": "profiles",
       "command": [
-        "node",
-        "--test",
+        "corepack",
+        "pnpm",
+        "exec",
+        "vp",
+        "test",
         "bootstrap/darwin/chrome-state.test.ts"
       ],
       "output": "Atomic Chrome Local State updates and malformed-input preservation",
@@ -260,8 +244,11 @@
       "id": "spotlight-policy",
       "domain": "profiles",
       "command": [
-        "node",
-        "--test",
+        "corepack",
+        "pnpm",
+        "exec",
+        "vp",
+        "test",
         "bootstrap/darwin/configure-spotlight.test.ts"
       ],
       "output": "Strict Spotlight policy verification, explicit opt-out, and command isolation",
@@ -270,41 +257,31 @@
     {
       "id": "mise-path",
       "domain": "profiles",
-      "command": [
-        "verify/mise-path-isolation.ts"
-      ],
+      "command": ["verify/mise-path-isolation.ts"],
       "output": "Mise runtime path isolation"
     },
     {
       "id": "sops-age",
       "domain": "identity",
-      "command": [
-        "verify/sops-age-identity.ts"
-      ],
+      "command": ["verify/sops-age-identity.ts"],
       "output": "SOPS age identity boundary"
     },
     {
       "id": "sops-sudo",
       "domain": "identity",
-      "command": [
-        "verify/sops-devbox-sudo.ts"
-      ],
+      "command": ["verify/sops-devbox-sudo.ts"],
       "output": "SOPS-backed sudo boundary"
     },
     {
       "id": "git-bootstrap",
       "domain": "identity",
-      "command": [
-        "verify/configure-git.ts"
-      ],
+      "command": ["verify/configure-git.ts"],
       "output": "Git identity and signing behavior"
     },
     {
       "id": "service-labels",
       "domain": "services",
-      "command": [
-        "verify/darwin/service-labels.ts"
-      ],
+      "command": ["verify/darwin/service-labels.ts"],
       "output": "Launchd service labels",
       "platform": "darwin"
     },
@@ -312,8 +289,11 @@
       "id": "maintenance-check",
       "domain": "services",
       "command": [
-        "node",
-        "--test",
+        "corepack",
+        "pnpm",
+        "exec",
+        "vp",
+        "test",
         "maintenance/check.test.ts",
         "maintenance/darwin/macos-updates.test.ts"
       ],
@@ -322,29 +302,24 @@
     {
       "id": "audit-adapters",
       "domain": "audit",
-      "command": [
-        "node",
-        "--test",
-        "audit/adapters.test.ts"
-      ],
+      "command": ["corepack", "pnpm", "exec", "vp", "test", "audit/adapters.test.ts"],
       "output": "Typed Lynis, repository scanner, and mSCP adapters"
     },
     {
       "id": "audit-data",
       "domain": "audit",
-      "command": [
-        "node",
-        "--test",
-        "audit/data.test.ts"
-      ],
+      "command": ["corepack", "pnpm", "exec", "vp", "test", "audit/data.test.ts"],
       "output": "Typed SQLite header and sanitized Gitleaks report handling"
     },
     {
       "id": "audit-engine",
       "domain": "audit",
       "command": [
-        "node",
-        "--test",
+        "corepack",
+        "pnpm",
+        "exec",
+        "vp",
+        "test",
         "audit/engine.test.ts",
         "audit/devbox.test.ts"
       ],
@@ -353,39 +328,30 @@
     {
       "id": "agent-sync",
       "domain": "agents",
-      "command": [
-        "node",
-        "--test",
-        "agents/sync.test.ts"
-      ],
+      "command": ["corepack", "pnpm", "exec", "vp", "test", "agents/sync.test.ts"],
       "output": "External agent skill installation and ownership"
     },
     {
       "id": "agent-plugins",
       "domain": "agents",
-      "command": [
-        "node",
-        "--test",
-        "agents/plugins.test.ts"
-      ],
+      "command": ["corepack", "pnpm", "exec", "vp", "test", "agents/plugins.test.ts"],
       "output": "Declarative coding-agent plugin marketplaces and per-harness install planning"
     },
     {
       "id": "agent-mcps",
       "domain": "agents",
-      "command": [
-        "node",
-        "--test",
-        "agents/mcps.test.ts"
-      ],
+      "command": ["corepack", "pnpm", "exec", "vp", "test", "agents/mcps.test.ts"],
       "output": "Declarative MCP server convergence across coding-agent harnesses"
     },
     {
       "id": "agent-doctor",
       "domain": "agents",
       "command": [
-        "node",
-        "--test",
+        "corepack",
+        "pnpm",
+        "exec",
+        "vp",
+        "test",
         "agents/doctor.test.ts",
         "agents/grok-mcp-login.test.ts",
         "agents/cursor-mcp-seed.test.ts"
@@ -395,33 +361,30 @@
     {
       "id": "gh-extensions",
       "domain": "agents",
-      "command": [
-        "verify/gh-extensions.ts"
-      ],
+      "command": ["verify/gh-extensions.ts"],
       "output": "GitHub CLI extension installation"
     },
     {
       "id": "zsh-prompt",
       "domain": "config",
-      "command": [
-        "verify/zsh-prompt.ts"
-      ],
+      "command": ["verify/zsh-prompt.ts"],
       "output": "Managed zsh login PATH and prompt behavior"
     },
     {
       "id": "zshenv-overlay",
       "domain": "config",
-      "command": [
-        "verify/zshenv.ts"
-      ],
+      "command": ["verify/zshenv.ts"],
       "output": "Managed zshenv sources an optional machine-local overlay"
     },
     {
       "id": "pre-push",
       "domain": "git",
       "command": [
-        "node",
-        "--test",
+        "corepack",
+        "pnpm",
+        "exec",
+        "vp",
+        "test",
         "verify/pre-push.test.ts",
         "verify/pre-push-installer.test.ts"
       ],
@@ -431,19 +394,18 @@
       "id": "history-secrets",
       "domain": "security",
       "gate": "history",
-      "command": [
-        "node",
-        "audit/repo.ts",
-        "--skip-mscp"
-      ],
+      "command": ["node", "audit/repo.ts", "--skip-mscp"],
       "output": "Fail-closed full-history secret scan"
     },
     {
       "id": "linux-service-lifecycle",
       "domain": "services",
       "command": [
-        "node",
-        "--test",
+        "corepack",
+        "pnpm",
+        "exec",
+        "vp",
+        "test",
         "maintenance/linux/schedule.test.ts",
         "bootstrap/install-t3-service.test.ts"
       ],
@@ -452,21 +414,13 @@
     {
       "id": "homebrew-layers",
       "domain": "profiles",
-      "command": [
-        "node",
-        "--test",
-        "homebrew/verify/layers.test.ts"
-      ],
+      "command": ["corepack", "pnpm", "exec", "vp", "test", "homebrew/verify/layers.test.ts"],
       "output": "Evaluated per-profile Homebrew layers and composed manifest parity"
     },
     {
       "id": "agent-lock-migration",
       "domain": "agents",
-      "command": [
-        "node",
-        "--test",
-        "agents/lock.test.ts"
-      ],
+      "command": ["corepack", "pnpm", "exec", "vp", "test", "agents/lock.test.ts"],
       "output": "Preserved private ownership state across directory migration"
     }
   ]

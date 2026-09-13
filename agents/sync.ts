@@ -68,7 +68,9 @@ function readSkills(manifestPath: string): Skill[] {
     !Array.isArray(parsed.skills) ||
     !parsed.skills.every(isSkill)
   ) {
-    throw new Error(`Invalid skills manifest at ${manifestPath}: expected non-empty name/source strings`);
+    throw new Error(
+      `Invalid skills manifest at ${manifestPath}: expected non-empty name/source strings`,
+    );
   }
 
   const names = parsed.skills.map((skill) => skill.name);
@@ -253,11 +255,10 @@ function installSkills(
 
 function updateGlobalSkills(runtime: Runtime, cliVersion: string): number {
   writeLine(runtime.stdout, "Updating globally installed skills...");
-  const result = runtime.run(
-    "pnpm",
-    ["dlx", `skills@${cliVersion}`, "update", "-g", "-y"],
-    { stdout: "inherit", stderr: "inherit" },
-  );
+  const result = runtime.run("pnpm", ["dlx", `skills@${cliVersion}`, "update", "-g", "-y"], {
+    stdout: "inherit",
+    stderr: "inherit",
+  });
 
   if (result.status === 0) {
     return 0;
@@ -282,14 +283,7 @@ function removeSkills(
     writeLine(runtime.stdout, `Removing stale managed skill: ${skill.name}`);
     const result = runtime.run(
       "pnpm",
-      [
-        "dlx",
-        `skills@${cliVersion}`,
-        "remove",
-        skill.name,
-        "-g",
-        "-y",
-      ],
+      ["dlx", `skills@${cliVersion}`, "remove", skill.name, "-g", "-y"],
       { stdout: "capture", stderr: "capture" },
     );
 
@@ -340,7 +334,7 @@ type ParsedArgs =
 
 const USAGE = "Usage: ./agents/sync.ts [--profile PROFILE] [--update]";
 
-export function parseArgs(args: readonly string[]): ParsedArgs {
+function parseArgs(args: readonly string[]): ParsedArgs {
   let profile: string | undefined;
   let update = false;
 
@@ -405,7 +399,10 @@ function sync(runtime: Runtime, options: SyncOptions): number {
   writeLine(runtime.stdout, `Profile: ${profileName}`);
   writeLine(runtime.stdout, `Skill layers: ${layers.join(", ")}`);
   if (agents.length === 0) {
-    writeLine(runtime.stdout, "No supported agent installations found; skipping skill installation");
+    writeLine(
+      runtime.stdout,
+      "No supported agent installations found; skipping skill installation",
+    );
   } else {
     writeLine(runtime.stdout, `Installing skills for agents: ${agents.join(" ")}`);
     const status = installSkills(runtime, skills, agents, cliVersion, home);
@@ -459,5 +456,9 @@ export function main(args: readonly string[], runtime: Runtime = createRuntime()
 
 const entrypoint = process.argv[1];
 if (entrypoint !== undefined && resolve(entrypoint) === fileURLToPath(import.meta.url)) {
-  runMain(Effect.sync(() => { process.exitCode = main(process.argv.slice(2)); }));
+  runMain(
+    Effect.sync(() => {
+      process.exitCode = main(process.argv.slice(2));
+    }),
+  );
 }

@@ -3,7 +3,7 @@ import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import { afterEach, test } from "node:test";
+import { afterEach, test } from "vite-plus/test";
 import { fileURLToPath } from "node:url";
 
 import { readProfileModel } from "../profiles/model.ts";
@@ -71,7 +71,10 @@ class FixtureRuntime implements Runtime {
     return this.installedCommands.has(command);
   }
 
-  run(command: string, args: readonly string[]): { status: number; stdout: string; stderr: string } {
+  run(
+    command: string,
+    args: readonly string[],
+  ): { status: number; stdout: string; stderr: string } {
     this.calls.push({ command, args });
 
     if (command.endsWith("/resolve-profile.ts")) {
@@ -147,9 +150,7 @@ function manifestPath(repoDir: string, layer: string): string {
 }
 
 function harnessCalls(runtime: FixtureRuntime, binary: string): string[] {
-  return runtime.calls
-    .filter((call) => call.command === binary)
-    .map((call) => call.args.join(" "));
+  return runtime.calls.filter((call) => call.command === binary).map((call) => call.args.join(" "));
 }
 
 function cursorConfigPath(home: string): string {
@@ -205,7 +206,10 @@ test("rejects an unknown or duplicated harness", () => {
   writeManifest(repoDir, "developer", [
     { name: "one", url: "https://mcp.fixture.test", harnesses: ["claude", "windsurf"] },
   ]);
-  assert.throws(() => readServers(manifestPath(repoDir, "developer")), /harnesses must be a unique/);
+  assert.throws(
+    () => readServers(manifestPath(repoDir, "developer")),
+    /harnesses must be a unique/,
+  );
 });
 
 test("rejects a conflicting layered definition and collapses an identical one", () => {
@@ -267,7 +271,10 @@ test("skips a Claude server whose URL already matches", () => {
   const { repoDir, home } = createFixture();
   const runtime = new FixtureRuntime(repoDir, home, {
     outputs: new Map([
-      ["claude mcp get shared-mcp", "shared-mcp:\n  Type: http\n  URL: https://mcp.fixture.test/mcp\n"],
+      [
+        "claude mcp get shared-mcp",
+        "shared-mcp:\n  Type: http\n  URL: https://mcp.fixture.test/mcp\n",
+      ],
     ]),
   });
 
@@ -280,7 +287,10 @@ test("replaces a Claude server whose URL changed", () => {
   const { repoDir, home } = createFixture();
   const runtime = new FixtureRuntime(repoDir, home, {
     outputs: new Map([
-      ["claude mcp get shared-mcp", "shared-mcp:\n  Type: http\n  URL: https://old.fixture.test/mcp\n"],
+      [
+        "claude mcp get shared-mcp",
+        "shared-mcp:\n  Type: http\n  URL: https://old.fixture.test/mcp\n",
+      ],
     ]),
   });
 
@@ -412,7 +422,10 @@ test("skips a harness whose CLI is not installed", () => {
 
   assert.equal(main([], runtime), 0);
   assert.match(runtime.stdout.value, /Skipping Grok MCP servers: 'grok' is not installed/);
-  assert.match(runtime.stdout.value, /Skipping Cursor MCP servers: 'cursor-agent' is not installed/);
+  assert.match(
+    runtime.stdout.value,
+    /Skipping Cursor MCP servers: 'cursor-agent' is not installed/,
+  );
   assert.deepEqual(harnessCalls(runtime, "grok"), []);
 });
 
@@ -429,7 +442,10 @@ test("reports every failing command with a redacted diagnostic", () => {
 
   assert.equal(main([], runtime), 1);
   assert.match(runtime.stderr.value, /MCP sync failed for 1 command:/);
-  assert.match(runtime.stderr.value, /Codex: mcp add shared-mcp --url https:\/\/mcp\.fixture\.test\/mcp \(exit 1\)/);
+  assert.match(
+    runtime.stderr.value,
+    /Codex: mcp add shared-mcp --url https:\/\/mcp\.fixture\.test\/mcp \(exit 1\)/,
+  );
   assert.match(runtime.stderr.value, /token=\[REDACTED\]/);
   assert.doesNotMatch(runtime.stderr.value, /stderr-secret/);
   assert.doesNotMatch(runtime.stdout.value, /Done\./);
@@ -486,7 +502,10 @@ test("initializes a missing ownership lock without removing unowned servers", ()
     version: 1,
     servers: [{ name: "shared-mcp", harnesses: [...HARNESSES] }],
   });
-  assert.match(runtime.stdout.value, /Initializing managed MCP lock without removing existing servers/);
+  assert.match(
+    runtime.stdout.value,
+    /Initializing managed MCP lock without removing existing servers/,
+  );
 });
 
 test("removes only servers dropped from the previous managed lock", () => {

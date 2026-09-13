@@ -4,7 +4,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const verifyDir = dirname(fileURLToPath(import.meta.url));
-export const hook = resolve(verifyDir, "pre-push.ts");
+const hook = resolve(verifyDir, "pre-push.ts");
 export const installer = resolve(verifyDir, "install-pre-push-hook.ts");
 
 export type Repository = {
@@ -47,7 +47,12 @@ export function commit(repo: Repository, content: string, name = "file.txt"): st
   return run(repo.path, ["git", "rev-parse", "HEAD"]);
 }
 
-export function invoke(repo: Repository, input: string, remote = "origin", location = "fixture"): ReturnType<typeof spawnSync> {
+export function invoke(
+  repo: Repository,
+  input: string,
+  remote = "origin",
+  location = "fixture",
+): ReturnType<typeof spawnSync> {
   return spawnSync(process.execPath, [hook, remote, location], {
     cwd: repo.path,
     encoding: "utf8",

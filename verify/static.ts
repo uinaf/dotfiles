@@ -18,7 +18,11 @@ const ghosttyConfig = resolve(
 );
 const blackWallpaper = resolve(repoRoot, "bootstrap/darwin/assets/black-wallpaper.plist");
 
-const runRequired = Effect.fn("runRequired")(function*(command: string, args: readonly string[], label: string) {
+const runRequired = Effect.fn("runRequired")(function* (
+  command: string,
+  args: readonly string[],
+  label: string,
+) {
   const runner = yield* CommandRunner;
   const result = yield* runner.run(command, args, { cwd: repoRoot, env: { NO_COLOR: "1" } });
   if (result.status === 0) {
@@ -31,20 +35,23 @@ const runRequired = Effect.fn("runRequired")(function*(command: string, args: re
   return yield* fail(`${label} exited ${result.status}`);
 });
 
-const program = Effect.gen(function*() {
+const program = Effect.gen(function* () {
   const fs = yield* FileSystem.FileSystem;
   const runner = yield* CommandRunner;
-  const listed = yield* runner.run("git", ["ls-files", "--cached", "--others", "--exclude-standard", "-z", "--", "*.sh"], { cwd: repoRoot });
+  const listed = yield* runner.run(
+    "git",
+    ["ls-files", "--cached", "--others", "--exclude-standard", "-z", "--", "*.sh"],
+    { cwd: repoRoot },
+  );
   if (listed.status !== 0) return yield* fail("cannot discover shell sources");
   const trackedShell = yield* Effect.filter(
-    listed.stdout.split("\0").filter(Boolean).map((path) => resolve(repoRoot, path)),
+    listed.stdout
+      .split("\0")
+      .filter(Boolean)
+      .map((path) => resolve(repoRoot, path)),
     (path) => fs.exists(path),
   );
-  const shellFiles = [
-    resolve(repoRoot, "dotfiles"),
-    ...trackedShell,
-    agentlessSigner,
-  ];
+  const shellFiles = [resolve(repoRoot, "dotfiles"), ...trackedShell, agentlessSigner];
   yield* Effect.forEach(
     shellFiles,
     (path) => runRequired("bash", ["-n", path], `shell syntax: ${path}`),
@@ -57,14 +64,23 @@ const program = Effect.gen(function*() {
   }
   yield* runRequired("git", ["diff", "--check"], "working-tree diff hygiene");
   yield* runRequired("git", ["diff", "--cached", "--check"], "index diff hygiene");
-  if (process.platform === "darwin") yield* runRequired("plutil", ["-lint", blackWallpaper], "desktop wallpaper plist");
+  if (process.platform === "darwin")
+    yield* runRequired("plutil", ["-lint", blackWallpaper], "desktop wallpaper plist");
 
   const ghosttyLines = yield* fs.readFileString(ghosttyConfig).pipe(
     Effect.map((contents) => contents.split(/\r?\n/)),
-    Effect.mapError((error) => new CliFailure({ exitCode: 1, message: `cannot read managed Ghostty config: ${error}` })),
+    Effect.mapError(
+      (error) =>
+        new CliFailure({
+          exitCode: 1,
+          message: `cannot read managed Ghostty config: ${error.message}`,
+        }),
+    ),
   );
   if (!ghosttyLines.includes("shell-integration-features = ssh-env,ssh-terminfo")) {
-    return yield* fail("managed Ghostty config does not enable SSH environment and terminfo integration");
+    return yield* fail(
+      "managed Ghostty config does not enable SSH environment and terminfo integration",
+    );
   }
 
   const agentsPath = resolve(repoRoot, "AGENTS.md");
@@ -78,9 +94,6 @@ const program = Effect.gen(function*() {
   }
 
   yield* Console.log("ok static repository checks");
-}).pipe(
-  Effect.provide(CommandRunner.layer),
-  Effect.provide(NodeServices.layer),
-);
+}).pipe(Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer));
 
 runMain(program);

@@ -2,7 +2,6 @@
 
 - Start with [Bootstrap](bootstrap.md) and [Identity provisioning](identities.md).
 - Isolate each identity in its own Unix user, home, credentials, and service state.
-- `personal-devbox` adds personal tools and gateway routing.
 
 ## Local Configuration
 
@@ -47,7 +46,8 @@ remains the authorization boundary.
 
 Personal profiles require `~/.config/dotfiles/llm-gateway.json`, mode `0600`.
 Standard profiles can enroll explicitly. Obtain resolved credentials from the
-owning private system and use the version 3 schema:
+owning private system. Start with this example and replace the credentials
+and URLs:
 
 ```json
 {
@@ -61,15 +61,10 @@ owning private system and use the version 3 schema:
 }
 ```
 
-| Optional field | Use |
-| --- | --- |
-| `cursorAgentBin` + `credentials.cursor` | Configure together; the binary must be Cursor's versioned vendor executable, not a managed launcher. |
-| `grokBin` | Absolute path to the Grok executable. |
-| `preservedLogins` | Client names whose saved logins must survive retirement: `codex`, `claude`, `cursor`, `grok`. |
-
-- Gatewai: Codex, Claude, optional Grok.
-- Bifrost: OpenCode and Pi. Cursor uses its own API key.
-- Credentials stay in owner-only configuration or client stores.
+[`GatewayShape` and `parseGatewayConfig`](../agents/gateway/gateway-config.ts)
+own optional fields and validation. For Cursor, pair its API key with the
+versioned vendor executable in `cursorAgentBin`; using the managed launcher
+would recurse. Credentials stay in owner-only configuration or client stores.
 
 ```zsh
 ./bootstrap/configure-llm-gateway.ts
@@ -78,7 +73,9 @@ owning private system and use the version 3 schema:
 ./bootstrap/configure-bifrost-clients.ts --check
 ```
 
-- Explicit enrollment and `./dotfiles maintain` preserve saved logins.
+- `configure-llm-gateway.ts` and `./dotfiles maintain` preserve saved Codex,
+  Claude, Cursor, and Grok logins. Bifrost enrollment removes OpenCode's built-in
+  `opencode` and `opencode-go` credentials, including during maintenance.
 - Personal `./dotfiles apply` retires them, respecting `preservedLogins`.
 - To retire after checking explicit enrollment:
 
@@ -105,10 +102,8 @@ owning private system and use the version 3 schema:
   and checks API-key health through `status`, `whoami`, and `about`. `--version`
   and `--help` pass through unauthenticated, so only `--check` proves which
   launcher `PATH` reaches.
-- **`agent`:** ambiguous and never resolved by dotfiles. Both Cursor and the Grok
-  cask install it; Homebrew wins on `PATH`. Call `cursor-agent` or `grok`.
-- **OpenCode/Pi:** `configure-bifrost-clients.ts` converges the Bifrost catalog
-  and credentials. OpenCode enables only the `bifrost` provider.
+- **`agent`:** both Cursor and Grok install this name. Call `cursor-agent` or
+  `grok` to select the intended client.
 
 ### Rollback
 
@@ -130,28 +125,24 @@ sudo ./bootstrap/darwin/install-devbox-service-daemons.ts --user example --colim
 sudo ./bootstrap/darwin/install-devbox-service-daemons.ts --user example --colima --check
 ```
 
-- Root-owned LaunchDaemon, mode `0644`, running as the target user.
 - Retire competing user LaunchAgents before installation.
 - Reference owner-only wrappers or files; never embed secrets.
 
-The `devbox` profiles install the T3 Code background service through the
-[`install-t3-service` step](../bootstrap/install-t3-service.ts)
-(`t3 service install --base-dir ~/.t3`, with the CLI pinned in the mise
-template) for users whose `devbox.env` sets `T3_SERVICE=1` and whose unit is
-absent. Only an explicit `./dotfiles apply` installs it; `./dotfiles maintain`
-never adds a background service. T3 owns later updates. Inspect it with:
+Set `T3_SERVICE=1` in [local configuration](#local-configuration), then run
+`./dotfiles apply` with the devbox profile to install the T3 Code service.
+Unattended maintenance does not enroll new services. T3 owns later updates;
+the [installation step](../bootstrap/install-t3-service.ts) preserves existing
+units. Inspect it with:
 
 ```zsh
 t3 service status
 ```
 
 `./dotfiles check` proves the unit exists for opted-in users. On Linux it
-also proves lingering is on and the running service's `PATH` includes the
-mise shims: the systemd user manager does not read shell startup files, so
-`~/.config/environment.d/50-dotfiles.conf` fronts the shims and the dotfiles
-launchers there, and `./dotfiles apply` hands the running manager the same
-`PATH`. Lingering is an administrator step:
-`sudo loginctl enable-linger <user>`.
+also checks lingering and the running service's `PATH`. The systemd user
+manager does not read shell startup files; for missing tools, follow
+[bootstrap troubleshooting](bootstrap.md#troubleshooting). Enable lingering
+as an administrator: `sudo loginctl enable-linger <user>`.
 
 On macOS, keep the user logged in and the Mac awake; the LaunchAgent stops at
 logout. Installing over SSH for a user with no GUI session writes the

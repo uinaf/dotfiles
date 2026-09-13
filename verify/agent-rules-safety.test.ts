@@ -1,13 +1,12 @@
 import assert from "node:assert/strict";
-import { chmodSync, mkdirSync, readdirSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, symlinkSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { afterEach, test } from "node:test";
+import { afterEach, test } from "vite-plus/test";
 
 import {
   cleanupFixtures,
   createFixture,
   runChezmoiResult,
-  runWrapper,
   runWrapperResult,
 } from "./agent-rules-fixture.ts";
 
@@ -79,6 +78,9 @@ test("rejects a local Markdown symlink resolving to a directory", () => {
     assert.notEqual(wrapperResult.status, 0);
     assert.match(wrapperResult.stderr, /local agent rules must resolve to a regular file/);
     assert.notEqual(chezmoiResult.status, 0);
-    assert.match(chezmoiResult.stderr, new RegExp(`${name.replaceAll(".", "\\.")} must resolve to a regular file`));
+    assert.match(
+      chezmoiResult.stderr,
+      new RegExp(`${name.replaceAll(".", "\\.")} must resolve to a regular file`),
+    );
   }
 });

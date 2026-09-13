@@ -1,7 +1,15 @@
 import assert from "node:assert/strict";
-import { appendFileSync, chmodSync, lstatSync, mkdirSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import {
+  appendFileSync,
+  chmodSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { dirname, join } from "node:path";
-import { afterEach, test } from "node:test";
+import { afterEach, test } from "vite-plus/test";
 
 import {
   agentRulesCache,
@@ -98,12 +106,18 @@ test("shows rule changes in diff and waits for an explicit apply", () => {
   const rulesPath = join(home, "AGENTS.md");
   const before = readFileSync(rulesPath, "utf8");
 
-  appendFileSync(agentRulesCache(home), "\nFixture public rule changed: `{{ .chezmoi.homeDir }}`.\n");
+  appendFileSync(
+    agentRulesCache(home),
+    "\nFixture public rule changed: `{{ .chezmoi.homeDir }}`.\n",
+  );
 
   assert.match(runChezmoi(home, config, "diff"), /Fixture public rule changed/);
   assert.equal(readFileSync(rulesPath, "utf8"), before);
   runChezmoi(home, config, "apply");
-  assert.match(readFileSync(rulesPath, "utf8"), /Fixture public rule changed: `\{\{ \.chezmoi\.homeDir \}\}`/);
+  assert.match(
+    readFileSync(rulesPath, "utf8"),
+    /Fixture public rule changed: `\{\{ \.chezmoi\.homeDir \}\}`/,
+  );
   assert.equal(runChezmoi(home, config, "diff"), "");
 });
 

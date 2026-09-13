@@ -15,6 +15,10 @@ function containsAny(content: string, values: readonly string[]): boolean {
 
 function allowed(file: string, content: string): boolean {
   switch (file) {
+    case "package.json":
+      return content.trim() === '"name": "@uinaf/dotfiles",';
+    case "chezmoi/.chezmoitemplates/linux/mise.toml":
+      return content.startsWith('"github:uinaf/ffss" =');
     case "AGENTS.md":
       return content.includes("Do not add `uinaf` or another owner");
     case "homebrew/Brewfile":
@@ -39,11 +43,18 @@ function allowed(file: string, content: string): boolean {
     case ".github/workflows/secrets.yml":
       return content.includes("uinaf/.github");
     case "renovate.json":
-      return content.includes("github>uinaf/renovate-config");
+      return containsAny(content, ["github>uinaf/renovate-config", '"uinaf/ffss"']);
+    case ".github/workflows/verify.yml":
+      return content.includes("mise exec github:uinaf/ffss -- slopguard version");
     case "docs/identities.md":
       return content.includes("github.com/uinaf/sops-vault-template");
     case "docs/agents.md":
-      return containsAny(content, ["github.com/uinaf/agent-skills", "github.com/uinaf/attach", "github.com/uinaf/design", "uinaf-design"]);
+      return containsAny(content, [
+        "github.com/uinaf/agent-skills",
+        "github.com/uinaf/attach",
+        "github.com/uinaf/design",
+        "uinaf-design",
+      ]);
     case "agents/skills/developer.json":
     case "agents/skills/workstation.json":
     case "agents/skills/devbox.json":
@@ -71,7 +82,14 @@ function allowed(file: string, content: string): boolean {
     case "agents/mcps.test.ts":
       return content.includes("uinaf-executor");
     case "agents/sync.test.ts":
-      return containsAny(content, ["uinaf/agents", "uinaf/skills", "uinaf/agent-skills", "uinaf/attach", "uinaf/design", "uinaf-design"]);
+      return containsAny(content, [
+        "uinaf/agents",
+        "uinaf/skills",
+        "uinaf/agent-skills",
+        "uinaf/attach",
+        "uinaf/design",
+        "uinaf-design",
+      ]);
     case "verify/profiles.ts":
     case "homebrew/verify/layers.test.ts":
     case "homebrew/verify/brew-devbox.ts":
@@ -83,17 +101,38 @@ function allowed(file: string, content: string): boolean {
   }
 }
 
-const program = Effect.gen(function*() {
+const program = Effect.gen(function* () {
   const runner = yield* CommandRunner;
   const contentScan = yield* runner.run("git", [
-    "-C", repoRoot, "grep", "--untracked", "-n", "-i", "uinaf", "--", ":!verify/vendor-neutral.ts",
+    "-C",
+    repoRoot,
+    "grep",
+    "--untracked",
+    "-n",
+    "-i",
+    "uinaf",
+    "--",
+    ":!verify/vendor-neutral.ts",
   ]);
   if (contentScan.status !== 0 && contentScan.status !== 1) {
-    return yield* fail(`vendor-neutral scan failed with git grep status ${contentScan.status}`, contentScan.status);
+    return yield* fail(
+      `vendor-neutral scan failed with git grep status ${contentScan.status}`,
+      contentScan.status,
+    );
   }
-  const pathScan = yield* runner.run("git", ["-C", repoRoot, "ls-files", "--cached", "--others", "--exclude-standard"]);
+  const pathScan = yield* runner.run("git", [
+    "-C",
+    repoRoot,
+    "ls-files",
+    "--cached",
+    "--others",
+    "--exclude-standard",
+  ]);
   if (pathScan.status !== 0) {
-    return yield* fail(`vendor-neutral path scan failed with status ${pathScan.status}`, pathScan.status);
+    return yield* fail(
+      `vendor-neutral path scan failed with status ${pathScan.status}`,
+      pathScan.status,
+    );
   }
 
   let unexpected = false;
@@ -114,9 +153,6 @@ const program = Effect.gen(function*() {
   }
   if (unexpected) return yield* fail("owner-name boundary failed");
   yield* Console.log("ok owner names are limited to external coordinates");
-}).pipe(
-  Effect.provide(CommandRunner.layer),
-  Effect.provide(NodeServices.layer),
-);
+}).pipe(Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer));
 
 runMain(program);

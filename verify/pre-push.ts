@@ -34,7 +34,7 @@ function objectExists(revision: string): boolean {
   return result.status === 0;
 }
 
-export function parseUpdates(input: string, oidLength: number): Update[] {
+function parseUpdates(input: string, oidLength: number): Update[] {
   const updates: Update[] = [];
   for (const [index, rawLine] of input.split(/\r?\n/).entries()) {
     const line = rawLine.trim();
@@ -46,7 +46,10 @@ export function parseUpdates(input: string, oidLength: number): Update[] {
       fail(`invalid pre-push update on line ${index + 1}: expected four fields`);
     }
     const [localRef, localOid, remoteRef, remoteOid] = fields;
-    for (const [label, oid] of [["local", localOid], ["remote", remoteOid]] as const) {
+    for (const [label, oid] of [
+      ["local", localOid],
+      ["remote", remoteOid],
+    ] as const) {
       if (!new RegExp(`^[0-9a-f]{${oidLength}}$`).test(oid)) {
         fail(`invalid ${label} object id on line ${index + 1}`);
       }
@@ -68,16 +71,14 @@ function remoteNames(remoteName: string, remoteLocation: string): string[] {
   });
 }
 
-function commitsForUpdate(
-  update: Update,
-  zeroOid: string,
-  matchingRemotes: string[],
-): string[] {
+function commitsForUpdate(update: Update, zeroOid: string, matchingRemotes: string[]): string[] {
   if (update.localOid === zeroOid) {
     return [];
   }
   if (!objectExists(update.localOid)) {
-    fail(`missing local object ${update.localOid} for ${update.localRef}; fetch or repair the repository before pushing`);
+    fail(
+      `missing local object ${update.localOid} for ${update.localRef}; fetch or repair the repository before pushing`,
+    );
   }
   if (!objectExists(`${update.localOid}^{commit}`)) {
     return [];
@@ -86,7 +87,9 @@ function commitsForUpdate(
   const args = ["rev-list", update.localOid];
   if (update.remoteOid !== zeroOid) {
     if (!objectExists(`${update.remoteOid}^{commit}`)) {
-      fail(`missing remote commit ${update.remoteOid} for ${update.remoteRef}; fetch the remote before pushing`);
+      fail(
+        `missing remote commit ${update.remoteOid} for ${update.remoteRef}; fetch the remote before pushing`,
+      );
     }
     args.push(`^${update.remoteOid}`);
   } else {
@@ -99,9 +102,14 @@ function commitsForUpdate(
   return output ? output.split(/\r?\n/) : [];
 }
 
-export function verifyOutgoingCommits(input: string, remoteName: string, remoteLocation: string): number {
+function verifyOutgoingCommits(input: string, remoteName: string, remoteLocation: string): number {
   const format = git(["rev-parse", "--show-object-format"]);
-  const oidLength = format === "sha256" ? 64 : format === "sha1" ? 40 : fail(`unsupported Git object format ${format}`);
+  const oidLength =
+    format === "sha256"
+      ? 64
+      : format === "sha1"
+        ? 40
+        : fail(`unsupported Git object format ${format}`);
   const zeroOid = "0".repeat(oidLength);
   const updates = parseUpdates(input, oidLength);
   const matchingRemotes = remoteNames(remoteName, remoteLocation);
@@ -123,7 +131,9 @@ export function verifyOutgoingCommits(input: string, remoteName: string, remoteL
     }
     if (result.status !== 0) {
       const diagnostic = (result.stdout || result.stderr).trim();
-      fail(`outgoing commit ${commit} has whitespace or conflict-marker errors${diagnostic ? `:\n${diagnostic}` : ""}`);
+      fail(
+        `outgoing commit ${commit} has whitespace or conflict-marker errors${diagnostic ? `:\n${diagnostic}` : ""}`,
+      );
     }
   }
 
@@ -131,8 +141,11 @@ export function verifyOutgoingCommits(input: string, remoteName: string, remoteL
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
-  const program = Effect.gen(function*() {
-    const input = yield* Effect.try({ try: () => readFileSync(0, "utf8"), catch: (error) => error });
+  const program = Effect.gen(function* () {
+    const input = yield* Effect.try({
+      try: () => readFileSync(0, "utf8"),
+      catch: (error) => error,
+    });
     const count = yield* Effect.try({
       try: () => verifyOutgoingCommits(input, process.argv[2] ?? "", process.argv[3] ?? ""),
       catch: (error) => error,
