@@ -1,4 +1,5 @@
 import { globSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import type { KnipConfig } from "knip";
 import { gatewayHelpers } from "./agents/gateway/bundle.ts";
 
@@ -8,7 +9,8 @@ const commands = globSync("**/*.ts", {
   exclude: ["node_modules/**", "chezmoi/**", ".git/**"],
 }).filter(
   (path) =>
-    !path.endsWith(".test.ts") && readFileSync(path, "utf8").startsWith("#!/usr/bin/env node"),
+    !path.endsWith(".test.ts") &&
+    readFileSync(join(import.meta.dirname, path), "utf8").startsWith("#!/usr/bin/env node"),
 );
 
 export default {
