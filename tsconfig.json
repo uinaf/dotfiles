@@ -8,8 +8,20 @@
     "noEmit": true,
     "strict": true,
     "target": "ES2024",
-    "types": ["node"],
+    "types": [
+      "node"
+    ],
     "verbatimModuleSyntax": true
   },
-  "include": ["scripts/**/*.ts"]
+  "include": [
+    "agents/**/*.ts",
+    "audit/**/*.ts",
+    "bootstrap/**/*.ts",
+    "homebrew/**/*.ts",
+    "identity/**/*.ts",
+    "lib/**/*.ts",
+    "maintenance/**/*.ts",
+    "profiles/**/*.ts",
+    "verify/**/*.ts"
+  ]
 }

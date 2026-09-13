@@ -11,7 +11,7 @@
           "personal": false
         },
         "brewfiles": [
-          "Brewfile"
+          "homebrew/Brewfile"
         ],
         "skillLayers": [
           "developer"
@@ -43,9 +43,10 @@
           "personal": true
         },
         "brewfiles": [
-          "Brewfile",
-          "Brewfile.workstation",
-          "Brewfile.personal"
+          "homebrew/Brewfile",
+          "homebrew/Brewfile.workstation",
+          "homebrew/Brewfile.personal",
+          "homebrew/Brewfile.personal-workstation"
         ],
         "skillLayers": [
           "developer",
@@ -75,9 +76,9 @@
           "personal": true
         },
         "brewfiles": [
-          "Brewfile",
-          "Brewfile.devbox",
-          "Brewfile.personal"
+          "homebrew/Brewfile",
+          "homebrew/Brewfile.devbox",
+          "homebrew/Brewfile.personal"
         ],
         "skillLayers": [
           "developer",
@@ -108,8 +109,8 @@
           "personal": false
         },
         "brewfiles": [
-          "Brewfile",
-          "Brewfile.workstation"
+          "homebrew/Brewfile",
+          "homebrew/Brewfile.workstation"
         ],
         "skillLayers": [
           "developer",
@@ -142,8 +143,8 @@
           "personal": false
         },
         "brewfiles": [
-          "Brewfile",
-          "Brewfile.devbox"
+          "homebrew/Brewfile",
+          "homebrew/Brewfile.devbox"
         ],
         "skillLayers": [
           "developer",

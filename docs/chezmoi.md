@@ -2,7 +2,7 @@
 
 Edit tracked files under [chezmoi/](../chezmoi/).
 [Profile data](../chezmoi/.chezmoidata/profiles.json) selects their targets;
-[apply-dotfiles.ts](../scripts/bootstrap/apply-dotfiles.ts) handles preview,
+[apply-dotfiles.ts](../bootstrap/apply-dotfiles.ts) handles preview,
 backups, and apply. Runtime and command-line tool pins belong to
 [mise](mise.md#runtime-pins); Homebrew keeps the macOS packages that need a
 compiler, a GUI, or a system service. [.chezmoiignore](../chezmoi/.chezmoiignore.tmpl)
@@ -34,7 +34,7 @@ to your home:
 ```zsh
 mise run verify:domain config
 mise run verify:domain profiles
-node scripts/verify/home-fixture.ts
+node verify/home-fixture.ts
 ```
 
 ## Local Overrides

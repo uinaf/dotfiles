@@ -1,0 +1,16 @@
+# Personal additions shared by personal-workstation and personal-devbox.
+
+# Taps
+tap "uinaf/tap", trusted: true
+tap "openclaw/tap", trusted: true
+tap "putdotio/tap", trusted: true
+
+# Personal development tools
+cask "uinaf/tap/slopguard"
+brew "asc"
+brew "uinaf/tap/attach"
+brew "openclaw/tap/crabbox"
+brew "openclaw/tap/discrawl"
+brew "openclaw/tap/gitcrawl"
+brew "putdotio/tap/putio-cli"
+brew "pi-coding-agent"

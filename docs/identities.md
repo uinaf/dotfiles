@@ -27,7 +27,7 @@ GIT_USER_NAME='Developer Name' \
 GIT_USER_EMAIL='developer@example.com' \
 GIT_SIGNING_KEY="$HOME/.ssh/developer_ed25519" \
 GIT_SSH_IDENTITY_FILE="$HOME/.ssh/developer_ed25519" \
-  ./scripts/bootstrap/configure-git.ts --profile "$profile" --non-interactive
+  ./identity/configure-git.ts --profile "$profile" --non-interactive
 ```
 
 - Authentication may use a different key through `GIT_SSH_IDENTITY_FILE`.
@@ -46,9 +46,9 @@ An age **identity** is the private decryption key; its public address is the
 [host packages](bootstrap.md#linux-ubuntu) on Linux):
 
 ```zsh
-./scripts/secrets/configure-sops-age-identity.ts
-./scripts/secrets/configure-sops-age-identity.ts --check
-./scripts/secrets/configure-sops-age-identity.ts --print-recipient
+./identity/configure-sops-age-identity.ts
+./identity/configure-sops-age-identity.ts --check
+./identity/configure-sops-age-identity.ts --print-recipient
 ```
 
 - Provisioning creates a missing key and proves a SOPS round trip.
@@ -86,7 +86,7 @@ Before using a new age identity:
 1. Attach its private identity file to the recovery item.
 2. Restore the attachment to an owner-only temporary path.
 3. Run `age-keygen -y /path/to/restored-keys.txt` and compare the recipient with
-   `./scripts/secrets/configure-sops-age-identity.ts --print-recipient`.
+   `./identity/configure-sops-age-identity.ts --print-recipient`.
 4. Verify other attachments against their own live source or public identity.
 5. Remove restored temporary copies.
 

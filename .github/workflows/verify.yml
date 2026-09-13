@@ -43,7 +43,7 @@ jobs:
         run: corepack pnpm install --frozen-lockfile
 
       - name: Verify repository
-        run: ./scripts/verify/run.ts --skip-security
+        run: ./verify/run.ts --skip-security
 
   verify-linux:
     # The same deterministic checks on Ubuntu, plus a dry-run developer apply
@@ -96,7 +96,7 @@ jobs:
         run: corepack pnpm install --frozen-lockfile
 
       - name: Verify repository
-        run: ./scripts/verify/run.ts --skip-security
+        run: ./verify/run.ts --skip-security
 
       - name: Preview the developer profile in a fresh home
         run: |

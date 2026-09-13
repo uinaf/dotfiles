@@ -103,11 +103,11 @@ saved coding-client logins except those listed in `preservedLogins`.
 
 ```zsh
 profile=workstation # or developer, devbox, personal-devbox, personal-workstation
-./scripts/darwin/bootstrap/brew-bundle.ts "$profile" # macOS only
+./homebrew/brew-bundle.ts "$profile" # macOS only
 mise trust
 ./dotfiles diff "$profile"
 ./dotfiles apply "$profile"
-./scripts/bootstrap/configure-git.ts --profile "$profile"
+./identity/configure-git.ts --profile "$profile"
 ```
 
 - Configure [Git authorship and local SSH keys](identities.md#developer-git-and-ssh)
@@ -125,8 +125,8 @@ mise trust
 On macOS, run these host-wide steps once from the administrator account:
 
 ```zsh
-./scripts/darwin/bootstrap/configure-power.ts --profile "$profile"
-./scripts/darwin/bootstrap/configure-spotlight.ts
+./bootstrap/darwin/configure-power.ts --profile "$profile"
+./bootstrap/darwin/configure-spotlight.ts
 ```
 
 Power configuration disables sleep while plugged in and leaves battery settings
@@ -147,15 +147,15 @@ For subsequent checks, export `DOTFILES_SKIP_SPOTLIGHT_CHECK=1` in your
 machine-local [`~/.config/dotfiles/zshenv.local`](chezmoi.md#local-overrides).
 Checks report the policy as skipped and leave indexing unchanged. `apply` does
 not configure Spotlight. An explicit
-`./scripts/darwin/bootstrap/configure-spotlight.ts` still disables indexing and verifies
+`./bootstrap/darwin/configure-spotlight.ts` still disables indexing and verifies
 the result, even with this flag set.
 
 ### Workstation Options
 
 - Install licensed Berkeley Mono Variable manually; Ghostty falls back to Menlo.
-- On `personal-workstation`, run `./scripts/darwin/app-store/personal.ts` to remove
+- On `personal-workstation`, run `./bootstrap/darwin/app-store/personal.ts` to remove
   the unused bundled App Store apps; uninstall may prompt for a password.
-- Quit Chrome before running `./scripts/darwin/bootstrap/configure-chrome.ts` to apply
+- Quit Chrome before running `./bootstrap/darwin/configure-chrome.ts` to apply
   Lens policies and the vertical-tabs setting.
 - For simulators, SDKs, and signing certificates, follow
   [Mobile and TV development](mobile-and-tv-development.md).
@@ -166,8 +166,8 @@ Follow [Devbox setup](devbox.md) for services and secret consumers. On macOS,
 the logged-in owner may apply the optional desktop baseline:
 
 ```zsh
-./scripts/darwin/bootstrap/configure-desktop.ts
-./scripts/verify/bootstrap.ts --profile devbox --desktop
+./bootstrap/darwin/configure-desktop.ts
+./verify/bootstrap.ts --profile devbox --desktop
 ```
 
 ### Verify
@@ -183,7 +183,7 @@ mise run audit host
 For workstations, also run `mise run audit workstation`. For devbox profiles:
 
 ```zsh
-./scripts/darwin/verify/devbox-services.ts # macOS only
+./verify/darwin/devbox-services.ts # macOS only
 mise run audit devbox
 ```
 
@@ -193,9 +193,9 @@ On a shared Mac, the prefix owner must use the wrapper for shared-devbox
 mutations:
 
 ```zsh
-./scripts/darwin/bootstrap/brew-devbox.ts upgrade
-./scripts/darwin/bootstrap/brew-devbox.ts upgrade --cask
-./scripts/darwin/bootstrap/brew-devbox.ts --update-software
+./homebrew/brew-devbox.ts upgrade
+./homebrew/brew-devbox.ts upgrade --cask
+./homebrew/brew-devbox.ts --update-software
 ```
 
 It confines the owner-write/group-read umask to Homebrew, repairs owner-owned
@@ -207,20 +207,20 @@ scheduled execution without a GUI session.
 
 ## Updating an Existing Machine
 
-Refresh the checkout, review the selected profile, then converge it:
+When upgrading from the former `scripts/` layout, first follow the
+[one-time scheduler migration](software-updates.md#upgrading-from-the-scripts-layout).
+Installed jobs must stop before the checkout moves and be re-enrolled afterward.
+Once they are stopped, continue below.
+
+Refresh the checkout:
 
 ```zsh
 cd ~/projects/dotfiles
 git pull --ff-only
-profile=workstation # select the installed profile
-./scripts/darwin/bootstrap/brew-bundle.ts "$profile" # macOS only
-mise trust
-./dotfiles diff "$profile"
-./dotfiles apply "$profile"
-./dotfiles check "$profile"
 ```
 
-Personal `apply` also retires unpreserved coding-client logins. Unattended
+Follow [Apply a profile](#apply-a-profile) with the installed role, including
+its verification step. Personal `apply` retires unpreserved coding-client logins. Unattended
 [convergence](software-updates.md#dotfiles-convergence) uses `./dotfiles maintain`,
 which preserves saved logins. For package-only refreshes, use
 [Software updates](software-updates.md).
@@ -232,9 +232,9 @@ which preserves saved logins. For package-only refreshes, use
 | Missing Homebrew packages | Rerun `brew-bundle.ts` with the selected profile. |
 | Missing `chezmoi` or another mise tool | Rerun `./dotfiles apply`; the first apply borrows the pinned `chezmoi` through `mise x` and `install-runtimes` installs the rest. |
 | A systemd user service cannot find `codex`, `claude`, or another mise tool | Rerun `./dotfiles apply`, which hands the user manager the shim `PATH`, then restart the service. |
-| Homebrew drift | Keep intentional machine-specific packages in a [local Brewfile](profiles.md#local-homebrew-additions), then review and run `./scripts/darwin/bootstrap/brew-bundle.ts --cleanup <profile>`. This removes undeclared packages; shared devboxes use the personal-devbox package union. |
-| Shared prefix permissions | Run `./scripts/darwin/bootstrap/brew-devbox.ts --repair-shared-readability` as the prefix owner. Foreign-owned content needs an administrator to correct ownership. |
+| Homebrew drift | Keep intentional machine-specific packages in a [local Brewfile](profiles.md#local-homebrew-additions), then review and run `./homebrew/brew-bundle.ts --cleanup <profile>`. This removes undeclared packages; shared devboxes use the personal-devbox package union. |
+| Shared prefix permissions | Run `./homebrew/brew-devbox.ts --repair-shared-readability` as the prefix owner. Foreign-owned content needs an administrator to correct ownership. |
 | Git dubious ownership under `/opt/homebrew` | Rerun `configure-git.ts` with the selected profile. |
 | GitHub SSH authentication | Check the local key and rerun [Git configuration](identities.md#developer-git-and-ssh). |
 | Secret access over SSH | Check the deployment recipient and encrypted repository policy in [Identity provisioning](identities.md). |
-| Gatekeeper blocks a Cursor Agent `.node` module | Remove the Homebrew `cursor-cli` cask and run `./scripts/bootstrap/install-cursor-agent.ts` for the per-user vendor installation. |
+| Gatekeeper blocks a Cursor Agent `.node` module | Remove the Homebrew `cursor-cli` cask and run `./bootstrap/install-cursor-agent.ts` for the per-user vendor installation. |

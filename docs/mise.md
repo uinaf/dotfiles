@@ -7,7 +7,7 @@
 runtime and tool pins; [mise-tasks.toml](../chezmoi/.chezmoitemplates/mise-tasks.toml)
 owns the packages installed inside those runtimes. Chezmoi concatenates them
 into `~/.config/mise/config.toml`. Keep task entries as command delegations;
-parsing and policy belong in `scripts/`.
+parsing and policy belong to the [domain owners](../AGENTS.md#layout).
 
 ## Tasks
 
@@ -23,20 +23,9 @@ mise run verify:fast          # all deterministic checks
 mise run verify               # deterministic checks plus full-history secret scan
 ```
 
-- The [verification registry](../scripts/verify/checks.json) lists commands,
+- The [verification registry](../verify/checks.json) lists commands,
   domains, and proof. Focused runs omit checks marked `scope: "complete"`.
-- Each check has a five-minute timeout.
 - [Contributing](../CONTRIBUTING.md#deliver) covers CI and delivery requirements.
-
-## Task Namespaces
-
-| Task | Guide |
-| --- | --- |
-| `dotfiles:diff`, `dotfiles:apply` | [Edit dotfiles](chezmoi.md#workflow) |
-| `agents:sync`, `agents:update`, `agents:doctor` | [Agent selections](agents.md#skill-sync) |
-| `maintenance:*` | [Software updates](software-updates.md) |
-| `xcode:install`, `xcode:check` | [Xcode pin](mobile-and-tv-development.md#xcode-and-tvos-simulator) |
-| `audit` | [Security audits](security-audits.md) |
 
 Live checks inspect the current Unix user's machine. Run only for its intended
 profile; these are separate from repository verification:
@@ -61,20 +50,10 @@ Edit [the profile template](../chezmoi/.chezmoitemplates/mise.toml) or the
 OS sibling that owns the pin, preview with `mise run dotfiles:diff <profile>`,
 and run `mise run verify`. The templates stay plain TOML so Renovate can parse
 them; the Linux CI job resolves every pinned tool with `mise install --dry-run`.
-Use exact versions where practical. Keep these pairs aligned:
+Use exact versions where practical. [Renovate rules](../renovate.json) own
+update holds, age gates, and groups of pins that must move together.
 
-- Profile Node, repository [.node-version](../.node-version), and
-  [package.json](../package.json).
-- Profile and repository pnpm.
-- Corepack installed by `dotfiles:runtime-packages` before `corepack enable`.
-- PyYAML installation and its [live verifier](../scripts/verify/bootstrap.ts).
-- [Xcode release](../chezmoi/.chezmoidata/xcode.json) and `mise run xcode:install`.
-
-- Bootstrap runs `mise install` and `dotfiles:runtime-packages`, so package-only
-  pin changes converge even when runtimes are already installed.
-- The package task installs npm, Corepack, Corepack's global pnpm default, and PyYAML;
-  ordinary project installs do not run it.
-- A project's `packageManager` selects its own package-manager version.
-- Renovate follows mise toolchain patch and minor releases (Node, Bun, uv,
-  and the other `[tools]` pins) after one day, at any time. npm, pnpm, and
-  Corepack stay on the shared seven-day age gate.
+[Runtime installation](../bootstrap/install.ts) also runs the
+runtime-package task, so package-only pin changes converge when runtimes are
+already installed. Ordinary project installs do not run that task; a project's
+`packageManager` selects its own package-manager version.

@@ -6,12 +6,12 @@ depends = ["verify:fast", "verify:history"]
 
 [tasks."verify:fast"]
 description = "Run every deterministic repository check"
-run = "./scripts/verify/run.ts --skip-security"
+run = "./verify/run.ts --skip-security"
 
 [tasks."verify:history"]
 description = "Scan the full Git history for secrets"
 hide = true
-run = "node ./scripts/audit/repo.ts --skip-mscp"
+run = "node ./audit/repo.ts --skip-mscp"
 
 [tasks."verify:domain"]
 description = "Run one focused verification domain"
@@ -20,7 +20,7 @@ arg "<domain>" help="Verification domain" {
   choices "agents" "audit" "config" "git" "identity" "profiles" "security" "services" "static"
 }
 '''
-run = './scripts/verify/run.ts --domain "$usage_domain"'
+run = './verify/run.ts --domain "$usage_domain"'
 
 [tasks."verify:bootstrap"]
 description = "Verify one live profile"
@@ -29,11 +29,11 @@ arg "<profile>" help="Profile to verify" {
   choices "developer" "devbox" "workstation" "personal-devbox" "personal-workstation"
 }
 '''
-run = './scripts/verify/bootstrap.ts --profile "$usage_profile"'
+run = './verify/bootstrap.ts --profile "$usage_profile"'
 
 [tasks."verify:devbox-services"]
 description = "Verify live devbox services"
-run = "./scripts/darwin/verify/devbox-services.ts"
+run = "./verify/darwin/devbox-services.ts"
 
 [tasks.audit]
 description = "Run one repository or live-host audit"
@@ -45,31 +45,31 @@ flag "--format <format>" help="Output format" default="text" {
   choices "text" "json"
 }
 '''
-run = 'node ./scripts/audit/run.ts "$usage_scope" "$usage_format"'
+run = 'node ./audit/run.ts "$usage_scope" "$usage_format"'
 
 [tasks."maintenance:check"]
 description = "Inspect available updates as JSON, refreshing metadata and scan caches"
-run = "node ./scripts/maintenance/check.ts"
+run = "node ./maintenance/check.ts"
 
 [tasks."maintenance:verify"]
 description = "Collect a live-applicability snapshot with full bootstrap verification"
-run = "node ./scripts/maintenance/check.ts --verify"
+run = "node ./maintenance/check.ts --verify"
 
 [tasks."maintenance:enable"]
 description = "Enable six-hour software updates for the current user"
-run = "node ./scripts/maintenance/schedule.ts enable"
+run = "node ./maintenance/schedule.ts enable"
 
 [tasks."maintenance:disable"]
 description = "Disable scheduled software updates and stop any current run"
-run = "node ./scripts/maintenance/schedule.ts disable"
+run = "node ./maintenance/schedule.ts disable"
 
 [tasks."maintenance:update"]
 description = "Request an on-demand update through the scheduled job"
-run = "node ./scripts/maintenance/schedule.ts run"
+run = "node ./maintenance/schedule.ts run"
 
 [tasks."maintenance:status"]
 description = "Show the updater state, last exit code, and log location"
-run = "node ./scripts/maintenance/schedule.ts status"
+run = "node ./maintenance/schedule.ts status"
 
 [tasks."dotfiles:apply"]
 description = "Apply the repo-local chezmoi source state"
@@ -78,7 +78,7 @@ arg "<profile>" help="Profile to apply" {
   choices "developer" "devbox" "workstation" "personal-devbox" "personal-workstation"
 }
 '''
-run = './scripts/bootstrap/apply-dotfiles.ts --profile "$usage_profile"'
+run = './bootstrap/apply-dotfiles.ts --profile "$usage_profile"'
 
 [tasks."dotfiles:diff"]
 description = "Preview the repo-local chezmoi source state"
@@ -87,36 +87,36 @@ arg "<profile>" help="Profile to preview" {
   choices "developer" "devbox" "workstation" "personal-devbox" "personal-workstation"
 }
 '''
-run = './scripts/bootstrap/apply-dotfiles.ts --profile "$usage_profile" --dry-run --verbose'
+run = './bootstrap/apply-dotfiles.ts --profile "$usage_profile" --dry-run --verbose'
 
 [tasks."agents:sync"]
 description = "Sync selected global coding-agent skills, plugins, and MCP servers"
-run = ["./scripts/agents/sync.ts", "./scripts/agents/plugins.ts", "./scripts/agents/mcps.ts"]
+run = ["./agents/sync.ts", "./agents/plugins.ts", "./agents/mcps.ts"]
 
 [tasks."agents:update"]
 description = "Update selected global coding-agent skills and plugins, then sync MCP servers"
-run = ["./scripts/agents/sync.ts --update", "./scripts/agents/plugins.ts --update", "./scripts/agents/mcps.ts"]
+run = ["./agents/sync.ts --update", "./agents/plugins.ts --update", "./agents/mcps.ts"]
 
 [tasks."agents:doctor"]
 description = "Report MCP authentication state per harness with the repair command"
-run = "./scripts/agents/doctor.ts"
+run = "./agents/doctor.ts"
 
 [tasks."xcode:install"]
 description = "Install and select the declared Xcode release"
-run = "node ./scripts/darwin/bootstrap/xcode.ts"
+run = "node ./bootstrap/darwin/xcode.ts"
 
 [tasks."xcode:check"]
 description = "Verify the selected Xcode matches the declared release pin"
-run = "node ./scripts/darwin/bootstrap/xcode.ts --check"
+run = "node ./bootstrap/darwin/xcode.ts --check"
 
 [tasks."bootstrap:trust-agent-worktrees"]
 description = "Trust mise configs in generated agent worktrees"
-run = "./scripts/bootstrap/trust-agent-worktrees.ts"
+run = "./bootstrap/trust-agent-worktrees.ts"
 
 [tasks."maintenance:hygiene"]
 description = "Preview host worktree, branch, and cache cleanup"
-run = "node ./scripts/maintenance/hygiene.ts --dry-run"
+run = "node ./maintenance/hygiene.ts --dry-run"
 
 [tasks."maintenance:clean"]
 description = "Apply eligible host cleanup with a three-day Git grace period"
-run = "node ./scripts/maintenance/hygiene.ts --apply"
+run = "node ./maintenance/hygiene.ts --apply"

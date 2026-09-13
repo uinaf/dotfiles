@@ -5,7 +5,7 @@ plugins, and MCP servers.
 
 ## Global Rules
 
-[Rule sources](../scripts/agents/rules.json) supply the shared text.
+[Rule sources](../agents/rules.json) supply the shared text.
 [Chezmoi](../chezmoi/private_AGENTS.md.tmpl) combines it with private fragments
 into `~/AGENTS.md`; `~/.claude/CLAUDE.md` and `~/.codex/AGENTS.md` link there.
 Edit shared rules at their configured source and private instructions in:
@@ -21,12 +21,7 @@ Edit shared rules at their configured source and private instructions in:
 - Generated rule files are replaced without backups. Keep private edits in fragments.
 - Managed Claude and Codex settings disable native auto-memory.
 
-Preview and apply with the selected profile:
-
-```zsh
-./dotfiles diff workstation
-./dotfiles apply workstation
-```
+Preview and apply through the [profile setup workflow](bootstrap.md#apply-a-profile).
 
 - Both commands refresh `${XDG_STATE_HOME:-~/.local/state}/dotfiles/agent-rules.md`.
 - Fetched sources must be non-empty, have no frontmatter, compose under
@@ -54,17 +49,16 @@ Edit the selected layer under each manifest directory:
 
 | Selection | Manifests | Implementation |
 | --- | --- | --- |
-| Skills | [skills/](../scripts/agents/skills/) | [sync.ts](../scripts/agents/sync.ts) |
-| Plugins | [plugins/](../scripts/agents/plugins/) | [plugins.ts](../scripts/agents/plugins.ts) |
-| MCP servers | [mcps/](../scripts/agents/mcps/) | [mcps.ts](../scripts/agents/mcps.ts) |
+| Skills | [skills/](../agents/skills/) | [sync.ts](../agents/sync.ts) |
+| Plugins | [plugins/](../agents/plugins/) | [plugins.ts](../agents/plugins.ts) |
+| MCP servers | [mcps/](../agents/mcps/) | [mcps.ts](../agents/mcps.ts) |
 
-- Layers are `developer`, `workstation`, `devbox`, and `personal`; the
-  [profile model](../chezmoi/.chezmoidata/profiles.json) selects their composition.
+- The [profile model](../chezmoi/.chezmoidata/profiles.json) selects layer composition.
 - Skills install for available Claude and Codex CLIs.
 - Plugin and MCP entries can narrow `harnesses` to Claude, Codex, Cursor, Grok,
   or OpenCode.
 
-Each sync keeps an ignored `scripts/agents/{skills,plugins,mcps}.lock.json`:
+Each sync keeps an ignored `agents/{skills,plugins,mcps}.lock.json`:
 
 - Missing locks initialize ownership without removing existing installations.
 - Subsequent runs remove dropped selections while preserving never-owned extras.
@@ -76,7 +70,7 @@ Each sync keeps an ignored `scripts/agents/{skills,plugins,mcps}.lock.json`:
 
 - Plugin entries name a `marketplace` repository and plugin `name`.
   `marketplaceId` overrides the registered marketplace name when needed.
-- The parser in [plugins.ts](../scripts/agents/plugins.ts) owns the schema.
+- The parser in [plugins.ts](../agents/plugins.ts) owns the schema.
 - Cursor marketplace installs need completion in `/plugins`. If imports are
   blocked, `cursorMode: "skills"` uses skill links and requires both `cursor`
   and `claude` in `harnesses`.
@@ -104,9 +98,9 @@ mise run agents:doctor
 | --- | --- |
 | Claude Code | `claude mcp login <server>` (`--no-browser` over SSH) |
 | Codex | `codex mcp login <server>` |
-| Cursor | `cursor-agent mcp login <server>` in the project directory; tokens are per project, so seed a new checkout or worktree with `./scripts/agents/cursor-mcp-seed.ts` |
+| Cursor | `cursor-agent mcp login <server>` in the project directory; tokens are per project, so seed a new checkout or worktree with `./agents/cursor-mcp-seed.ts` |
 | OpenCode | `opencode mcp auth <server>` |
-| Grok | `./scripts/agents/grok-mcp-login.ts <server>` (writes Grok 1.0.25's credential format; the TUI path is `/mcps`, select, `i`) |
+| Grok | `./agents/grok-mcp-login.ts <server>` (writes Grok 1.0.25's credential format; the TUI path is `/mcps`, select, `i`) |
 
 Over SSH the callback port stays on the remote host: run the login under
 `ssh -t` (Claude and Codex need a TTY) and forward the printed loopback port

@@ -1,0 +1,90 @@
+#!/usr/bin/env node
+
+import { NodeServices } from "@effect/platform-node";
+import { Console, Effect, FileSystem } from "effect";
+import { join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { CommandRunner } from "../lib/command.ts";
+import { CliFailure, fail, runMain } from "../lib/program.ts";
+
+// T3 owns the launchd/systemd plumbing and the service's later updates; this
+// step installs the service when absent and proves it under --check.
+function t3ServiceUnit(home: string, platform: NodeJS.Platform): string {
+  return platform === "darwin"
+    ? join(home, "Library/LaunchAgents/com.t3tools.t3code.service.plist")
+    : join(home, ".config/systemd/user/t3code.service");
+}
+
+const t3ServiceWanted = Effect.fn("t3ServiceWanted")(function*(devboxEnv: string) {
+  const fs = yield* FileSystem.FileSystem;
+  const contents = yield* fs.readFileString(devboxEnv).pipe(Effect.catch(() => Effect.succeed("")));
+  return /^T3_SERVICE=1\r?$/m.test(contents);
+});
+
+export const installT3Service = Effect.fn("installT3Service")(function*(
+  home: string,
+  check: boolean,
+  platform: NodeJS.Platform = process.platform,
+  uid: number = process.getuid?.() ?? -1,
+  baseDir: string = process.env.T3_BASE_DIR || join(home, ".t3"),
+) {
+  const fs = yield* FileSystem.FileSystem;
+  const runner = yield* CommandRunner;
+  const unit = t3ServiceUnit(home, platform);
+  // The service is per user, not per profile: a devbox identity that reaches
+  // T3 through the desktop app's SSH launcher (as on a shared Mac) does not
+  // want a second server. T3_SERVICE=1 in devbox.env opts a user in.
+  if (!(yield* t3ServiceWanted(join(home, ".config/dotfiles/devbox.env")))) {
+    return check ? undefined : yield* Console.log("T3 Code service not requested (set T3_SERVICE=1 in ~/.config/dotfiles/devbox.env)");
+  }
+  const present = yield* fs.exists(unit);
+  if (check && !present) return yield* fail(`T3 Code service is not installed: ${unit}`);
+  if (check && present && platform === "linux") {
+    // The service inherits the user manager's environment, not the shell's:
+    // prove the running process can reach the mise shims, or providers show
+    // as "not found" in T3 while every shell finds them.
+    const pid = yield* runner.run("systemctl", ["--user", "show", "-p", "MainPID", "--value", "t3code.service"], { output: "capture" });
+    const mainPid = pid.stdout.trim();
+    if (pid.status !== 0 || !/^[1-9]\d*$/.test(mainPid)) return yield* fail("t3code.service is installed but not running");
+    const environ = yield* fs.readFileString(`/proc/${mainPid}/environ`).pipe(Effect.catch(() => Effect.succeed("")));
+    const servicePath = environ.split("\0").find((entry) => entry.startsWith("PATH="))?.slice(5) ?? "";
+    if (!servicePath.split(":").includes(join(home, ".local/share/mise/shims"))) {
+      return yield* fail("t3code.service PATH lacks the mise shims; rerun ./dotfiles apply and restart the service");
+    }
+  }
+  if (present && platform !== "linux") return check ? undefined : yield* Console.log(`T3 Code service present: ${unit}`);
+  if (platform === "linux") {
+    // Without lingering the user manager, and the service with it, stops at logout.
+    const linger = yield* runner.run("loginctl", ["show-user", String(uid), "--property=Linger", "--value"], { output: "capture" }).pipe(
+      Effect.mapError((error) => new CliFailure({ exitCode: 1, message: `cannot query systemd-logind: ${error.message}` })),
+    );
+    if (linger.status !== 0) return yield* fail(`loginctl show-user exited ${linger.status}: ${linger.stderr.trim()}`);
+    if (linger.stdout.trim() !== "yes") {
+      return yield* fail("T3 Code needs systemd lingering; have an administrator run: sudo loginctl enable-linger $(id -un)");
+    }
+  }
+  if (check) return;
+  if (present) return yield* Console.log(`T3 Code service present: ${unit}`);
+  yield* Console.log(`installing the T3 Code service with base dir ${baseDir}`);
+  const install = yield* runner.run("t3", ["service", "install", "--base-dir", baseDir], { output: "inherit" });
+  const installed = yield* fs.exists(unit);
+  // Over SSH with nobody at the Mac's screen, T3 writes the LaunchAgent and then
+  // fails to start it in the GUI domain; upstream documents that the service
+  // starts at the next login.
+  if (install.status !== 0 && installed && platform === "darwin") {
+    // t3 exits a generic 1 for the headless start failure, so T3's own status
+    // is the evidence: a partial or corrupt install does not report installed.
+    const status = yield* runner.run("t3", ["service", "status", "--base-dir", baseDir], { output: "capture" });
+    if (status.status === 0 && /^\s*Status:\s*installed\b/m.test(status.stdout)) {
+      return yield* Console.log(`T3 Code service installed at ${unit}; start deferred to the next GUI login (t3 exited ${install.status})`);
+    }
+  }
+  if (install.status !== 0) return yield* fail(`t3 service install exited ${install.status}`, install.status);
+  if (!installed) return yield* fail(`t3 service install finished but ${unit} is missing`);
+});
+
+if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
+  runMain(installT3Service(process.env.HOME || "", process.argv.includes("--check")).pipe(
+    Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer),
+  ));
+}

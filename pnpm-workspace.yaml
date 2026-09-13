@@ -1,4 +1,5 @@
 allowBuilds:
+  esbuild: true
   msgpackr-extract: false
 # Effect RC releases are excluded by name so version bumps touch only
 # package.json. Bare names exempt every version of these packages.

@@ -36,8 +36,8 @@ Run a fixed command, or leave the child unprivileged while allowing its own sudo
 calls:
 
 ```zsh
-./scripts/secrets/sops-devbox-sudo.ts -- /bin/launchctl kickstart -k system/example.service
-./scripts/secrets/sops-devbox-sudo.ts --nested -- /path/to/service-restart.sh
+./identity/sops-devbox-sudo.ts -- /bin/launchctl kickstart -k system/example.service
+./identity/sops-devbox-sudo.ts --nested -- /path/to/service-restart.sh
 ```
 
 The password is decrypted in the askpass process. A narrow sudoers allowlist
@@ -72,10 +72,10 @@ owning private system and use the version 3 schema:
 - Credentials stay in owner-only configuration or client stores.
 
 ```zsh
-./scripts/bootstrap/configure-llm-gateway.ts
-./scripts/bootstrap/configure-llm-gateway.ts --check
-./scripts/bootstrap/configure-bifrost-clients.ts
-./scripts/bootstrap/configure-bifrost-clients.ts --check
+./bootstrap/configure-llm-gateway.ts
+./bootstrap/configure-llm-gateway.ts --check
+./bootstrap/configure-bifrost-clients.ts
+./bootstrap/configure-bifrost-clients.ts --check
 ```
 
 - Explicit enrollment and `./dotfiles maintain` preserve saved logins.
@@ -83,8 +83,8 @@ owning private system and use the version 3 schema:
 - To retire after checking explicit enrollment:
 
 ```zsh
-./scripts/bootstrap/configure-llm-gateway.ts --retire-auth
-./scripts/bootstrap/configure-llm-gateway.ts --check
+./bootstrap/configure-llm-gateway.ts --retire-auth
+./bootstrap/configure-llm-gateway.ts --check
 ```
 
 ### Client Troubleshooting
@@ -113,7 +113,7 @@ owning private system and use the version 3 schema:
 ### Rollback
 
 ```zsh
-./scripts/bootstrap/configure-llm-gateway.ts --rollback
+./bootstrap/configure-llm-gateway.ts --rollback
 ```
 
 - Restores saved client configuration and Cursor symlinks; removes helpers.
@@ -126,8 +126,8 @@ On macOS, install Colima's boot service from an authorized administrator
 account for the user who owns Colima:
 
 ```zsh
-sudo ./scripts/darwin/bootstrap/install-devbox-service-daemons.ts --user example --colima
-sudo ./scripts/darwin/bootstrap/install-devbox-service-daemons.ts --user example --colima --check
+sudo ./bootstrap/darwin/install-devbox-service-daemons.ts --user example --colima
+sudo ./bootstrap/darwin/install-devbox-service-daemons.ts --user example --colima --check
 ```
 
 - Root-owned LaunchDaemon, mode `0644`, running as the target user.
@@ -135,7 +135,7 @@ sudo ./scripts/darwin/bootstrap/install-devbox-service-daemons.ts --user example
 - Reference owner-only wrappers or files; never embed secrets.
 
 The `devbox` profiles install the T3 Code background service through the
-[`install-t3-service` step](../scripts/bootstrap/install-t3-service.ts)
+[`install-t3-service` step](../bootstrap/install-t3-service.ts)
 (`t3 service install --base-dir ~/.t3`, with the CLI pinned in the mise
 template) for users whose `devbox.env` sets `T3_SERVICE=1` and whose unit is
 absent. Only an explicit `./dotfiles apply` installs it; `./dotfiles maintain`
@@ -170,12 +170,8 @@ as the prefix owner and enroll
 packages and per-user updates without a GUI login. On Linux, each user
 enables the [systemd maintenance timer](software-updates.md#enable-and-use).
 
-[Host hygiene](software-updates.md#host-hygiene) runs when due during updates:
-
-```zsh
-mise run maintenance:hygiene # preview
-mise run maintenance:clean   # apply with the updater idle
-```
+Use [Host hygiene](software-updates.md#host-hygiene) to preview cleanup,
+protect active work, or apply removals with the updater idle.
 
 ## Verification
 
@@ -183,7 +179,7 @@ Run as the intended Unix user:
 
 ```zsh
 ./dotfiles check devbox # use personal-devbox for that profile
-./scripts/darwin/verify/devbox-services.ts # macOS only
+./verify/darwin/devbox-services.ts # macOS only
 mise run audit devbox --format json
 ```
 

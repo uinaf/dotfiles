@@ -1,0 +1,39 @@
+# Personal desktop additions.
+
+# App Store automation
+brew "mas"
+
+# Browsers and sync
+cask "firefox"
+cask "brave-browser"
+cask "google-drive"
+
+# Networking
+cask "tailscale-app"
+cask "proxyman"
+
+# Communication
+cask "signal"
+cask "telegram"
+cask "zoom"
+
+# Agent tools
+cask "grok-build"
+cask "uinaf/tap/slopwake"
+
+# Cloud tooling
+cask "gcloud-cli"
+
+# Desktop utilities
+cask "cleanshot"
+cask "tuna"
+
+# Platform development
+cask "raspberry-pi-imager"
+
+# Media utilities
+cask "the-unarchiver"
+cask "vlc"
+
+# Remote desktop
+cask "parsec"

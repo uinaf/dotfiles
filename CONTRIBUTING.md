@@ -22,9 +22,9 @@ mise run verify:fast          # all deterministic checks
 mise run verify               # also scan Git history for secrets
 ```
 
-- Domains: [mise.toml](mise.toml). Checks: [checks.json](scripts/verify/checks.json).
+- Domains: [mise.toml](mise.toml). Checks: [checks.json](verify/checks.json).
 - Run live profile checks and [audits](docs/security-audits.md) only on the intended host and user.
-- The optional [pre-push hook](scripts/verify/install-pre-push-hook.ts) checks outgoing commits for whitespace and conflict markers; it does not run tests.
+- The optional [pre-push hook](verify/install-pre-push-hook.ts) checks outgoing commits for whitespace and conflict markers; it does not run tests.
 
 ## Deliver
 

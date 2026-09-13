@@ -3,16 +3,41 @@
 Public macOS and Ubuntu bootstrap framework. Keep portable setup here and
 private machine state outside Git. `CLAUDE.md` links here; keep one authored agent guide.
 
+## Layout
+
+| Path | Responsibility |
+| --- | --- |
+| [dotfiles](dotfiles) | Public launcher |
+| [mise.toml](mise.toml) | Public tasks |
+| [bootstrap/](bootstrap/) | Per-user setup orchestration |
+| [maintenance/](maintenance/) | Updates, scheduling, and cleanup |
+| [homebrew/](homebrew/) | Brewfiles, composition, prefix management, and tests |
+| [agents/](agents/) | Harness integration and manifests |
+| [profiles/](profiles/) | Profile resolution and validation |
+| [identity/](identity/) | Git, SSH, and age setup |
+| [audit/](audit/) | Security audits |
+| [verify/](verify/) | Repository gates and integration fixtures |
+| [lib/](lib/) | Infrastructure shared across domains |
+| [chezmoi/](chezmoi/) | Managed home files in Chezmoi's source layout |
+| [docs/](docs/) | Operator procedures and rationale |
+
+Keep implementations, configuration, and unit tests with their domain. Put
+platform implementations under that domain's `darwin/` or `linux/` directory;
+create neither until needed. Shared infrastructure belongs in `lib/` only
+when multiple domains use it. Keep policy and inventories in code/config;
+Markdown links to their owners and explains manual actions, recovery, and rationale.
+
 ## Work
 
 - Check `git status --short --branch`; preserve unrelated changes.
 - Identify the affected profile or repository-only tooling. Read the relevant [task guide](README.md#guides).
-- Edit tracked sources: `chezmoi/` for home files, `scripts/agents/` for global agent setup, `scripts/bootstrap/` for installation. Scripts that run on one OS only go under `scripts/darwin/` or `scripts/linux/`; see [scripts/README.md](scripts/README.md).
+- Edit tracked sources at the domain owner above; preserve Chezmoi's required file layout.
 - Keep repository-local instructions, secrets, and services with their consumer. Linux host packages and provisioning belong to the host, not here.
-- Pin command-line tools with binary releases in `chezmoi/.chezmoitemplates/mise.toml` or its `darwin/` and `linux/` siblings (plain TOML; Renovate parses them). Keep `Brewfile` for what needs a compiler, a GUI, a system service, or a fixed privileged path; role packages belong in `Brewfile.workstation`, `Brewfile.personal`, or `Brewfile.devbox`.
+- Pin binary-release tools in the [mise templates](chezmoi/.chezmoitemplates/mise.toml) and their OS siblings. Keep them plain TOML for Renovate. [Homebrew](homebrew/) owns compiled packages, GUI apps, system services, and tools called by fixed privileged paths.
 - Preserve standalone operation; do not require a companion workspace manager.
 - Document manual setup when automation would need opaque app-state edits or machine-specific credential juggling.
 - Before writing Effect code, read `node_modules/effect/AGENTS.md` completely and follow required links. Look up uncovered APIs in `node_modules/effect/src`.
+- Write automation in TypeScript/Effect. Bundle installed client adapters so they run without the checkout or its dependencies. Keep shell limited to the pre-Node launcher and small native exec shims such as sudo askpass and Git signing.
 
 ## Boundaries
 

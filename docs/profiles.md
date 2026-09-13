@@ -4,44 +4,21 @@ Profiles configure one Unix user; host permissions provide isolation.
 
 ## Choose a Profile
 
-| Profile | Role | macOS Homebrew layers after [Brewfile](../Brewfile) |
-| --- | --- | --- |
-| `developer` | Default: runtimes, coding agents, rules, and skills for any Unix user | none |
-| `devbox` | `developer` on a human-operated SSH coding host | [Devbox](../Brewfile.devbox) |
-| `workstation` | `developer` on a human laptop or desktop | [Workstation](../Brewfile.workstation) |
-| `personal-devbox` | `devbox` plus personal headless tools and skills | [Devbox](../Brewfile.devbox), [personal](../Brewfile.personal) |
-| `personal-workstation` | `workstation` plus personal desktop apps and tools | [Workstation](../Brewfile.workstation), [personal](../Brewfile.personal) |
+| Profile | Role |
+| --- | --- |
+| `developer` | Default: runtimes and coding agents for any Unix user |
+| `devbox` | Human-operated SSH coding host |
+| `workstation` | Human laptop or desktop |
+| `personal-devbox` | Devbox with personal tools and gateway routing |
+| `personal-workstation` | Workstation with personal apps and gateway routing |
 
 - `./dotfiles diff|apply|check` without a profile uses the stored
   `~/.config/dotfiles/profile`, or `developer` on a fresh user.
 - [profiles.json](../chezmoi/.chezmoidata/profiles.json) owns capabilities,
-  [skill layers](agents.md), and install steps. Brewfiles own macOS packages.
+  Homebrew layers, agent selections, and install steps. The referenced
+  Brewfiles own macOS packages; [mise templates](mise.md) own runtime and tool pins.
 - `workstation` profiles configure a macOS desktop; `./dotfiles apply` refuses
   them on Linux. `developer` and the `devbox` profiles run on both.
-- Every profile installs [oh-my-zsh](https://ohmyzsh.sh) with the
-  `robbyrussell` theme and `git` plugin at the revision pinned in
-  [install-oh-my-zsh.ts](../scripts/bootstrap/install-oh-my-zsh.ts); Renovate
-  moves the pin, `./dotfiles maintain` converges to it, and the framework's
-  own updater stays disabled. `devbox` profiles replace the prompt with
-  `➜ user@host ~ git:(branch)` so SSH sessions name the machine.
-- Command-line tools with binary releases (`gh`, `jq`, `ripgrep`,
-  `shellcheck`, `actionlint`, `chezmoi`, `direnv`, `gitleaks`, `trufflehog`,
-  `topgrade`, OpenCode, `awscli`, `glab`, `git-filter-repo`, Codex, Claude
-  Code, the T3 CLI, and the Playwright CLI) are mise tools pinned in
-  [mise.toml](../chezmoi/.chezmoitemplates/mise.toml) plus the
-  [darwin](../chezmoi/.chezmoitemplates/darwin/mise.toml) and
-  [linux](../chezmoi/.chezmoitemplates/linux/mise.toml) siblings (plain TOML
-  so Renovate parses them); macOS adds `xcodegen` and Linux adds `btop` there.
-  Homebrew keeps what needs a compiler, a GUI, or a system service (`git`,
-  `mise`, `tmux`, `btop`, `ffmpeg`, `watchman`, `git-crypt`, the Docker and
-  Colima stack, `lynis`, `mole`, the casks) and the tools privileged flows
-  call by fixed path: `age` and `sops` for the sudo askpass helper and
-  `xcodes` for root Xcode selection. A Linux host supplies `git`, `mise`,
-  `tmux`, `age`, and `sops` itself; see
-  [Linux prerequisites](bootstrap.md#linux-ubuntu).
-- Personal GUI casks and `mas` install only for `personal-workstation`.
-- The selected role is stored in `~/.config/dotfiles/profile` and checked during
-  verification.
 
 ## Host and User Boundaries
 
@@ -59,30 +36,8 @@ Profiles configure one Unix user; host permissions provide isolation.
 
 ## Apply a Profile
 
-Choose one role; on macOS, run Homebrew setup as its authorized administrator:
-
-```zsh
-profile=workstation
-./scripts/darwin/bootstrap/brew-bundle.ts "$profile"
-```
-
-As the target Unix user:
-
-```zsh
-mise trust
-./dotfiles diff "$profile"
-./dotfiles apply "$profile"
-./scripts/bootstrap/configure-git.ts --profile "$profile"
-```
-
-The `devbox` and personal profiles require an age identity before
-verification. For `developer` and `workstation`, enroll one when SOPS
-decryption is needed:
-
-```zsh
-./scripts/secrets/configure-sops-age-identity.ts
-./dotfiles check "$profile"
-```
+Follow [Bootstrap](bootstrap.md#apply-a-profile), including its gateway and
+identity prerequisites. Personal apply retires unpreserved coding-client logins.
 
 ## Local Homebrew Additions
 
@@ -113,8 +68,8 @@ Profiles can accept packages supplied by another trusted installer:
 - Create `~/.config/dotfiles/external-homebrew.plist`: a regular XML plist,
   owned by the user, without group/other write access.
 - Use version `1` and a `capabilities` array following the
-  [schema](../scripts/darwin/lib/homebrew.ts) and
-  [examples](../scripts/darwin/verify/external-homebrew.ts). Entries must name packages
+  [schema](../homebrew/homebrew.ts) and
+  [examples](../homebrew/verify/external-homebrew.ts). Entries must name packages
   declared in the selected profile's Brewfiles, `Brewfile.local`, or
   `externalHomebrew` list.
 - `command`: absolute executable owned by root or the user, without group/other

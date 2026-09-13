@@ -22,5 +22,5 @@ greedy_latest = true
 autoremove = false
 
 [commands]
-"Managed dotfiles" = {{ printf "node %s/scripts/maintenance/converge.ts" (.chezmoi.sourceDir | dir | quote) | toJson }}
-"Host hygiene" = {{ printf "node %s/scripts/maintenance/hygiene.ts --apply --scheduled" (.chezmoi.sourceDir | dir | quote) | toJson }}
+"Managed dotfiles" = {{ printf "node %s/maintenance/converge.ts" (.chezmoi.sourceDir | dir | quote) | toJson }}
+"Host hygiene" = {{ printf "node %s/maintenance/hygiene.ts --apply --scheduled" (.chezmoi.sourceDir | dir | quote) | toJson }}

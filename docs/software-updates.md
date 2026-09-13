@@ -2,42 +2,33 @@
 
 Topgrade updates installed software and applies the enrolled dotfiles profile.
 A launchd agent schedules it on macOS; a systemd user timer does on Linux.
-[schedule.ts](../scripts/maintenance/schedule.ts) routes the commands below to
+[schedule.ts](../maintenance/schedule.ts) routes the commands below to
 the platform implementation.
 
 ## Enable And Use
 
-Run from the persistent checkout as the logged-in user:
+Complete [profile setup](bootstrap.md#apply-a-profile), then run from the
+persistent checkout as the logged-in user:
 
 ```sh
-mise run dotfiles:apply personal-workstation # choose the user's profile
 mise run maintenance:enable
 mise run maintenance:status
 mise run maintenance:update
 ```
 
-| Command | Purpose |
-| --- | --- |
-| `maintenance:status` | Scheduler state, last exit, receipt, and (macOS) plist drift |
-| `maintenance:check` | JSON update inventory; refreshes metadata without installing |
-| `maintenance:verify` | Post-update live scan and full bootstrap verification |
-| `maintenance:hygiene` | Cleanup preview; reads remote refs, deletes nothing |
-| `maintenance:clean` | Apply eligible cleanup now |
-| `maintenance:disable` | Persistently disable and stop the scheduled update job |
-
-Prefix these commands with `mise run`.
+Use `mise tasks` for the command catalog. Schedules live in the
+[macOS agent](../chezmoi/private_Library/LaunchAgents/local.dotfiles.software-update.plist.tmpl)
+and [Linux timer](../chezmoi/private_dot_config/systemd/user/dotfiles-software-update.timer).
 
 - Applying dotfiles does not enable updates; enrollment is explicit.
-- macOS schedule: 00:00, 06:00, 12:00, 18:00 local time, plus login/load.
-  Missed sleep events coalesce on wake; powered-off machines wait until startup.
-- Linux schedule: the same hours with up to fifteen minutes of jitter, catching
-  up after downtime (`dotfiles-software-update.timer`). `maintenance:enable`
-  needs the rendered units from `./dotfiles apply` and systemd lingering
+- macOS missed sleep events coalesce on wake; powered-off machines wait until
+  startup. Linux catches up after downtime.
+- Linux `maintenance:enable` needs the rendered units and systemd lingering
   (`sudo loginctl enable-linger <user>`, an administrator step); without
   lingering the timer stops at logout and `maintenance:status` fails. Console
-  output goes to `journalctl --user -u dotfiles-software-update`. Topgrade
-  runs GitHub CLI extension updates plus the managed-dotfiles and hygiene
-  commands; the host owns its packages.
+  output goes to `journalctl --user -u dotfiles-software-update`. The
+  [Topgrade config](../chezmoi/private_dot_config/topgrade.toml.tmpl) selects
+  update steps; the host owns Linux packages.
 - Requests acknowledge launch, not completion. Check status and the log summary.
   A stuck run blocks later runs.
 - `maintenance:update` preserves an active run. Separate `topgrade` or `brew`
@@ -53,10 +44,8 @@ Prefix these commands with `mise run`.
 
 ## Dotfiles Convergence
 
-- Playwright CLI stays on `0.1.18`: `0.1.19` dropped npm trusted-publisher
-  metadata and provenance. Remove its Renovate hold after a reviewed release
-  restores that evidence; keep Mise's trust policy enabled.
-- [Convergence](../scripts/maintenance/converge.ts) requires a clean default
+- [Renovate rules](../renovate.json) own reviewed update holds and their rationale.
+- [Convergence](../maintenance/converge.ts) requires a clean default
   branch tracking `origin`, with no local commits or unfinished Git operations.
   Dirty, ahead, detached, or diverged checkouts retain local work and fail.
 - Commit and push source changes first. The job fast-forwards, trusts updated
@@ -68,37 +57,28 @@ Prefix these commands with `mise run`.
   `brew audit` or other developer command silently enables developer mode,
   which makes `brew update` track Homebrew `main` instead of stable tags and
   has hung unattended builds on an untagged commit.
-- Convergence and shared Homebrew serialize through a checkout lock, waiting up
-  to 15 minutes. Dead/pre-boot owners are reclaimed; live or ambiguous owners
-  retain the lock.
+- Convergence and shared Homebrew serialize through a
+  [checkout lock](../lib/lock.ts). Live or ambiguous owners retain the lock.
 - Failed steps retry on the next run. Package/configuration changes are not
   rolled back; Topgrade reports independent steps separately.
 
 ## Host Hygiene
 
-- Runs weekly after success; failed inspections retry at the next update.
-- Finds owning clones at `~/projects/<repo>` and `~/projects/<group>/<repo>`.
-  Checks current remote default refs using local commit history. Missing history
-  or failed remote access retains the repository; sync/fix access before retrying.
-- Never removes owning clones. Linked worktrees are eligible under
-  `~/.t3/worktrees`, `~/.codex/worktrees`, `~/.claude/worktrees`, and anywhere in
-  `~/projects`, so a worktree created beside its owning clone is reported and
-  cleaned rather than accumulating unseen.
-- Removal requires HEAD ancestry to the remote default and two observations of
-  the same HEAD at least **three days apart**. Worktrees also need three days
-  without filesystem changes, including their private Git directory.
-- Retains dirty, locked, missing, busy, unreadable, or non-canonical
-  worktrees; a detached worktree is removable only when its HEAD is already in
-  the remote default, since it has no branch to protect; unfinished Git operations; ignored local files except regenerable
-  `node_modules`; unmerged/squash-only heads; upstream-tracking and long-lived
-  branches (`main`, `master`, `develop`, `dev`, `production`, `staging`, `release`).
-  Oversized activity inventories also retain the worktree.
-- A branch that is merged upstream but missing from a lagging local checkout
-  reports `local default branch is behind the remote; pull before removal`,
-  because unforced deletion judges against local HEAD.
-- Rechecks remote/Git/process state before unforced removal. Checked-out/default
-  branches stay. A removed worktree's branch starts its own three-day grace.
-- Read-only activity may leave no timestamps: lock active work explicitly.
+[Hygiene policy](../maintenance/hygiene.ts) owns cadence, discovery,
+grace periods, and retention checks. Preview before deleting anything:
+
+```sh
+mise run maintenance:hygiene
+mise run maintenance:clean # apply with the updater idle
+```
+
+- Cleanup removes eligible merged worktrees and branches after a grace period,
+  plus aged developer caches. It never removes owning clones.
+- Dirty, locked, active, or unproven work stays. Missing history or failed
+  inspection retains candidates; resolve the reported cause before retrying.
+  A lagging local default branch can require a pull before removal.
+- Read-only activity may leave no timestamps: lock active work explicitly or
+  exclude the owning clone:
 
 ```sh
 git worktree lock --reason "active agent task" <path>
@@ -107,10 +87,10 @@ git config --local dotfiles.hygiene skip # exclude this owning clone
 git config --local --unset dotfiles.hygiene # include it again
 ```
 
-- Cleans aged developer caches/logs (30 days), unavailable simulators,
-  unreferenced pnpm entries, and Docker build cache (seven days).
-- Preserves project sources, Xcode Archives, npm caches, stopped containers,
-  images, and volumes. Shared Homebrew cleanup belongs to its prefix owner.
+- The [cache sweep](../maintenance/cache-cleanup.ts) owns cleanup targets
+  and age thresholds. It preserves project sources and persistent container
+  data; review the preview for the current targets. Shared Homebrew cleanup
+  belongs to its prefix owner.
 - Private state: `~/.local/state/dotfiles/hygiene.json`. A live/ambiguous hygiene
   lock fails for inspection; stale process locks recover automatically.
 
@@ -131,15 +111,14 @@ logs live under `~/.local/state/dotfiles/logs/`.
   heartbeats.
 - JSON history records start/finish, exit code, and heartbeat outcome. Applied
   hygiene logs removals/retentions and cache output; previews/skips do not append.
-- Each update archives the previous output. Dated logs retain today and six
-  preceding UTC dates; pruning happens during maintenance. Weekly hygiene caps
-  logs at 2 MB in place. History counts are retained totals, not lifetime totals.
+- Each update archives the previous output; [log policy](../maintenance/logs.ts)
+  and [hygiene](../maintenance/hygiene.ts) own retention and size limits.
+  History counts are retained totals, not lifetime totals.
 - Private receipts live at `~/.local/state/dotfiles/updates/<job>.json`.
   Compare `running` receipts with the scheduler; they do not prove process
   liveness.
-- On macOS, `maintenance:status` warns about plist drift and receipts older
-  than 13 hours while loaded. Notifications alone cannot detect a scheduler
-  that never starts.
+- On macOS, `maintenance:status` warns about plist drift and stale receipts.
+  Notifications alone cannot detect a scheduler that never starts.
 
 For always-on hosts, provision an owner-only regular file at
 `~/.config/dotfiles/update-heartbeats.json` through the host's secret owner:
@@ -152,12 +131,18 @@ For always-on hosts, provision an owner-only regular file at
 ```
 
 - URLs accept GET for success and GET `/fail` for failure, after completion.
-- Delivery has a 15-second timeout, no redirects, and one retry after ten seconds.
-  Delivery failure is logged without rerunning updates or changing their exit code.
+- [Heartbeat delivery](../maintenance/run.ts) is bounded and does not
+  follow redirects. Failure is logged without rerunning updates or changing
+  their exit code.
 - Missing config disables delivery; invalid config records failure but updates run.
 - Allow scheduling/update grace. Sleeping laptops should not use always-on alerts.
 
 ## Disable, Reload, And Recover
+
+```sh
+mise run maintenance:status
+mise run maintenance:disable
+```
 
 - macOS: wait for idle, disable, apply dotfiles, then enable to reload changed
   plists. Re-enabling an already loaded job does not reload it. Script-only
@@ -167,6 +152,70 @@ For always-on hosts, provision an owner-only regular file at
 - Disabling stops the job and children. After interruption, inspect logs/package
   state before retrying. Never delete Homebrew locks during another package run.
 
+### Upgrading From the Scripts Layout
+
+This breaking release removes the former `scripts/` entry points. Installed
+maintenance jobs retain checkout paths, so an unattended pull cannot complete
+this migration safely. Stop jobs before pulling; reapply the user configuration
+and have an administrator re-enroll macOS update daemons afterward.
+
+1. From the old checkout, inspect each enrolled user's maintenance status and
+   wait for active updates to finish. For a user-managed macOS agent or Linux
+   timer, stop enrollment as that user:
+
+   ```sh
+   mise run maintenance:status
+   mise run maintenance:disable
+   ```
+
+2. On macOS hosts with system update daemons, an administrator must also stop
+   every software/Homebrew update job referencing the checkout being moved.
+   Use each existing installed label, including its namespace; replace the
+   placeholder below and repeat for each affected job:
+
+   ```sh
+   update_label='<installed-update-label>'
+   launchctl print "system/$update_label"
+   # Wait for the job to finish before disabling and unloading it.
+   sudo launchctl disable "system/$update_label"
+   sudo launchctl bootout "system/$update_label"
+   ```
+
+3. As each checkout owner, run `git pull --ff-only`, then follow
+   [Apply a profile](bootstrap.md#apply-a-profile), including verification. Apply replaces the user's plist
+   or systemd unit and Topgrade configuration. It does not rewrite root-owned
+   LaunchDaemons. Keep schedulers disabled if apply or verification fails.
+
+   If this checkout uses the optional dotfiles pre-push hook, update its stored
+   verifier path after preparing dependencies:
+
+   ```sh
+   node verify/install-pre-push-hook.ts
+   ```
+
+   If gateway clients were previously configured, replace their copied helpers
+   with the bundled adapters and verify them:
+
+   ```sh
+   node bootstrap/configure-llm-gateway.ts
+   node bootstrap/configure-llm-gateway.ts --check
+   ```
+
+4. Restore the enrollment that was active before the upgrade. For a user-managed
+   agent or timer, run as that user:
+
+   ```sh
+   mise run maintenance:enable
+   mise run maintenance:status
+   ```
+
+   For macOS system jobs, have the administrator rerun the
+   [headless enrollment command](#headless-devbox-updates) from the updated
+   checkout using the existing user, repository, and namespace. Select
+   `--software-updates`; include `--homebrew-updates` only for the previously
+   enrolled prefix owner. Repeat with `--check` to verify the new job contract.
+   Leave the competing GUI updater disabled. Re-enrollment starts the jobs.
+
 ## Headless Devbox Updates
 
 On Linux, `mise run maintenance:enable` plus lingering is the whole
@@ -174,7 +223,7 @@ enrollment; the user timer then runs without a login. On a shared Mac, prepare
 each user's persistent checkout and apply its devbox profile. As admin:
 
 ```sh
-sudo node scripts/darwin/bootstrap/install-devbox-service-daemons.ts \
+sudo node bootstrap/darwin/install-devbox-service-daemons.ts \
   --user example --software-updates --homebrew-updates \
   --updates-repository /Users/example/projects/dotfiles
 ```
@@ -182,10 +231,8 @@ sudo node scripts/darwin/bootstrap/install-devbox-service-daemons.ts \
 - Only the Homebrew prefix owner gets `--homebrew-updates`; omit it for others.
   Each user must own their checkout/profile. Add `--check` for read-only validation.
 - Disable the user's GUI updater before enrollment. System and GUI enrollment
-  reject duplicates. Jobs run on enrollment/boot and every six hours.
-- Homebrew starts at `:00`. Per-user jobs use five-minute slots from `:05` to
-  `:50`, selected by `5 × (1 + UID % 10)`; UIDs 502 and 503 run at `:15` and
-  `:20`. Slots stagger starts, without waiting for earlier jobs to finish.
+  reject duplicates. [Devbox scheduling](../maintenance/darwin/devbox.ts)
+  owns the staggered schedule; starts do not wait for earlier jobs to finish.
 - Use the actual installed labels; `kickstart` without `-k` preserves active runs:
 
 ```sh
@@ -211,10 +258,10 @@ sudo launchctl bootout system/local.dotfiles.software-update.example
   cached applicability, live-scan decisions, and incomplete/timed-out probes.
   On Linux it has no Homebrew or OS probes; the mise, npm, and coding-agent
   inventories remain.
-- macOS source caches last 24 hours. Stale/unavailable sources remain visible;
-  cached applicability is never presented as live.
-- Live scans run when freshness/applicability requires them or after 24 hours.
-  Force one with `node scripts/maintenance/check.ts --fresh`.
+- [macOS inventory policy](../maintenance/darwin/macos-updates.ts) owns
+  cache freshness and live-scan decisions. Stale/unavailable sources remain
+  visible; cached applicability is never presented as live. Force a scan with
+  `node maintenance/check.ts --fresh`.
 - `maintenance:verify` adds bootstrap verification. Live macOS scans have no
   timeout because daemon cancellation is undocumented; inventory never downloads
   or installs OS updates.

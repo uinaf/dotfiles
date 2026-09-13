@@ -1,0 +1,99 @@
+import { Schema } from "effect";
+import { isAbsolute } from "node:path";
+import type { ConfigEdit } from "../../bootstrap/configure-codex.ts";
+
+const PreservedLogin = Schema.Literals(["codex", "claude", "cursor", "grok"]);
+export type PreservedLogin = typeof PreservedLogin.Type;
+const PreservedLogins = Schema.Array(PreservedLogin).pipe(Schema.check(Schema.makeFilter((values) => new Set(values).size === values.length)));
+const AbsolutePath = Schema.NonEmptyString.pipe(Schema.check(Schema.makeFilter(isAbsolute)));
+const GatewayShape = Schema.Struct({
+  version: Schema.Literal(3),
+  credentials: Schema.Struct({
+    gatewai: Schema.String.pipe(Schema.check(Schema.isPattern(/^[A-Za-z0-9_-]{32,}$/))),
+    bifrost: Schema.String.pipe(Schema.check(Schema.isPattern(/^sk-bf-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/))),
+    cursor: Schema.optionalKey(Schema.String.pipe(Schema.check(Schema.isPattern(/^crsr_[A-Za-z0-9_-]{64}$/)))),
+  }),
+  gatewaiBaseUrl: Schema.NonEmptyString,
+  bifrostBaseUrl: Schema.NonEmptyString,
+  cursorAgentBin: Schema.optionalKey(AbsolutePath),
+  grokBin: Schema.optionalKey(AbsolutePath),
+  preservedLogins: Schema.optionalKey(Schema.Unknown),
+});
+const GatewayUrl = Schema.String.pipe(Schema.check(Schema.makeFilter((input) => {
+  try {
+    const url = new URL(input);
+    return url.protocol === "https:" && !url.username && !url.password && !url.search && !url.hash && url.pathname.endsWith("/v1");
+  } catch { return false; }
+})));
+export type GatewayConfig = Omit<typeof GatewayShape.Type, "preservedLogins"> & { preservedLogins?: readonly PreservedLogin[] };
+
+export function parseGatewayConfig(contents: string): GatewayConfig {
+  let input: unknown;
+  try { input = JSON.parse(contents); } catch { throw new Error("gateway config must contain valid JSON"); }
+  let value: typeof GatewayShape.Type;
+  try { value = Schema.decodeUnknownSync(GatewayShape, { onExcessProperty: "error" })(input); }
+  catch { throw new Error("gateway config contains an unknown field or invalid value"); }
+  for (const field of ["gatewaiBaseUrl", "bifrostBaseUrl"] as const) {
+    if (!Schema.is(GatewayUrl)(value[field])) throw new Error(`${field} must be an HTTPS /v1 URL without credentials, query, or fragment`);
+  }
+  if ((value.cursorAgentBin === undefined) !== (value.credentials.cursor === undefined)) {
+    throw new Error("cursorAgentBin and credentials.cursor must be configured together");
+  }
+  let preservedLogins: readonly PreservedLogin[] | undefined;
+  if (value.preservedLogins !== undefined) {
+    try { preservedLogins = Schema.decodeUnknownSync(PreservedLogins)(value.preservedLogins); }
+    catch { throw new Error("preservedLogins must list unique clients from codex, claude, cursor, grok"); }
+  }
+  return { ...value, preservedLogins };
+}
+
+export function gatewayEdits(config: GatewayConfig, credentialPath: string): ConfigEdit[] {
+  return [
+    { keyPath: "model", value: "gpt-5.6-sol", mergeStrategy: "upsert" },
+    { keyPath: "model_provider", value: "gatewai", mergeStrategy: "upsert" },
+    { keyPath: "features.apps", value: false, mergeStrategy: "upsert" },
+    { keyPath: "mcp_servers.node_repl", value: null, mergeStrategy: "replace" },
+    { keyPath: "mcp_servers.computer-use", value: null, mergeStrategy: "replace" },
+    { keyPath: "notify", value: null, mergeStrategy: "replace" },
+    { keyPath: "model_providers.llm_gateway", value: null, mergeStrategy: "replace" },
+    { keyPath: "model_providers.gatewai.name", value: "Gatewai", mergeStrategy: "upsert" },
+    { keyPath: "model_providers.gatewai.base_url", value: config.gatewaiBaseUrl, mergeStrategy: "upsert" },
+    { keyPath: "model_providers.gatewai.wire_api", value: "responses", mergeStrategy: "upsert" },
+    { keyPath: "model_providers.gatewai.requires_openai_auth", value: false, mergeStrategy: "upsert" },
+    { keyPath: "model_providers.gatewai.supports_websockets", value: true, mergeStrategy: "upsert" },
+    {
+      keyPath: "model_providers.gatewai.http_headers",
+      value: { "X-OpenAI-Actor-Authorization": "local-proxy" },
+      mergeStrategy: "upsert",
+    },
+    { keyPath: "model_providers.gatewai.auth.command", value: credentialPath, mergeStrategy: "upsert" },
+    { keyPath: "model_providers.gatewai.auth.args", value: ["gatewai"], mergeStrategy: "upsert" },
+    { keyPath: "model_providers.gatewai.auth.timeout_ms", value: 5000, mergeStrategy: "upsert" },
+    { keyPath: "model_providers.gatewai.auth.refresh_interval_ms", value: 0, mergeStrategy: "upsert" },
+    { keyPath: "model_providers.bifrost.name", value: "Bifrost", mergeStrategy: "upsert" },
+    { keyPath: "model_providers.bifrost.base_url", value: config.bifrostBaseUrl, mergeStrategy: "upsert" },
+    { keyPath: "model_providers.bifrost.wire_api", value: "responses", mergeStrategy: "upsert" },
+    { keyPath: "model_providers.bifrost.requires_openai_auth", value: false, mergeStrategy: "upsert" },
+    { keyPath: "model_providers.bifrost.supports_websockets", value: false, mergeStrategy: "upsert" },
+    { keyPath: "model_providers.bifrost.auth.command", value: credentialPath, mergeStrategy: "upsert" },
+    { keyPath: "model_providers.bifrost.auth.args", value: ["bifrost"], mergeStrategy: "upsert" },
+    { keyPath: "model_providers.bifrost.auth.timeout_ms", value: 5000, mergeStrategy: "upsert" },
+    { keyPath: "model_providers.bifrost.auth.refresh_interval_ms", value: 0, mergeStrategy: "upsert" },
+  ];
+}
+
+export function codexGatewaiOverrides(config: GatewayConfig, credentialPath: string): string[] {
+  // Codex parses -c values as TOML, so objects must be inline tables
+  // ({"k" = "v"}), not JSON ({"k":"v"}); JSON syntax degrades to a string.
+  const serialize = (value: ConfigEdit["value"]): string => {
+    if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+      const entries = Object.entries(value)
+        .map(([key, entry]) => `${JSON.stringify(key)} = ${JSON.stringify(entry)}`);
+      return `{${entries.join(", ")}}`;
+    }
+    return JSON.stringify(value);
+  };
+  return gatewayEdits(config, credentialPath)
+    .filter((edit) => edit.keyPath === "model_provider" || edit.keyPath.startsWith("model_providers.gatewai."))
+    .map((edit) => `${edit.keyPath}=${serialize(edit.value)}`);
+}

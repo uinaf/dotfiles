@@ -11,19 +11,14 @@ outside Git.
 - New machine: follow [Bootstrap](docs/bootstrap.md).
 - Choose a [profile](docs/profiles.md); `developer` is the default when none
   is given.
-- On a configured machine, preview changes before applying them:
-
-```zsh
-cd ~/projects/dotfiles
-./dotfiles diff
-./dotfiles apply
-./dotfiles check
-```
+- On a configured machine, follow [Updating an existing machine](docs/bootstrap.md#updating-an-existing-machine).
 
 Homebrew packages, Linux host packages, identities, and host settings have
 separate bootstrap steps.
 
 ## Guides
+
+The [repository layout](AGENTS.md#layout) maps each domain to its source owner.
 
 | Task | Guide |
 | --- | --- |

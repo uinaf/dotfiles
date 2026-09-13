@@ -17,14 +17,14 @@ if [ "$#" -eq 1 ]; then
       ;;
     maintain)
       mise --no-config x "node@$node_version" -- corepack pnpm --dir "$repo_root" install --frozen-lockfile
-      exec mise --no-config x "node@$node_version" -- node "$repo_root/scripts/bootstrap/install.ts" --maintenance
+      exec mise --no-config x "node@$node_version" -- node "$repo_root/bootstrap/install.ts" --maintenance
       ;;
   esac
 fi
 
 if command -v node >/dev/null 2>&1 \
   && (cd "$repo_root" && node -e 'import("effect")' >/dev/null 2>&1); then
-  exec node "$repo_root/scripts/dotfiles.ts" "$@"
+  exec node "$repo_root/bootstrap/cli.ts" "$@"
 fi
 
 if ! command -v mise >/dev/null 2>&1; then
@@ -33,4 +33,4 @@ if ! command -v mise >/dev/null 2>&1; then
 fi
 
 mise --no-config x "node@$node_version" -- corepack pnpm --dir "$repo_root" install --frozen-lockfile
-exec mise --no-config x "node@$node_version" -- corepack pnpm --dir "$repo_root" exec node "$repo_root/scripts/dotfiles.ts" "$@"
+exec mise --no-config x "node@$node_version" -- corepack pnpm --dir "$repo_root" exec node "$repo_root/bootstrap/cli.ts" "$@"

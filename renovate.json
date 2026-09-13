@@ -84,7 +84,7 @@
       "customType": "regex",
       "description": "Annotated TypeScript dependency constants",
       "managerFilePatterns": [
-        "/^scripts/(agents/sync|verify/bootstrap)\\.ts$/"
+        "/^(agents/sync|verify/bootstrap)\\.ts$/"
       ],
       "matchStrings": [
         "// renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)\\s+(?:export )?const [A-Z_]+ = \"(?<currentValue>[^\"]+)\";"
@@ -94,7 +94,7 @@
       "customType": "regex",
       "description": "Pinned oh-my-zsh revision, followed as a digest of its default branch",
       "managerFilePatterns": [
-        "/^scripts/bootstrap/install-oh-my-zsh\\.ts$/"
+        "/^bootstrap/install-oh-my-zsh\\.ts$/"
       ],
       "matchStrings": [
         "// renovate: datasource=(?<datasource>git-refs) depName=(?<depName>[^\\s]+) branch=(?<currentValue>[^\\s]+)\\s+export const OH_MY_ZSH_REVISION = \"(?<currentDigest>[0-9a-f]{40})\";"

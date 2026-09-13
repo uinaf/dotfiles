@@ -1,0 +1,84 @@
+#!/usr/bin/env node
+
+import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
+import { delimiter, dirname, join, resolve } from "node:path";
+import test from "node:test";
+import { fileURLToPath } from "node:url";
+
+import { auditCommand, runAudit } from "../audit/run.ts";
+
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+function globalMiseConfigPath(env: NodeJS.ProcessEnv): string {
+  return env.MISE_GLOBAL_CONFIG_FILE || resolve(env.XDG_CONFIG_HOME || join(homedir(), ".config"), "mise/config.toml");
+}
+
+function globalMiseConfigDirectory(env: NodeJS.ProcessEnv): string {
+  return env.MISE_CONFIG_DIR || resolve(env.XDG_CONFIG_HOME || join(homedir(), ".config"), "mise");
+}
+
+const globalMiseConfig = globalMiseConfigPath(process.env);
+const globalMiseConfigDir = globalMiseConfigDirectory(process.env);
+const miseEnv = {
+  ...process.env,
+  MISE_IGNORED_CONFIG_PATHS: [process.env.MISE_IGNORED_CONFIG_PATHS, globalMiseConfig, globalMiseConfigDir]
+    .filter(Boolean)
+    .join(delimiter),
+  MISE_TRUSTED_CONFIG_PATHS: [process.env.MISE_TRUSTED_CONFIG_PATHS, repoRoot].filter(Boolean).join(delimiter),
+};
+function run(command: string, args: string[], env: NodeJS.ProcessEnv = {}) {
+  const configDir = mkdtempSync(join(tmpdir(), "dotfiles-mise-config-"));
+  try {
+    return spawnSync(command, args, {
+      cwd: repoRoot,
+      encoding: "utf8",
+      env: { ...miseEnv, MISE_CONFIG_DIR: configDir, ...env },
+    });
+  } finally {
+    rmSync(configDir, { force: true, recursive: true });
+  }
+}
+
+test("mise exposes one validated task graph", () => {
+  const validation = run("mise", ["tasks", "validate", "--errors-only"]);
+  assert.equal(validation.status, 0, validation.stderr);
+
+  const listing = run("mise", ["tasks", "--hidden", "--json"]);
+  assert.equal(listing.status, 0, listing.stderr);
+  const tasks = JSON.parse(listing.stdout) as Array<{ name: string; depends: string[]; source: string }>;
+  assert.ok(tasks.every((task) => task.source === resolve(repoRoot, "mise.toml")));
+  assert.ok(tasks.find((task) => task.name === "verify")?.depends.includes("verify:history"));
+});
+
+test("task arguments fail before live commands run", () => {
+  assert.notEqual(run("mise", ["run", "audit", "unknown"]).status, 0);
+  assert.notEqual(run("mise", ["run", "verify:bootstrap", "unknown"]).status, 0);
+});
+
+test("focused verification preserves the delegated failure code", () => {
+  const bin = mkdtempSync(join(tmpdir(), "dotfiles-mise-bin-"));
+  try {
+    const node = join(bin, "node");
+    writeFileSync(node, "#!/bin/sh\n[ \"${1:-}\" = --version ] && exit 0\nexit 23\n");
+    chmodSync(node, 0o755);
+    const result = run("mise", ["run", "verify:domain", "static"], { PATH: `${bin}:${process.env.PATH ?? ""}` });
+    assert.equal(result.status, 23, result.stderr);
+  } finally {
+    rmSync(bin, { force: true, recursive: true });
+  }
+});
+
+test("audit routing is explicit and preserves failures", () => {
+  assert.equal(auditCommand("repo", "json")[0], process.execPath);
+  assert.match(auditCommand("repo", "json")[1][0], /audit\/repo\.ts$/);
+  assert.deepEqual(auditCommand("repo", "json")[1].slice(1), ["--skip-mscp", "--json"]);
+  assert.deepEqual(auditCommand("mscp", "text")[1].slice(1), []);
+  assert.match(auditCommand("host", "text")[1][0], /audit\/host\.ts$/);
+  assert.equal(auditCommand("workstation", "text")[0], process.execPath);
+  assert.match(auditCommand("workstation", "text")[1][0], /audit\/workstation\.ts$/);
+  assert.equal(auditCommand("devbox", "text")[0], process.execPath);
+  assert.match(auditCommand("devbox", "json")[1][0], /audit\/devbox\.ts$/);
+  assert.equal(runAudit("host", "text", () => ({ status: 29 })), 29);
+});

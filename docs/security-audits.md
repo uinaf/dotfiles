@@ -24,18 +24,18 @@ Audits report findings without applying remediation. Prepare tooling with
 
 ## Interpret Findings
 
-- [Gitleaks policy](../scripts/audit/gitleaks-policy.json): low/medium warn;
+- [Gitleaks policy](../audit/gitleaks-policy.json): low/medium warn;
   high/critical and unknown rules fail. Verified TruffleHog findings fail
   independently.
-- [`generic-api-key`](../scripts/audit/gitleaks-policy.json) is low severity
+- [`generic-api-key`](../audit/gitleaks-policy.json) is low severity
   because it frequently matches shell assignments. Inspect it before dismissing it.
 - [Gitleaks allowlists](../.gitleaks.toml) may contain exact synthetic fixture
   values only; never real keys, whole paths, commits, or provider rules.
 - Live credential stores receive permission/structure checks. For example,
   `~/.npmrc` must be owner-only with registry-scoped auth; the generic scan
   excludes it. Backups remain scan targets.
-- Inspect the owning [workstation](../scripts/audit/workstation.ts) or
-  [devbox](../scripts/audit/devbox.ts) policy for individual checks. Devbox project
+- Inspect the owning [workstation](../audit/workstation.ts) or
+  [devbox](../audit/devbox.ts) policy for individual checks. Devbox project
   privacy checks cover `~/projects` and `~/projects/<devbox-user>`, not every
   descendant. Codex log-size warnings distinguish live data from reclaimable
   space where database headers are readable.
@@ -60,7 +60,7 @@ For a real secret:
 ## Deeper Host Checks
 
 ```zsh
-node scripts/audit/host.ts --allow-sudo-prompt
+node audit/host.ts --allow-sudo-prompt
 ```
 
 - Lynis reports are temporary and deleted after summarizing.
@@ -84,8 +84,8 @@ PATH="$PWD/.venv/bin:$PATH" ./mscp.py --os_name macos --os_version 26 guidance \
 - Replace `26` with the host's macOS major version; return to the dotfiles
   checkout before running its audit commands.
 - The audit derives the generated `build/` script path from `sw_vers`.
-  Pass `--mscp-script PATH` to [repo.ts](../scripts/audit/repo.ts) for a custom path.
-- `node scripts/audit/repo.ts --allow-sudo-prompt` permits privileged checks.
+  Pass `--mscp-script PATH` to [repo.ts](../audit/repo.ts) for a custom path.
+- `node audit/repo.ts --allow-sudo-prompt` permits privileged checks.
   The adapter never runs `--fix`; review exceptions before applying remediation.
 - References: [Lynis](https://cisofy.com/documentation/lynis/),
   [mSCP](https://pages.nist.gov/macos_security/).

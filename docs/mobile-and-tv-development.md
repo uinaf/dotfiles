@@ -74,10 +74,10 @@ Keep certificates, profiles, archives, and device keys out of Git.
 
 | Operation | Helper |
 | --- | --- |
-| Install and verify CLI tools | `./scripts/tizen/install.ts` |
-| Archive certificates (`--full` includes SDK state) | `./scripts/tizen/pack.ts` |
-| Restore an archive | `./scripts/tizen/restore.ts /path/to/archive.tar.gz` |
-| Restore a recovery attachment | `./scripts/tizen/restore-from-1password.ts` |
+| Install and verify CLI tools | `./bootstrap/darwin/tizen/install.ts` |
+| Archive certificates (`--full` includes SDK state) | `./bootstrap/darwin/tizen/pack.ts` |
+| Restore an archive | `./bootstrap/darwin/tizen/restore.ts /path/to/archive.tar.gz` |
+| Restore a recovery attachment | `./bootstrap/darwin/tizen/restore-from-1password.ts` |
 
 - The 1Password helper requires `TIZEN_1PASSWORD_REFERENCE` from the operator.
 - Installation verifies `tizen`, `sdb`, and package-manager info.
