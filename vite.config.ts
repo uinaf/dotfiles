@@ -6,7 +6,9 @@ export default defineConfig({
     exclude: [
       "**/node_modules/**",
       "**/.git/**",
-      ...(process.platform === "darwin" ? [] : ["**/darwin/**"]),
+      ...(process.platform === "darwin"
+        ? []
+        : ["maintenance/darwin/schedule.test.ts", "maintenance/darwin/devbox.test.ts"]),
     ],
     pool: "forks",
     maxWorkers: 2,

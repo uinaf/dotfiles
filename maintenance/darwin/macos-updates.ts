@@ -1,5 +1,5 @@
 import { DateTime, Effect, Option, Schema } from "effect";
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import type { CommandRunner, RawCommandResult } from "../command.ts";
@@ -12,9 +12,14 @@ export type HttpResult = {
 };
 
 export type MacOSUpdateIO = {
-  fetch: (url: string, userAgent: string, timeoutMs: number) => Promise<HttpResult>;
-  readCache: (path: string) => Promise<string | undefined>;
-  writeCache: (path: string, contents: string) => Promise<void>;
+  fetch: (
+    url: string,
+    userAgent: string,
+    timeoutMs: number,
+    signal?: AbortSignal,
+  ) => Promise<HttpResult>;
+  readCache: (path: string, signal?: AbortSignal) => Promise<string | undefined>;
+  writeCache: (path: string, contents: string, signal?: AbortSignal) => Promise<void>;
 };
 
 type FailureKind =
@@ -961,16 +966,55 @@ export async function collectMacOSUpdateInventory(
   options: MacOSUpdateOptions,
   runner: CommandRunner,
   io: MacOSUpdateIO = defaultMacOSUpdateIO,
+  signal?: AbortSignal,
 ): Promise<MacOSUpdateInventory> {
-  return Effect.runPromise(collectMacOSUpdateInventoryEffect(options, runner, io));
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+  signal?.addEventListener("abort", abort, { once: true });
+  if (signal?.aborted) abort();
+  const active = new Set<Promise<unknown>>();
+  const runIO = async <A>(operation: () => Promise<A>): Promise<A> => {
+    controller.signal.throwIfAborted();
+    const pending = operation();
+    active.add(pending);
+    try {
+      const result = await pending;
+      controller.signal.throwIfAborted();
+      return result;
+    } finally {
+      active.delete(pending);
+    }
+  };
+  const boundedIO: MacOSUpdateIO = {
+    fetch: (url, agent, timeoutMs) =>
+      runIO(() => io.fetch(url, agent, timeoutMs, controller.signal)),
+    readCache: (path) => runIO(() => io.readCache(path, controller.signal)),
+    writeCache: (path, contents) => runIO(() => io.writeCache(path, contents, controller.signal)),
+  };
+  try {
+    return await Effect.runPromise(
+      collectMacOSUpdateInventoryEffect(
+        options,
+        (command, args, commandOptions) => runIO(() => runner(command, args, commandOptions)),
+        boundedIO,
+      ),
+      { signal: controller.signal },
+    );
+  } finally {
+    controller.abort();
+    signal?.removeEventListener("abort", abort);
+    await Promise.allSettled(active);
+  }
 }
 
 export const defaultMacOSUpdateIO: MacOSUpdateIO = {
-  async fetch(url, agent, timeoutMs) {
+  async fetch(url, agent, timeoutMs, signal) {
     try {
       const response = await fetch(url, {
         headers: { "User-Agent": agent },
-        signal: AbortSignal.timeout(timeoutMs),
+        signal: signal
+          ? AbortSignal.any([signal, AbortSignal.timeout(timeoutMs)])
+          : AbortSignal.timeout(timeoutMs),
       });
       return { status: response.status, body: await response.text() };
     } catch (error) {
@@ -981,18 +1025,25 @@ export const defaultMacOSUpdateIO: MacOSUpdateIO = {
       };
     }
   },
-  async readCache(path) {
+  async readCache(path, signal) {
     try {
-      return await readFile(path, "utf8");
+      return await readFile(path, { encoding: "utf8", signal });
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
       throw error;
     }
   },
-  async writeCache(path, contents) {
+  async writeCache(path, contents, signal) {
+    signal?.throwIfAborted();
     await mkdir(dirname(path), { recursive: true, mode: 0o700 });
+    signal?.throwIfAborted();
     const temporary = `${path}.${process.pid}.tmp`;
-    await writeFile(temporary, contents, { encoding: "utf8", mode: 0o600 });
-    await rename(temporary, path);
+    try {
+      await writeFile(temporary, contents, { encoding: "utf8", mode: 0o600, signal });
+      signal?.throwIfAborted();
+      await rename(temporary, path);
+    } finally {
+      await rm(temporary, { force: true });
+    }
   },
 };

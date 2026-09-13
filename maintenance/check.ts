@@ -424,6 +424,7 @@ export async function collectMaintenanceSnapshot(
   context: MaintenanceContext,
   runner: CommandRunner = runProcess,
   macosUpdateIO: MacOSUpdateIO = defaultMacOSUpdateIO,
+  signal?: AbortSignal,
 ) {
   const hostOwner = context.ownsHomebrew || context.profileConfig.capabilities.workstation;
   const inventory =
@@ -437,6 +438,7 @@ export async function collectMaintenanceSnapshot(
           },
           runner,
           macosUpdateIO,
+          signal,
         )
       : undefined;
   const [entries, macosUpdates] = await Promise.all([
@@ -643,7 +645,7 @@ export const collectMaintenanceSnapshotEffect = Effect.fn("collectMaintenanceSna
   };
   return yield* Effect.tryPromise({
     try: () => {
-      const pending = collectMaintenanceSnapshot(context, runner, macosUpdateIO);
+      const pending = collectMaintenanceSnapshot(context, runner, macosUpdateIO, controller.signal);
       collection = pending;
       return pending;
     },

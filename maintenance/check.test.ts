@@ -474,3 +474,73 @@ test("canceling a probe with no timeout reaps it without reporting timeout", asy
   assert.match(result.error?.message ?? "", /canceled/);
   assert.throws(() => process.kill(pid, 0), { code: "ESRCH" });
 });
+
+test("interrupting the collector aborts inventory feeds and drains them before returning", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "maintenance-feed-cancellation-"));
+  const controller = new AbortController();
+  const started = Promise.withResolvers<void>();
+  const aborted = Promise.withResolvers<void>();
+  const drain = Promise.withResolvers<void>();
+  let fetches = 0;
+  let suppliedSignals = 0;
+  let aborts = 0;
+  let writes = 0;
+  let completed = false;
+  const updateIO: MacOSUpdateIO = {
+    async readCache() {
+      return undefined;
+    },
+    async fetch(_url, _agent, _timeout, signal) {
+      if (++fetches === 3) started.resolve();
+      if (signal) suppliedSignals++;
+      assert.ok(signal);
+      const canceled = Promise.withResolvers<void>();
+      signal.addEventListener(
+        "abort",
+        () => {
+          if (++aborts === 3) aborted.resolve();
+          canceled.resolve();
+        },
+        { once: true },
+      );
+      await canceled.promise;
+      await drain.promise;
+      return { status: 503, body: "" };
+    },
+    async writeCache() {
+      writes++;
+    },
+  };
+  const completion = Effect.runPromiseExit(
+    collectMaintenanceSnapshotEffect(
+      {
+        ...context(),
+        cwd: root,
+        home: root,
+        repoRoot: root,
+        platform: "darwin",
+        env: { PATH: root },
+      },
+      updateIO,
+    ),
+    { signal: controller.signal },
+  ).then((exit) => {
+    completed = true;
+    return exit;
+  });
+  t.onTestFinished(async () => {
+    controller.abort();
+    drain.resolve();
+    await completion;
+    await rm(root, { recursive: true, force: true });
+  });
+  await started.promise;
+  assert.equal(suppliedSignals, 3, "each feed must receive the inventory cancellation signal");
+  controller.abort();
+  await aborted.promise;
+  assert.equal(completed, false, "interruption must wait for active feed IO to settle");
+  drain.resolve();
+  assert.equal(Exit.isFailure(await completion), true);
+  assert.equal(fetches, 3);
+  assert.equal(writes, 0, "canceled feed results must not update the cache");
+});
