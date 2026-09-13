@@ -4,7 +4,7 @@ Profiles configure one Unix user; host permissions provide isolation.
 
 ## Choose a Profile
 
-| Profile | Role | Homebrew layers after [Brewfile](../Brewfile) |
+| Profile | Role | macOS Homebrew layers after [Brewfile](../Brewfile) |
 | --- | --- | --- |
 | `developer` | Default: runtimes, coding agents, rules, and skills for any Unix user | none |
 | `devbox` | `developer` on a human-operated SSH coding host | [Devbox](../Brewfile.devbox) |
@@ -15,30 +15,32 @@ Profiles configure one Unix user; host permissions provide isolation.
 - `./dotfiles diff|apply|check` without a profile uses the stored
   `~/.config/dotfiles/profile`, or `developer` on a fresh user.
 - [profiles.json](../chezmoi/.chezmoidata/profiles.json) owns capabilities,
-  [skill layers](agents.md), and install steps. Brewfiles own packages.
-- macOS-only scripts live under `scripts/darwin/`; everything else in
-  `scripts/` is shared.
+  [skill layers](agents.md), and install steps. Brewfiles own macOS packages.
+- `workstation` profiles configure a macOS desktop; `./dotfiles apply` refuses
+  them on Linux. `developer` and the `devbox` profiles run on both.
+- macOS-only scripts live under `scripts/darwin/`, Linux-only ones under
+  `scripts/linux/`; everything else in `scripts/` runs on both.
 - Every profile installs [oh-my-zsh](https://ohmyzsh.sh) with the
   `robbyrussell` theme and `git` plugin at the revision pinned in
-  `scripts/bootstrap/install-oh-my-zsh.ts`; Renovate moves the pin,
-  `./dotfiles maintain` converges to it, and the framework's own updater stays
-  disabled. `devbox` profiles replace the prompt with
+  [install-oh-my-zsh.ts](../scripts/bootstrap/install-oh-my-zsh.ts); Renovate
+  moves the pin, `./dotfiles maintain` converges to it, and the framework's
+  own updater stays disabled. `devbox` profiles replace the prompt with
   `➜ user@host ~ git:(branch)` so SSH sessions name the machine.
 - Command-line tools with binary releases (`gh`, `jq`, `ripgrep`,
   `shellcheck`, `actionlint`, `chezmoi`, `direnv`, `gitleaks`, `trufflehog`,
-  `topgrade`, OpenCode, `awscli`, `glab`, `git-filter-repo`, `xcodegen`,
-  Codex, and Claude Code) are mise tools pinned in
-  [mise.toml](../chezmoi/.chezmoitemplates/mise.toml) plus the `darwin/` and
-  `linux/` siblings (plain TOML so Renovate parses them); Linux adds `btop`
-  there. Homebrew
-  keeps what needs a compiler, a GUI, or a system service (`git`, `mise`,
-  `tmux`, `btop`, `ffmpeg`, `watchman`, `git-crypt`, the Docker and Colima
-  stack, `lynis`, `mole`, the casks) and the tools privileged flows call by
-  fixed path: `age` and `sops` for the sudo askpass helper and, on macOS,
-  `xcodes` for root Xcode selection; a Linux host supplies `age` and `sops`
-  itself. A Mac upgraded from the Homebrew copies keeps them until
-  `./scripts/darwin/bootstrap/brew-bundle.ts --cleanup <profile>` runs; the
-  shell fronts the mise shims, so the leftovers are inert meanwhile.
+  `topgrade`, OpenCode, `awscli`, `glab`, `git-filter-repo`, Codex, Claude
+  Code, the T3 CLI, and the Playwright CLI) are mise tools pinned in
+  [mise.toml](../chezmoi/.chezmoitemplates/mise.toml) plus the
+  [darwin](../chezmoi/.chezmoitemplates/darwin/mise.toml) and
+  [linux](../chezmoi/.chezmoitemplates/linux/mise.toml) siblings (plain TOML
+  so Renovate parses them); macOS adds `xcodegen` and Linux adds `btop` there.
+  Homebrew keeps what needs a compiler, a GUI, or a system service (`git`,
+  `mise`, `tmux`, `btop`, `ffmpeg`, `watchman`, `git-crypt`, the Docker and
+  Colima stack, `lynis`, `mole`, the casks) and the tools privileged flows
+  call by fixed path: `age` and `sops` for the sudo askpass helper and
+  `xcodes` for root Xcode selection. A Linux host supplies `git`, `mise`,
+  `tmux`, `age`, and `sops` itself; see
+  [Linux prerequisites](bootstrap.md#linux-ubuntu).
 - Personal GUI casks and `mas` install only for `personal-workstation`.
 - The selected role is stored in `~/.config/dotfiles/profile` and checked during
   verification.
@@ -46,19 +48,20 @@ Profiles configure one Unix user; host permissions provide isolation.
 ## Host and User Boundaries
 
 - An authorized administrator owns host-wide Homebrew, Tailscale, power,
-  Spotlight, and LaunchDaemon changes.
+  Spotlight, LaunchDaemon, and systemd lingering changes.
 - Shared devbox Homebrew is owner-write, consumer-read-only. Other users check
   package presence; they do not update the prefix.
 - Use Unix ownership, groups, filesystem permissions, and scoped identities for
   isolation. Shared package visibility does not provide it.
-- Unattended runtime packages and machine credentials belong to the hosting
-  configuration. Profiles here enroll human-operated macOS users.
+- Unattended runtime packages, machine credentials, and Linux host packages
+  belong to the hosting configuration. Profiles here enroll human-operated
+  users and own everything inside their home directories.
 - [Identity provisioning](identities.md) owns authorship, signing, SSH, age, and
   recovery. Identity values remain untracked operator input.
 
 ## Apply a Profile
 
-Choose one role; run Homebrew setup as its authorized administrator:
+Choose one role; on macOS, run Homebrew setup as its authorized administrator:
 
 ```zsh
 profile=workstation
@@ -74,8 +77,9 @@ mise trust
 ./scripts/bootstrap/configure-git.ts --profile "$profile"
 ```
 
-All profiles except `workstation` require an age identity before verification.
-For `workstation`, enroll one when SOPS decryption is needed:
+The `devbox` and personal profiles require an age identity before
+verification. For `developer` and `workstation`, enroll one when SOPS
+decryption is needed:
 
 ```zsh
 ./scripts/secrets/configure-sops-age-identity.ts
@@ -123,7 +127,7 @@ Profiles can accept packages supplied by another trusted installer:
   mismatches fail setup. Ambient Homebrew Bundle skip variables are rejected.
 
 Only personal profiles install `uinaf/tap` and its `slopguard` cask. On
-`workstation` and `devbox`, supply `slopguard` through an authorized installer;
-live verification still requires `slopguard version` to pass. Its cask name is
-accepted in the external capability file without trusting or installing the
-personal tap.
+`developer`, `workstation`, and `devbox`, supply `slopguard` through an
+authorized installer; macOS live verification still requires `slopguard
+version` to pass. Its cask name is accepted in the external capability file
+without trusting or installing the personal tap.

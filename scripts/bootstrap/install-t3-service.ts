@@ -6,18 +6,16 @@ import { join } from "node:path";
 import { CommandRunner } from "../lib/command.ts";
 import { CliFailure, fail, runMain } from "../lib/program.ts";
 
-// T3 Code's background service, installed once per devbox user. T3 owns the
-// launchd/systemd plumbing and its own later updates; this step only proves
-// the service exists and installs it when it does not.
-export function t3ServiceUnit(home: string, platform: NodeJS.Platform = process.platform): string {
-  return platform === "darwin"
+// T3 owns the launchd/systemd plumbing and the service's later updates; this
+// step installs the service when absent and proves it under --check.
+function t3ServiceUnit(home: string): string {
+  return process.platform === "darwin"
     ? join(home, "Library/LaunchAgents/com.t3tools.t3code.service.plist")
     : join(home, ".config/systemd/user/t3code.service");
 }
 
 const t3ServiceWanted = Effect.fn("t3ServiceWanted")(function*(devboxEnv: string) {
   const fs = yield* FileSystem.FileSystem;
-  // The service is optional, so an unreadable file means "not requested".
   const contents = yield* fs.readFileString(devboxEnv).pipe(Effect.catch(() => Effect.succeed("")));
   return /^T3_SERVICE=1\r?$/m.test(contents);
 });
@@ -52,8 +50,7 @@ const program = Effect.gen(function*() {
   }
   if (present && process.platform !== "linux") return check ? undefined : yield* Console.log(`T3 Code service present: ${unit}`);
   if (process.platform === "linux") {
-    // Checked for an existing unit and under --check too: revoked lingering
-    // stops the service at logout.
+    // Without lingering the user manager, and the service with it, stops at logout.
     const linger = yield* runner.run("loginctl", ["show-user", String(process.getuid?.() ?? ""), "--property=Linger", "--value"], { output: "capture" }).pipe(
       Effect.mapError((error) => new CliFailure({ exitCode: 1, message: `cannot query systemd-logind: ${error.message}` })),
     );
@@ -65,8 +62,6 @@ const program = Effect.gen(function*() {
   if (check) return;
   if (present) return yield* Console.log(`T3 Code service present: ${unit}`);
   yield* Console.log(`installing the T3 Code service with base dir ${baseDir}`);
-  // t3 is a mise-pinned npm tool (chezmoi/.chezmoitemplates/mise.toml); the
-  // installed service keeps updating itself through the desktop app.
   const install = yield* runner.run("t3", ["service", "install", "--base-dir", baseDir], { output: "inherit" });
   const installed = yield* fs.exists(unit);
   // Over SSH with nobody at the Mac's screen, T3 writes the LaunchAgent and then

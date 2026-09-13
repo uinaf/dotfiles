@@ -36,8 +36,7 @@ const runStep = Effect.fn("runInstallStep")(function*(step: string, profile: str
     case "install-cursor-agent":
       return yield* execute(step, bootstrap("install-cursor-agent.ts"), []);
     case "install-t3-service":
-      // Unattended maintenance never installs a new background service; it
-      // only proves an existing one. Installation is an explicit apply.
+      // Unattended maintenance never installs a new background service.
       if (maintenance) return;
       return yield* execute(step, bootstrap("install-t3-service.ts"), []);
     case "install-oh-my-zsh":

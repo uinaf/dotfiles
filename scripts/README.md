@@ -13,14 +13,16 @@ in [AGENTS.md](../AGENTS.md) before changing them.
 
 Directories mirror the operating systems they serve: [darwin/](darwin/) holds
 Homebrew, launchd, and macOS desktop scripts with the same `bootstrap/`,
-`maintenance/`, `verify/`, and `lib/` shape as the shared tree, and a `linux/`
-tree with the same shape takes any script that exists only there. A script
-belongs at the top level only when it runs unchanged on both.
+`maintenance/`, `verify/`, and `lib/` shape as the shared tree; [linux/](linux/)
+holds the systemd counterparts. A script belongs at the top level only when it
+runs unchanged on both, or routes to the platform implementation the way
+[maintenance/schedule.ts](maintenance/schedule.ts) does.
 
 Shell is reserved for standalone process boundaries: the root launcher,
-external-client credential adapters in [agents/](agents/), and sudo's
-[askpass helper](lib/sudo-age-askpass.sh). These must run without the
-repository's Node module graph.
+external-client credential adapters in [agents/](agents/), sudo's
+[askpass helper](lib/sudo-age-askpass.sh), and the
+[cache sweep](maintenance/cache-cleanup.sh) hygiene spawns. These must run
+without the repository's Node module graph.
 
 Use [Mise tasks](../docs/mise.md#tasks) for checks and
 [Security audits](../docs/security-audits.md) before collecting live host output.

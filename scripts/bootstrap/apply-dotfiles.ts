@@ -307,8 +307,7 @@ const program = Effect.gen(function*() {
   if (args.dryRun) applyArgs.push("--dry-run");
   if (args.verbose) applyArgs.push("--verbose");
   yield* runCommand("chezmoi", applyArgs, "inherit");
-  // systemd keeps cached unit definitions until told otherwise; a reload is
-  // harmless when nothing changed and required when a managed unit did.
+  // systemd keeps cached unit definitions until reloaded.
   if (process.platform === "linux" && !args.dryRun) {
     const runner = yield* CommandRunner;
     const reload = yield* runner.run("systemctl", ["--user", "daemon-reload"], { output: "capture" }).pipe(
@@ -327,9 +326,8 @@ const program = Effect.gen(function*() {
         Effect.catch(() => Effect.succeed(undefined)),
       );
     }
-    // Without a user manager (containers, cron, WSL) the reload cannot run and
-    // nothing is enrolled, so that is not an error. With the timer enrolled, a
-    // failed reload leaves systemd on stale unit definitions, which is.
+    // No user manager (containers, cron, WSL) means nothing is enrolled; a
+    // failed reload only matters once the timer is.
     if (reload && reload.status !== 0) {
       const enrolled = yield* runner.run("systemctl", ["--user", "is-enabled", "dotfiles-software-update.timer"], { output: "capture" }).pipe(
         Effect.catch(() => Effect.succeed(undefined)),

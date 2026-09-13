@@ -80,9 +80,7 @@ jobs:
         run: |
           set -euo pipefail
           # Not ~/.local/bin: converge.ts fronts that directory, and its tests
-          # rely on a PATH stub taking precedence over the real mise. The
-          # installer verifies the release checksum itself, so a Renovate bump
-          # of MISE_VERSION needs no digest edit.
+          # rely on a PATH stub taking precedence over the real mise.
           mkdir -p "$RUNNER_TEMP/bin"
           curl -fsSL https://mise.run | MISE_INSTALL_PATH="$RUNNER_TEMP/bin/mise" sh
           # The verification tools follow the shared template pins.

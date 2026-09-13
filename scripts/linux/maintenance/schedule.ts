@@ -6,9 +6,8 @@ import { join } from "node:path";
 import { CommandRunner } from "../../lib/command.ts";
 import { fail, runMain } from "../../lib/program.ts";
 
-// systemd user counterpart of scripts/darwin/maintenance/schedule.ts. chezmoi
-// renders the unit and timer; this script only flips their state.
-export const updateUnit = "dotfiles-software-update";
+// chezmoi renders the unit and timer; this script only flips their state.
+const updateUnit = "dotfiles-software-update";
 const usage = "Usage: scripts/linux/maintenance/schedule.ts <enable|disable|run|status>";
 
 const program = Effect.gen(function*() {
@@ -18,8 +17,8 @@ const program = Effect.gen(function*() {
   const fs = yield* FileSystem.FileSystem;
   const home = process.env.HOME || "";
   const systemctl = (...args: string[]) => runner.run("systemctl", ["--user", ...args], { output: "capture" });
-  // Only enable needs the rendered units; run starts the service and disable
-  // and status must still reach units systemd has loaded after the files are gone.
+  // disable, run, and status address units systemd already loaded, even after
+  // the files are gone.
   if (action === "enable") {
     for (const suffix of ["timer", "service"]) {
       const unitFile = join(home, ".config/systemd/user", `${updateUnit}.${suffix}`);
@@ -69,8 +68,6 @@ const program = Effect.gen(function*() {
       const receipt = join(home, ".local/state/dotfiles/updates/software-update.json");
       if (yield* fs.exists(receipt)) yield* Console.log(`receipt: ${(yield* fs.readFileString(receipt)).trim()}`);
       yield* Console.log(`log: journalctl --user -u ${updateUnit}`);
-      // Like the launchd status, a non-enrolled or stopped timer is a failing
-      // result, and so is a timer that will die with the login session.
       if (enabled.status !== 0 || active.status !== 0) return yield* fail(`${updateUnit}.timer is ${enabled.stdout.trim() || "not enabled"} and ${active.stdout.trim() || "not active"}`);
       if (!(yield* linger)) return yield* fail("systemd lingering is off; the timer stops at logout");
       return;

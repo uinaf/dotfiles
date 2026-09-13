@@ -1,7 +1,8 @@
 # Mobile and TV Development
 
-- [Bootstrap](bootstrap.md): Xcode utilities, Watchman, and Android command-line
-  tools.
+- [Bootstrap](bootstrap.md) on macOS: Xcode utilities, Watchman, and Android
+  command-line tools through Homebrew. A Linux user installs the Android SDK
+  under `~/Android/Sdk`.
 - Full Xcode follows the [declared release pin](../chezmoi/.chezmoidata/xcode.json).
   Simulator runtimes, SDK packages, and first-run GUI setup stay manual.
 - Android SDK packages and emulator images stay manual through `sdkmanager`.
@@ -28,9 +29,9 @@ installation to verify its selected Xcode/runtime combination.
 
 ## Android TV
 
-The shared Homebrew layer installs Android command-line tools, not the IDE.
-Accept licenses, then install packages for the app's API level and host
-architecture:
+On macOS the shared Homebrew layer installs Android command-line tools, not
+the IDE. Accept licenses, then install packages for the app's API level and
+host architecture:
 
 ```zsh
 print -r -- "$ANDROID_HOME"
@@ -40,8 +41,8 @@ sdkmanager 'system-images;android-34;android-tv;arm64-v8a'
 avdmanager create avd -n android-tv -k 'system-images;android-34;android-tv;arm64-v8a'
 ```
 
-The shell prefers `~/Library/Android/sdk` when present, otherwise
-`/opt/homebrew/share/android-commandlinetools`. Verify:
+The shell sets `ANDROID_HOME` to `~/Library/Android/sdk` when present, then
+`~/Android/Sdk`, then `/opt/homebrew/share/android-commandlinetools`. Verify:
 
 ```zsh
 adb --version

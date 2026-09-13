@@ -44,8 +44,7 @@ const program = Effect.gen(function*() {
     return yield* fail("invalid operator arguments", 2);
   }
   const commandName = args[0];
-  // A stored profile wins; a missing marker means a fresh user and the default.
-  // An unreadable or unsafe marker still fails rather than silently defaulting.
+  // A stored marker wins; only a missing marker falls back to the default.
   const requestedProfile = args[1] ?? (yield* resolveProfile(undefined, { ...process.env, DOTFILES_PROFILE: defaultProfile }).pipe(
     Effect.mapError((error) => new CliFailure({ exitCode: error.exitCode, message: error.message })),
   ));

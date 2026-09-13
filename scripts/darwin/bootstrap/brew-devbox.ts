@@ -5,9 +5,9 @@ import { Effect, Option } from "effect";
 import { resolve } from "node:path";
 import { acquireCheckoutLock } from "../../maintenance/converge.ts";
 import { CommandRunner } from "../../lib/command.ts";
+import { commandAvailable } from "../../lib/command-available.ts";
 import { fail, runMain } from "../../lib/program.ts";
 import {
-  commandAvailable,
   repairSharedReadability,
   requirePrefixOwner,
   runHomebrewRaw,

@@ -1,5 +1,5 @@
 import { Console, Effect, FileSystem, Option, Schema } from "effect";
-import { basename, delimiter, dirname, isAbsolute, join } from "node:path";
+import { basename, dirname, isAbsolute, join } from "node:path";
 import { runChecked, runCommand } from "../../lib/command.ts";
 import { CliFailure, fail } from "../../lib/program.ts";
 import type { ProfileModel } from "../../profiles/model.ts";
@@ -27,8 +27,6 @@ const ExternalHomebrew = Schema.Struct({
 });
 
 export type HomebrewEnvironment = Readonly<Record<string, string>>;
-
-export { commandAvailable } from "../../lib/command-available.ts";
 
 const runRaw = runCommand;
 const run = runChecked;
