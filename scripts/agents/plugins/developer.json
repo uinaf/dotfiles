@@ -1,3 +1,9 @@
 {
-  "plugins": []
+  "plugins": [
+    {
+      "marketplace": "uinaf/ffss",
+      "name": "ffss",
+      "cursorMode": "skills"
+    }
+  ]
 }
