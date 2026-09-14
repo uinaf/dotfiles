@@ -1,6 +1,10 @@
 {
   "skills": [
     {
+      "name": "effect-ts",
+      "source": "Effect-TS/skills"
+    },
+    {
       "name": "gh-setup",
       "source": "uinaf/agent-skills"
     },
@@ -17,8 +21,8 @@
       "source": "shadcn/improve"
     },
     {
-      "name": "shadcn",
-      "source": "shadcn/ui"
+      "name": "ui-design",
+      "source": "https://cdn.uinaf.dev/skills/ui"
     },
     {
       "name": "vite-plus",

@@ -15,10 +15,6 @@
     {
       "name": "putio-sdk-dev",
       "source": "putdotio/agent-skills"
-    },
-    {
-      "name": "uinaf-design",
-      "source": "uinaf/design"
     }
   ]
 }

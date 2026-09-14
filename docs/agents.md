@@ -28,11 +28,12 @@ unavailable, setup needs a valid cache to continue. Set
 
 ## Skill Sync
 
-Keep stack-specific skills in the consuming repository. Use `slopskills` from
+Keep React, TanStack, shadcn, and Swift skills in the consuming repository. Use `slopskills` from
 the [configured workflow plugin](../agents/plugins/developer.json) to select
 and install them from repository evidence and the current task.
-Global manifests retain shared workflows; its catalog owns the React,
-TanStack, web UI, Swift, and Effect recommendations.
+Global manifests retain shared workflows plus `effect-ts` and `ui-design`.
+The plugin catalog supplies stack recommendations; explicit global selections
+do not need duplicate repo-local installs. Keep licensed UI skill files out of Git.
 
 Run from the checkout after bootstrap has stored the profile:
 

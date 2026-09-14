@@ -37,7 +37,6 @@ Markdown links to their owners and explains manual actions, recovery, and ration
 - Preserve standalone operation; do not require a companion workspace manager.
 - Document manual setup when automation would need opaque app-state edits or machine-specific credential juggling.
 - Before writing Effect code, read `node_modules/effect/AGENTS.md` completely and follow required links. Look up uncovered APIs in `node_modules/effect/src`.
-- For Effect repository setup, use the [repo-local Effect skill](.agents/skills/effect-ts/SKILL.md); preserve the existing dependency version unless an upgrade is requested.
 - Write automation in TypeScript/Effect. Bundle installed client adapters so they run without the checkout or its dependencies. Keep shell limited to the pre-Node launcher and small native exec shims such as sudo askpass and Git signing.
 - Use `vite-plus/test` for unit tests and [vite.config.ts](vite.config.ts) for tooling policy. Keep Chezmoi templates in their native syntax.
 
