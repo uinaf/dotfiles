@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { checkDevboxPhotoAnalysis } from "../bootstrap/darwin/photo-analysis.ts";
 import { NodeServices } from "@effect/platform-node";
 import { Console, Effect, FileSystem } from "effect";
 import { join, resolve } from "node:path";
@@ -254,6 +255,7 @@ const program = Effect.gen(function* () {
   });
   const host = Effect.gen(function* () {
     if (!darwin) return;
+    yield* checkDevboxPhotoAnalysis(profile, process.getuid?.() ?? -1);
     yield* command(process.execPath, [
       join(repoRoot, "bootstrap/darwin/configure-spotlight.ts"),
       "--check",

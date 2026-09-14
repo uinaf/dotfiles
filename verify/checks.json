@@ -29,9 +29,10 @@
         "vp",
         "test",
         "maintenance/hygiene.test.ts",
-        "maintenance/cache-cleanup.test.ts"
+        "maintenance/cache-cleanup.test.ts",
+        "maintenance/workloads.test.ts"
       ],
-      "output": "Grace period, merged-history proof, active/dirty/ignored work preservation, and failed inspection"
+      "output": "Grace period, merged-history proof, active/dirty/ignored work preservation, and failed inspection; read-only workload evidence and sanitized partial failures"
     },
     {
       "id": "maintenance-schedule",
@@ -100,8 +101,16 @@
     {
       "id": "apply-backups",
       "domain": "config",
-      "command": ["corepack", "pnpm", "exec", "vp", "test", "bootstrap/apply-dotfiles.test.ts"],
-      "output": "Home backups, retired LaunchAgents, and Linux user-manager PATH convergence"
+      "command": [
+        "corepack",
+        "pnpm",
+        "exec",
+        "vp",
+        "test",
+        "bootstrap/apply-dotfiles.test.ts",
+        "bootstrap/darwin/photo-analysis.test.ts"
+      ],
+      "output": "Home backups, retired LaunchAgents, and Linux user-manager PATH convergence and macOS devbox Photos policy drift"
     },
     {
       "id": "claude-settings",

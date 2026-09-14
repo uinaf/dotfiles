@@ -1,3 +1,4 @@
+import { disableDevboxPhotoAnalysis } from "./darwin/photo-analysis.ts";
 import assert from "node:assert/strict";
 import { mkdir, mkdtemp, readdir, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -9,7 +10,6 @@ import { CommandError, CommandRunner } from "../lib/command.ts";
 import { CliFailure } from "../lib/program.ts";
 import {
   convergeUserManager,
-  disableDevboxPhotoAnalysis,
   pruneOlderBackups,
   retireLaunchAgents,
   retiredAgentLabels,

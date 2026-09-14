@@ -282,3 +282,25 @@ their own recovery procedure.
 - `maintenance:verify` adds bootstrap verification. Live macOS scans have no
   timeout because daemon cancellation is undocumented; inventory never downloads
   or installs OS updates.
+
+## Development Workload Diagnostics
+
+On macOS, run as the development user from the prepared checkout:
+
+```sh
+node maintenance/workloads.ts
+```
+
+This read-only process snapshot reports adopted Gradle test workers, temporary
+Bun/Node test or daemon arguments, and test-like PostgreSQL data directories as
+candidates for manual inspection. It also reports observed Colima VM helpers,
+ADB servers, and Watchman. Age is context, never proof of abandonment.
+
+Only the current user's processes are inspected. Output contains fixed service
+names, PIDs, ages, and evidence; arguments and paths are not printed. No daemon
+clients are contacted, so the command cannot prove a VM is empty, a database has
+no clients, ADB has no devices, or Watchman has unused roots. Legitimate services
+can match the candidate rules. Confirm ownership and current use before stopping
+anything. Other users' workloads and unrecognized process layouts are outside
+this snapshot. Missing/failed process inspection or malformed rows produce an
+incomplete result and nonzero exit; Linux is currently unsupported.

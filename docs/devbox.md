@@ -190,3 +190,11 @@ mise run audit devbox --format json
 
 Audit prose can contain secrets. Collect JSON and report detector, path, and
 line without copying matched values.
+
+`./dotfiles check` verifies that macOS devbox profiles persistently disable
+Photos analysis through launchd, even without `--desktop`. Missing or enabled
+policy fails the check; use `./dotfiles apply` to restore it. This does not
+change iCloud Photos sync. Workstation, developer, and Linux profiles are excluded.
+
+For suspected leftover development services, use the read-only
+[workload diagnostic](software-updates.md#development-workload-diagnostics).

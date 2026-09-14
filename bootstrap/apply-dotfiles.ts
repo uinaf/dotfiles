@@ -7,8 +7,8 @@ import { fileURLToPath } from "node:url";
 import { refreshAgentRules } from "../agents/rules.ts";
 import { CommandRunner } from "../lib/command.ts";
 import { CliFailure, fail, runMain } from "../lib/program.ts";
-import { profileModelFile, resolveProfile } from "../profiles/current.ts";
-import { readProfileModelEffect, requireProfile } from "../profiles/model.ts";
+import { resolveProfile } from "../profiles/current.ts";
+import { disableDevboxPhotoAnalysis } from "./darwin/photo-analysis.ts";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const sourceDir = join(repoRoot, "chezmoi");
@@ -216,31 +216,6 @@ const replaceAgentPath = Effect.fn("replaceAgentPath")(function* (
 // launchd keeps a booted-out-of-disk job loaded until logout, so unload it
 // explicitly before chezmoi removes the file. Idempotent: not-loaded is a no-op.
 export const retiredAgentLabels = ["local.dotfiles.disk-cleanup"] as const;
-
-export const disableDevboxPhotoAnalysis = Effect.fn("disableDevboxPhotoAnalysis")(function* (
-  profile: string,
-  uid: number,
-  dryRun: boolean,
-  platform: NodeJS.Platform = process.platform,
-) {
-  if (platform !== "darwin" || uid <= 0) return;
-  const model = yield* readProfileModelEffect(profileModelFile());
-  const { capabilities } = requireProfile(model, profile);
-  if (!capabilities.devbox || capabilities.workstation) return;
-  const service = `gui/${uid}/com.apple.photoanalysisd`;
-  if (dryRun) {
-    yield* Console.log(`would disable ${service}`);
-    return;
-  }
-  const runner = yield* CommandRunner;
-  const result = yield* runner.run("launchctl", ["disable", service]);
-  if (result.status !== 0)
-    return yield* fail(
-      `launchctl disable ${service} exited ${result.status}: ${result.stderr}`,
-      result.status,
-    );
-  yield* Console.log("Photos analysis disabled; an existing process may remain until logout");
-});
 
 export const retireLaunchAgents = Effect.fn("retireLaunchAgents")(function* (
   uid: number,
