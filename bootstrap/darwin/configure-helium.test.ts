@@ -33,6 +33,7 @@ function profile(root: string, name: string, contents: string) {
 test("all user profiles preserve unrelated preferences and converge without rewriting", async () => {
   const root = mkdtempSync(join(tmpdir(), "helium-profiles-"));
   try {
+    writeFileSync(join(root, "BrowserMetrics-spare.pma"), "metrics");
     const first = profile(
       root,
       "Default",

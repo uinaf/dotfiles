@@ -31,7 +31,9 @@ export const configureHelium = Effect.fn("configureHelium")(function* (
   if (yield* fs.exists(root)) {
     for (const name of yield* fs.readDirectory(root)) {
       if (name === "System Profile" || name === "Guest Profile") continue;
-      const path = join(root, name, "Preferences");
+      const directory = join(root, name);
+      if ((yield* fs.stat(directory)).type !== "Directory") continue;
+      const path = join(directory, "Preferences");
       if (yield* fs.exists(path)) profiles.push(path);
     }
   }
