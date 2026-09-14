@@ -3,6 +3,22 @@
 - Start with [Bootstrap](bootstrap.md) and [Identity provisioning](identities.md).
 - Isolate each identity in its own Unix user, home, credentials, and service state.
 
+## Photos Analysis on macOS
+
+Dotfiles apply disables `com.apple.photoanalysisd` for the current user on
+macOS `devbox` and `personal-devbox` profiles. Existing analysis processes may
+remain until logout. Workstation and developer profiles leave the setting alone.
+
+This stops Photos background analysis, not iCloud Photos syncing, and deletes no
+photos. Disable syncing separately in System Settings → Apple Account → iCloud
+→ Photos → Sync this Mac. Other media and photo-library services remain enabled.
+
+After switching away from a devbox profile, restore analysis explicitly if wanted:
+
+```sh
+launchctl enable gui/$(id -u)/com.apple.photoanalysisd
+```
+
 ## Local Configuration
 
 Optional per-user settings live in `~/.config/dotfiles/devbox.env`, mode `0600`:
