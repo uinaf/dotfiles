@@ -148,6 +148,13 @@ the result, even with this flag set.
   the unused bundled App Store apps; uninstall may prompt for a password.
 - Quit Chrome before running `./bootstrap/darwin/configure-chrome.ts` to apply
   Lens policies and the vertical-tabs setting.
+- Workstation setup enables vertical tabs in every existing Helium user profile,
+  or seeds `Default` before first launch. Quit Helium before setup or run
+  `./bootstrap/darwin/configure-helium.ts` afterward. Scheduled maintenance defers
+  this step while Helium is running and retries at its next run. New profiles
+  receive the setting on the next setup or maintenance run with Helium closed.
+  Other preferences, including the sidebar side, stay unchanged. The setting uses
+  [Helium's profile layout preference](https://github.com/imputnet/helium/blob/main/patches/helium/ui/layout/core.patch).
 - For simulators, SDKs, and signing certificates, follow
   [Mobile and TV development](mobile-and-tv-development.md).
 

@@ -51,6 +51,7 @@
           "install-cursor-agent",
           "trust-agent-worktrees",
           "install-gh-extensions",
+          "configure-helium",
           "configure-codex",
           "configure-llm-gateway",
           "configure-bifrost-clients",
@@ -102,6 +103,7 @@
           "install-cursor-agent",
           "trust-agent-worktrees",
           "install-gh-extensions",
+          "configure-helium",
           "configure-codex",
           "sync-agents"
         ],

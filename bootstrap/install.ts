@@ -74,6 +74,12 @@ const runStep = Effect.fn("runInstallStep")(function* (
       ]);
     case "configure-codex":
       return yield* execute(step, bootstrap("configure-codex.ts"), ["--profile", profile]);
+    case "configure-helium":
+      return yield* execute(
+        step,
+        bootstrap("darwin/configure-helium.ts"),
+        maintenance ? ["--skip-running"] : [],
+      );
     case "configure-llm-gateway": {
       const fs = yield* FileSystem.FileSystem;
       const path =

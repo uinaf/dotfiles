@@ -422,6 +422,19 @@
       "domain": "agents",
       "command": ["corepack", "pnpm", "exec", "vp", "test", "agents/lock.test.ts"],
       "output": "Preserved private ownership state across directory migration"
+    },
+    {
+      "id": "helium-preferences",
+      "domain": "config",
+      "command": [
+        "corepack",
+        "pnpm",
+        "exec",
+        "vp",
+        "test",
+        "bootstrap/darwin/configure-helium.test.ts"
+      ],
+      "output": "Helium all-profile vertical tabs, preservation, fresh profile, running-browser deferral, and malformed data"
     }
   ]
 }
