@@ -1,10 +1,6 @@
 {
   "skills": [
     {
-      "name": "effect-ts",
-      "source": "Effect-TS/skills"
-    },
-    {
       "name": "gh-setup",
       "source": "uinaf/agent-skills"
     },
@@ -21,32 +17,8 @@
       "source": "shadcn/improve"
     },
     {
-      "name": "react-ban-use-effect",
-      "source": "uinaf/agent-skills"
-    },
-    {
-      "name": "react-doctor",
-      "source": "millionco/react-doctor"
-    },
-    {
       "name": "shadcn",
       "source": "shadcn/ui"
-    },
-    {
-      "name": "tanstack-form",
-      "source": "tanstack-skills/tanstack-skills"
-    },
-    {
-      "name": "tanstack-query",
-      "source": "tanstack-skills/tanstack-skills"
-    },
-    {
-      "name": "tanstack-start",
-      "source": "tanstack-skills/tanstack-skills"
-    },
-    {
-      "name": "ui-design",
-      "source": "https://cdn.uinaf.dev/skills/ui"
     },
     {
       "name": "vite-plus",
