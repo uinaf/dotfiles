@@ -20,13 +20,18 @@ test("workload classification needs specific evidence and never emits argv", asy
 21 1 02:00 /bin/limactl hostagent /home/example/.colima/_lima/colima/config.yaml
 22 1 02:00 /bin/limactl hostagent /home/example/.lima/other/config.yaml
 23 1 24-02:00:00 /bin/node /app/long-running.js
+24 1 00:01 /bin/postgres -D /opt/postgres/latest/data
+25 1 00:01 /bin/node /app/server.js --socket /tmp/app.sock --token=unrelated-test-value
+26 1 00:01 /bin/postgres -D /Users/example/.pg0/instances/hindsight-test/data
+27 1 00:01 /bin/bun /private/tmp/executor-family.x/apps/cli/src/main.ts daemon run
+28 1 00:01 /bin/node /tmp/server.js --token=unrelated-test-value
 `),
   );
   assert.equal(skipped, 0);
   const findings = classifyWorkloads(rows);
   assert.deepEqual(
     findings.map((finding) => finding.pid),
-    [11, 13, 17, 19, 20, 21],
+    [11, 13, 17, 19, 20, 21, 26, 27],
   );
   assert.equal(findings[0]?.ageSeconds, 21 * 86400 + 3723);
   assert.doesNotMatch(JSON.stringify(findings), /secret-value|\/home|\/tmp|\/sdk|token/);
@@ -85,4 +90,16 @@ test("unsupported platforms and root do not inspect processes", async () => {
     );
     assert.equal(report.complete, false);
   }
+});
+
+test("empty process snapshot is unknown", async () => {
+  const runner = CommandRunner.of({
+    run: () => Effect.succeed({ status: 0, stdout: "", stderr: "" }),
+  });
+  const report = await Effect.runPromise(
+    inspectWorkloads("darwin", 501).pipe(Effect.provideService(CommandRunner, runner)),
+  );
+  assert.equal(report.complete, false);
+  assert.match(report.lines.join("\n"), /unknown: no usable process rows/);
+  assert.doesNotMatch(report.lines.join("\n"), /No matching/);
 });

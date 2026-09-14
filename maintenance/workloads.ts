@@ -52,6 +52,11 @@ export function classifyWorkloads(rows: readonly ProcessRow[]): Finding[] {
   const findings: Finding[] = [];
   for (const row of rows) {
     const executable = /^(?:\S*\/)?([^/\s]+)(?:\s|$)/.exec(row.command)?.[1];
+    const arguments_ = row.command.split(/\s+/).slice(1);
+    const scriptIndex = executable === "bun" && arguments_[0] === "run" ? 1 : 0;
+    const script = arguments_[scriptIndex] ?? "";
+    const testMarker = /(?:^|[/_.-])(?:tests?|testing)(?=$|[/_.-])/i;
+    const dataDirectory = /(?:^|\s)-D\s+(\S+)/.exec(row.command)?.[1] ?? "";
     let name: string | undefined;
     let evidence = "";
     if (
@@ -65,13 +70,16 @@ export function classifyWorkloads(rows: readonly ProcessRow[]): Finding[] {
     } else if (
       ["bun", "node"].includes(executable ?? "") &&
       row.ppid === 1 &&
-      /(?:^|\s)(?:\/private)?\/tmp\/\S+/.test(row.command) &&
-      /(?:test|daemon)/i.test(row.command)
+      /^(?:\/private)?\/tmp\/.+\.(?:[cm]?js|tsx?)$/.test(script) &&
+      (testMarker.test(script) || ["test", "daemon"].includes(arguments_[scriptIndex + 1] ?? ""))
     ) {
       name = "temporary Bun/Node worker";
       evidence =
         "candidate: adopted by launchd with a temporary test/daemon argument; owner and current use unknown";
-    } else if (executable === "postgres" && /(?:^|\s)-D\s+\S*(?:test|\/tmp\/)/i.test(row.command)) {
+    } else if (
+      executable === "postgres" &&
+      (testMarker.test(dataDirectory) || /^(?:\/private)?\/tmp\//.test(dataDirectory))
+    ) {
       name = "test PostgreSQL";
       evidence =
         "candidate: data-directory argument resembles a test/temporary database; connected clients unknown";
@@ -122,7 +130,8 @@ export const inspectWorkloads = Effect.fn("inspectWorkloads")(function* (
     (finding) =>
       `${finding.name}: PID ${finding.pid}, age ${Math.floor(finding.ageSeconds / 60)}m — ${finding.evidence}`,
   );
-  if (!findings.length) lines.push("No matching development workload processes observed.");
+  if (!rows.length) lines.push("unknown: no usable process rows returned");
+  else if (!findings.length) lines.push("No matching development workload processes observed.");
   if (skipped) lines.push(`unknown: ${skipped} process rows could not be inspected`);
   lines.push(
     "Current-user process snapshot only; age does not prove abandonment. No daemon clients contacted, services started, or processes stopped. Container/device/client state remains unknown.",
