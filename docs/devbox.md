@@ -160,14 +160,32 @@ manager does not read shell startup files; for missing tools, follow
 [bootstrap troubleshooting](bootstrap.md#troubleshooting). Enable lingering
 as an administrator: `sudo loginctl enable-linger <user>`.
 
+Keep `--base-dir` stable across updates; see the upstream
+[background service guide](https://github.com/pingdotgg/t3code/blob/main/docs/user/background-service.md).
+
+### Refresh a Linux Service's PATH
+
+Applying dotfiles updates the systemd user manager's `PATH`. An already-running
+T3 service keeps its old environment until restarted. If the profile check
+reports missing mise shims after a successful apply, run these commands as the
+service's Unix user from the dotfiles checkout:
+
+```sh
+systemctl --user restart t3code.service
+systemctl --user is-active t3code.service
+./dotfiles check
+```
+
+Restarting can interrupt connected T3 sessions; finish active work first.
+`daemon-reload` alone does not refresh a running process's environment.
+
+### macOS Service Sessions
+
 On macOS, keep the user logged in and the Mac awake; the LaunchAgent stops at
 logout. Installing over SSH for a user with no GUI session writes the
 LaunchAgent but cannot start it; the step reports the deferred start and the
 service comes up at that user's next login, so a green apply does not by
 itself prove the service is running.
-
-Keep `--base-dir` stable across updates; see the upstream
-[background service guide](https://github.com/pingdotgg/t3code/blob/main/docs/user/background-service.md).
 
 ## Software Updates and Cleanup
 
