@@ -23,15 +23,12 @@ import {
   HARNESSES,
   harnessPresent,
   isSafeName,
-  mergeLockEntries,
   parseSyncArgs,
-  presentHarnessEntries,
   readHarnesses,
   reportSyncFailures,
-  retainAbsentEntries,
-  staleEntries,
   type SyncFailure,
 } from "./harness.ts";
+import { planOwnership } from "./ownership.ts";
 import { migrateLegacyLock, readLockFile, writeLockFile } from "./lock.ts";
 import {
   createRuntime,
@@ -341,27 +338,6 @@ function readPluginLock(lockPath: string): Plugin[] | undefined {
 function writePluginLock(lockPath: string, plugins: readonly Plugin[]): void {
   const lock: PluginLock = { version: 1, plugins: [...plugins] };
   writeLockFile(lockPath, lock);
-}
-
-function stalePlugins(previous: readonly Plugin[], current: readonly Plugin[]): Plugin[] {
-  // A cursor plugin that switched to native-skills mode also drops its
-  // marketplace ownership even though cursor stays selected.
-  return staleEntries(previous, current, pluginRef, (owned, next) =>
-    owned.cursorMode === "marketplace" &&
-    next.cursorMode === "skills" &&
-    owned.harnesses.includes("cursor") &&
-    next.harnesses.includes("cursor")
-      ? ["cursor"]
-      : [],
-  );
-}
-
-function mergePluginLock(current: readonly Plugin[], leftover: readonly Plugin[]): Plugin[] {
-  return mergeLockEntries(current, leftover, pluginRef, (existing, extra) => {
-    if (extra.harnesses.includes("cursor")) {
-      existing.cursorMode = extra.cursorMode;
-    }
-  });
 }
 
 function uninstallArgs(harness: Harness, plugin: Plugin): string[] | undefined {
@@ -933,6 +909,23 @@ function apply(runtime: Runtime, options: PluginOptions): number {
 
   const pluginLockPath = migrateLegacyLock(repoDir, "plugins");
   const previouslyManaged = readPluginLock(pluginLockPath);
+  const ownership = planOwnership({
+    previous: previouslyManaged ?? [],
+    selected: plugins,
+    available: HARNESSES.filter((harness) => runtime.commandExists(HARNESS_INFO[harness].binary)),
+    keyOf: pluginRef,
+    // Native skill links replace Cursor marketplace ownership, even when selected.
+    extraDropped: (owned, next) =>
+      owned.cursorMode === "marketplace" &&
+      next.cursorMode === "skills" &&
+      owned.harnesses.includes("cursor") &&
+      next.harnesses.includes("cursor")
+        ? ["cursor"]
+        : [],
+    mergeExtra: (existing, deferred) => {
+      if (deferred.harnesses.includes("cursor")) existing.cursorMode = deferred.cursorMode;
+    },
+  });
 
   const failures: PluginFailure[] = [];
   for (const harness of HARNESSES) {
@@ -961,24 +954,18 @@ function apply(runtime: Runtime, options: PluginOptions): number {
       runtime.stdout,
       "Initializing managed plugins lock without removing existing plugins",
     );
-    writePluginLock(pluginLockPath, presentHarnessEntries(runtime, plugins));
+    writePluginLock(pluginLockPath, ownership.nextLock([]));
     writeLine(runtime.stdout, "Done.");
     return 0;
   }
 
-  const leftover = [
-    ...removeStalePlugins(runtime, stalePlugins(previouslyManaged, plugins), failures),
-    ...retainAbsentEntries(runtime, previouslyManaged, plugins, pluginRef),
-  ];
+  const deferred = removeStalePlugins(runtime, ownership.removals, failures);
   if (failures.length > 0) {
     return reportPluginFailures(runtime, failures);
   }
 
   pruneNativeSkillLinks(runtime, plugins, previouslyManaged);
-  writePluginLock(
-    pluginLockPath,
-    mergePluginLock(presentHarnessEntries(runtime, plugins), leftover),
-  );
+  writePluginLock(pluginLockPath, ownership.nextLock(deferred));
   writeLine(runtime.stdout, "Done.");
   return 0;
 }

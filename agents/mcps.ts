@@ -22,15 +22,12 @@ import {
   HARNESSES,
   harnessPresent,
   isSafeName,
-  mergeLockEntries,
   parseSyncArgs,
-  presentHarnessEntries,
   readHarnesses,
   reportSyncFailures,
-  retainAbsentEntries,
-  staleEntries,
   type SyncFailure,
 } from "./harness.ts";
+import { planOwnership } from "./ownership.ts";
 import { migrateLegacyLock, readLockFile, writeLockFile } from "./lock.ts";
 import {
   createRuntime,
@@ -206,13 +203,6 @@ function readServerLock(lockPath: string): LockedServer[] | undefined {
 function writeServerLock(lockPath: string, servers: readonly LockedServer[]): void {
   const lock: McpLock = { version: 1, servers: [...servers] };
   writeLockFile(lockPath, lock);
-}
-
-function appliedServers(runtime: Runtime, servers: readonly McpServer[]): LockedServer[] {
-  return presentHarnessEntries(
-    runtime,
-    servers.map((server) => ({ name: server.name, harnesses: server.harnesses })),
-  );
 }
 
 const serverName = (server: { name: string; harnesses: readonly Harness[] }) => server.name;
@@ -800,6 +790,12 @@ function apply(runtime: Runtime, options: McpOptions): number {
 
   const mcpLockPath = migrateLegacyLock(repoDir, "mcps");
   const previouslyManaged = readServerLock(mcpLockPath);
+  const ownership = planOwnership({
+    previous: previouslyManaged ?? [],
+    selected: servers.map((server) => ({ name: server.name, harnesses: server.harnesses })),
+    available: HARNESSES.filter((harness) => runtime.commandExists(HARNESS_INFO[harness].binary)),
+    keyOf: serverName,
+  });
 
   const failures: McpFailure[] = [];
   for (const harness of HARNESSES) {
@@ -825,23 +821,17 @@ function apply(runtime: Runtime, options: McpOptions): number {
       return 0;
     }
     writeLine(runtime.stdout, "Initializing managed MCP lock without removing existing servers");
-    writeServerLock(mcpLockPath, appliedServers(runtime, servers));
+    writeServerLock(mcpLockPath, ownership.nextLock([]));
     writeLine(runtime.stdout, "Done.");
     return 0;
   }
 
-  const leftover = [
-    ...removeStaleServers(runtime, staleEntries(previouslyManaged, servers, serverName), failures),
-    ...retainAbsentEntries(runtime, previouslyManaged, servers, serverName),
-  ];
+  const deferred = removeStaleServers(runtime, ownership.removals, failures);
   if (failures.length > 0) {
     return reportMcpFailures(runtime, failures);
   }
 
-  writeServerLock(
-    mcpLockPath,
-    mergeLockEntries(appliedServers(runtime, servers), leftover, serverName),
-  );
+  writeServerLock(mcpLockPath, ownership.nextLock(deferred));
   writeLine(runtime.stdout, "Done.");
   return 0;
 }

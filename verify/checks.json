@@ -343,7 +343,15 @@
     {
       "id": "agent-plugins",
       "domain": "agents",
-      "command": ["corepack", "pnpm", "exec", "vp", "test", "agents/plugins.test.ts"],
+      "command": [
+        "corepack",
+        "pnpm",
+        "exec",
+        "vp",
+        "test",
+        "agents/plugins.test.ts",
+        "agents/ownership.test.ts"
+      ],
       "output": "Declarative coding-agent plugin marketplaces and per-harness install planning"
     },
     {

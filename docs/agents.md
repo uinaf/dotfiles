@@ -67,6 +67,13 @@ Each sync keeps an ignored `agents/{skills,plugins,mcps}.lock.json`:
 - Failed installs or removals leave that sync's lock unchanged; earlier successful
   commands may already have changed the host. Fix the reported failure and rerun.
 
+[Ownership planning](../agents/ownership.ts) computes plugin and MCP removals
+and the next lock from selected entries, previous ownership, and available
+harnesses. Syncs execute those removals and pass deferred entries back to the
+plan; the lock is written only after successful apply and removal operations.
+Plugin-specific ownership changes, including Cursor install mode, stay in
+[plugin sync](../agents/plugins.ts).
+
 ## Plugin Sync
 
 - Cursor marketplace installs need completion in `/plugins`. If imports are
