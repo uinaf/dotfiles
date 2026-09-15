@@ -104,10 +104,14 @@ const readPin = Effect.fn("readXcodePin")(function* () {
 
 const runXcodes = Effect.fn("runXcodes")(function* (
   args: readonly string[],
-  options: { output?: "capture" | "inherit" } = {},
+  options: { output?: "capture" | "inherit"; stdin?: "inherit" } = {},
 ) {
   const runner = yield* CommandRunner;
-  return yield* runner.run("xcodes", args, { env: xcodeEnv, output: options.output ?? "capture" });
+  return yield* runner.run("xcodes", args, {
+    env: xcodeEnv,
+    output: options.output ?? "capture",
+    stdin: options.stdin,
+  });
 });
 
 const catalog = Effect.fn("xcodeCatalog")(function* (args: readonly string[]) {
@@ -198,7 +202,7 @@ const installRelease = Effect.fn("installXcodeRelease")(function* (pin: XcodePin
       "--no-superuser",
       "--no-color",
     ],
-    { output: "inherit" },
+    { output: "inherit", stdin: "inherit" },
   );
   if (install.status !== 0) {
     return yield* fail(

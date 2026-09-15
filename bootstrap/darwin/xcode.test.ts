@@ -98,3 +98,42 @@ test("check passes when the selected Xcode is the pinned stable release", (t) =>
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /Xcode 26\.6 \(17F113\) matches pin 26\.6/);
 });
+
+test("install receives terminal input and preserves a failed install's exit status", (t) => {
+  const home = mkdtempSync(join(tmpdir(), "xcode-input."));
+  t.onTestFinished(() => rmSync(home, { recursive: true, force: true }));
+  const bin = join(home, "bin");
+  mkdirSync(bin);
+  writeFileSync(join(home, "xcode.json"), JSON.stringify({ version: 1, release: "27.0" }));
+  writeFileSync(join(bin, "brew"), '#!/bin/sh\nprintf "%s\\n" "$HOME"\n', { mode: 0o755 });
+  writeFileSync(
+    join(bin, "xcodes"),
+    `#!/bin/sh
+case "$1" in
+  installed) exit 0 ;;
+  list) printf '27.0 (27A266a) [Apple Silicon]\\n' ;;
+  install)
+    IFS= read -r response || exit 24
+    [ "$response" = fixture-input ] || exit 25
+    printf 'input received\\n'
+    exit 23 ;;
+  *) exit 26 ;;
+esac
+`,
+    { mode: 0o755 },
+  );
+  const result = spawnSync(process.execPath, [resolve(import.meta.dirname, "xcode.ts")], {
+    encoding: "utf8",
+    input: "fixture-input\n",
+    timeout: 10_000,
+    env: {
+      ...process.env,
+      PATH: `${bin}:${process.env.PATH}`,
+      HOME: home,
+      DOTFILES_XCODE_FILE: join(home, "xcode.json"),
+    },
+  });
+  assert.equal(result.status, 23, result.stderr);
+  assert.match(result.stdout, /input received/);
+  assert.match(result.stderr, /xcodes install exited 23/);
+});

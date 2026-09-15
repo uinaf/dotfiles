@@ -20,8 +20,9 @@ xcodebuild -downloadPlatform tvOS
 xcrun simctl list devicetypes | rg 'Apple TV'
 ```
 
-`xcodes` needs an Apple Developer login in that terminal, including 2FA,
-for the download. Simulator runtimes are a multi-GB download. Run the
+The install task passes terminal input to `xcodes` for its Apple Developer
+login and 2FA prompts. Run it in an interactive terminal when authentication
+is needed. Simulator runtimes are a multi-GB download. Run the
 application’s build afterward to verify its Xcode/runtime combination.
 
 ## Android TV
