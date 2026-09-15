@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+import { configureExternalCapabilities } from "./external-capabilities.ts";
+
 import { NodeServices } from "@effect/platform-node";
 import { Console, Effect } from "effect";
 import { dirname, resolve } from "node:path";
@@ -10,7 +12,6 @@ import { CliFailure, fail, runMain } from "../lib/program.ts";
 import {
   brewfilePath,
   composeBrewfile,
-  configureExternalCapabilities,
   profileBrewfiles,
   removeComposedBrewfile,
   runHomebrewRaw,

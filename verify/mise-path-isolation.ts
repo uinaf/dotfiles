@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { join } from "node:path";
 import { CommandRunner } from "../lib/command.ts";
 import { fail, runMain } from "../lib/program.ts";
-import { checkMiseDoctor, resolveZsh, runCleanZsh } from "../lib/shell-probe.ts";
+import { checkMiseDoctor, resolveZsh, runCleanZsh } from "./shell-probe.ts";
 
 const program = Effect.scoped(
   Effect.gen(function* () {

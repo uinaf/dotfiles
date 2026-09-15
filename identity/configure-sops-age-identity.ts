@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { ageIdentityPath } from "./age.ts";
 import { NodeServices } from "@effect/platform-node";
 import { Console, Effect, FileSystem, Option, Schema } from "effect";
 import { dirname, join } from "node:path";
@@ -19,15 +20,6 @@ const Version = Schema.String.pipe(
   Schema.check(Schema.isPattern(/^[0-9]+\.[0-9]+\.[0-9]+(?:[-+].*)?$/)),
 );
 type Mode = "provision" | "check" | "print-recipient";
-
-function identityPath(): string {
-  if (process.env.SOPS_AGE_KEY_FILE) return process.env.SOPS_AGE_KEY_FILE;
-  if (process.env.XDG_CONFIG_HOME) return `${process.env.XDG_CONFIG_HOME}/sops/age/keys.txt`;
-  const home = process.env.HOME || "";
-  return process.platform === "darwin"
-    ? `${home}/Library/Application Support/sops/age/keys.txt`
-    : `${home}/.config/sops/age/keys.txt`;
-}
 
 const parseMode = Effect.fn("parseSopsIdentityMode")(function* (
   args: readonly string[],
@@ -204,7 +196,7 @@ const program = Effect.gen(function* () {
   }
   const mode = yield* parseMode(raw).pipe(Effect.tapError(() => Console.error(usage)));
   if (!(yield* commandAvailable("age-keygen"))) return yield* fail("missing age-keygen");
-  const identityFile = identityPath();
+  const identityFile = ageIdentityPath();
   if (mode === "provision") yield* provision(identityFile);
   const recipient = yield* validateIdentity(identityFile);
   if (mode === "print-recipient") {

@@ -7,7 +7,7 @@ import { dirname, join } from "node:path";
 import { test } from "vite-plus/test";
 
 import { parseHostArgs, runHostAudit } from "./host.ts";
-import type { CommandOptions, CommandRunner } from "./report.ts";
+import type { CommandOptions, CommandRunner } from "./runtime.ts";
 import { mscpPlatformVersion, parseRepoArgs, runRepoAudit } from "./repo.ts";
 
 test("host adapter summarizes Lynis without exposing its report", () => {

@@ -66,7 +66,7 @@ Profiles can accept packages supplied by another trusted installer:
 - Create `~/.config/dotfiles/external-homebrew.plist`: a regular XML plist,
   owned by the user, without group/other write access.
 - Follow `ExternalHomebrew`, `CommandCapability`, and `BundleCapability` in
-  [homebrew.ts](../homebrew/homebrew.ts); the
+  [external-capabilities.ts](../homebrew/external-capabilities.ts); the
   [fixtures](../homebrew/verify/external-homebrew.ts) show both validation modes.
   Entries must name packages declared by the profile or local Brewfile.
 - Run the [bundle step](bootstrap.md#apply-a-profile) to validate the file.

@@ -42,7 +42,7 @@ probed by `./dotfiles check devbox`:
 
 Tool pins live in the [mise configuration](mise.md#runtime-pins).
 `age` and `sops` stay host packages on both platforms because the
-[sudo askpass helper](../lib/sudo-age-askpass.sh) calls them by fixed path.
+[sudo askpass helper](../identity/sudo-age-askpass.sh) calls them by fixed path.
 For per-user SDK setup, follow [Mobile and TV development](mobile-and-tv-development.md).
 
 ### macOS

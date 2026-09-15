@@ -1,19 +1,21 @@
 #!/usr/bin/env node
 
+import { sanitizeDiagnostic } from "../lib/diagnostics.ts";
+
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Effect } from "effect";
 
+import { readLayeredSkills, readSkillLock, type Skill } from "./skills/catalog.ts";
 import { runMain } from "../lib/program.ts";
-import { readProfileModel, requireProfile, type AgentLayer } from "../profiles/model.ts";
-import { migrateLegacyLock, readLockFile, writeLockFile } from "./lock.ts";
+import { readProfileModel, requireProfile } from "../profiles/model.ts";
+import { migrateLegacyLock, writeLockFile } from "./lock.ts";
 import {
   createRuntime,
   errorMessage,
   resolveProfileName,
   type Runtime,
-  sanitizeDiagnostic,
   writeLine,
 } from "./runtime.ts";
 
@@ -24,11 +26,6 @@ export const DEFAULT_SKILLS_CLI_VERSION = "1.5.24";
 
 type Agent = "claude-code" | "codex";
 
-type Skill = {
-  name: string;
-  source: string;
-};
-
 type SkillFailure = {
   diagnostic: string;
   summary: string;
@@ -38,110 +35,6 @@ type SkillLock = {
   version: 1;
   skills: Skill[];
 };
-
-function isSkill(value: unknown): value is Skill {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    "name" in value &&
-    typeof value.name === "string" &&
-    /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(value.name) &&
-    "source" in value &&
-    typeof value.source === "string" &&
-    value.source.length > 0
-  );
-}
-
-function readSkills(manifestPath: string): Skill[] {
-  let parsed: unknown;
-
-  try {
-    parsed = JSON.parse(readFileSync(manifestPath, "utf8"));
-  } catch (error) {
-    throw new Error(`Invalid skills manifest at ${manifestPath}: ${errorMessage(error)}`);
-  }
-
-  if (
-    typeof parsed !== "object" ||
-    parsed === null ||
-    !("skills" in parsed) ||
-    !Array.isArray(parsed.skills) ||
-    !parsed.skills.every(isSkill)
-  ) {
-    throw new Error(
-      `Invalid skills manifest at ${manifestPath}: expected non-empty name/source strings`,
-    );
-  }
-
-  const names = parsed.skills.map((skill) => skill.name);
-  if (new Set(names).size !== names.length) {
-    throw new Error(`Invalid skills manifest at ${manifestPath}: skill names must be unique`);
-  }
-
-  return parsed.skills;
-}
-
-function readLayeredSkills(
-  repoDir: string,
-  profile: string,
-  layers: readonly AgentLayer[],
-): { layers: readonly AgentLayer[]; skills: Skill[] } {
-  if (layers.length === 0) {
-    throw new Error(`Profile ${profile} does not manage agent skills`);
-  }
-
-  const manifests = new Map<AgentLayer, Skill[]>();
-  for (const layer of ["developer", "workstation", "devbox", "personal"] as const) {
-    const manifestPath = join(repoDir, "agents", "skills", `${layer}.json`);
-    manifests.set(layer, readSkills(manifestPath));
-  }
-
-  const sources = new Map<string, string>();
-  const skills: Skill[] = [];
-  for (const skill of layers.flatMap((layer) => manifests.get(layer) ?? [])) {
-    const previousSource = sources.get(skill.name);
-    if (previousSource === skill.source) {
-      continue; // the same skill selected by more than one composed layer
-    }
-    if (previousSource !== undefined) {
-      throw new Error(
-        `Invalid layered skills: ${skill.name} is defined more than once (${previousSource} and ${skill.source})`,
-      );
-    }
-    sources.set(skill.name, skill.source);
-    skills.push(skill);
-  }
-
-  return { layers, skills };
-}
-
-function readSkillLock(lockPath: string): Skill[] | undefined {
-  const parsed = readLockFile(lockPath, "skills");
-  if (parsed === undefined) {
-    return undefined;
-  }
-
-  if (
-    typeof parsed !== "object" ||
-    parsed === null ||
-    !("version" in parsed) ||
-    parsed.version !== 1 ||
-    !("skills" in parsed) ||
-    !Array.isArray(parsed.skills) ||
-    !parsed.skills.every(isSkill)
-  ) {
-    throw new Error(
-      `Invalid managed skills lock at ${lockPath}: expected version 1 and safe name/source entries`,
-    );
-  }
-
-  const names = parsed.skills.map((skill) => skill.name);
-  if (new Set(names).size !== names.length) {
-    throw new Error(`Invalid managed skills lock at ${lockPath}: skill names must be unique`);
-  }
-
-  return parsed.skills;
-}
 
 function writeSkillLock(lockPath: string, skills: readonly Skill[]): void {
   const lock: SkillLock = { version: 1, skills: [...skills] };

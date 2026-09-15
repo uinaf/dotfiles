@@ -22,8 +22,8 @@ JSON summaries, not raw output.
 
 ## Interpret Findings
 
-- [Gitleaks policy](../audit/gitleaks-policy.json) owns rule severity; the
-  [finding classifier](../audit/data.ts), `summarizeFindings()`, applies it.
+- [Gitleaks policy](../audit/secrets/gitleaks-policy.json) owns rule severity; the
+  [finding classifier](../audit/secrets/findings.ts), `summarizeFindings()`, applies it.
   Inspect `generic-api-key` findings before dismissing them: the detector
   frequently matches shell assignments.
 - [Gitleaks allowlists](../.gitleaks.toml) may contain exact synthetic fixture

@@ -1,9 +1,13 @@
 #!/usr/bin/env node
 
 import { NodeServices } from "@effect/platform-node";
-import { Console, DateTime, Effect, FileSystem, Option, Schema } from "effect";
-import { basename, dirname, join, resolve } from "node:path";
+import { Console, Effect, FileSystem, Option, Schema } from "effect";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { validateLocalAgentRules } from "../agents/rules-local.ts";
+import { backupPreexistingTargets, type ChezmoiContext } from "./managed-files.ts";
+import { retireLaunchAgents } from "./darwin/launch-agents.ts";
+import { convergeUserManager } from "./linux/user-manager.ts";
 import { refreshAgentRules } from "../agents/rules.ts";
 import { CommandRunner } from "../lib/command.ts";
 import { CliFailure, fail, runMain } from "../lib/program.ts";
@@ -62,11 +66,6 @@ const parseArguments = Effect.fn("parseApplyDotfilesArguments")(function* (
   );
 });
 
-type ChezmoiContext = {
-  readonly baseArgs: readonly string[];
-  readonly dryRun: boolean;
-};
-
 // chezmoi and gitleaks are mise tools declared by the very config this script
 // renders, so the first apply borrows the pinned releases through `mise x`
 // until the shims exist.
@@ -117,235 +116,6 @@ const runCommand = Effect.fn("runApplyDotfilesCommand")(function* (
   return result;
 });
 
-const runChezmoi = Effect.fn("runChezmoi")(function* (
-  context: ChezmoiContext,
-  args: readonly string[],
-  output: "capture" | "inherit" = "capture",
-) {
-  return yield* runCommand("chezmoi", [...context.baseArgs, ...args], output);
-});
-
-const matchesManagedTarget = Effect.fn("matchesManagedTarget")(function* (
-  context: ChezmoiContext,
-  target: string,
-  expectedType: "file" | "symlink" | "remove",
-) {
-  const fs = yield* FileSystem.FileSystem;
-  const link = yield* fs.readLink(target).pipe(Effect.option);
-  const exists = yield* fs.exists(target);
-  if (!exists && Option.isNone(link)) return true;
-  if (expectedType === "symlink" && Option.isSome(link)) {
-    const expected = yield* runChezmoi(context, ["cat", target]);
-    return link.value === expected.stdout.trimEnd();
-  }
-  if (expectedType === "file" && exists && Option.isNone(link)) {
-    const [actual, expected] = yield* Effect.all([
-      fs.readFileString(target),
-      runChezmoi(context, ["cat", target]).pipe(Effect.map((result) => result.stdout)),
-    ]);
-    return actual === expected;
-  }
-  return false;
-});
-
-// Every drifted apply creates one timestamped backup, so enrolled hosts
-// accumulate them forever; keep only the most recent backup per target. The
-// backup written by this run is the most recent by definition and is never a
-// prune candidate: timestamps come from the host clock, so a clock behind an
-// existing backup would otherwise prune the file just written.
-export const pruneOlderBackups = Effect.fn("pruneOlderBackups")(function* (
-  target: string,
-  created?: string,
-) {
-  const fs = yield* FileSystem.FileSystem;
-  const directory = dirname(target);
-  const prefix = `${basename(target)}.backup.`;
-  const backups = (yield* fs.readDirectory(directory))
-    .filter((entry) => entry.startsWith(prefix) && /^\d{14}$/.test(entry.slice(prefix.length)))
-    .filter((entry) => created === undefined || join(directory, entry) !== created)
-    .sort();
-  for (const entry of created === undefined ? backups.slice(0, -1) : backups) {
-    yield* fs.remove(join(directory, entry), { recursive: true, force: true });
-    yield* Console.log(`removed older backup ${join(directory, entry)}`);
-  }
-});
-
-const backupPath = Effect.fn("backupPath")(function* (
-  context: ChezmoiContext,
-  target: string,
-  expectedType: "file" | "symlink",
-) {
-  const matches = yield* matchesManagedTarget(context, target, expectedType);
-  if (matches) return;
-  const fs = yield* FileSystem.FileSystem;
-  const now = yield* DateTime.now;
-  const timestamp = DateTime.formatIso(now).replaceAll(/\D/g, "").slice(0, 14);
-  const backup = `${target}.backup.${timestamp}`;
-  if (context.dryRun) {
-    yield* Console.log(`would back up ${target} -> ${backup}`);
-    return;
-  }
-  const link = yield* fs.readLink(target).pipe(Effect.option);
-  if (expectedType === "file" && Option.isNone(link)) {
-    yield* fs.copy(target, backup, { preserveTimestamps: true });
-  } else {
-    yield* fs.rename(target, backup);
-  }
-  yield* Console.log(`backed up ${target} -> ${backup}`);
-  yield* pruneOlderBackups(target, backup);
-});
-
-const replaceAgentPath = Effect.fn("replaceAgentPath")(function* (
-  context: ChezmoiContext,
-  target: string,
-  expectedType: "file" | "symlink" | "remove",
-) {
-  const matches = yield* matchesManagedTarget(context, target, expectedType);
-  if (matches) return;
-  if (context.dryRun) {
-    yield* Console.log(`would replace generated agent rules at ${target}`);
-    return;
-  }
-  const fs = yield* FileSystem.FileSystem;
-  yield* fs.remove(target, { force: true });
-  yield* Console.log(`removed conflicting generated agent rules at ${target}`);
-});
-
-// The weekly devbox disk-cleanup LaunchAgent was retired in favor of the
-// six-hour updater's host hygiene step. Its plist is listed in .chezmoiremove;
-// launchd keeps a booted-out-of-disk job loaded until logout, so unload it
-// explicitly before chezmoi removes the file. Idempotent: not-loaded is a no-op.
-export const retiredAgentLabels = ["local.dotfiles.disk-cleanup"] as const;
-
-export const retireLaunchAgents = Effect.fn("retireLaunchAgents")(function* (
-  uid: number,
-  dryRun: boolean,
-  platform: NodeJS.Platform = process.platform,
-) {
-  if (platform !== "darwin" || uid <= 0) return;
-  const runner = yield* CommandRunner;
-  for (const label of retiredAgentLabels) {
-    const service = `gui/${uid}/${label}`;
-    const loaded = yield* runner.run("launchctl", ["print", service]).pipe(
-      Effect.map((result) => result.status === 0),
-      Effect.catch(() => Effect.succeed(false)),
-    );
-    if (!loaded) continue;
-    if (dryRun) {
-      yield* Console.log(`would boot out retired LaunchAgent ${service}`);
-      continue;
-    }
-    const result = yield* runner
-      .run("launchctl", ["bootout", service])
-      .pipe(Effect.mapError((error) => new CliFailure({ exitCode: 1, message: error.message })));
-    if (result.status !== 0)
-      return yield* fail(`launchctl bootout ${service} exited ${result.status}`, result.status);
-    yield* Console.log(`booted out retired LaunchAgent ${service}`);
-  }
-});
-
-const managedTargets = Effect.fn("managedTargets")(function* (
-  context: ChezmoiContext,
-  include: "files" | "symlinks",
-) {
-  const result = yield* runChezmoi(context, [
-    "managed",
-    `--include=${include}`,
-    "--path-style",
-    "absolute",
-  ]);
-  return result.stdout.split("\n").filter((target) => target.length > 0);
-});
-
-const validateLocalAgentRules = Effect.fn("validateLocalAgentRules")(function* () {
-  const fs = yield* FileSystem.FileSystem;
-  for (const path of [join(configDir, "agents.start.md"), join(configDir, "agents.end.md")]) {
-    const link = yield* fs.readLink(path).pipe(Effect.option);
-    const exists = yield* fs.exists(path);
-    if (Option.isSome(link) && !exists)
-      return yield* fail(`local agent rules link is broken: ${path}`);
-    if (!exists) continue;
-    const info = yield* fs
-      .stat(path)
-      .pipe(
-        Effect.mapError(
-          () =>
-            new CliFailure({ exitCode: 1, message: `cannot inspect local agent rules: ${path}` }),
-        ),
-      );
-    if (info.type !== "File")
-      return yield* fail(`local agent rules must resolve to a regular file: ${path}`);
-    if (Option.getOrUndefined(info.uid) !== process.getuid?.()) {
-      return yield* fail(`local agent rules must be owned by the current user: ${path}`);
-    }
-    if ((info.mode & 0o077) !== 0) {
-      return yield* fail(`local agent rules must not grant group or other access: ${path}`);
-    }
-  }
-});
-
-const backupPreexistingTargets = Effect.fn("backupPreexistingTargets")(function* (
-  context: ChezmoiContext,
-) {
-  yield* replaceAgentPath(context, join(home, ".agents/AGENTS.md"), "remove");
-  for (const target of yield* managedTargets(context, "files")) {
-    if (target === join(home, "AGENTS.md")) {
-      yield* replaceAgentPath(context, target, "file");
-    } else {
-      yield* backupPath(context, target, "file");
-    }
-  }
-  for (const target of yield* managedTargets(context, "symlinks")) {
-    if (target === join(home, ".claude/CLAUDE.md") || target === join(home, ".codex/AGENTS.md")) {
-      yield* replaceAgentPath(context, target, "symlink");
-    } else {
-      yield* backupPath(context, target, "symlink");
-    }
-  }
-});
-
-export const convergeUserManager = Effect.fn("convergeUserManager")(function* (
-  home: string,
-  dryRun: boolean,
-  platform: NodeJS.Platform = process.platform,
-) {
-  if (platform !== "linux" || dryRun) return;
-  const runner = yield* CommandRunner;
-  // Containers and non-systemd sessions can apply without a user manager.
-  const environment = yield* runner
-    .run("systemctl", ["--user", "show-environment"], { output: "capture" })
-    .pipe(Effect.catch(() => Effect.succeed(undefined)));
-  if (!environment || environment.status !== 0) return;
-  const current =
-    environment.stdout
-      .split("\n")
-      .find((line) => line.startsWith("PATH="))
-      ?.slice(5) ?? "/usr/local/bin:/usr/bin:/bin";
-  const front = [".local/share/mise/shims", ".local/libexec/dotfiles/bin", ".local/bin"].map(
-    (part) => join(home, part),
-  );
-  const merged = [
-    ...front,
-    ...current.split(":").filter((part) => part && !front.includes(part)),
-  ].join(":");
-  for (const args of [["daemon-reload"], ["set-environment", `PATH=${merged}`]]) {
-    const operation = `systemctl --user ${args[0]}`;
-    const result = yield* runner
-      .run("systemctl", ["--user", ...args], { output: "capture" })
-      .pipe(
-        Effect.mapError(
-          (error) =>
-            new CliFailure({ exitCode: 1, message: `${operation} failed: ${error.message}` }),
-        ),
-      );
-    if (result.status !== 0)
-      return yield* fail(
-        `${operation} exited ${result.status}: ${result.stderr.trim()}`,
-        result.status,
-      );
-  }
-});
-
 const program = Effect.gen(function* () {
   const rawArgs = process.argv.slice(2);
   if (rawArgs.length === 1 && (rawArgs[0] === "-h" || rawArgs[0] === "--help")) {
@@ -376,6 +146,8 @@ const program = Effect.gen(function* () {
     return yield* fail(`canonical config path must be a directory: ${configDir}`);
   }
   const context: ChezmoiContext = {
+    repoRoot,
+    home,
     baseArgs: [
       "--source",
       sourceDir,
@@ -386,7 +158,7 @@ const program = Effect.gen(function* () {
     ],
     dryRun: args.dryRun,
   };
-  yield* validateLocalAgentRules();
+  yield* validateLocalAgentRules(configDir);
   yield* refreshAgentRules(repoRoot, agentRulesPath, {
     offline: process.env.DOTFILES_AGENT_RULES_OFFLINE === "1",
   });

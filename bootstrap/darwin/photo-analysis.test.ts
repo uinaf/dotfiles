@@ -1,9 +1,63 @@
 import assert from "node:assert/strict";
-import { NodeServices } from "@effect/platform-node";
-import { Effect } from "effect";
 import { test } from "vite-plus/test";
+import { Effect } from "effect";
 import { CommandError, CommandRunner } from "../../lib/command.ts";
-import { checkDevboxPhotoAnalysis } from "./photo-analysis.ts";
+import { CliFailure } from "../../lib/program.ts";
+import { NodeServices } from "@effect/platform-node";
+import { checkDevboxPhotoAnalysis, disableDevboxPhotoAnalysis } from "./photo-analysis.ts";
+
+function launchctlRunner(loaded: boolean, bootoutStatus = 0) {
+  const calls: string[][] = [];
+  const runner = CommandRunner.of({
+    run: (command, args = []) => {
+      calls.push([command, ...args]);
+      const status = args[0] === "print" ? (loaded ? 0 : 113) : bootoutStatus;
+      return Effect.succeed({ status, stdout: "", stderr: "" });
+    },
+  });
+  return { calls, runner };
+}
+
+test("Photos analysis policy applies only to macOS devbox profiles", async () => {
+  for (const profile of [
+    "developer",
+    "workstation",
+    "personal-workstation",
+    "devbox",
+    "personal-devbox",
+  ]) {
+    for (const platform of ["darwin", "linux"] as const) {
+      for (const dryRun of [false, true]) {
+        const { calls, runner } = launchctlRunner(false);
+        await Effect.runPromise(
+          disableDevboxPhotoAnalysis(profile, 501, dryRun, platform).pipe(
+            Effect.provideService(CommandRunner, runner),
+            Effect.provide(NodeServices.layer),
+          ),
+        );
+        assert.deepEqual(
+          calls,
+          platform === "darwin" && !dryRun && ["devbox", "personal-devbox"].includes(profile)
+            ? [["launchctl", "disable", "gui/501/com.apple.photoanalysisd"]]
+            : [],
+        );
+      }
+    }
+  }
+});
+
+test("Photos analysis policy reports a rejected launchctl change", async () => {
+  const { runner } = launchctlRunner(false, 5);
+  const failure = await Effect.runPromise(
+    disableDevboxPhotoAnalysis("devbox", 501, false, "darwin").pipe(
+      Effect.provideService(CommandRunner, runner),
+      Effect.provide(NodeServices.layer),
+      Effect.flip,
+    ),
+  );
+  assert.ok(failure instanceof CliFailure);
+  assert.equal(failure.exitCode, 5);
+});
 
 for (const profile of [
   "developer",

@@ -3,7 +3,7 @@
   "checks": [
     {
       "id": "dotfiles-convergence",
-      "domain": "services",
+      "domain": "maintenance",
       "command": [
         "corepack",
         "pnpm",
@@ -21,7 +21,7 @@
     },
     {
       "id": "host-hygiene",
-      "domain": "services",
+      "domain": "maintenance",
       "command": [
         "corepack",
         "pnpm",
@@ -30,13 +30,15 @@
         "test",
         "maintenance/hygiene.test.ts",
         "maintenance/cache-cleanup.test.ts",
-        "maintenance/workloads.test.ts"
+        "maintenance/workloads.test.ts",
+        "maintenance/repositories.test.ts",
+        "maintenance/logs.test.ts"
       ],
       "output": "Grace period, merged-history proof, active/dirty/ignored work preservation, and failed inspection; read-only workload evidence and sanitized partial failures"
     },
     {
       "id": "maintenance-schedule",
-      "domain": "services",
+      "domain": "maintenance",
       "command": [
         "corepack",
         "pnpm",
@@ -51,7 +53,7 @@
     },
     {
       "id": "update-run",
-      "domain": "services",
+      "domain": "maintenance",
       "command": ["corepack", "pnpm", "exec", "vp", "test", "maintenance/run.test.ts"],
       "output": "Monitored update run receipts, heartbeat delivery, and on-demand serialization"
     },
@@ -100,15 +102,17 @@
     },
     {
       "id": "apply-backups",
-      "domain": "config",
+      "domain": "bootstrap",
       "command": [
         "corepack",
         "pnpm",
         "exec",
         "vp",
         "test",
-        "bootstrap/apply-dotfiles.test.ts",
-        "bootstrap/darwin/photo-analysis.test.ts"
+        "bootstrap/darwin/photo-analysis.test.ts",
+        "bootstrap/managed-files.test.ts",
+        "bootstrap/darwin/launch-agents.test.ts",
+        "bootstrap/linux/user-manager.test.ts"
       ],
       "output": "Home backups, retired LaunchAgents, and Linux user-manager PATH convergence and macOS devbox Photos policy drift"
     },
@@ -211,7 +215,7 @@
     },
     {
       "id": "operator-command",
-      "domain": "profiles",
+      "domain": "bootstrap",
       "command": [
         "corepack",
         "pnpm",
@@ -233,21 +237,21 @@
     },
     {
       "id": "brew-bundle",
-      "domain": "profiles",
+      "domain": "homebrew",
       "command": ["homebrew/verify/brew-bundle.ts"],
       "output": "Devbox Homebrew behavior",
       "platform": "darwin"
     },
     {
       "id": "external-homebrew",
-      "domain": "profiles",
+      "domain": "homebrew",
       "command": ["homebrew/verify/external-homebrew.ts"],
       "output": "External Homebrew capability boundary",
       "platform": "darwin"
     },
     {
       "id": "chrome-state",
-      "domain": "profiles",
+      "domain": "bootstrap",
       "command": [
         "corepack",
         "pnpm",
@@ -261,7 +265,7 @@
     },
     {
       "id": "spotlight-policy",
-      "domain": "profiles",
+      "domain": "bootstrap",
       "command": [
         "corepack",
         "pnpm",
@@ -299,14 +303,14 @@
     },
     {
       "id": "service-labels",
-      "domain": "services",
+      "domain": "bootstrap",
       "command": ["verify/darwin/service-labels.ts"],
       "output": "Launchd service labels",
       "platform": "darwin"
     },
     {
       "id": "maintenance-check",
-      "domain": "services",
+      "domain": "maintenance",
       "command": [
         "corepack",
         "pnpm",
@@ -314,7 +318,8 @@
         "vp",
         "test",
         "maintenance/check.test.ts",
-        "maintenance/darwin/macos-updates.test.ts"
+        "maintenance/darwin/macos-updates.test.ts",
+        "maintenance/probes.test.ts"
       ],
       "output": "Concurrent typed maintenance inventory, freshness, and update applicability"
     },
@@ -327,7 +332,16 @@
     {
       "id": "audit-data",
       "domain": "audit",
-      "command": ["corepack", "pnpm", "exec", "vp", "test", "audit/data.test.ts"],
+      "command": [
+        "corepack",
+        "pnpm",
+        "exec",
+        "vp",
+        "test",
+        "audit/data.test.ts",
+        "audit/codex-storage.test.ts",
+        "audit/secrets/findings.test.ts"
+      ],
       "output": "Typed SQLite header and sanitized Gitleaks report handling"
     },
     {
@@ -347,7 +361,15 @@
     {
       "id": "agent-sync",
       "domain": "agents",
-      "command": ["corepack", "pnpm", "exec", "vp", "test", "agents/sync.test.ts"],
+      "command": [
+        "corepack",
+        "pnpm",
+        "exec",
+        "vp",
+        "test",
+        "agents/sync.test.ts",
+        "agents/skills/catalog.test.ts"
+      ],
       "output": "External agent skill installation and ownership"
     },
     {
@@ -395,7 +417,7 @@
     },
     {
       "id": "gh-extensions",
-      "domain": "agents",
+      "domain": "bootstrap",
       "command": ["verify/gh-extensions.ts"],
       "output": "GitHub CLI extension installation"
     },
@@ -434,21 +456,13 @@
     },
     {
       "id": "linux-service-lifecycle",
-      "domain": "services",
-      "command": [
-        "corepack",
-        "pnpm",
-        "exec",
-        "vp",
-        "test",
-        "maintenance/linux/schedule.test.ts",
-        "bootstrap/install-t3-service.test.ts"
-      ],
+      "domain": "bootstrap",
+      "command": ["corepack", "pnpm", "exec", "vp", "test", "bootstrap/install-t3-service.test.ts"],
       "output": "Linux timer lifecycle, T3 opt-in and service checks, and headless installation evidence"
     },
     {
       "id": "homebrew-layers",
-      "domain": "profiles",
+      "domain": "homebrew",
       "command": ["corepack", "pnpm", "exec", "vp", "test", "homebrew/verify/layers.test.ts"],
       "output": "Evaluated per-profile Homebrew layers and composed manifest parity"
     },
@@ -460,7 +474,7 @@
     },
     {
       "id": "helium-preferences",
-      "domain": "config",
+      "domain": "bootstrap",
       "command": [
         "corepack",
         "pnpm",
@@ -470,6 +484,12 @@
         "bootstrap/darwin/configure-helium.test.ts"
       ],
       "output": "Helium all-profile vertical tabs, preservation, fresh profile, running-browser deferral, and malformed data"
+    },
+    {
+      "id": "linux-maintenance-schedule",
+      "domain": "maintenance",
+      "command": ["corepack", "pnpm", "exec", "vp", "test", "maintenance/linux/schedule.test.ts"],
+      "output": "Linux timer lifecycle and owner isolation"
     }
   ]
 }

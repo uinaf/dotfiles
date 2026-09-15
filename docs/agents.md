@@ -32,7 +32,8 @@ Edit shared rules at their configured source and private instructions in:
 
 Preview and apply through the [profile setup workflow](bootstrap.md#apply-a-profile).
 
-The [rule loader](../agents/rules.ts) owns validation and cache fallback.
+The [rule loader](../agents/rules.ts) owns remote validation and cache fallback.
+[Local fragment validation](../agents/rules-local.ts) checks file ownership and permissions.
 Invalid content leaves the existing cache intact. If fetching or scanning is
 unavailable, setup needs a valid cache to continue. Set
 `DOTFILES_AGENT_RULES_OFFLINE=1` to require cached rules without fetching.
@@ -71,7 +72,8 @@ The [profile model](../chezmoi/.chezmoidata/profiles.json) selects `agentLayers`
 each parser defines its manifest fields and supported harnesses.
 An agent layer groups skill, plugin, and MCP selections for reuse across profiles.
 The [MCP catalog](../agents/mcps/catalog.ts) validates and composes server
-declarations for both sync and doctor.
+declarations for both sync and doctor. The [skill catalog](../agents/skills/catalog.ts)
+validates declarations and ownership locks for sync and maintenance inventory.
 
 Each sync keeps an ignored `agents/{skills,plugins,mcps}.lock.json`:
 

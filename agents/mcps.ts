@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+import { sanitizeDiagnostic } from "../lib/diagnostics.ts";
+
 import {
   existsSync,
   mkdirSync,
@@ -34,7 +36,6 @@ import {
   errorMessage,
   resolveProfileName,
   type Runtime,
-  sanitizeDiagnostic,
   writeLine,
 } from "./runtime.ts";
 

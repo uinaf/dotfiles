@@ -17,7 +17,7 @@ run = "node ./audit/repo.ts --skip-mscp"
 description = "Run one focused verification domain"
 usage = '''
 arg "<domain>" help="Verification domain" {
-  choices "agents" "audit" "config" "git" "identity" "profiles" "security" "services" "static"
+  choices "agents" "audit" "bootstrap" "config" "git" "homebrew" "identity" "maintenance" "profiles" "security" "static"
 }
 '''
 run = './verify/run.ts --domain "$usage_domain"'

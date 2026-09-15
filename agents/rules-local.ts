@@ -1,0 +1,32 @@
+import { Effect, FileSystem, Option } from "effect";
+import { join } from "node:path";
+import { CliFailure, fail } from "../lib/program.ts";
+
+export const validateLocalAgentRules = Effect.fn("validateLocalAgentRules")(function* (
+  configDir: string,
+) {
+  const fs = yield* FileSystem.FileSystem;
+  for (const path of [join(configDir, "agents.start.md"), join(configDir, "agents.end.md")]) {
+    const link = yield* fs.readLink(path).pipe(Effect.option);
+    const exists = yield* fs.exists(path);
+    if (Option.isSome(link) && !exists)
+      return yield* fail(`local agent rules link is broken: ${path}`);
+    if (!exists) continue;
+    const info = yield* fs
+      .stat(path)
+      .pipe(
+        Effect.mapError(
+          () =>
+            new CliFailure({ exitCode: 1, message: `cannot inspect local agent rules: ${path}` }),
+        ),
+      );
+    if (info.type !== "File")
+      return yield* fail(`local agent rules must resolve to a regular file: ${path}`);
+    if (Option.getOrUndefined(info.uid) !== process.getuid?.()) {
+      return yield* fail(`local agent rules must be owned by the current user: ${path}`);
+    }
+    if ((info.mode & 0o077) !== 0) {
+      return yield* fail(`local agent rules must not grant group or other access: ${path}`);
+    }
+  }
+});

@@ -28,6 +28,13 @@ create neither until needed. Shared infrastructure belongs in `lib/` only
 when multiple domains use it. Keep policy and inventories in code/config;
 Markdown links to their owners and explains manual actions, recovery, and rationale.
 
+Bootstrap coordinates setup; [managed files](bootstrap/managed-files.ts) own
+backup handling, and platform service operations live under bootstrap's OS folders.
+[Audit scanning](audit/secrets/), [repository cleanup](maintenance/repositories.ts),
+and [external Homebrew capabilities](homebrew/external-capabilities.ts) keep their
+policies separate from their callers. [Agent catalogs](agents/skills/catalog.ts)
+are shared by synchronization and read-only inventory.
+
 ## Work
 
 - Identify the affected profile or repository-only tooling. Read the relevant [task guide](README.md#guides).

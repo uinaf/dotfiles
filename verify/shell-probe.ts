@@ -1,7 +1,7 @@
 import { Effect, FileSystem, Option } from "effect";
 import { join } from "node:path";
-import { CommandRunner } from "./command.ts";
-import { fail } from "./program.ts";
+import { CommandRunner } from "../lib/command.ts";
+import { fail } from "../lib/program.ts";
 
 export const resolveZsh = Effect.fn("resolveProbeZsh")(function* () {
   const fs = yield* FileSystem.FileSystem;

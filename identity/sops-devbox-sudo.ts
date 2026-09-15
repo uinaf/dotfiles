@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { ageIdentityPath } from "./age.ts";
 import { NodeServices } from "@effect/platform-node";
 import { Console, Effect, FileSystem, Option, Schema } from "effect";
 import { isAbsolute, join, resolve } from "node:path";
@@ -8,7 +9,7 @@ import { CommandRunner, type CommandResult, runCommand } from "../lib/command.ts
 import { CliFailure, fail, runMain } from "../lib/program.ts";
 
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
-const askpass = join(repoRoot, "lib/sudo-age-askpass.sh");
+const askpass = join(repoRoot, "identity/sudo-age-askpass.sh");
 const home = process.env.HOME || "";
 const configPath = process.env.DEVBOX_CONFIG || join(home, ".config/dotfiles/devbox.env");
 const defaultSudoIdentity =
@@ -23,14 +24,6 @@ const DevboxSudoConfig = Schema.Struct({
   SOPS_SUDO_SECRET_FILE: Schema.NonEmptyString,
   SUDO_AGE_IDENTITY_FILE: Schema.optional(Schema.NonEmptyString),
 });
-
-function sopsIdentityPath(): string {
-  if (process.env.SOPS_AGE_KEY_FILE) return process.env.SOPS_AGE_KEY_FILE;
-  if (process.env.XDG_CONFIG_HOME) return `${process.env.XDG_CONFIG_HOME}/sops/age/keys.txt`;
-  return process.platform === "darwin"
-    ? `${home}/Library/Application Support/sops/age/keys.txt`
-    : `${home}/.config/sops/age/keys.txt`;
-}
 
 function expandConfigValue(raw: string): string {
   const unquoted =
@@ -196,7 +189,7 @@ const program = Effect.gen(function* () {
     return yield* fail(`missing SOPS payload: ${config.SOPS_SUDO_SECRET_FILE}`);
   const sudoIdentity =
     process.env.SUDO_AGE_IDENTITY_FILE || config.SUDO_AGE_IDENTITY_FILE || defaultSudoIdentity;
-  const sopsIdentity = sopsIdentityPath();
+  const sopsIdentity = ageIdentityPath();
   const identityInfo = yield* fs.stat(sopsIdentity).pipe(Effect.option);
   if (Option.isNone(identityInfo) || identityInfo.value.type !== "File")
     return yield* fail(`missing SOPS age identity: ${sopsIdentity}`);

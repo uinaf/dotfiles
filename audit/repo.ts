@@ -8,15 +8,14 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 
 import { runMain } from "../lib/program.ts";
+import { AuditReport, type AuditFormat } from "./report.ts";
 import {
-  AuditReport,
   type AuditDependencies,
-  type AuditFormat,
   canAccess,
   type CommandResult,
   type CommandRunner,
   runCommand,
-} from "./report.ts";
+} from "./runtime.ts";
 
 const defaultRepoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 

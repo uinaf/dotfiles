@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+import { configureExternalCapabilities } from "../homebrew/external-capabilities.ts";
+
 import { checkDevboxPhotoAnalysis } from "../bootstrap/darwin/photo-analysis.ts";
 import { NodeServices } from "@effect/platform-node";
 import { Console, Effect, FileSystem } from "effect";
@@ -9,13 +11,12 @@ import { CommandRunner } from "../lib/command.ts";
 import {
   brewfilePath,
   bundleDrift,
-  configureExternalCapabilities,
   profileBrewfiles,
   runHomebrewRaw,
   withLocalBrewfile,
 } from "../homebrew/homebrew.ts";
 import { fail, runMain } from "../lib/program.ts";
-import { checkMiseDoctor, resolveZsh, runCleanZsh } from "../lib/shell-probe.ts";
+import { checkMiseDoctor, resolveZsh, runCleanZsh } from "./shell-probe.ts";
 import { resolveProfile } from "../profiles/current.ts";
 import { readProfileModelEffect, requireProfile } from "../profiles/model.ts";
 

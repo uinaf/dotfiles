@@ -6,7 +6,7 @@ import { pathToFileURL } from "node:url";
 import { test } from "vite-plus/test";
 import assert from "node:assert/strict";
 
-import { models } from "./configure-bifrost-clients.ts";
+import { models } from "../agents/gateway/bifrost-clients.ts";
 
 const script = resolve(import.meta.dirname, "configure-bifrost-clients.ts");
 const modelIds = models.map((model) => model.id);

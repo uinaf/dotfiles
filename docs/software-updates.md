@@ -61,8 +61,9 @@ and [Linux timer](../chezmoi/private_dot_config/systemd/user/dotfiles-software-u
 
 ## Host Hygiene
 
-[Hygiene policy](../maintenance/hygiene.ts) owns cadence, discovery,
-grace periods, and retention checks. Preview before deleting anything:
+[Hygiene](../maintenance/hygiene.ts) coordinates scheduled cleanup.
+[Repository cleanup](../maintenance/repositories.ts) owns discovery, eligibility,
+grace periods, and removal revalidation. Preview before deleting anything:
 
 ```sh
 mise run maintenance:hygiene
@@ -109,7 +110,7 @@ logs live under `~/.local/state/dotfiles/logs/`.
 - JSON history records start/finish, exit code, and heartbeat outcome. Applied
   hygiene logs removals/retentions and cache output; previews/skips do not append.
 - Each update archives the previous output; [log policy](../maintenance/logs.ts)
-  and [hygiene](../maintenance/hygiene.ts) own retention and size limits.
+  owns retention and size limits.
   History counts are retained totals, not lifetime totals.
 - Private receipts live at `~/.local/state/dotfiles/updates/<job>.json`.
   Compare `running` receipts with the scheduler; they do not prove process

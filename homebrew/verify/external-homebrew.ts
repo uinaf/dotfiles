@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { CommandRunner } from "../../lib/command.ts";
-import { configureExternalCapabilities } from "../homebrew.ts";
+import { configureExternalCapabilities } from "../external-capabilities.ts";
 import { fail, runMain } from "../../lib/program.ts";
 import { readProfileModelEffect } from "../../profiles/model.ts";
 
