@@ -8,3 +8,30 @@ node.corepack = true
 node.npm_shim = false
 idiomatic_version_file_enable_tools = ["java"]
 trusted_config_paths = ["~/.codex/worktrees", "~/.claude/worktrees"]
+# Keep the default age gate for runtimes, package managers, and held tools.
+minimum_release_age = "24h"
+minimum_release_age_excludes = [
+  "npm:@openai/codex",
+  "npm:t3",
+  "gh",
+  "jq",
+  "ripgrep",
+  "shellcheck",
+  "actionlint",
+  "chezmoi",
+  "direnv",
+  "gitleaks",
+  "trufflehog",
+  "topgrade",
+  "opencode",
+  "awscli",
+  "glab",
+  "git-filter-repo",
+  "github:anthropics/claude-code",
+  "xcodegen",
+  "btop",
+  "github:uinaf/ffss",
+]
+
+[settings.github]
+credential_command = {{ printf "\"%s/.local/libexec/dotfiles/mise-github-token\"" .chezmoi.homeDir | quote }}

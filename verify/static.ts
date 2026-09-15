@@ -51,7 +51,15 @@ const program = Effect.gen(function* () {
       .map((path) => resolve(repoRoot, path)),
     (path) => fs.exists(path),
   );
-  const shellFiles = [resolve(repoRoot, "dotfiles"), ...trackedShell, agentlessSigner];
+  const shellFiles = [
+    resolve(repoRoot, "dotfiles"),
+    ...trackedShell,
+    agentlessSigner,
+    resolve(
+      repoRoot,
+      "chezmoi/private_dot_local/private_libexec/private_dotfiles/private_executable_mise-github-token",
+    ),
+  ];
   yield* Effect.forEach(
     shellFiles,
     (path) => runRequired("bash", ["-n", path], `shell syntax: ${path}`),

@@ -1,0 +1,11 @@
+#!/bin/sh
+set -eu
+
+if command -v gh >/dev/null 2>&1; then
+  exec gh auth token --hostname "$MISE_CREDENTIAL_HOST"
+fi
+
+# Mise removes its shims from PATH before invoking a credential command.
+# Resolve an installed gh without network access or credential recursion.
+gh_bin=$(MISE_OFFLINE=1 MISE_GITHUB_CREDENTIAL_COMMAND='' mise -C "$HOME" which gh --tool gh@latest)
+exec "$gh_bin" auth token --hostname "$MISE_CREDENTIAL_HOST"

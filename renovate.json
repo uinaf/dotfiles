@@ -29,6 +29,36 @@
       "schedule": ["at any time"]
     },
     {
+      "description": "Stable CLI patch and minor pins have no release-age delay; runtime and package-manager gates stay separate",
+      "matchManagers": ["mise"],
+      "matchDepNames": [
+        "npm:@openai/codex",
+        "npm:t3",
+        "gh",
+        "jq",
+        "ripgrep",
+        "shellcheck",
+        "actionlint",
+        "chezmoi",
+        "direnv",
+        "gitleaks",
+        "trufflehog",
+        "topgrade",
+        "opencode",
+        "awscli",
+        "glab",
+        "git-filter-repo",
+        "github:anthropics/claude-code",
+        "xcodegen",
+        "btop",
+        "github:uinaf/ffss"
+      ],
+      "matchUpdateTypes": ["patch", "minor", "pin"],
+      "minimumReleaseAge": null,
+      "schedule": ["at any time"],
+      "groupName": "mise CLI patch and minor"
+    },
+    {
       "description": "Keep repository and installed pnpm together on the shared seven-day gate",
       "matchPackageNames": ["pnpm"],
       "groupName": "pnpm"

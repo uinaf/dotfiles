@@ -505,6 +505,12 @@
       "domain": "maintenance",
       "command": ["corepack", "pnpm", "exec", "vp", "test", "maintenance/linux/schedule.test.ts"],
       "output": "Linux timer lifecycle and owner isolation"
+    },
+    {
+      "id": "mise-github-token",
+      "domain": "identity",
+      "command": ["corepack", "pnpm", "exec", "vp", "test", "identity/mise-github-token.test.ts"],
+      "output": "Host-scoped GitHub credential forwarding, offline installed-tool fallback, and missing-helper failure"
     }
   ]
 }

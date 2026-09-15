@@ -305,3 +305,47 @@ can match the candidate rules. Confirm ownership and current use before stopping
 anything. Other users' workloads and unrecognized process layouts are outside
 this snapshot. Missing/failed process inspection or malformed rows produce an
 incomplete result and nonzero exit; Linux is currently unsupported.
+
+## CLI Release Policy
+
+The [Renovate rules](../renovate.json) give the listed CLI tools a separate
+patch/minor group with no release-age or time-of-day restriction. Required CI
+still gates merges; majors retain the shared manual policy. Runtime pins keep
+their one-day gate, package-manager and release-tool holds remain separate,
+and new tools require an explicit policy choice.
+
+The [mise settings](../chezmoi/private_dot_config/mise/config.toml.tmpl) exclude
+those same CLI tools from mise's default 24-hour release-age filter. Other
+tools retain that filter. Project-specific per-tool settings and the command-line
+`--minimum-release-age` flag take precedence. Mise's `latest` command reports a
+version; it does not advance an exact template pin or install an update.
+
+Renovate advances the plain TOML pins after discovering a release. Once its
+change lands, apply it from a clean default-branch checkout:
+
+```sh
+node maintenance/converge.ts
+mise latest github:anthropics/claude-code
+mise exec -- claude --version
+```
+
+Convergence fast-forwards the checkout, renders the global mise configuration,
+and runs `mise install`. Claude Code uses the GitHub backend on macOS and Linux;
+older ubi installations can remain until the replacement is verified. The bot's
+own run cadence and cached release catalogs can still delay discovery. For a
+fresh diagnostic without changing pins, run
+`mise cache clear github:anthropics/claude-code`, then repeat `mise latest`.
+
+### GitHub Authentication
+
+Mise obtains credentials through `gh auth token` for the requested GitHub host,
+including credentials stored in the system keyring. The installed launcher uses
+`gh` on PATH or resolves an already-installed copy offline when only mise shims
+were available. It never installs a credential helper or writes a token to disk.
+A fresh host without an authenticated `gh` falls back to unauthenticated public
+requests until the operator runs `gh auth login --hostname github.com`.
+
+Check the selected source with `mise token github` (masked output). Explicit
+`MISE_GITHUB_TOKEN`, `GITHUB_API_TOKEN`, or `GITHUB_TOKEN` environment variables
+take precedence over the credential command. Scheduled runs need access to the
+same user's credential store; the launcher cannot unlock a locked keyring.

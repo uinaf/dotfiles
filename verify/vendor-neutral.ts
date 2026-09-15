@@ -19,6 +19,8 @@ function allowed(file: string, content: string): boolean {
       return content.trim() === '"name": "@uinaf/dotfiles",';
     case "chezmoi/.chezmoitemplates/linux/mise.toml":
       return content.startsWith('"github:uinaf/ffss" =');
+    case "chezmoi/private_dot_config/mise/config.toml.tmpl":
+      return content.trim() === '"github:uinaf/ffss",';
     case "AGENTS.md":
       return content.includes("Do not add `uinaf` or another owner");
     case "homebrew/Brewfile":
@@ -43,7 +45,11 @@ function allowed(file: string, content: string): boolean {
     case ".github/workflows/secrets.yml":
       return content.includes("uinaf/.github");
     case "renovate.json":
-      return containsAny(content, ["github>uinaf/renovate-config", '"uinaf/ffss"']);
+      return containsAny(content, [
+        "github>uinaf/renovate-config",
+        '"uinaf/ffss"',
+        '"github:uinaf/ffss"',
+      ]);
     case ".github/workflows/verify.yml":
       return content.includes("mise exec github:uinaf/ffss -- slopguard version");
     case "docs/identities.md":

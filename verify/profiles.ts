@@ -209,11 +209,11 @@ const program = Effect.scoped(
     assert.doesNotMatch(linuxMise.stdout, /^xcodegen = "/m);
     assert.match(
       darwinMise.stdout,
-      /^"ubi:anthropics\/claude-code" = \{ version = "[^"]+", exe = "claude", matching_regex = "\^claude-darwin-/m,
+      /^"github:anthropics\/claude-code" = \{ version = "[^"]+", matching_regex = "\^claude-darwin-/m,
     );
     assert.match(
       linuxMise.stdout,
-      /^"ubi:anthropics\/claude-code" = \{ version = "[^"]+", exe = "claude", matching_regex = "\^claude-linux-/m,
+      /^"github:anthropics\/claude-code" = \{ version = "[^"]+", matching_regex = "\^claude-linux-/m,
     );
     for (const rendered of [darwinMise.stdout, linuxMise.stdout])
       assert.equal(
