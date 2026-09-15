@@ -1,6 +1,14 @@
 {
   "skills": [
     {
+      "name": "codebase-design",
+      "source": "mattpocock/skills"
+    },
+    {
+      "name": "domain-modeling",
+      "source": "mattpocock/skills"
+    },
+    {
       "name": "effect-ts",
       "source": "Effect-TS/skills"
     },
