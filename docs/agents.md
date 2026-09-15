@@ -15,6 +15,8 @@ maintenance applies it without retiring logins. The existing
 apply, check, retirement, and rollback operations.
 Grok maintenance replaces only the managed gateway block, preserving newer
 preferences. Rollback retains its original enrollment snapshot semantics.
+If a native TOML rewrite drops block comments, the exact configured gateway
+sections are still recognized; conflicting values remain an error.
 
 ## Global Rules
 

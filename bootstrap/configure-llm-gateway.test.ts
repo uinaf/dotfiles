@@ -70,7 +70,14 @@ for (const configExisted of [false, true]) {
         );
         writeFileSync(
           grokBin,
-          '#!/bin/sh\n[ "$1" = login ] || exit 2\numask 077\nprintf "{}\\n" > "$HOME/.grok/auth.json"\n',
+          `#!${process.execPath}
+const fs = require("node:fs");
+const path = require("node:path");
+if (process.argv[2] !== "login") process.exit(2);
+const config = path.join(process.env.HOME, ".grok/config.toml");
+fs.writeFileSync(config, fs.readFileSync(config, "utf8").split("\\n").filter(line => !line.startsWith("#")).join("\\n"));
+fs.writeFileSync(path.join(process.env.HOME, ".grok/auth.json"), "{}\\n", { mode: 0o600 });
+`,
           { mode: 0o700 },
         );
         const env = {
@@ -83,6 +90,7 @@ for (const configExisted of [false, true]) {
         const run = (...args: string[]) => spawnSync(script, args, { encoding: "utf8", env });
         const apply = run();
         assert.equal(apply.status, 0, apply.stderr);
+        assert.doesNotMatch(readFileSync(grokConfig, "utf8"), /# BEGIN dotfiles LLM gateway/);
         if (configExisted) assert.equal(readFileSync(backup, "utf8"), original);
         else assert.equal(existsSync(backup), false);
         const edited =
@@ -101,6 +109,12 @@ for (const configExisted of [false, true]) {
         assert.equal(readFileSync(grokConfig, "utf8"), maintained);
         if (configExisted) assert.equal(readFileSync(backup, "utf8"), original);
         else assert.equal(existsSync(backup), false);
+        writeFileSync(
+          grokConfig,
+          maintained.replace('auth_provider_label = "Gatewai"', 'auth_provider_label = "Other"'),
+        );
+        assert.notEqual(run("--check").status, 0);
+        writeFileSync(grokConfig, maintained);
         const rollback = run("--rollback");
         assert.equal(rollback.status, 0, rollback.stderr);
         if (configExisted) assert.equal(readFileSync(grokConfig, "utf8"), original);
@@ -247,6 +261,14 @@ test("gateway config is strict and provider edits use command-backed Responses a
   assert.match(
     grokGatewaySettings("", config.gatewaiBaseUrl, "/helper"),
     /auth_provider_command = "\/helper gatewai"/,
+  );
+  const unmarked = grokGatewaySettings("", config.gatewaiBaseUrl, "/helper")
+    .split("\n")
+    .filter((line) => !line.startsWith("#"))
+    .join("\n");
+  assert.throws(
+    () => grokGatewaySettings(`${unmarked}extra = true\n`, config.gatewaiBaseUrl, "/helper"),
+    /conflicts with gateway section/,
   );
   assert.throws(
     () =>

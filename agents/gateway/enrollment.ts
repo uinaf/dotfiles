@@ -293,12 +293,25 @@ function grokGatewayBlock(gatewaiBaseUrl: string, credentialPath: string): strin
   ].join("\n");
 }
 
+function grokUnmarkedGatewayPattern(gatewaiBaseUrl: string, credentialPath: string): RegExp {
+  // Native TOML rewrites can drop comments. Recognize only our exact configured
+  // sections; different values or extra managed-table keys remain conflicts.
+  const body = grokGatewayBlock(gatewaiBaseUrl, credentialPath).split("\n").slice(1, -1).join("\n");
+  return new RegExp(
+    `(?:^|\\n)${body.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?=\\n\\s*(?:\\[|$)|$)`,
+    "g",
+  );
+}
+
 export function grokGatewaySettings(
   contents: string,
   gatewaiBaseUrl: string,
   credentialPath: string,
 ): string {
-  const original = contents.replace(grokGatewayPattern, "").trimEnd();
+  const original = contents
+    .replace(grokGatewayPattern, "")
+    .replace(grokUnmarkedGatewayPattern(gatewaiBaseUrl, credentialPath), "")
+    .trimEnd();
   for (const section of ["models", "endpoints", "auth", 'model."grok-4.6"']) {
     const escaped = section.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     if (new RegExp(`^\\s*\\[${escaped}\\]\\s*$`, "m").test(original)) {
@@ -529,9 +542,16 @@ export async function configureGateway(
       const currentGrokConfig = existsSync(grokConfig) ? readFileSync(grokConfig, "utf8") : "";
       grokGatewaySettings(currentGrokConfig, config.gatewaiBaseUrl, credentialTarget);
       const blocks = currentGrokConfig.match(grokGatewayPattern);
+      const unmarked = currentGrokConfig.match(
+        grokUnmarkedGatewayPattern(config.gatewaiBaseUrl, credentialTarget),
+      );
       if (
-        blocks?.length !== 1 ||
-        blocks[0].trimEnd() !== grokGatewayBlock(config.gatewaiBaseUrl, credentialTarget)
+        !(
+          (blocks?.length === 1 &&
+            !unmarked &&
+            blocks[0].trimEnd() === grokGatewayBlock(config.gatewaiBaseUrl, credentialTarget)) ||
+          (!blocks && unmarked?.length === 1)
+        )
       ) {
         throw new Error("Grok gateway config drifted");
       }
