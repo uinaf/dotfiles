@@ -125,6 +125,7 @@ export function runHostAudit(options: HostAuditOptions, dependencies: AuditDepen
     ];
     const commandOptions = {
       output: options.format === "json" ? ("discard" as const) : ("capture" as const),
+      timeoutMs: 600_000,
     };
     let result: CommandResult | undefined;
     let executable = "lynis";

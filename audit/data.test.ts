@@ -10,7 +10,7 @@ test("data CLI preserves symlink invocation and rejects invalid count maps", () 
   try {
     const report = join(root, "report.json");
     const policy = join(root, "policy.json");
-    writeFileSync(report, "not json");
+    writeFileSync(report, "[]");
     writeFileSync(
       policy,
       JSON.stringify({ version: 1, defaultSeverity: "high", failureThreshold: "high", rules: {} }),
@@ -31,6 +31,12 @@ test("data CLI preserves symlink invocation and rejects invalid count maps", () 
     );
     assert.equal(invalidCounts.status, 1);
     assert.match(invalidCounts.stderr, /invalid persisted count map/);
+    writeFileSync(report, "not json");
+    const malformed = spawnSync(process.execPath, [cliPath, "gitleaks-locators", root, report], {
+      encoding: "utf8",
+    });
+    assert.equal(malformed.status, 1);
+    assert.match(malformed.stderr, /report is missing or invalid/);
   } finally {
     rmSync(root, { force: true, recursive: true });
   }

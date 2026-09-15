@@ -91,3 +91,28 @@ test("mirror-shaped non-commit and deletion updates are ignored safely", () => {
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test("merge-only defects fail while clean merges pass", () => {
+  const root = mkdtempSync(join(tmpdir(), "pre-push-merge-"));
+  try {
+    const repo = init(root);
+    const base = commit(repo, "base\n");
+    run(repo.path, ["git", "checkout", "-b", "topic"]);
+    commit(repo, "topic\n", "topic.txt");
+    run(repo.path, ["git", "checkout", "-b", "target", base]);
+    commit(repo, "target\n", "target.txt");
+    run(repo.path, ["git", "merge", "--no-ff", "--no-commit", "topic"]);
+    const clean = commit(repo, "clean resolution\n", "merge.txt");
+    const update = (oid: string) => `refs/heads/target ${oid} refs/heads/target ${base}\n`;
+    assert.equal(invoke(repo, update(clean)).status, 0);
+    for (const content of ["bad resolution   \n", "<<<<<<< fixture\n"]) {
+      writeFileSync(join(repo.path, "merge.txt"), content);
+      run(repo.path, ["git", "add", "merge.txt"]);
+      run(repo.path, ["git", "commit", "--amend", "--no-edit"]);
+      const merge = run(repo.path, ["git", "rev-parse", "HEAD"]);
+      assert.equal(invoke(repo, update(merge)).status, 1);
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});

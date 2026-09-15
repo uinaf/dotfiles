@@ -43,7 +43,7 @@ mise run verify               # also scan Git history for secrets
   runs omit `scope: "complete"` fixtures. Use `bootstrap`, `homebrew`, or
   `maintenance` for their respective operations; `profiles` covers profile contracts.
 - Run live profile checks and [audits](docs/security-audits.md) only on the intended host and user.
-- The optional [pre-push hook](verify/install-pre-push-hook.ts) checks outgoing commits for whitespace and conflict markers; it does not run tests.
+- The optional [pre-push hook](verify/install-pre-push-hook.ts) checks outgoing commits for whitespace and conflict markers, including merge diffs against each parent; it does not run tests.
 
 ## Deliver
 

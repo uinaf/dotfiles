@@ -429,3 +429,47 @@ test("maintenance rejects the same conflicting skill declarations as synchroniza
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test("malformed npm output fails without exposing its contents", async () => {
+  const snapshot = await collectMaintenanceSnapshot(
+    { ...context(), profileConfig: { ...profileConfig, agentLayers: [] } },
+    async (command) =>
+      command === "npm" ? result("private malformed diagnostic", 1) : result("{}"),
+  );
+  assert.equal(snapshot.probes.npm_outdated.status, "failed");
+  assert.equal(snapshot.probes.npm_outdated.error, "npm returned an invalid update inventory");
+});
+
+test("npm inventory distinguishes outdated packages from error envelopes", async () => {
+  for (const [payload, status, expected, count] of [
+    [{ example: { current: "1.0.0", wanted: "1.1.0", latest: "2.0.0" } }, 1, "ok", 1],
+    [{}, 0, "ok", 0],
+    [
+      { error: { code: "E401", summary: "fixture failure", detail: "private diagnostic" } },
+      1,
+      "failed",
+      0,
+    ],
+    [{ example: { latest: 42 } }, 1, "failed", 0],
+  ] as const) {
+    const snapshot = await collectMaintenanceSnapshot(
+      {
+        ...context(),
+        profileConfig: {
+          ...profileConfig,
+          agentLayers: [],
+          capabilities: { ...profileConfig.capabilities, workstation: false },
+        },
+      },
+      async (command) =>
+        command === "npm" ? result(JSON.stringify(payload), status) : result("{}"),
+    );
+    assert.equal(snapshot.probes.npm_outdated.status, expected);
+    assert.equal(snapshot.summary.backlog_count, count);
+    if (expected === "failed") {
+      assert.equal(snapshot.summary.status, "incomplete");
+      assert.ok(snapshot.summary.required_failures > 0);
+      assert.doesNotMatch(snapshot.probes.npm_outdated.error ?? "", /private diagnostic/);
+    }
+  }
+});

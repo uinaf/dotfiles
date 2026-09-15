@@ -143,7 +143,6 @@ export function candidates(
     .slice(1)
     .some(
       (tree) =>
-        tree.branch &&
         !longLived(tree.branch) &&
         !tree.locked &&
         !tree.prunable &&

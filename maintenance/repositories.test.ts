@@ -158,6 +158,7 @@ test("a detached worktree is removable once merged and retained while it is not"
   const f = fixture();
   try {
     f.git(f.tree, "checkout", "--detach");
+    f.git(f.repo, "branch", "-d", "finished");
     assert.equal(
       candidates(f.repo, f.roots, [], runner).eligible.some((item) => item.path === f.tree),
       true,

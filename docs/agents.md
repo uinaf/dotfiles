@@ -13,6 +13,8 @@ configuration, login retirement, and rollback. Bootstrap requests `setup` or
 maintenance applies it without retiring logins. The existing
 [gateway command](../bootstrap/configure-llm-gateway.ts) also exposes explicit
 apply, check, retirement, and rollback operations.
+Grok maintenance replaces only the managed gateway block, preserving newer
+preferences. Rollback retains its original enrollment snapshot semantics.
 
 ## Global Rules
 

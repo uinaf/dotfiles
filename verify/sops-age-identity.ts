@@ -25,7 +25,15 @@ const program = Effect.scoped(
       join(bin, "age-keygen"),
       `#!/bin/sh
 case "\${1:-}" in
-  -o) [ "$#" -eq 2 ] || exit 2; if [ "\${AGE_KEYGEN_FAIL:-0}" = 1 ]; then : > "$2"; exit 1; fi; printf '%s%s\\n' AGE-SECRET- KEY-1FIXTURE > "$2" ;;
+  -o) [ "$#" -eq 2 ] || exit 2; if [ "\${AGE_KEYGEN_FAIL:-0}" = 1 ]; then : > "$2"; exit 1; fi; printf '%s%s\\n' AGE-SECRET- KEY-1FIXTURE > "$2"
+      if [ -n "\${AGE_CONCURRENT_IDENTITY:-}" ]; then
+        if [ -n "\${AGE_CONCURRENT_SYMLINK:-}" ]; then
+          ln -s "$AGE_CONCURRENT_SYMLINK" "$AGE_CONCURRENT_IDENTITY"
+        else
+          printf 'concurrent-fixture-key\\n' > "$AGE_CONCURRENT_IDENTITY"
+          chmod 600 "$AGE_CONCURRENT_IDENTITY"
+        fi
+      fi ;;
   -y) [ "$#" -eq 2 ] && [ -s "$2" ] || exit 2; printf 'age1fixtureidentity\\n' ;;
   *) exit 2 ;;
 esac
@@ -84,6 +92,25 @@ cat "$input"
     const explicit = join(temporary, "explicit/identity.txt");
     assert.equal((yield* execute([], { SOPS_AGE_KEY_FILE: explicit })).status, 0);
     assert.equal(yield* fs.exists(explicit), true);
+    const concurrent = join(temporary, "concurrent/keys.txt");
+    const concurrentResult = yield* execute([], {
+      SOPS_AGE_KEY_FILE: concurrent,
+      AGE_CONCURRENT_IDENTITY: concurrent,
+    });
+    assert.equal(concurrentResult.status, 0, concurrentResult.stderr);
+    assert.equal(yield* fs.readFileString(concurrent), "concurrent-fixture-key\n");
+    const racedLink = join(temporary, "raced-link/keys.txt");
+    const linkTarget = join(temporary, "untouched.txt");
+    yield* fs.writeFileString(linkTarget, "untouched", { mode: 0o644 });
+    const racedResult = yield* execute([], {
+      SOPS_AGE_KEY_FILE: racedLink,
+      AGE_CONCURRENT_IDENTITY: racedLink,
+      AGE_CONCURRENT_SYMLINK: linkTarget,
+    });
+    assert.notEqual(racedResult.status, 0);
+    assert.equal(yield* fs.readLink(racedLink), linkTarget);
+    assert.equal(yield* fs.readFileString(linkTarget), "untouched");
+    assert.equal((yield* fs.stat(linkTarget)).mode & 0o777, 0o644);
     const failed = join(temporary, "failed/identity.txt");
     assert.notEqual(
       (yield* execute([], { SOPS_AGE_KEY_FILE: failed, AGE_KEYGEN_FAIL: "1" })).status,

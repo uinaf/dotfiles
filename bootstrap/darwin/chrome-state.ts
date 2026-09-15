@@ -29,7 +29,10 @@ export const updateChromeStateEffect = Effect.fn("updateChromeState")(function* 
   flagValue: string,
 ) {
   const fs = yield* FileSystem.FileSystem;
-  const source = yield* fs.readFileString(path).pipe(Effect.option);
+  const source = yield* fs.readFileString(path).pipe(
+    Effect.map(Option.some),
+    Effect.catchReason("PlatformError", "NotFound", () => Effect.succeed(Option.none())),
+  );
   let data: Record<string, unknown> = {};
   if (Option.isSome(source)) {
     data = yield* Effect.try({
@@ -50,7 +53,10 @@ export const updateChromeStateEffect = Effect.fn("updateChromeState")(function* 
   data.browser = browser;
   const directory = dirname(path);
   yield* fs.makeDirectory(directory, { recursive: true });
-  const info = yield* fs.stat(path).pipe(Effect.option);
+  const info = yield* fs.stat(path).pipe(
+    Effect.map(Option.some),
+    Effect.catchReason("PlatformError", "NotFound", () => Effect.succeed(Option.none())),
+  );
   const fileMode = Option.isSome(info) ? info.value.mode & 0o7777 : 0o600;
   yield* Effect.scoped(
     Effect.gen(function* () {

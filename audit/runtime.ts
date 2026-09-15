@@ -8,7 +8,12 @@ export type CommandResult = {
   error?: Error;
 };
 
-export type CommandOptions = { output?: "capture" | "discard"; input?: "inherit" | "pipe" };
+export type CommandOptions = {
+  output?: "capture" | "discard";
+  input?: "inherit" | "pipe";
+  timeoutMs?: number;
+  maxBuffer?: number;
+};
 export type CommandRunner = (
   command: string,
   args: readonly string[],
@@ -24,6 +29,9 @@ export function runCommand(
   const result = spawnSync(command, [...args], {
     encoding: "utf8",
     stdio: [options.input ?? "inherit", output, output],
+    timeout: options.timeoutMs ?? 30_000,
+    killSignal: "SIGKILL",
+    maxBuffer: options.maxBuffer ?? 16 * 1024 * 1024,
   });
   return {
     status: result.status,
@@ -50,6 +58,10 @@ export type AuditDependencies = {
   stderr?: (value: string) => void;
 };
 
-export function runPolicyCommand(command: string, args: readonly string[]): CommandResult {
-  return runCommand(command, args, { input: "pipe" });
+export function runPolicyCommand(
+  command: string,
+  args: readonly string[],
+  options: CommandOptions = {},
+): CommandResult {
+  return runCommand(command, args, { ...options, input: "pipe" });
 }

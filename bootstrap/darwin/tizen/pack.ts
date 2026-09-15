@@ -52,7 +52,26 @@ const program = Effect.gen(function* () {
   }
   if (paths.length === 0) return yield* fail(`no Tizen ${mode} paths found; nothing to archive`);
   yield* fs.makeDirectory(dirname(output), { recursive: true });
-  yield* runTar(home, output, paths);
+  yield* Effect.scoped(
+    Effect.gen(function* () {
+      const staging = yield* fs.makeTempDirectoryScoped({
+        directory: dirname(output),
+        prefix: ".tizen-pack.",
+      });
+      yield* fs.chmod(staging, 0o700);
+      const archive = join(staging, "archive.tar.gz");
+      yield* fs.writeFileString(archive, "", { mode: 0o600, flag: "wx" });
+      yield* runTar(home, archive, paths);
+      yield* fs.chmod(archive, 0o600);
+      yield* fs
+        .link(archive, output)
+        .pipe(
+          Effect.catchReason("PlatformError", "AlreadyExists", () =>
+            fail(`refusing to replace existing archive: ${output}`),
+          ),
+        );
+    }),
+  );
   yield* Console.log(`created ${output}`);
   yield* Console.log(`mode: ${mode}`);
   yield* Console.log("contains:");

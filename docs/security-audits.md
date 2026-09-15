@@ -83,3 +83,15 @@ PATH="$PWD/.venv/bin:$PATH" ./mscp.py --os_name macos --os_version 26 guidance \
   The adapter never runs `--fix`; review exceptions before applying remediation.
 - References: [Lynis](https://cisofy.com/documentation/lynis/),
   [mSCP](https://pages.nist.gov/macos_security/).
+
+## Scan Completeness
+
+Malformed or missing Gitleaks reports and incomplete scanner execution fail the
+audit independently of finding severity. File symlinks participate in discovery;
+broken links and nested directory links produce coverage warnings instead of
+silently disappearing or expanding the scan through directory cycles.
+
+The [audit runtime](../audit/runtime.ts) bounds execution and captured output;
+scanner and compliance adapters select longer deadlines. Exceeding either limit
+fails the command. Local TruffleHog output is discarded, with its exit status
+supplying the sanitized finding.

@@ -151,7 +151,9 @@ function checkPatterns(
   run: AuditRun,
   check: Extract<AuditCheck, { kind: "pattern-absent" }>,
 ): void {
-  for (const path of resolveSources(run.home, check.sources)) {
+  for (const path of resolveSources(run.home, check.sources, (path) =>
+    run.warn(`audit coverage skipped: ${path}`),
+  )) {
     try {
       if (check.countAsSecretScan) run.secret.scanned += 1;
       if (check.pattern.test(readFileSync(path, "utf8")))
@@ -187,7 +189,9 @@ function checkPrivateModes(
   run: AuditRun,
   check: Extract<AuditCheck, { kind: "private-mode" }>,
 ): void {
-  for (const path of resolveSources(run.home, check.sources)) {
+  for (const path of resolveSources(run.home, check.sources, (path) =>
+    run.warn(`audit coverage skipped: ${path}`),
+  )) {
     let mode: number;
     try {
       mode = modeOf(path);
@@ -399,7 +403,9 @@ function checkTailscaleMagicDns(run: AuditRun): void {
 function checkSshModes(run: AuditRun, pathValue: string): void {
   const root = homePath(run.home, pathValue);
   if (!existsSync(root)) return run.finding("warn", `missing ${root}`);
-  for (const path of walkFiles(root)) {
+  for (const path of walkFiles(root, Number.POSITIVE_INFINITY, (path) =>
+    run.warn(`audit coverage skipped: ${path}`),
+  )) {
     try {
       if (!privateKeyPattern.test(readFileSync(path, "utf8"))) continue;
       const mode = modeOf(path);

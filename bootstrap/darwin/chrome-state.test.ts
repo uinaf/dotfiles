@@ -16,7 +16,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "vite-plus/test";
-import { Effect } from "effect";
+import { Effect, FileSystem, PlatformError } from "effect";
 
 import { updateChromeStateEffect } from "./chrome-state.ts";
 
@@ -97,6 +97,40 @@ test("Chrome state CLI runs through a symlinked path", () => {
     assert.deepEqual(JSON.parse(readFileSync(statePath, "utf8")).browser.enabled_labs_experiments, [
       "vertical-tabs@1",
     ]);
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test("Chrome state preserves existing data when reads fail", async () => {
+  const root = mkdtempSync(join(tmpdir(), "dotfiles-chrome-state-"));
+  try {
+    const path = join(root, "Local State");
+    const original = '{"keep":"preferences"}\n';
+    writeFileSync(path, original);
+    await assert.rejects(
+      Effect.runPromise(
+        Effect.gen(function* () {
+          const fs = yield* FileSystem.FileSystem;
+          yield* updateChromeStateEffect(path, "enable", "vertical-tabs", "vertical-tabs@1").pipe(
+            Effect.provideService(FileSystem.FileSystem, {
+              ...fs,
+              readFileString: () =>
+                Effect.fail(
+                  PlatformError.systemError({
+                    _tag: "PermissionDenied",
+                    module: "FileSystem",
+                    method: "readFileString",
+                    pathOrDescriptor: path,
+                  }),
+                ),
+            }),
+          );
+        }).pipe(Effect.provide(NodeServices.layer)),
+      ),
+      /PermissionDenied/,
+    );
+    assert.equal(readFileSync(path, "utf8"), original);
   } finally {
     rmSync(root, { force: true, recursive: true });
   }

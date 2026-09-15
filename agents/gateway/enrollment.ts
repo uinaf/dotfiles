@@ -268,6 +268,10 @@ export function assertCursorAgentBinSafe(
 
 const grokGatewayBegin = "# BEGIN dotfiles LLM gateway";
 const grokGatewayEnd = "# END dotfiles LLM gateway";
+const grokGatewayPattern = new RegExp(
+  `${grokGatewayBegin.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[\\s\\S]*?${grokGatewayEnd.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\n?`,
+  "g",
+);
 
 function grokGatewayBlock(gatewaiBaseUrl: string, credentialPath: string): string {
   return [
@@ -294,11 +298,7 @@ export function grokGatewaySettings(
   gatewaiBaseUrl: string,
   credentialPath: string,
 ): string {
-  const managed = new RegExp(
-    `${grokGatewayBegin.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[\\s\\S]*?${grokGatewayEnd.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\n?`,
-    "g",
-  );
-  const original = contents.replace(managed, "").trimEnd();
+  const original = contents.replace(grokGatewayPattern, "").trimEnd();
   for (const section of ["models", "endpoints", "auth", 'model."grok-4.6"']) {
     const escaped = section.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     if (new RegExp(`^\\s*\\[${escaped}\\]\\s*$`, "m").test(original)) {
@@ -526,13 +526,12 @@ export async function configureGateway(
       assertPathResolvesToLauncher(sourceCursor, process.env.PATH || "");
     }
     if (config.grokBin) {
-      const originalGrokConfig = state.grokConfigExisted
-        ? readFileSync(state.grokConfigBackupPath || "", "utf8")
-        : "";
+      const currentGrokConfig = existsSync(grokConfig) ? readFileSync(grokConfig, "utf8") : "";
+      grokGatewaySettings(currentGrokConfig, config.gatewaiBaseUrl, credentialTarget);
+      const blocks = currentGrokConfig.match(grokGatewayPattern);
       if (
-        !existsSync(grokConfig) ||
-        readFileSync(grokConfig, "utf8") !==
-          grokGatewaySettings(originalGrokConfig, config.gatewaiBaseUrl, credentialTarget)
+        blocks?.length !== 1 ||
+        blocks[0].trimEnd() !== grokGatewayBlock(config.gatewaiBaseUrl, credentialTarget)
       ) {
         throw new Error("Grok gateway config drifted");
       }
@@ -745,13 +744,10 @@ export async function configureGateway(
     for (const target of managedCursorTargets) atomicWriteText(target, sourceCursor, 0o700);
   }
   if (config.grokBin) {
-    const state = readState(statePath);
-    const originalGrokConfig = state.grokConfigExisted
-      ? readFileSync(state.grokConfigBackupPath || "", "utf8")
-      : "";
+    const currentGrokConfig = existsSync(grokConfig) ? readFileSync(grokConfig, "utf8") : "";
     atomicWriteText(
       grokConfig,
-      grokGatewaySettings(originalGrokConfig, config.gatewaiBaseUrl, credentialTarget),
+      grokGatewaySettings(currentGrokConfig, config.gatewaiBaseUrl, credentialTarget),
       0o600,
     );
     const login = spawnSync(config.grokBin, ["login"], {

@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, realpathSync } from "node:fs";
+import { readFileSync, realpathSync } from "node:fs";
 import { Schema } from "effect";
 import { isAbsolute, relative, resolve } from "node:path";
 
@@ -51,16 +51,14 @@ function isSeverity(value: unknown): value is Severity {
   return typeof value === "string" && Object.hasOwn(severityRank, value);
 }
 
-function readFindings(path: string): Finding[] {
-  if (!existsSync(path)) return [];
+function readFindings(path: string): readonly Finding[] {
   try {
-    const value: unknown = JSON.parse(readFileSync(path, "utf8") || "[]");
-    return Array.isArray(value)
-      ? value.filter((item): item is Finding => typeof item === "object" && item !== null)
-      : [];
+    const value: unknown = JSON.parse(readFileSync(path, "utf8"));
+    if (Schema.is(Schema.Array(Schema.Record(Schema.String, Schema.Unknown)))(value)) return value;
   } catch {
-    return [];
+    throw new Error("Gitleaks report is missing or invalid");
   }
+  throw new Error("Gitleaks report is missing or invalid");
 }
 
 function rootVariants(root: string): string[] {

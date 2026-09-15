@@ -180,7 +180,13 @@ const provision = Effect.fn("provisionSopsAgeIdentity")(function* (identityFile:
         if (generated.status !== 0)
           return yield* fail(`age-keygen could not create ${identityFile}`);
         yield* fs.chmod(staged, 0o600);
-        yield* fs.rename(staged, identityFile);
+        yield* fs
+          .link(staged, identityFile)
+          .pipe(
+            Effect.catchReason("PlatformError", "AlreadyExists", () =>
+              validateIdentity(identityFile).pipe(Effect.asVoid),
+            ),
+          );
       }),
     );
   }

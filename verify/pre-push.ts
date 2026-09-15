@@ -122,7 +122,7 @@ function verifyOutgoingCommits(input: string, remoteName: string, remoteLocation
   }
 
   for (const commit of commits) {
-    const result = spawnSync("git", ["diff-tree", "--check", "--root", "-r", commit], {
+    const result = spawnSync("git", ["diff-tree", "--check", "--root", "-m", "-r", commit], {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
     });

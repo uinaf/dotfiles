@@ -69,8 +69,8 @@ test("gitleaks data exposes only safe locators and aggregate counts", () => {
     );
     assert.deepEqual(findingLocators(missingRoot, report), ["token\thome/token"]);
     writeFileSync(report, "not json");
-    assert.deepEqual(findingLocators(root, report), []);
-    assert.deepEqual(summarizeFindings("", "", report, policy).rules, {});
+    assert.throws(() => findingLocators(root, report), /report is missing or invalid/);
+    assert.throws(() => summarizeFindings("", "", report, policy), /report is missing or invalid/);
   } finally {
     rmSync(root, { force: true, recursive: true });
   }

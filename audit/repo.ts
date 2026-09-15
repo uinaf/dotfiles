@@ -124,6 +124,7 @@ export function runRepoAudit(
   const report = new AuditReport(options.format, stdout, stderr);
   const output = {
     output: options.format === "json" ? ("discard" as const) : ("capture" as const),
+    timeoutMs: 600_000,
   };
 
   report.section("repository secret scan");

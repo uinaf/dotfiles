@@ -250,6 +250,12 @@
       "platform": "darwin"
     },
     {
+      "id": "tizen-archives",
+      "domain": "bootstrap",
+      "command": ["corepack", "pnpm", "exec", "vp", "test", "bootstrap/darwin/tizen/pack.test.ts"],
+      "output": "Owner-only signing archives, exclusive publication, and failed archive cleanup"
+    },
+    {
       "id": "chrome-state",
       "domain": "bootstrap",
       "command": [
@@ -326,7 +332,15 @@
     {
       "id": "audit-adapters",
       "domain": "audit",
-      "command": ["corepack", "pnpm", "exec", "vp", "test", "audit/adapters.test.ts"],
+      "command": [
+        "corepack",
+        "pnpm",
+        "exec",
+        "vp",
+        "test",
+        "audit/adapters.test.ts",
+        "audit/runtime.test.ts"
+      ],
       "output": "Typed Lynis, repository scanner, and mSCP adapters"
     },
     {
@@ -354,7 +368,8 @@
         "vp",
         "test",
         "audit/engine.test.ts",
-        "audit/devbox.test.ts"
+        "audit/devbox.test.ts",
+        "audit/paths.test.ts"
       ],
       "output": "Typed audit policy execution and workstation/devbox boundaries"
     },

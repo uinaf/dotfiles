@@ -34,6 +34,84 @@ import {
 } from "../agents/gateway/gateway-config.ts";
 import { codexInstalled, fixturePath, script, validConfig } from "./llm-gateway-fixture.ts";
 
+for (const configExisted of [false, true]) {
+  test(
+    `Grok maintenance preserves new preferences with ${configExisted ? "existing" : "absent"} initial config`,
+    { skip: !codexInstalled },
+    () => {
+      const root = mkdtempSync(join(tmpdir(), "dotfiles-grok-maintenance-"));
+      try {
+        const home = join(root, "home");
+        const bin = join(root, "bin");
+        const codexHome = join(home, ".codex");
+        const configDir = join(home, ".config/dotfiles");
+        const gatewayConfig = join(configDir, "llm-gateway.json");
+        const grokConfig = join(home, ".grok/config.toml");
+        const backup = `${grokConfig}.llm-gateway.backup`;
+        const grokBin = join(bin, "grok");
+        const original = '[ui]\ntheme = "dark"\n';
+        for (const directory of [bin, codexHome, configDir, dirname(grokConfig)])
+          mkdirSync(directory, { recursive: true });
+        writeFileSync(join(codexHome, "config.toml"), "# fixture\n", { mode: 0o600 });
+        if (configExisted) writeFileSync(grokConfig, original, { mode: 0o600 });
+        writeFileSync(
+          gatewayConfig,
+          JSON.stringify({
+            version: validConfig.version,
+            credentials: {
+              gatewai: validConfig.credentials.gatewai,
+              bifrost: validConfig.credentials.bifrost,
+            },
+            gatewaiBaseUrl: validConfig.gatewaiBaseUrl,
+            bifrostBaseUrl: validConfig.bifrostBaseUrl,
+            grokBin,
+          }),
+          { mode: 0o600 },
+        );
+        writeFileSync(
+          grokBin,
+          '#!/bin/sh\n[ "$1" = login ] || exit 2\numask 077\nprintf "{}\\n" > "$HOME/.grok/auth.json"\n',
+          { mode: 0o700 },
+        );
+        const env = {
+          ...process.env,
+          HOME: home,
+          CODEX_HOME: codexHome,
+          LLM_GATEWAY_CONFIG: gatewayConfig,
+          PATH: fixturePath(bin),
+        };
+        const run = (...args: string[]) => spawnSync(script, args, { encoding: "utf8", env });
+        const apply = run();
+        assert.equal(apply.status, 0, apply.stderr);
+        if (configExisted) assert.equal(readFileSync(backup, "utf8"), original);
+        else assert.equal(existsSync(backup), false);
+        const edited =
+          readFileSync(grokConfig, "utf8").replace('theme = "dark"', 'theme = "light"') +
+          "\n[editor]\nline_numbers = true\n";
+        writeFileSync(grokConfig, edited, { mode: 0o600 });
+        const editedCheck = run("--check");
+        assert.equal(editedCheck.status, 0, editedCheck.stderr);
+        const maintenance = run("--maintenance");
+        assert.equal(maintenance.status, 0, maintenance.stderr);
+        const maintained = readFileSync(grokConfig, "utf8");
+        assert.match(maintained, /\[editor\]\nline_numbers = true/);
+        if (configExisted) assert.match(maintained, /theme = "light"/);
+        const check = run("--check");
+        assert.equal(check.status, 0, check.stderr);
+        assert.equal(readFileSync(grokConfig, "utf8"), maintained);
+        if (configExisted) assert.equal(readFileSync(backup, "utf8"), original);
+        else assert.equal(existsSync(backup), false);
+        const rollback = run("--rollback");
+        assert.equal(rollback.status, 0, rollback.stderr);
+        if (configExisted) assert.equal(readFileSync(grokConfig, "utf8"), original);
+        else assert.equal(existsSync(grokConfig), false);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    },
+  );
+}
+
 test("gateway config is strict and provider edits use command-backed Responses auth", () => {
   const config = parseGatewayConfig(JSON.stringify(validConfig));
   assert.throws(

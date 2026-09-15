@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { spawnSync } from "node:child_process";
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { homedir, hostname } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -59,6 +59,23 @@ function parseJsonObject(contents: string, label: string): Record<string, unknow
   const parsed: unknown = JSON.parse(contents || "{}");
   if (!isRecord(parsed)) throw new Error(`${label} did not return a JSON object`);
   return parsed;
+}
+
+const NpmBacklog = Schema.Record(
+  Schema.String,
+  Schema.Struct({
+    current: Schema.optionalKey(Schema.String),
+    wanted: Schema.String,
+    latest: Schema.String,
+  }),
+);
+
+function parseNpmBacklog(contents: string): Record<string, unknown> {
+  try {
+    const value: unknown = JSON.parse(contents);
+    if (Schema.is(NpmBacklog)(value)) return value;
+  } catch {}
+  throw new Error("npm returned an invalid update inventory");
 }
 
 function parseBrewItem(value: unknown): BrewItem {
@@ -196,7 +213,7 @@ function buildProbes(context: MaintenanceContext): Probe[] {
       "npm_outdated",
       "npm",
       ["outdated", "-g", "--json"],
-      (result) => parseJsonObject(result.stdout, "npm"),
+      (result) => parseNpmBacklog(result.stdout),
       { allowedStatuses: [0, 1] },
     ),
     ...agentProbes(context.profileConfig),

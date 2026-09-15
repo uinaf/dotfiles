@@ -93,9 +93,9 @@ function checkLogFile(path: string, env: NodeJS.ProcessEnv, report: AuditReport)
 
 export function checkCodexStorage(root: string, env: NodeJS.ProcessEnv, report: AuditReport): void {
   if (!existsSync(root)) return;
-  for (const path of walkFiles(root, 0).filter((value) =>
-    /^logs.*\.sqlite(?:-wal)?$/.test(basename(value)),
-  )) {
+  for (const path of walkFiles(root, 0, (path) =>
+    report.warn(`audit coverage skipped: ${path}`),
+  ).filter((value) => /^logs.*\.sqlite(?:-wal)?$/.test(basename(value)))) {
     checkLogFile(path, env, report);
   }
 }
