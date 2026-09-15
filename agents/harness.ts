@@ -1,4 +1,4 @@
-import { type SkillLayer } from "../profiles/model.ts";
+import { type AgentLayer } from "../profiles/model.ts";
 import { type Runtime, writeLine } from "./runtime.ts";
 
 // Claude must precede cursor and opencode: their skill links resolve into the
@@ -113,8 +113,8 @@ export function parseSyncArgs(
 // Compose the selected manifest layers, tolerating an identical entry selected
 // by more than one layer and rejecting a conflicting redefinition.
 export function composeLayers<T>(
-  selected: readonly SkillLayer[],
-  manifests: ReadonlyMap<SkillLayer, readonly T[]>,
+  selected: readonly AgentLayer[],
+  manifests: ReadonlyMap<AgentLayer, readonly T[]>,
   keyOf: (entry: T) => string,
   conflictMessage: (key: string) => string,
 ): T[] {

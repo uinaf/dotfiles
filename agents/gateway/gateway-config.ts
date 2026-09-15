@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 import { isAbsolute } from "node:path";
-import type { ConfigEdit } from "../../bootstrap/configure-codex.ts";
+import type { ConfigEdit } from "../codex/config.ts";
 
 const PreservedLogin = Schema.Literals(["codex", "claude", "cursor", "grok"]);
 export type PreservedLogin = typeof PreservedLogin.Type;

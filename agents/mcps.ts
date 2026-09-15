@@ -14,7 +14,7 @@ import { fileURLToPath } from "node:url";
 import { Effect } from "effect";
 
 import { runMain } from "../lib/program.ts";
-import { readProfileModel, requireProfile, type SkillLayer } from "../profiles/model.ts";
+import { readProfileModel, requireProfile, type AgentLayer } from "../profiles/model.ts";
 import {
   composeLayers,
   type Harness,
@@ -124,13 +124,13 @@ export function readServers(manifestPath: string): McpServer[] {
 export function readLayeredServers(
   repoDir: string,
   profile: string,
-  layers: readonly SkillLayer[],
-): { layers: readonly SkillLayer[]; servers: McpServer[] } {
+  layers: readonly AgentLayer[],
+): { layers: readonly AgentLayer[]; servers: McpServer[] } {
   if (layers.length === 0) {
     throw new Error(`Profile ${profile} does not manage MCP servers`);
   }
 
-  const manifests = new Map<SkillLayer, McpServer[]>();
+  const manifests = new Map<AgentLayer, McpServer[]>();
   for (const layer of ["developer", "workstation", "devbox", "personal"] as const) {
     manifests.set(layer, readServers(join(repoDir, "agents", "mcps", `${layer}.json`)));
   }
@@ -783,7 +783,7 @@ function apply(runtime: Runtime, options: McpOptions): number {
 
   const model = readProfileModel(resolve(repoDir, "chezmoi/.chezmoidata/profiles.json"));
   const profile = requireProfile(model, profileName);
-  const { layers, servers } = readLayeredServers(repoDir, profileName, profile.skillLayers);
+  const { layers, servers } = readLayeredServers(repoDir, profileName, profile.agentLayers);
 
   writeLine(runtime.stdout, `Profile: ${profileName}`);
   writeLine(runtime.stdout, `MCP layers: ${layers.join(", ")}`);

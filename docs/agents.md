@@ -3,6 +3,10 @@
 The selected [profile](profiles.md) controls global rules, skills, plugins,
 and MCP servers.
 
+[Codex configuration](../agents/codex/config.ts) owns native configuration writes
+and managed defaults. Bootstrap validates the profile and invokes it; gateway
+configuration uses the same writer for enrollment and restoration.
+
 ## Global Rules
 
 [Rule sources](../agents/rules.json) supply the shared text.
@@ -56,8 +60,9 @@ Edit the selected layer under each manifest directory:
 | Plugins     | [plugins/](../agents/plugins/) | [plugins.ts](../agents/plugins.ts) |
 | MCP servers | [mcps/](../agents/mcps/)       | [mcps.ts](../agents/mcps.ts)       |
 
-The [profile model](../chezmoi/.chezmoidata/profiles.json) selects `skillLayers`;
+The [profile model](../chezmoi/.chezmoidata/profiles.json) selects `agentLayers`;
 each parser defines its manifest fields and supported harnesses.
+An agent layer groups skill, plugin, and MCP selections for reuse across profiles.
 
 Each sync keeps an ignored `agents/{skills,plugins,mcps}.lock.json`:
 
@@ -108,6 +113,10 @@ The doctor also reports Grok installation drift and prints the repair command.
 Review it before removing a conflicting installation.
 
 ## Verify
+
+The `agents` domain covers harness settings, gateways, rules, skills, plugins,
+and MCP integration. The `config` domain covers the remaining managed-home
+configuration.
 
 ```zsh
 mise run verify:domain agents

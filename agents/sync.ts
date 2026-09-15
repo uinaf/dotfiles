@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { Effect } from "effect";
 
 import { runMain } from "../lib/program.ts";
-import { readProfileModel, requireProfile, type SkillLayer } from "../profiles/model.ts";
+import { readProfileModel, requireProfile, type AgentLayer } from "../profiles/model.ts";
 import { migrateLegacyLock, readLockFile, writeLockFile } from "./lock.ts";
 import {
   createRuntime,
@@ -84,13 +84,13 @@ function readSkills(manifestPath: string): Skill[] {
 function readLayeredSkills(
   repoDir: string,
   profile: string,
-  layers: readonly SkillLayer[],
-): { layers: readonly SkillLayer[]; skills: Skill[] } {
+  layers: readonly AgentLayer[],
+): { layers: readonly AgentLayer[]; skills: Skill[] } {
   if (layers.length === 0) {
     throw new Error(`Profile ${profile} does not manage agent skills`);
   }
 
-  const manifests = new Map<SkillLayer, Skill[]>();
+  const manifests = new Map<AgentLayer, Skill[]>();
   for (const layer of ["developer", "workstation", "devbox", "personal"] as const) {
     const manifestPath = join(repoDir, "agents", "skills", `${layer}.json`);
     manifests.set(layer, readSkills(manifestPath));
@@ -391,7 +391,7 @@ function sync(runtime: Runtime, options: SyncOptions): number {
 
   const model = readProfileModel(resolve(repoDir, "chezmoi/.chezmoidata/profiles.json"));
   const profile = requireProfile(model, profileName);
-  const { layers, skills } = readLayeredSkills(repoDir, profileName, profile.skillLayers);
+  const { layers, skills } = readLayeredSkills(repoDir, profileName, profile.agentLayers);
   const skillLockPath = migrateLegacyLock(repoDir, "skills");
   const previouslyManagedSkills = readSkillLock(skillLockPath);
   const agents = findInstalledAgents(runtime);

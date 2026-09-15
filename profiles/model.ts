@@ -8,7 +8,7 @@ const Capabilities = Schema.Struct({
   personal: Schema.Boolean,
 });
 
-const SkillLayer = Schema.Literals(["developer", "workstation", "devbox", "personal"]);
+const AgentLayer = Schema.Literals(["developer", "workstation", "devbox", "personal"]);
 const ProfileConfig = Schema.Struct({
   capabilities: Capabilities,
   brewfiles: Schema.NonEmptyArray(Schema.NonEmptyString),
@@ -20,10 +20,10 @@ const ProfileConfig = Schema.Struct({
       }),
     ),
   ),
-  skillLayers: Schema.Array(SkillLayer).pipe(
+  agentLayers: Schema.Array(AgentLayer).pipe(
     Schema.check(
       Schema.makeFilter(
-        (layers: ReadonlyArray<typeof SkillLayer.Type>) =>
+        (layers: ReadonlyArray<typeof AgentLayer.Type>) =>
           layers.includes("developer") || "must include developer",
       ),
     ),
@@ -43,7 +43,7 @@ const ProfileModel = Schema.Struct({
 });
 const ProfileDocument = Schema.Struct({ profileModel: ProfileModel });
 
-export type SkillLayer = typeof SkillLayer.Type;
+export type AgentLayer = typeof AgentLayer.Type;
 export type ProfileConfig = typeof ProfileConfig.Type;
 export type ProfileModel = typeof ProfileModel.Type;
 
@@ -64,7 +64,7 @@ const validateProfile = Effect.fn("validateProfile")(function* (
   }
   for (const [field, values] of [
     ["brewfiles", profile.brewfiles],
-    ["skillLayers", profile.skillLayers],
+    ["agentLayers", profile.agentLayers],
     ["installSteps", profile.installSteps],
   ] as const) {
     if (!hasUniqueValues(values)) {

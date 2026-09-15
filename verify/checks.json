@@ -114,25 +114,33 @@
     },
     {
       "id": "claude-settings",
-      "domain": "config",
+      "domain": "agents",
       "command": ["node", "verify/claude-settings.ts"],
       "output": "Claude user settings preserve unrelated keys and select Fable 5.1 at medium effort"
     },
     {
       "id": "cursor-settings",
-      "domain": "config",
+      "domain": "agents",
       "command": ["node", "verify/cursor-settings.ts"],
       "output": "Cursor user settings preserve unrelated keys and select profile-aware Grok defaults"
     },
     {
       "id": "codex-settings",
-      "domain": "config",
-      "command": ["corepack", "pnpm", "exec", "vp", "test", "bootstrap/configure-codex.test.ts"],
+      "domain": "agents",
+      "command": [
+        "corepack",
+        "pnpm",
+        "exec",
+        "vp",
+        "test",
+        "agents/codex/config.test.ts",
+        "bootstrap/configure-codex.test.ts"
+      ],
       "output": "Codex typed atomic edits plus native write integration when Codex is installed"
     },
     {
       "id": "llm-gateway",
-      "domain": "config",
+      "domain": "agents",
       "command": [
         "corepack",
         "pnpm",
@@ -149,7 +157,7 @@
     },
     {
       "id": "bifrost-clients",
-      "domain": "config",
+      "domain": "agents",
       "command": [
         "corepack",
         "pnpm",

@@ -1,0 +1,71 @@
+import assert from "node:assert/strict";
+import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, test, vi } from "vite-plus/test";
+
+import { writeConfigEdits } from "./config.ts";
+
+const directories: string[] = [];
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+  for (const directory of directories.splice(0))
+    rmSync(directory, { recursive: true, force: true });
+});
+
+function fixture(reply: string) {
+  const home = mkdtempSync(join(tmpdir(), "dotfiles-codex-writer-"));
+  directories.push(home);
+  const binary = join(home, "codex");
+  const config = join(home, "config.toml");
+  writeFileSync(config, "# preserved\n", { mode: 0o644 });
+  writeFileSync(
+    binary,
+    `#!${process.execPath}
+const fs = require("node:fs");
+require("node:readline").createInterface({ input: process.stdin }).on("line", (line) => {
+  const request = JSON.parse(line);
+  ${reply}
+});
+`,
+    { mode: 0o700 },
+  );
+  vi.stubEnv("CODEX_HOME", home);
+  vi.stubEnv("CODEX_CONFIG_PATH", config);
+  vi.stubEnv("CODEX_BIN", binary);
+  return { config, home };
+}
+
+test("native write completes before returning the private configuration path", async () => {
+  const { config, home } = fixture(`
+    if (request.method === "initialize") process.stdout.write('{"id":0,"result":{}}\\n');
+    if (request.method === "config/batchWrite") {
+      fs.writeFileSync(request.params.filePath, '# updated\\n');
+      fs.writeFileSync(require("node:path").join(process.env.CODEX_HOME, "request.json"), JSON.stringify(request.params));
+      process.stdout.write('{"id":1,"result":{}}\\n');
+    }
+  `);
+  const edits = [{ keyPath: "example", value: true, mergeStrategy: "upsert" }] as const;
+  assert.equal(await writeConfigEdits(edits), config);
+  assert.equal(readFileSync(config, "utf8"), "# updated\n");
+  assert.equal(statSync(config).mode & 0o777, 0o600);
+  assert.deepEqual(JSON.parse(readFileSync(join(home, "request.json"), "utf8")), {
+    edits,
+    filePath: config,
+  });
+});
+
+test("malformed native replies reject without changing configuration", async () => {
+  const { config } = fixture(`process.stdout.write('{"id":"invalid"}\\n');`);
+  await assert.rejects(writeConfigEdits([]), /Codex app-server returned invalid JSON/);
+  assert.equal(readFileSync(config, "utf8"), "# preserved\n");
+  assert.equal(statSync(config).mode & 0o777, 0o644);
+});
+
+test("nonzero native exits reject with the diagnostic and preserve configuration", async () => {
+  const { config } = fixture(`process.stderr.write('fixture write failure'); process.exit(17);`);
+  await assert.rejects(writeConfigEdits([]), /fixture write failure/);
+  assert.equal(readFileSync(config, "utf8"), "# preserved\n");
+  assert.equal(statSync(config).mode & 0o777, 0o644);
+});

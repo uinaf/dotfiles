@@ -10,7 +10,7 @@
           "personal": false
         },
         "brewfiles": ["homebrew/Brewfile"],
-        "skillLayers": ["developer"],
+        "agentLayers": ["developer"],
         "installSteps": [
           "apply-dotfiles",
           "install-runtimes",
@@ -42,7 +42,7 @@
           "homebrew/Brewfile.personal",
           "homebrew/Brewfile.personal-workstation"
         ],
-        "skillLayers": ["developer", "workstation", "personal"],
+        "agentLayers": ["developer", "workstation", "personal"],
         "installSteps": [
           "apply-dotfiles",
           "install-runtimes",
@@ -70,7 +70,7 @@
           "homebrew/Brewfile.devbox",
           "homebrew/Brewfile.personal"
         ],
-        "skillLayers": ["developer", "devbox", "personal"],
+        "agentLayers": ["developer", "devbox", "personal"],
         "installSteps": [
           "apply-dotfiles",
           "install-runtimes",
@@ -94,7 +94,7 @@
           "personal": false
         },
         "brewfiles": ["homebrew/Brewfile", "homebrew/Brewfile.workstation"],
-        "skillLayers": ["developer", "workstation"],
+        "agentLayers": ["developer", "workstation"],
         "installSteps": [
           "apply-dotfiles",
           "install-runtimes",
@@ -122,7 +122,7 @@
           "personal": false
         },
         "brewfiles": ["homebrew/Brewfile", "homebrew/Brewfile.devbox"],
-        "skillLayers": ["developer", "devbox"],
+        "agentLayers": ["developer", "devbox"],
         "installSteps": [
           "apply-dotfiles",
           "install-runtimes",

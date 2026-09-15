@@ -385,7 +385,7 @@ function run(runtime: Runtime, profileOverride: string | undefined): number {
   const profileName = resolveProfileName(runtime, scriptDir, profileOverride);
   const model = readProfileModel(resolve(repoDir, "chezmoi/.chezmoidata/profiles.json"));
   const profile = requireProfile(model, profileName);
-  const { servers } = readLayeredServers(repoDir, profileName, profile.skillLayers);
+  const { servers } = readLayeredServers(repoDir, profileName, profile.agentLayers);
   writeLine(runtime.stdout, `Profile: ${profileName}`);
   return report(runtime, collect(runtime, servers));
 }

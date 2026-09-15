@@ -27,7 +27,7 @@ const profileConfig = {
     personal: false,
   },
   brewfiles: ["homebrew/Brewfile"],
-  skillLayers: ["developer"],
+  agentLayers: ["developer"],
   installSteps: ["apply-dotfiles", "install-runtimes", "install-repository-dependencies"],
 } as const satisfies ProfileConfig;
 
@@ -61,7 +61,7 @@ test("single-owner Darwin devboxes retain the service probe without shared Homeb
       profile: "personal-devbox",
       profileConfig: {
         ...profileConfig,
-        skillLayers: [],
+        agentLayers: [],
         capabilities: { ...profileConfig.capabilities, devbox: true, workstation: false },
       },
     },
@@ -107,7 +107,7 @@ test("Homebrew backlog refreshes metadata before the greedy inventory", async ()
       ...context(),
       env: { ...context().env, HOMEBREW_NO_AUTO_UPDATE: "1" },
       ownsHomebrew: true,
-      profileConfig: { ...profileConfig, skillLayers: [] },
+      profileConfig: { ...profileConfig, agentLayers: [] },
     },
     runner,
   );
@@ -134,7 +134,7 @@ test("a failed Homebrew metadata refresh makes the snapshot incomplete", async (
     {
       ...context(),
       ownsHomebrew: true,
-      profileConfig: { ...profileConfig, skillLayers: [] },
+      profileConfig: { ...profileConfig, agentLayers: [] },
     },
     runner,
   );
@@ -179,7 +179,7 @@ test("maintenance probes run concurrently and summarize package drift", async ()
     return result("1.0.0\n");
   };
   const snapshot = await collectMaintenanceSnapshot(
-    { ...context(), profileConfig: { ...profileConfig, skillLayers: [] } },
+    { ...context(), profileConfig: { ...profileConfig, agentLayers: [] } },
     runner,
   );
   assert.ok(maxActive > 1);
@@ -196,7 +196,7 @@ test("missing required commands make the snapshot incomplete without throwing", 
     error: Object.assign(new Error("missing"), { code: "ENOENT" }),
   });
   const snapshot = await collectMaintenanceSnapshot(
-    { ...context(), profileConfig: { ...profileConfig, skillLayers: [] } },
+    { ...context(), profileConfig: { ...profileConfig, agentLayers: [] } },
     runner,
   );
   assert.equal(snapshot.summary.status, "incomplete");
@@ -261,7 +261,7 @@ test("macOS inventory preserves typed partial results in the maintenance probe",
     {
       ...context(),
       platform: "darwin",
-      profileConfig: { ...profileConfig, skillLayers: [] },
+      profileConfig: { ...profileConfig, agentLayers: [] },
     },
     runner,
     updateIO,
@@ -437,7 +437,7 @@ setTimeout(() => process.exit(9), 5000);
       repoRoot: root,
       profileConfig: {
         ...profileConfig,
-        skillLayers: [],
+        agentLayers: [],
         capabilities: { ...profileConfig.capabilities, workstation: false },
       },
     }),

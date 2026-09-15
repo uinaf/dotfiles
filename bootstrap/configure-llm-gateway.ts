@@ -21,7 +21,7 @@ import {
 import { dirname, isAbsolute, join, resolve } from "node:path";
 
 import { runMain } from "../lib/program.ts";
-import { writeConfigEdits } from "./configure-codex.ts";
+import { writeConfigEdits } from "../agents/codex/config.ts";
 
 import {
   type GatewayConfig,

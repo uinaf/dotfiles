@@ -15,7 +15,7 @@ import { fileURLToPath } from "node:url";
 import { Effect } from "effect";
 
 import { runMain } from "../lib/program.ts";
-import { readProfileModel, requireProfile, type SkillLayer } from "../profiles/model.ts";
+import { readProfileModel, requireProfile, type AgentLayer } from "../profiles/model.ts";
 import {
   composeLayers,
   type Harness,
@@ -245,13 +245,13 @@ export function readPlugins(manifestPath: string): Plugin[] {
 export function readLayeredPlugins(
   repoDir: string,
   profile: string,
-  layers: readonly SkillLayer[],
-): { layers: readonly SkillLayer[]; plugins: Plugin[] } {
+  layers: readonly AgentLayer[],
+): { layers: readonly AgentLayer[]; plugins: Plugin[] } {
   if (layers.length === 0) {
     throw new Error(`Profile ${profile} does not manage agent plugins`);
   }
 
-  const manifests = new Map<SkillLayer, Plugin[]>();
+  const manifests = new Map<AgentLayer, Plugin[]>();
   for (const layer of ["developer", "workstation", "devbox", "personal"] as const) {
     manifests.set(layer, readPlugins(join(repoDir, "agents", "plugins", `${layer}.json`)));
   }
@@ -902,7 +902,7 @@ function apply(runtime: Runtime, options: PluginOptions): number {
 
   const model = readProfileModel(resolve(repoDir, "chezmoi/.chezmoidata/profiles.json"));
   const profile = requireProfile(model, profileName);
-  const { layers, plugins } = readLayeredPlugins(repoDir, profileName, profile.skillLayers);
+  const { layers, plugins } = readLayeredPlugins(repoDir, profileName, profile.agentLayers);
 
   writeLine(runtime.stdout, `Profile: ${profileName}`);
   writeLine(runtime.stdout, `Plugin layers: ${layers.join(", ")}`);

@@ -9,7 +9,7 @@
 {{- end -}}
 {{- range $name, $candidate := .profileModel.profiles -}}
 {{- if or (not (kindIs "map" $candidate)) (ne (len (omit $candidate "externalHomebrew")) 4) -}}
-{{- fail (printf "profile %s must contain capabilities, brewfiles, skillLayers, and installSteps" $name) -}}
+{{- fail (printf "profile %s must contain capabilities, brewfiles, agentLayers, and installSteps" $name) -}}
 {{- end -}}
 {{- if hasKey $candidate "externalHomebrew" -}}
 {{- if not (kindIs "slice" $candidate.externalHomebrew) -}}
@@ -32,7 +32,7 @@
 {{- fail (printf "profile %s capability %s must be boolean" $name $capability) -}}
 {{- end -}}
 {{- end -}}
-{{- range $field := list "brewfiles" "skillLayers" "installSteps" -}}
+{{- range $field := list "brewfiles" "agentLayers" "installSteps" -}}
 {{- $values := index $candidate $field -}}
 {{- if not (kindIs "slice" $values) -}}
 {{- fail (printf "profile %s field %s must be an array" $name $field) -}}
@@ -43,8 +43,11 @@
 {{- end -}}
 {{- end -}}
 {{- end -}}
-{{- if not (has "developer" $candidate.skillLayers) -}}
-{{- fail (printf "profile %s skill layers must include developer" $name) -}}
+{{- if not (has "developer" $candidate.agentLayers) -}}
+{{- fail (printf "profile %s agent layers must include developer" $name) -}}
+{{- end -}}
+{{- if ne (len $candidate.agentLayers) (len (uniq $candidate.agentLayers)) -}}
+{{- fail (printf "profile %s agent layers must contain unique values" $name) -}}
 {{- end -}}
 {{- if or (not (has "install-runtimes" $candidate.installSteps)) (not (has "install-repository-dependencies" $candidate.installSteps)) -}}
 {{- fail (printf "profile %s must install runtimes and repository dependencies" $name) -}}

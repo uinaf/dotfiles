@@ -197,7 +197,7 @@ function checkoutPath(context: MaintenanceContext): string | undefined {
 
 function selectedSkillNames(context: MaintenanceContext): string[] {
   const names = new Set<string>();
-  for (const layer of context.profileConfig.skillLayers) {
+  for (const layer of context.profileConfig.agentLayers) {
     const value = parseJsonObject(
       readFileSync(join(context.repoRoot, `agents/skills/${layer}.json`), "utf8"),
       `${layer} skills`,
@@ -213,7 +213,7 @@ function selectedSkillNames(context: MaintenanceContext): string[] {
 }
 
 function skillFacts(context: MaintenanceContext) {
-  if (context.profileConfig.skillLayers.length === 0)
+  if (context.profileConfig.agentLayers.length === 0)
     return { managed: false, selected: 0, locked: 0, installed: 0 };
   const selected = selectedSkillNames(context);
   const lockPath = join(context.repoRoot, "agents/skills.lock.json");

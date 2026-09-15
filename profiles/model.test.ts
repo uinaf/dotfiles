@@ -113,16 +113,32 @@ test("TypeScript rejects malformed, unsupported, missing, and wrong-type data", 
   ];
   assert.throws(() => parseProfileModel(JSON.stringify(missingRuntimeStep)), /install-runtimes/);
 
-  const emptySkillLayers = rawModel();
-  emptySkillLayers.profileModel.profiles.workstation.skillLayers = [];
+  const emptyAgentLayers = rawModel();
+  emptyAgentLayers.profileModel.profiles.workstation.agentLayers = [];
   assert.throws(
-    () => parseProfileModel(JSON.stringify(emptySkillLayers)),
+    () => parseProfileModel(JSON.stringify(emptyAgentLayers)),
     /must include developer/,
   );
 
   const model = readProfileModel(modelPath);
   assert.throws(() => requireProfile(model, "unknown"), /unknown profile/);
   assert.throws(() => requireProfile(model, "constructor"), /unknown profile/);
+});
+
+test("both consumers reject obsolete, duplicate, and incomplete agent layers", () => {
+  const obsolete = rawModel();
+  const profile = obsolete.profileModel.profiles.workstation;
+  profile.skillLayers = profile.agentLayers;
+  delete profile.agentLayers;
+  assert.throws(() => parseProfileModel(JSON.stringify(obsolete)));
+  assert.notEqual(renderProfile("workstation", obsolete.profileModel).status, 0);
+
+  for (const agentLayers of [["developer", "developer"], ["workstation"]]) {
+    const model = rawModel();
+    model.profileModel.profiles.workstation.agentLayers = agentLayers;
+    assert.throws(() => parseProfileModel(JSON.stringify(model)));
+    assert.notEqual(renderProfile("workstation", model.profileModel).status, 0);
+  }
 });
 
 test("external Homebrew declarations reject malformed entries in both consumers", () => {
@@ -173,9 +189,9 @@ test("chezmoi rejects unsupported, unknown, missing, and wrong-type data", () =>
   ];
   assert.notEqual(renderProfile("workstation", missingRuntimeStep.profileModel).status, 0);
 
-  const emptySkillLayers = rawModel();
-  emptySkillLayers.profileModel.profiles.workstation.skillLayers = [];
-  assert.notEqual(renderProfile("workstation", emptySkillLayers.profileModel).status, 0);
+  const emptyAgentLayers = rawModel();
+  emptyAgentLayers.profileModel.profiles.workstation.agentLayers = [];
+  assert.notEqual(renderProfile("workstation", emptyAgentLayers.profileModel).status, 0);
 });
 
 test("chezmoi rejects malformed profile data before rendering", () => {
