@@ -141,6 +141,17 @@ test("both consumers reject obsolete, duplicate, and incomplete agent layers", (
   }
 });
 
+test("profile validation rejects an unknown installation step before execution", () => {
+  const model = rawModel();
+  model.profileModel.profiles.developer.installSteps = [
+    "apply-dotfiles",
+    "install-runtimes",
+    "install-repository-dependencies",
+    "not-a-real-step",
+  ];
+  assert.throws(() => parseProfileModel(JSON.stringify(model)), /\["installSteps"\]\[3\]/);
+});
+
 test("external Homebrew declarations reject malformed entries in both consumers", () => {
   for (const externalHomebrew of [
     null,

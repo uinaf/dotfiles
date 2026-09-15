@@ -14,9 +14,8 @@ import { fileURLToPath } from "node:url";
 import { Effect } from "effect";
 
 import { runMain } from "../lib/program.ts";
-import { readProfileModel, requireProfile, type AgentLayer } from "../profiles/model.ts";
+import { readProfileModel, requireProfile } from "../profiles/model.ts";
 import {
-  composeLayers,
   type Harness,
   HARNESS_INFO,
   HARNESSES,
@@ -27,6 +26,7 @@ import {
   reportSyncFailures,
   type SyncFailure,
 } from "./harness.ts";
+import { type McpServer, readLayeredServers } from "./mcps/catalog.ts";
 import { planOwnership } from "./ownership.ts";
 import { migrateLegacyLock, readLockFile, writeLockFile } from "./lock.ts";
 import {
@@ -38,111 +38,7 @@ import {
   writeLine,
 } from "./runtime.ts";
 
-export type McpServer = {
-  name: string;
-  url: string;
-  harnesses: readonly Harness[];
-};
-
 type McpFailure = SyncFailure;
-
-function readManifestHarnesses(value: unknown, path: string, name: string): readonly Harness[] {
-  if (value === undefined) {
-    return HARNESSES;
-  }
-  return readHarnesses(
-    value,
-    `Invalid MCP manifest at ${path}: ${name} harnesses must be a unique non-empty subset of ${HARNESSES.join(", ")}`,
-  );
-}
-
-function readServer(value: unknown, manifestPath: string): McpServer {
-  if (
-    typeof value !== "object" ||
-    value === null ||
-    !("name" in value) ||
-    typeof value.name !== "string" ||
-    !isSafeName(value.name) ||
-    !("url" in value) ||
-    typeof value.url !== "string"
-  ) {
-    throw new Error(
-      `Invalid MCP manifest at ${manifestPath}: expected safe server name and url strings`,
-    );
-  }
-
-  let parsedUrl: URL;
-  try {
-    parsedUrl = new URL(value.url);
-  } catch {
-    throw new Error(`Invalid MCP manifest at ${manifestPath}: ${value.name} url is not a URL`);
-  }
-  if (parsedUrl.protocol !== "https:") {
-    throw new Error(`Invalid MCP manifest at ${manifestPath}: ${value.name} url must use https`);
-  }
-
-  const harnesses = readManifestHarnesses(
-    "harnesses" in value ? value.harnesses : undefined,
-    manifestPath,
-    value.name,
-  );
-
-  return { name: value.name, url: value.url, harnesses };
-}
-
-export function readServers(manifestPath: string): McpServer[] {
-  let parsed: unknown;
-
-  try {
-    parsed = JSON.parse(readFileSync(manifestPath, "utf8"));
-  } catch (error) {
-    throw new Error(`Invalid MCP manifest at ${manifestPath}: ${errorMessage(error)}`);
-  }
-
-  if (
-    typeof parsed !== "object" ||
-    parsed === null ||
-    !("servers" in parsed) ||
-    !Array.isArray(parsed.servers)
-  ) {
-    throw new Error(`Invalid MCP manifest at ${manifestPath}: expected a servers array`);
-  }
-
-  const servers = parsed.servers.map((server) => readServer(server, manifestPath));
-  const names = new Set<string>();
-  for (const server of servers) {
-    if (names.has(server.name)) {
-      throw new Error(
-        `Invalid MCP manifest at ${manifestPath}: ${server.name} is defined more than once`,
-      );
-    }
-    names.add(server.name);
-  }
-  return servers;
-}
-
-export function readLayeredServers(
-  repoDir: string,
-  profile: string,
-  layers: readonly AgentLayer[],
-): { layers: readonly AgentLayer[]; servers: McpServer[] } {
-  if (layers.length === 0) {
-    throw new Error(`Profile ${profile} does not manage MCP servers`);
-  }
-
-  const manifests = new Map<AgentLayer, McpServer[]>();
-  for (const layer of ["developer", "workstation", "devbox", "personal"] as const) {
-    manifests.set(layer, readServers(join(repoDir, "agents", "mcps", `${layer}.json`)));
-  }
-
-  const servers = composeLayers(
-    layers,
-    manifests,
-    (server) => server.name,
-    (name) => `Invalid layered MCP servers: ${name} is defined more than once`,
-  );
-  return { layers, servers };
-}
 
 type LockedServer = {
   name: string;

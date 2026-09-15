@@ -8,7 +8,7 @@ import { Effect } from "effect";
 import { runMain } from "../lib/program.ts";
 import { readProfileModel, requireProfile } from "../profiles/model.ts";
 import { HARNESS_INFO, HARNESSES, type Harness, parseSyncArgs } from "./harness.ts";
-import { type McpServer, readLayeredServers } from "./mcps.ts";
+import { type McpServer, readLayeredServers } from "./mcps/catalog.ts";
 import {
   createRuntime,
   errorMessage,

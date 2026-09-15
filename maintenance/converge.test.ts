@@ -202,7 +202,7 @@ for (const failure of [false, true]) {
     else {
       assert.match(steps, /^mise install$/m);
       assert.match(steps, /^mise run dotfiles:runtime-packages$/m);
-      assert.match(steps, /^configure-llm-gateway.ts $/m);
+      assert.match(steps, /^configure-llm-gateway.ts --maintenance$/m);
       assert.match(steps, /^plugins.ts --profile personal-devbox --update$/m);
       assert.match(steps, /^sync.ts --profile personal-devbox --update$/m);
       assert.match(steps, /^mcps.ts --profile personal-devbox$/m);

@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 
 import { NodeServices } from "@effect/platform-node";
-import { Console, Effect, FileSystem, Option } from "effect";
+import { Console, Effect } from "effect";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { CommandRunner } from "../lib/command.ts";
 import { CliFailure, fail, runMain } from "../lib/program.ts";
 import { profileModelFile, resolveProfile } from "../profiles/current.ts";
-import { readProfileModelEffect, requireProfile } from "../profiles/model.ts";
+import { readProfileModelEffect, requireProfile, type InstallStep } from "../profiles/model.ts";
 
 const sourceRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const repoRoot = process.env.DOTFILES_INSTALL_REPO_ROOT || sourceRoot;
@@ -38,7 +38,7 @@ const execute = Effect.fn("executeInstallCommand")(function* (
 });
 
 const runStep = Effect.fn("runInstallStep")(function* (
-  step: string,
+  step: InstallStep,
   profile: string,
   maintenance: boolean,
 ) {
@@ -80,27 +80,10 @@ const runStep = Effect.fn("runInstallStep")(function* (
         bootstrap("darwin/configure-helium.ts"),
         maintenance ? ["--skip-running"] : [],
       );
-    case "configure-llm-gateway": {
-      const fs = yield* FileSystem.FileSystem;
-      const path =
-        process.env.LLM_GATEWAY_CONFIG ||
-        join(process.env.HOME || "", ".config/dotfiles/llm-gateway.json");
-      const link = yield* fs.readLink(path).pipe(Effect.option);
-      const info = yield* fs.stat(path).pipe(Effect.option);
-      if (
-        Option.isSome(link) ||
-        Option.isNone(info) ||
-        info.value.type !== "File" ||
-        (info.value.mode & 0o077) !== 0
-      ) {
-        return yield* fail(`personal setup requires an owner-only LLM gateway config: ${path}`);
-      }
-      yield* execute(step, bootstrap("configure-llm-gateway.ts"), []);
-      if (maintenance) return;
-      return yield* execute(`${step} retire auth`, bootstrap("configure-llm-gateway.ts"), [
-        "--retire-auth",
+    case "configure-llm-gateway":
+      return yield* execute(step, bootstrap("configure-llm-gateway.ts"), [
+        maintenance ? "--maintenance" : "--setup",
       ]);
-    }
     case "configure-bifrost-clients":
       yield* execute(step, bootstrap("configure-bifrost-clients.ts"), []);
       return yield* execute(`${step} check`, bootstrap("configure-bifrost-clients.ts"), [
@@ -115,8 +98,10 @@ const runStep = Effect.fn("runInstallStep")(function* (
         ]);
       }
       return;
-    default:
-      return yield* fail(`unsupported install step: ${step}`, 2);
+    default: {
+      const unsupported: never = step;
+      return yield* fail(`unsupported install step: ${String(unsupported)}`, 2);
+    }
   }
 });
 

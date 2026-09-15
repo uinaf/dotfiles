@@ -151,7 +151,8 @@
         "bootstrap/configure-llm-gateway-grok.test.ts",
         "agents/gateway/adapters.test.ts",
         "agents/gateway/acp.test.ts",
-        "agents/gateway/gateway-runtime.test.ts"
+        "agents/gateway/gateway-runtime.test.ts",
+        "agents/gateway/enrollment.test.ts"
       ],
       "output": "Standalone Effect gateway adapters, ACP framing and lifecycle, credential isolation, provider routing, check, and exact rollback"
     },
@@ -218,6 +219,7 @@
         "vp",
         "test",
         "verify/dotfiles.test.ts",
+        "bootstrap/install.test.ts",
         "verify/runtime-pins.test.ts",
         "bootstrap/darwin/xcode.test.ts"
       ],
@@ -365,7 +367,15 @@
     {
       "id": "agent-mcps",
       "domain": "agents",
-      "command": ["corepack", "pnpm", "exec", "vp", "test", "agents/mcps.test.ts"],
+      "command": [
+        "corepack",
+        "pnpm",
+        "exec",
+        "vp",
+        "test",
+        "agents/mcps.test.ts",
+        "agents/mcps/catalog.test.ts"
+      ],
       "output": "Declarative MCP server convergence across coding-agent harnesses"
     },
     {

@@ -7,6 +7,13 @@ and MCP servers.
 and managed defaults. Bootstrap validates the profile and invokes it; gateway
 configuration uses the same writer for enrollment and restoration.
 
+[Gateway enrollment](../agents/gateway/enrollment.ts) owns input validation,
+configuration, login retirement, and rollback. Bootstrap requests `setup` or
+`maintenance`: setup applies configuration before retiring unpreserved logins;
+maintenance applies it without retiring logins. The existing
+[gateway command](../bootstrap/configure-llm-gateway.ts) also exposes explicit
+apply, check, retirement, and rollback operations.
+
 ## Global Rules
 
 [Rule sources](../agents/rules.json) supply the shared text.
@@ -63,6 +70,8 @@ Edit the selected layer under each manifest directory:
 The [profile model](../chezmoi/.chezmoidata/profiles.json) selects `agentLayers`;
 each parser defines its manifest fields and supported harnesses.
 An agent layer groups skill, plugin, and MCP selections for reuse across profiles.
+The [MCP catalog](../agents/mcps/catalog.ts) validates and composes server
+declarations for both sync and doctor.
 
 Each sync keeps an ignored `agents/{skills,plugins,mcps}.lock.json`:
 

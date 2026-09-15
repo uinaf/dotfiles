@@ -9,6 +9,21 @@ const Capabilities = Schema.Struct({
 });
 
 const AgentLayer = Schema.Literals(["developer", "workstation", "devbox", "personal"]);
+const InstallStep = Schema.Literals([
+  "apply-dotfiles",
+  "install-cursor-agent",
+  "install-t3-service",
+  "install-oh-my-zsh",
+  "trust-agent-worktrees",
+  "install-gh-extensions",
+  "install-runtimes",
+  "install-repository-dependencies",
+  "configure-codex",
+  "configure-helium",
+  "configure-llm-gateway",
+  "configure-bifrost-clients",
+  "sync-agents",
+]);
 const ProfileConfig = Schema.Struct({
   capabilities: Capabilities,
   brewfiles: Schema.NonEmptyArray(Schema.NonEmptyString),
@@ -34,7 +49,7 @@ const ProfileConfig = Schema.Struct({
       Schema.Literal("install-runtimes"),
       Schema.Literal("install-repository-dependencies"),
     ]),
-    [Schema.NonEmptyString],
+    [InstallStep],
   ),
 });
 const ProfileModel = Schema.Struct({
@@ -43,6 +58,7 @@ const ProfileModel = Schema.Struct({
 });
 const ProfileDocument = Schema.Struct({ profileModel: ProfileModel });
 
+export type InstallStep = typeof InstallStep.Type;
 export type AgentLayer = typeof AgentLayer.Type;
 export type ProfileConfig = typeof ProfileConfig.Type;
 export type ProfileModel = typeof ProfileModel.Type;

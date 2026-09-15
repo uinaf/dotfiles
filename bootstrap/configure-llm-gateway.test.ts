@@ -24,12 +24,14 @@ import {
   assertCursorAgentBinSafe,
   claudeGatewayBaseUrl,
   claudeGatewaySettings,
+  grokGatewaySettings,
+  resolveOnPath,
+} from "../agents/gateway/enrollment.ts";
+import {
   codexGatewaiOverrides,
   gatewayEdits,
-  grokGatewaySettings,
   parseGatewayConfig,
-  resolveOnPath,
-} from "./configure-llm-gateway.ts";
+} from "../agents/gateway/gateway-config.ts";
 import { codexInstalled, fixturePath, script, validConfig } from "./llm-gateway-fixture.ts";
 
 test("gateway config is strict and provider edits use command-backed Responses auth", () => {
@@ -336,8 +338,29 @@ rm -f "$HOME/.claude/.credentials.json"
       assert.equal(bifrostCredential.status, 0, bifrostCredential.stderr);
       assert.equal(bifrostCredential.stdout.trim(), validConfig.credentials.bifrost);
 
-      const second = run();
+      const second = run("--maintenance");
       assert.equal(second.status, 0, second.stderr);
+      assert.equal(readFileSync(join(codexHome, "auth.json"), "utf8"), originalAuth);
+      assert.equal(
+        readFileSync(join(home, ".claude/.credentials.json"), "utf8"),
+        originalClaudeAuth,
+      );
+      assert.equal(readFileSync(join(home, ".cursor/auth.json"), "utf8"), originalCursorAuth);
+
+      const failingCodex = join(bin, "failing-codex");
+      writeFileSync(failingCodex, "#!/bin/sh\nexit 17\n", { mode: 0o700 });
+      const failedSetup = spawnSync(script, ["--setup"], {
+        encoding: "utf8",
+        env: { ...env, CODEX_BIN: failingCodex },
+      });
+      assert.notEqual(failedSetup.status, 0);
+      assert.match(failedSetup.stderr, /Codex app-server exited 17/);
+      assert.equal(readFileSync(join(codexHome, "auth.json"), "utf8"), originalAuth);
+      assert.equal(
+        readFileSync(join(home, ".claude/.credentials.json"), "utf8"),
+        originalClaudeAuth,
+      );
+      assert.equal(readFileSync(join(home, ".cursor/auth.json"), "utf8"), originalCursorAuth);
       assert.equal(
         readFileSync(join(codexHome, "config.toml.llm-gateway.backup"), "utf8"),
         originalCodex,
@@ -527,7 +550,7 @@ esac
       assert.equal(lstatSync(agentCommand).isSymbolicLink(), true);
       assert.equal(readlinkSync(agentCommand), originalCursorTargets[0]);
 
-      const retire = run("--retire-auth");
+      const retire = run("--setup");
       assert.equal(retire.status, 0, retire.stderr);
       assert.equal(existsSync(join(codexHome, "auth.json")), false);
       assert.equal(existsSync(join(home, ".claude/.credentials.json")), false);
