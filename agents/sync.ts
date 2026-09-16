@@ -284,13 +284,18 @@ function sync(runtime: Runtime, options: SyncOptions): number {
 
   const model = readProfileModel(resolve(repoDir, "chezmoi/.chezmoidata/profiles.json"));
   const profile = requireProfile(model, profileName);
-  const { layers, skills } = readLayeredSkills(repoDir, profileName, profile.agentLayers);
+  const { layers, skills, localPath } = readLayeredSkills(
+    repoDir,
+    profileName,
+    profile.agentLayers,
+  );
   const skillLockPath = migrateLegacyLock(repoDir, "skills");
   const previouslyManagedSkills = readSkillLock(skillLockPath);
   const agents = findInstalledAgents(runtime);
 
   writeLine(runtime.stdout, `Profile: ${profileName}`);
   writeLine(runtime.stdout, `Skill layers: ${layers.join(", ")}`);
+  if (localPath) writeLine(runtime.stdout, `Local overlay: ${localPath}`);
   if (agents.length === 0) {
     writeLine(
       runtime.stdout,

@@ -79,6 +79,33 @@ The [MCP catalog](../agents/mcps/catalog.ts) validates and composes server
 declarations for both sync and doctor. The [skill catalog](../agents/skills/catalog.ts)
 validates declarations and ownership locks for sync and maintenance inventory.
 
+### Local Overlay
+
+Machine-specific skills and MCP servers that no shared layer should carry go
+in an optional gitignored `agents/local.json`, the agent counterpart of
+[`Brewfile.local`](profiles.md#local-homebrew-additions):
+
+```json
+{
+  "skills": [{ "name": "local-skill", "source": "owner/skill-repository" }],
+  "servers": [
+    { "name": "local-mcp", "url": "https://example.invalid/mcp", "harnesses": ["claude"] }
+  ]
+}
+```
+
+- Both keys are optional and use the manifest entry shapes above; any other key
+  fails. The [overlay reader](../agents/local.ts) requires a regular file owned
+  by the current user without group or other write access.
+- Entries are composed after the selected profile layers as a final `local`
+  layer and can only add. An entry identical to a profile entry is ignored; the
+  same name with a different shape fails, so a local file never silently
+  changes a shared selection. Remove an entry by deleting it from the file.
+- Overlay entries enter the same ownership lock, so dropping one removes it on
+  the next sync like any dropped manifest entry. Sync, doctor, and the
+  maintenance inventory all read the overlay; sync prints its path when used.
+- Keep credentials out of it. OAuth state stays in each harness's own store.
+
 Each sync keeps an ignored `agents/{skills,plugins,mcps}.lock.json`:
 
 - Missing locks initialize ownership without removing existing installations.

@@ -59,3 +59,43 @@ test("skill ownership reads reject duplicate entries and unsupported versions", 
   writeFileSync(path, JSON.stringify({ version: 2, skills: [skill] }));
   assert.throws(() => readSkillLock(path), /expected version 1/);
 });
+
+test("local overlay skills append after profile layers and reject conflicts", () => {
+  const root = fixture();
+  manifest(root, "developer", "example/skills");
+  const path = join(root, "agents/local.json");
+  writeFileSync(
+    path,
+    JSON.stringify({ skills: [{ name: "local-skill", source: "owner/skill-repository" }] }),
+    { mode: 0o600 },
+  );
+  const result = readLayeredSkills(root, "developer", ["developer"]);
+  assert.deepEqual(result.layers, ["developer", "local"]);
+  assert.equal(result.localPath, path);
+  assert.deepEqual(result.skills, [
+    { name: "example", source: "example/skills" },
+    { name: "local-skill", source: "owner/skill-repository" },
+  ]);
+
+  writeFileSync(path, '{"skills":[{"source":"example/skills","name":"example"}]}');
+  assert.deepEqual(readLayeredSkills(root, "developer", ["developer"]).skills, [
+    { name: "example", source: "example/skills" },
+  ]);
+
+  writeFileSync(path, JSON.stringify({ skills: [{ name: "example", source: "example/other" }] }));
+  assert.throws(
+    () => readLayeredSkills(root, "developer", ["developer"]),
+    /example is defined more than once \(example\/skills and example\/other\)/,
+  );
+
+  writeFileSync(path, JSON.stringify({ skills: [{ name: "broken" }] }));
+  assert.throws(
+    () => readLayeredSkills(root, "developer", ["developer"]),
+    /Invalid local agent overlay at .*expected non-empty name\/source strings/,
+  );
+
+  writeFileSync(path, JSON.stringify({ servers: [] }));
+  const skillsOnlyLayers = readLayeredSkills(root, "developer", ["developer"]);
+  assert.deepEqual(skillsOnlyLayers.layers, ["developer"]);
+  assert.equal(skillsOnlyLayers.localPath, undefined);
+});

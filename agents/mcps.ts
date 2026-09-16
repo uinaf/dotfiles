@@ -680,10 +680,15 @@ function apply(runtime: Runtime, options: McpOptions): number {
 
   const model = readProfileModel(resolve(repoDir, "chezmoi/.chezmoidata/profiles.json"));
   const profile = requireProfile(model, profileName);
-  const { layers, servers } = readLayeredServers(repoDir, profileName, profile.agentLayers);
+  const { layers, servers, localPath } = readLayeredServers(
+    repoDir,
+    profileName,
+    profile.agentLayers,
+  );
 
   writeLine(runtime.stdout, `Profile: ${profileName}`);
   writeLine(runtime.stdout, `MCP layers: ${layers.join(", ")}`);
+  if (localPath) writeLine(runtime.stdout, `Local overlay: ${localPath}`);
 
   const mcpLockPath = migrateLegacyLock(repoDir, "mcps");
   const previouslyManaged = readServerLock(mcpLockPath);
