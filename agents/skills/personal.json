@@ -1,10 +1,6 @@
 {
   "skills": [
     {
-      "name": "attach-cli",
-      "source": "uinaf/attach"
-    },
-    {
       "name": "putio-cli",
       "source": "putdotio/putio-cli"
     },

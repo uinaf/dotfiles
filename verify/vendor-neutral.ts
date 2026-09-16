@@ -57,7 +57,6 @@ function allowed(file: string, content: string): boolean {
     case "docs/agents.md":
       return containsAny(content, [
         "github.com/uinaf/agent-skills",
-        "github.com/uinaf/attach",
         "github.com/uinaf/design",
         "uinaf-design",
       ]);
@@ -69,7 +68,6 @@ function allowed(file: string, content: string): boolean {
         '"name": "uinaf-design"',
         '"name": "uinaf-radar"',
         '"source": "uinaf/agent-skills"',
-        '"source": "uinaf/attach"',
         '"source": "uinaf/design"',
         '"source": "https://cdn.uinaf.dev/skills/ui"',
       ]);
@@ -92,7 +90,6 @@ function allowed(file: string, content: string): boolean {
         "uinaf/agents",
         "uinaf/skills",
         "uinaf/agent-skills",
-        "uinaf/attach",
         "uinaf/design",
         "uinaf-design",
       ]);

@@ -242,7 +242,6 @@ const program = Effect.scoped(
       assert.ok(personal.split("\n").includes(entry));
     for (const entry of [
       'brew "asc"',
-      'brew "uinaf/tap/attach"',
       'brew "openclaw/tap/crabbox"',
       'brew "putdotio/tap/putio-cli"',
     ])
