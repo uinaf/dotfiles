@@ -23,7 +23,8 @@ function parseSkills(value: unknown, label: string): Skill[] {
     throw new Error(`${label}: skill names must be unique`);
   }
 
-  return value;
+  // Layer composition compares entry shapes, so authoring key order must not matter.
+  return value.map(({ name, source }) => ({ name, source }));
 }
 
 function readSkills(manifestPath: string): Skill[] {

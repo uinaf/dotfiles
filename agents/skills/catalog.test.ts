@@ -77,6 +77,11 @@ test("local overlay skills append after profile layers and reject conflicts", ()
     { name: "local-skill", source: "owner/skill-repository" },
   ]);
 
+  writeFileSync(path, '{"skills":[{"source":"example/skills","name":"example"}]}');
+  assert.deepEqual(readLayeredSkills(root, "developer", ["developer"]).skills, [
+    { name: "example", source: "example/skills" },
+  ]);
+
   writeFileSync(path, JSON.stringify({ skills: [{ name: "example", source: "example/other" }] }));
   assert.throws(
     () => readLayeredSkills(root, "developer", ["developer"]),
