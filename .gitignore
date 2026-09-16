@@ -8,6 +8,7 @@ home/.codex/
 agents/skills.lock.json
 agents/plugins.lock.json
 agents/mcps.lock.json
+agents/local.json
 chezmoi.toml
 **/.config/chezmoi/
 **/.config/dotfiles/agents.start.md

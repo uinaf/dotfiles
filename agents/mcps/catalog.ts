@@ -3,6 +3,7 @@ import { join } from "node:path";
 
 import { type AgentLayer } from "../../profiles/model.ts";
 import { composeLayers, type Harness, HARNESSES, isSafeName, readHarnesses } from "../harness.ts";
+import { readLocalOverlay } from "../local.ts";
 import { errorMessage } from "../runtime.ts";
 
 export type McpServer = {
@@ -55,25 +56,12 @@ function readServer(value: unknown, manifestPath: string): McpServer {
   return { name: value.name, url: value.url, harnesses };
 }
 
-export function readServers(manifestPath: string): McpServer[] {
-  let parsed: unknown;
-
-  try {
-    parsed = JSON.parse(readFileSync(manifestPath, "utf8"));
-  } catch (error) {
-    throw new Error(`Invalid MCP manifest at ${manifestPath}: ${errorMessage(error)}`);
-  }
-
-  if (
-    typeof parsed !== "object" ||
-    parsed === null ||
-    !("servers" in parsed) ||
-    !Array.isArray(parsed.servers)
-  ) {
+function parseServers(value: unknown, manifestPath: string): McpServer[] {
+  if (!Array.isArray(value)) {
     throw new Error(`Invalid MCP manifest at ${manifestPath}: expected a servers array`);
   }
 
-  const servers = parsed.servers.map((server) => readServer(server, manifestPath));
+  const servers = value.map((server) => readServer(server, manifestPath));
   const names = new Set<string>();
   for (const server of servers) {
     if (names.has(server.name)) {
@@ -86,25 +74,51 @@ export function readServers(manifestPath: string): McpServer[] {
   return servers;
 }
 
+export function readServers(manifestPath: string): McpServer[] {
+  let parsed: unknown;
+
+  try {
+    parsed = JSON.parse(readFileSync(manifestPath, "utf8"));
+  } catch (error) {
+    throw new Error(`Invalid MCP manifest at ${manifestPath}: ${errorMessage(error)}`);
+  }
+
+  if (typeof parsed !== "object" || parsed === null || !("servers" in parsed)) {
+    throw new Error(`Invalid MCP manifest at ${manifestPath}: expected a servers array`);
+  }
+  return parseServers(parsed.servers, manifestPath);
+}
+
+export type McpLayer = AgentLayer | "local";
+
 export function readLayeredServers(
   repoDir: string,
   profile: string,
   layers: readonly AgentLayer[],
-): { layers: readonly AgentLayer[]; servers: McpServer[] } {
+): { layers: readonly McpLayer[]; servers: McpServer[]; localPath?: string } {
   if (layers.length === 0) {
     throw new Error(`Profile ${profile} does not manage MCP servers`);
   }
 
-  const manifests = new Map<AgentLayer, McpServer[]>();
+  const manifests = new Map<McpLayer, McpServer[]>();
   for (const layer of ["developer", "workstation", "devbox", "personal"] as const) {
     manifests.set(layer, readServers(join(repoDir, "agents", "mcps", `${layer}.json`)));
   }
 
+  const selected: McpLayer[] = [...layers];
+  const local = readLocalOverlay(repoDir);
+  if (local?.document.servers !== undefined) {
+    manifests.set("local", parseServers(local.document.servers, local.path));
+    selected.push("local");
+  }
+
   const servers = composeLayers(
-    layers,
+    selected,
     manifests,
     (server) => server.name,
     (name) => `Invalid layered MCP servers: ${name} is defined more than once`,
   );
-  return { layers, servers };
+  return selected.includes("local") && local
+    ? { layers: selected, servers, localPath: local.path }
+    : { layers: selected, servers };
 }

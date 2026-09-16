@@ -2,6 +2,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { Schema } from "effect";
 import type { AgentLayer } from "../../profiles/model.ts";
+import { composeLayers } from "../harness.ts";
+import { readLocalOverlay } from "../local.ts";
 import { readLockFile } from "../lock.ts";
 import { errorMessage } from "../runtime.ts";
 
@@ -11,67 +13,78 @@ const Skill = Schema.Struct({
 });
 export type Skill = typeof Skill.Type;
 
+function parseSkills(value: unknown, label: string): Skill[] {
+  if (!Array.isArray(value) || !value.every(Schema.is(Skill))) {
+    throw new Error(`${label}: expected non-empty name/source strings`);
+  }
+
+  const names = value.map((skill) => skill.name);
+  if (new Set(names).size !== names.length) {
+    throw new Error(`${label}: skill names must be unique`);
+  }
+
+  return value;
+}
+
 function readSkills(manifestPath: string): Skill[] {
+  const label = `Invalid skills manifest at ${manifestPath}`;
   let parsed: unknown;
 
   try {
     parsed = JSON.parse(readFileSync(manifestPath, "utf8"));
   } catch (error) {
-    throw new Error(`Invalid skills manifest at ${manifestPath}: ${errorMessage(error)}`);
+    throw new Error(`${label}: ${errorMessage(error)}`);
   }
 
-  if (
-    typeof parsed !== "object" ||
-    parsed === null ||
-    !("skills" in parsed) ||
-    !Array.isArray(parsed.skills) ||
-    !parsed.skills.every(Schema.is(Skill))
-  ) {
-    throw new Error(
-      `Invalid skills manifest at ${manifestPath}: expected non-empty name/source strings`,
-    );
+  if (typeof parsed !== "object" || parsed === null || !("skills" in parsed)) {
+    throw new Error(`${label}: expected non-empty name/source strings`);
   }
-
-  const names = parsed.skills.map((skill) => skill.name);
-  if (new Set(names).size !== names.length) {
-    throw new Error(`Invalid skills manifest at ${manifestPath}: skill names must be unique`);
-  }
-
-  return parsed.skills;
+  return parseSkills(parsed.skills, label);
 }
+
+export type SkillLayer = AgentLayer | "local";
 
 export function readLayeredSkills(
   repoDir: string,
   profile: string,
   layers: readonly AgentLayer[],
-): { layers: readonly AgentLayer[]; skills: Skill[] } {
+): { layers: readonly SkillLayer[]; skills: Skill[]; localPath?: string } {
   if (layers.length === 0) {
     throw new Error(`Profile ${profile} does not manage agent skills`);
   }
 
-  const manifests = new Map<AgentLayer, Skill[]>();
+  const manifests = new Map<SkillLayer, Skill[]>();
   for (const layer of ["developer", "workstation", "devbox", "personal"] as const) {
     const manifestPath = join(repoDir, "agents", "skills", `${layer}.json`);
     manifests.set(layer, readSkills(manifestPath));
   }
 
-  const sources = new Map<string, string>();
-  const skills: Skill[] = [];
-  for (const skill of layers.flatMap((layer) => manifests.get(layer) ?? [])) {
-    const previousSource = sources.get(skill.name);
-    if (previousSource === skill.source) {
-      continue; // the same skill selected by more than one composed layer
-    }
-    if (previousSource !== undefined) {
-      throw new Error(
-        `Invalid layered skills: ${skill.name} is defined more than once (${previousSource} and ${skill.source})`,
-      );
-    }
-    sources.set(skill.name, skill.source);
-    skills.push(skill);
+  const selected: SkillLayer[] = [...layers];
+  const local = readLocalOverlay(repoDir);
+  if (local?.document.skills !== undefined) {
+    manifests.set(
+      "local",
+      parseSkills(local.document.skills, `Invalid local agent overlay at ${local.path}`),
+    );
+    selected.push("local");
   }
 
-  return { layers, skills };
+  const skills = composeLayers(
+    selected,
+    manifests,
+    (skill) => skill.name,
+    (name) => {
+      const sources = selected
+        .flatMap((layer) => manifests.get(layer) ?? [])
+        .filter((skill) => skill.name === name)
+        .map((skill) => skill.source);
+      return `Invalid layered skills: ${name} is defined more than once (${sources.join(" and ")})`;
+    },
+  );
+
+  return selected.includes("local") && local
+    ? { layers: selected, skills, localPath: local.path }
+    : { layers: selected, skills };
 }
 
 export function readSkillLock(lockPath: string): Skill[] | undefined {

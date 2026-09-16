@@ -114,3 +114,45 @@ test("rejects reserved MCP server names", () => {
   writeManifest(repoDir, "developer", [{ name: "__proto__", url: "https://mcp.fixture.test/mcp" }]);
   assert.throws(() => readServers(manifestPath(repoDir, "developer")), /safe server name/);
 });
+
+test("local overlay servers append after profile layers and reject conflicts", () => {
+  const { repoDir } = createFixture();
+  const path = join(repoDir, "agents", "local.json");
+  writeFileSync(
+    path,
+    JSON.stringify({
+      servers: [
+        { name: "local-mcp", url: "https://local.fixture.test/mcp", harnesses: ["claude"] },
+      ],
+    }),
+    { mode: 0o600 },
+  );
+  const result = readLayeredServers(repoDir, "developer", ["developer"]);
+  assert.deepEqual(result.layers, ["developer", "local"]);
+  assert.equal(result.localPath, path);
+  assert.deepEqual(
+    result.servers.map((server) => [server.name, server.harnesses]),
+    [
+      ["shared-mcp", HARNESSES],
+      ["local-mcp", ["claude"]],
+    ],
+  );
+
+  writeFileSync(
+    path,
+    JSON.stringify({ servers: [{ name: "shared-mcp", url: "https://other.fixture.test/mcp" }] }),
+  );
+  assert.throws(
+    () => readLayeredServers(repoDir, "developer", ["developer"]),
+    /shared-mcp is defined more than once/,
+  );
+
+  writeFileSync(
+    path,
+    JSON.stringify({ servers: [{ name: "local-mcp", url: "http://local.fixture.test/mcp" }] }),
+  );
+  assert.throws(
+    () => readLayeredServers(repoDir, "developer", ["developer"]),
+    /agents\/local\.json: local-mcp url must use https/,
+  );
+});
