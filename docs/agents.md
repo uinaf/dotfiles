@@ -5,7 +5,9 @@ and MCP servers.
 
 [Codex configuration](../agents/codex/config.ts) owns native configuration writes
 and managed defaults. Bootstrap validates the profile and invokes it; gateway
-configuration uses the same writer for enrollment and restoration.
+configuration uses the same writer for enrollment and restoration. Gateway setup
+preserves the selected Codex model and reasoning effort; model defaults belong
+to Codex configuration.
 
 [Gateway enrollment](../agents/gateway/enrollment.ts) owns input validation,
 configuration, login retirement, and rollback. Bootstrap requests `setup` or

@@ -83,7 +83,6 @@ export function parseGatewayConfig(contents: string): GatewayConfig {
 
 export function gatewayEdits(config: GatewayConfig, credentialPath: string): ConfigEdit[] {
   return [
-    { keyPath: "model", value: "gpt-5.6-sol", mergeStrategy: "upsert" },
     { keyPath: "model_provider", value: "gatewai", mergeStrategy: "upsert" },
     { keyPath: "features.apps", value: false, mergeStrategy: "upsert" },
     { keyPath: "mcp_servers.node_repl", value: null, mergeStrategy: "replace" },

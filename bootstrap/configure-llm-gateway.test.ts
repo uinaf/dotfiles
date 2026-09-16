@@ -301,7 +301,8 @@ test(
     const launcherCommand = join(launcherDir, "cursor-agent");
     const decoyDir = join(root, "decoy");
     const originalCursorTargets = ["../share/cursor-agent/versions/test/cursor-agent"];
-    const originalCodex = '# retained\nforced_login_method = "chatgpt"\n';
+    const originalCodex =
+      '# retained\nmodel = "gpt-6-astra"\nmodel_reasoning_effort = "high"\nforced_login_method = "chatgpt"\n';
     const originalAuth = '{"tokens":"saved-login-state"}\n';
     const originalClaudeAuth = '{"oauth":"saved-login-state"}\n';
     const originalCursorAuth = '{"accessToken":"saved-login-state"}\n';
@@ -376,6 +377,8 @@ rm -f "$HOME/.claude/.credentials.json"
       assert.equal(readFileSync(join(codexHome, "auth.json"), "utf8"), originalAuth);
       assert.equal(statSync(join(codexHome, "config.toml")).mode & 0o777, 0o600);
       const appliedCodex = readFileSync(join(codexHome, "config.toml"), "utf8");
+      assert.match(appliedCodex, /^model = "gpt-6-astra"$/m);
+      assert.match(appliedCodex, /^model_reasoning_effort = "high"$/m);
       assert.match(appliedCodex, /model_provider = "gatewai"/);
       assert.match(appliedCodex, /supports_websockets = true/);
       assert.match(appliedCodex, /X-OpenAI-Actor-Authorization = "local-proxy"/);
@@ -440,6 +443,9 @@ rm -f "$HOME/.claude/.credentials.json"
 
       const second = run("--maintenance");
       assert.equal(second.status, 0, second.stderr);
+      const maintainedCodex = readFileSync(join(codexHome, "config.toml"), "utf8");
+      assert.match(maintainedCodex, /^model = "gpt-6-astra"$/m);
+      assert.match(maintainedCodex, /^model_reasoning_effort = "high"$/m);
       assert.equal(readFileSync(join(codexHome, "auth.json"), "utf8"), originalAuth);
       assert.equal(
         readFileSync(join(home, ".claude/.credentials.json"), "utf8"),
