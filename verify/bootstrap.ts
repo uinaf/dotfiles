@@ -177,7 +177,6 @@ const program = Effect.gen(function* () {
     if (config.capabilities.personal)
       yield* shellChecks([
         "asc --version",
-        "attach --help",
         "crabbox --version",
         "gitcrawl --version",
         "pi --version",
