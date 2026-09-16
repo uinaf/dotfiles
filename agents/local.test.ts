@@ -31,7 +31,7 @@ test("rejects malformed JSON, non-objects, and unsupported keys", () => {
   const root = fixture();
   const path = join(root, "agents/local.json");
   writeFileSync(path, "{", { mode: 0o600 });
-  assert.throws(() => readLocalOverlay(root), /Invalid local agent overlay at .*Unexpected|JSON/);
+  assert.throws(() => readLocalOverlay(root), /Invalid local agent overlay at .*JSON/);
   writeFileSync(path, "[]", { mode: 0o600 });
   assert.throws(() => readLocalOverlay(root), /expected an object/);
   writeFileSync(path, '{"plugins":[]}', { mode: 0o600 });
