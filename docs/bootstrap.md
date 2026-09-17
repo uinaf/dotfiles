@@ -90,7 +90,8 @@ before using Git updates or contribution commands.
 ## Apply a Profile
 
 Before applying a personal profile, provision the owner-only
-[LLM gateway config](devbox.md#opt-in-coding-llm-gateway). Personal setup retires
+[LLM gateway config](devbox.md#opt-in-coding-llm-gateway) and the
+[Hindsight server config](agents.md#hindsight-memory). Personal setup retires
 saved coding-client logins except those listed in `preservedLogins`.
 
 ```zsh

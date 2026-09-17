@@ -22,6 +22,7 @@ const InstallStep = Schema.Literals([
   "configure-helium",
   "configure-llm-gateway",
   "configure-bifrost-clients",
+  "configure-hindsight",
   "sync-agents",
 ]);
 const ProfileConfig = Schema.Struct({

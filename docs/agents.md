@@ -156,6 +156,27 @@ with `ssh -L PORT:127.0.0.1:PORT` before opening the URL locally.
 The doctor also reports Grok installation drift and prints the repair command.
 Review it before removing a conflicting installation.
 
+## Hindsight Memory
+
+Personal profiles run `configure-hindsight` after agent sync.
+[Hindsight setup](../agents/hindsight.ts) keeps the
+`@vectorize-io/hindsight-coding-agents` runtime at the published version and
+wires every installed managed harness through the upstream installer, which
+rewrites only its own hook and MCP entries. The runtime's own `autoUpdate`
+re-stages code but never rewires hosts; a harness whose MCP entry lacks
+`HINDSIGHT_MCP_HARNESS` fails its handshake, so the step reinstalls whenever the
+version or that wiring drifts. Daily maintenance repeats the step.
+
+The server endpoint and token stay in owner-only `~/.hindsight/coding-agent.json`;
+setup requires them and never writes them. Provision a new machine once:
+
+```zsh
+npx -y @vectorize-io/hindsight-coding-agents@latest install claude-code \
+  --server self-hosted --api-url URL --api-token TOKEN
+./bootstrap/configure-hindsight.ts
+./bootstrap/configure-hindsight.ts --check
+```
+
 ## Verify
 
 The `agents` domain covers harness settings, gateways, rules, skills, plugins,

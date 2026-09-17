@@ -55,7 +55,8 @@
           "configure-codex",
           "configure-llm-gateway",
           "configure-bifrost-clients",
-          "sync-agents"
+          "sync-agents",
+          "configure-hindsight"
         ]
       },
       "personal-devbox": {
@@ -83,6 +84,7 @@
           "configure-llm-gateway",
           "configure-bifrost-clients",
           "sync-agents",
+          "configure-hindsight",
           "install-t3-service"
         ]
       },
