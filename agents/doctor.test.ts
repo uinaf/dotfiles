@@ -21,7 +21,6 @@ type Reply = { status?: number; stdout?: string; stderr?: string };
 
 class FixtureRuntime implements Runtime {
   readonly env: NodeJS.ProcessEnv;
-  platform: NodeJS.Platform = "darwin";
   readonly stdout = new BufferWriter();
   readonly stderr = new BufferWriter();
   readonly installedCommands = new Set([
@@ -38,7 +37,13 @@ class FixtureRuntime implements Runtime {
   constructor(repoDir: string, home: string, replies: ReadonlyMap<string, Reply>) {
     this.repoDir = repoDir;
     this.env = { HOME: home, PWD: "/fixture/project" };
-    this.replies = replies;
+    // The healthy Grok path is the mise shim under the fixture home.
+    this.replies = new Map(
+      [...replies].map(([command, reply]) => [
+        command,
+        { ...reply, stdout: reply.stdout?.replaceAll("$HOME", home) },
+      ]),
+    );
   }
 
   commandExists(command: string): boolean {
@@ -112,7 +117,7 @@ const healthy = new Map<string, Reply>([
       }),
     },
   ],
-  ["sh -c command -v grok", { stdout: "/opt/homebrew/bin/grok\n" }],
+  ["sh -c command -v grok", { stdout: "$HOME/.local/share/mise/shims/grok\n" }],
 ]);
 
 test("reports every harness usable and exits 0", () => {
@@ -183,7 +188,7 @@ test("flags Grok config parse errors and installation drift", () => {
     stderr:
       "ERROR config toml has syntax errors: TOML parse error at line 66, column 14: duplicate key file=/h/.grok/config.toml",
   });
-  replies.set("sh -c command -v grok", { stdout: "/h/.local/share/mise/shims/grok\n" });
+  replies.set("sh -c command -v grok", { stdout: "/opt/homebrew/bin/grok\n" });
   const runtime = new FixtureRuntime(repoDir, home, replies);
   assert.equal(main([], runtime), 1);
   assert.match(
@@ -193,29 +198,18 @@ test("flags Grok config parse errors and installation drift", () => {
   assert.match(runtime.stdout.value, /FAIL {2}Grok: install - ~\/\.grok\/bin exists/);
   assert.match(
     runtime.stdout.value,
-    /FAIL {2}Grok: install - grok resolves to \/h\/\.local\/share\/mise\/shims\/grok/,
+    /FAIL {2}Grok: install - grok resolves to \/opt\/homebrew\/bin\/grok, not the mise pin/,
   );
   assert.match(runtime.stdout.value, /repair: npm uninstall -g @xai-official\/grok/);
 });
 
-test("accepts the mise pin as Grok's managed install on Linux", () => {
+test("accepts the mise pin as Grok's managed install", () => {
   const { repoDir, home } = createFixture();
   const replies = new Map(healthy);
-  replies.set("sh -c command -v grok", { stdout: `${home}/.local/share/mise/shims/grok\n` });
+  replies.set("sh -c command -v grok", { stdout: "$HOME/.local/share/mise/shims/grok\n" });
   const runtime = new FixtureRuntime(repoDir, home, replies);
-  runtime.platform = "linux";
   assert.equal(main([], runtime), 0);
   assert.doesNotMatch(runtime.stdout.value, /Grok: install/);
-
-  replies.set("sh -c command -v grok", { stdout: "/opt/homebrew/bin/grok\n" });
-  const homebrew = new FixtureRuntime(repoDir, home, replies);
-  homebrew.platform = "linux";
-  assert.equal(main([], homebrew), 1);
-  assert.match(homebrew.stdout.value, /not the mise pin/);
-  assert.match(
-    homebrew.stdout.value,
-    /repair: npm uninstall -g @xai-official\/grok; mise install http:grok/,
-  );
 });
 
 test("skips harnesses that are not installed", () => {

@@ -270,40 +270,34 @@ function grokFinding(server: McpServer, doctor: GrokDoctor | undefined, text: st
   };
 }
 
-// Grok's self-updater and npm package both shadow the managed install: the
-// Homebrew cask on macOS, the mise http pin on Linux. Any other copy is drift.
+// Grok's self-updater, npm package, and Homebrew cask all shadow the mise pin
+// that every managed host installs. Any other copy is drift.
 function grokDriftFindings(runtime: Runtime): Finding[] {
   const findings: Finding[] = [];
   const home = runtime.env.HOME;
-  const linux = runtime.platform === "linux";
-  const managed = linux ? "mise pin" : "Homebrew cask";
   if (home !== undefined && existsSync(join(home, ".grok", "bin"))) {
     findings.push({
       harness: "grok",
       server: "install",
       status: "failed",
-      detail: `~/.grok/bin exists (self-updater copy shadows the ${managed})`,
+      detail: "~/.grok/bin exists (self-updater copy shadows the mise pin)",
       repair: "rm -rf ~/.grok/bin",
     });
   }
   const which = capture(runtime, "sh", ["-c", "command -v grok"]);
   const path = which.stdout.trim();
-  const managedPrefixes = linux
-    ? [`${home ?? ""}/.local/share/mise/`]
-    : ["/opt/homebrew/bin/", "/usr/local/bin/"];
   if (
     which.status === 0 &&
     path.length > 0 &&
-    !managedPrefixes.some((prefix) => path.startsWith(prefix))
+    (home === undefined || !path.startsWith(`${home}/.local/share/mise/`))
   ) {
     findings.push({
       harness: "grok",
       server: "install",
       status: "failed",
-      detail: `grok resolves to ${path}, not the ${managed}`,
-      repair: linux
-        ? "npm uninstall -g @xai-official/grok; mise install http:grok; mise reshim"
-        : "npm uninstall -g @xai-official/grok; mise reshim; brew install --cask grok-build",
+      detail: `grok resolves to ${path}, not the mise pin`,
+      repair:
+        "npm uninstall -g @xai-official/grok; brew uninstall --cask grok-build; mise install http:grok; mise reshim",
     });
   }
   return findings;

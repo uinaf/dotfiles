@@ -15,6 +15,10 @@ go = "1.27.1"
 "npm:@openai/codex" = "0.154.0"
 # T3 Code's CLI installs its background service; the service updates itself.
 "npm:t3" = "0.0.42"
+# Grok Build publishes raw binaries at x.ai without a release feed Renovate can
+# read; bump the version in all five places by hand. The URLs stay literal
+# because chezmoi renders this file.
+"http:grok" = { version = "1.0.34", bin = "grok", platforms = { macos-arm64 = { url = "https://x.ai/cli/grok-1.0.34-macos-aarch64" }, macos-x64 = { url = "https://x.ai/cli/grok-1.0.34-macos-x86_64" }, linux-x64 = { url = "https://x.ai/cli/grok-1.0.34-linux-x86_64" }, linux-arm64 = { url = "https://x.ai/cli/grok-1.0.34-linux-aarch64" } } }
 
 # Command-line tools with binary releases live here on both platforms so one
 # pin serves macOS and Linux. Homebrew keeps what needs a compiler or a GUI
