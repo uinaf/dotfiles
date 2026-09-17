@@ -296,9 +296,10 @@ function grokGatewayBlock(gatewaiBaseUrl: string, credentialPath: string): strin
 function grokUnmarkedGatewayPattern(gatewaiBaseUrl: string, credentialPath: string): RegExp {
   // Native TOML rewrites can drop comments. Recognize only our exact configured
   // sections; different values or extra managed-table keys remain conflicts.
+  // Another tool's comment may follow, such as the Hindsight installer's marker.
   const body = grokGatewayBlock(gatewaiBaseUrl, credentialPath).split("\n").slice(1, -1).join("\n");
   return new RegExp(
-    `(?:^|\\n)${body.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?=\\n\\s*(?:\\[|$)|$)`,
+    `(?:^|\\n)${body.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?=\\n\\s*(?:\\[|#|$)|$)`,
     "g",
   );
 }
@@ -542,9 +543,9 @@ export async function configureGateway(
       const currentGrokConfig = existsSync(grokConfig) ? readFileSync(grokConfig, "utf8") : "";
       grokGatewaySettings(currentGrokConfig, config.gatewaiBaseUrl, credentialTarget);
       const blocks = currentGrokConfig.match(grokGatewayPattern);
-      const unmarked = currentGrokConfig.match(
-        grokUnmarkedGatewayPattern(config.gatewaiBaseUrl, credentialTarget),
-      );
+      const unmarked = currentGrokConfig
+        .replace(grokGatewayPattern, "")
+        .match(grokUnmarkedGatewayPattern(config.gatewaiBaseUrl, credentialTarget));
       if (
         !(
           (blocks?.length === 1 &&
