@@ -270,8 +270,8 @@ function grokFinding(server: McpServer, doctor: GrokDoctor | undefined, text: st
   };
 }
 
-// Grok's self-updater, npm package, and Homebrew cask all shadow the mise pin
-// that every managed host installs. Any other copy is drift.
+// Grok's self-updater, a global npm install, and the Homebrew cask all shadow
+// the mise pin that every managed host installs. Any other copy is drift.
 function grokDriftFindings(runtime: Runtime): Finding[] {
   const findings: Finding[] = [];
   const home = runtime.env.HOME;
@@ -297,7 +297,7 @@ function grokDriftFindings(runtime: Runtime): Finding[] {
       status: "failed",
       detail: `grok resolves to ${path}, not the mise pin`,
       repair:
-        "npm uninstall -g @xai-official/grok; brew uninstall --cask grok-build; mise install http:grok; mise reshim",
+        "npm uninstall -g @xai-official/grok; brew uninstall --cask grok-build; mise install npm:@xai-official/grok; mise reshim",
     });
   }
   return findings;

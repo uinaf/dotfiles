@@ -16,7 +16,9 @@ maintenance applies it without retiring logins. The existing
 [gateway command](../bootstrap/configure-llm-gateway.ts) also exposes explicit
 apply, check, retirement, and rollback operations.
 Grok maintenance replaces only the managed gateway block, preserving newer
-preferences. Rollback retains its original enrollment snapshot semantics.
+preferences. Adding or removing `grokBin` changes the client set in place, so
+Codex and Claude keep everything added since enrollment. Rollback retains its
+original enrollment snapshot semantics.
 If a native TOML rewrite drops block comments, the exact configured gateway
 sections are still recognized; conflicting values remain an error.
 

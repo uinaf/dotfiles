@@ -132,6 +132,25 @@ function captureOptionalBackup(
   return { existed, backupPath: existed ? backup : null };
 }
 
+function restoreGrok(state: ClientState, grokConfig: string, grokAuth: string): void {
+  if (state.grokConfigExisted) {
+    if (!state.grokConfigBackupPath || !existsSync(state.grokConfigBackupPath))
+      throw new Error("Grok config rollback backup is missing");
+    atomicCopy(state.grokConfigBackupPath, grokConfig, 0o600);
+  } else {
+    rmSync(grokConfig, { force: true });
+  }
+  if (state.grokAuthExisted) {
+    if (!state.grokAuthBackupPath || !existsSync(state.grokAuthBackupPath))
+      throw new Error("Grok auth rollback backup is missing");
+    atomicCopy(state.grokAuthBackupPath, grokAuth, 0o600);
+  } else {
+    rmSync(grokAuth, { force: true });
+  }
+  if (state.grokConfigBackupPath) rmSync(state.grokConfigBackupPath, { force: true });
+  if (state.grokAuthBackupPath) rmSync(state.grokAuthBackupPath, { force: true });
+}
+
 function readState(path: string): ClientState {
   const value: unknown = JSON.parse(readFileSync(path, "utf8"));
   if (!isRecord(value)) {
@@ -472,26 +491,9 @@ export async function configureGateway(
     rmSync(cursorApiCompatibilityTarget, { force: true });
     rmSync(cursorShimTarget, { force: true });
     if (state.cursorCommands.length > 0) restoreCursorCommands(state.cursorCommands);
-    if (state.grokEnabled) {
-      if (state.grokConfigExisted) {
-        if (!state.grokConfigBackupPath || !existsSync(state.grokConfigBackupPath))
-          throw new Error("Grok config rollback backup is missing");
-        atomicCopy(state.grokConfigBackupPath, grokConfig, 0o600);
-      } else {
-        rmSync(grokConfig, { force: true });
-      }
-      if (state.grokAuthExisted) {
-        if (!state.grokAuthBackupPath || !existsSync(state.grokAuthBackupPath))
-          throw new Error("Grok auth rollback backup is missing");
-        atomicCopy(state.grokAuthBackupPath, grokAuth, 0o600);
-      } else {
-        rmSync(grokAuth, { force: true });
-      }
-    }
+    if (state.grokEnabled) restoreGrok(state, grokConfig, grokAuth);
     if (state.codexBackupPath) rmSync(state.codexBackupPath, { force: true });
     if (state.claudeBackupPath) rmSync(state.claudeBackupPath, { force: true });
-    if (state.grokConfigBackupPath) rmSync(state.grokConfigBackupPath, { force: true });
-    if (state.grokAuthBackupPath) rmSync(state.grokAuthBackupPath, { force: true });
     rmSync(statePath, { force: true });
     process.stdout.write(
       state.authRetired
@@ -715,8 +717,38 @@ export async function configureGateway(
   } else {
     const state = readState(statePath);
     assertStateCursorCommands(state, stateCommandTargets(state), Boolean(config.cursorAgentBin));
-    if (state.grokEnabled !== Boolean(config.grokBin)) {
-      throw new Error("Grok enrollment changed; roll back before changing the client set");
+    // Grok joins or leaves an existing enrollment in place: a full rollback
+    // would also restore the Codex and Claude snapshots and drop everything
+    // added to them since enrollment.
+    if (!state.grokEnabled && config.grokBin) {
+      const preserved = new Set<PreservedLogin>(config.preservedLogins ?? []);
+      const grokConfigState = captureOptionalBackup(
+        grokConfig,
+        grokConfigBackupPath,
+        "Grok config",
+      );
+      const grokAuthState =
+        state.authRetired && !preserved.has("grok")
+          ? (rmSync(grokAuth, { force: true }), { existed: false, backupPath: null })
+          : captureOptionalBackup(grokAuth, grokAuthBackupPath, "Grok auth");
+      atomicWriteJson(statePath, {
+        ...state,
+        grokEnabled: true,
+        grokConfigExisted: grokConfigState.existed,
+        grokConfigBackupPath: grokConfigState.backupPath,
+        grokAuthExisted: grokAuthState.existed,
+        grokAuthBackupPath: grokAuthState.backupPath,
+      } satisfies ClientState);
+    } else if (state.grokEnabled && !config.grokBin) {
+      restoreGrok(state, grokConfig, grokAuth);
+      atomicWriteJson(statePath, {
+        ...state,
+        grokEnabled: false,
+        grokConfigExisted: false,
+        grokConfigBackupPath: null,
+        grokAuthExisted: false,
+        grokAuthBackupPath: null,
+      } satisfies ClientState);
     }
     if (state.version === 6) {
       // Remove only the launcher copy this repository installed; a vendor symlink

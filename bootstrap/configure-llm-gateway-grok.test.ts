@@ -189,3 +189,115 @@ test(
     }
   },
 );
+
+test(
+  "Grok joins and leaves an existing enrollment without restoring Codex snapshots",
+  { skip: !codexInstalled },
+  () => {
+    const root = mkdtempSync(join(tmpdir(), "dotfiles-llm-gateway-grok-join-"));
+    const home = join(root, "home");
+    const bin = join(root, "bin");
+    const codexHome = join(home, ".codex");
+    const configDir = join(home, ".config/dotfiles");
+    const gatewayConfig = join(configDir, "llm-gateway.json");
+    const claudeSettingsPath = join(home, ".claude/settings.json");
+    const grokBin = join(bin, "grok-vendor");
+    const grokConfig = join(home, ".grok/config.toml");
+    const grokLogin = join(home, ".grok/auth.json");
+    const originalGrokConfig = '[ui]\ntheme = "dark"\n';
+    const originalGrokLogin = '{"access_token":"saved-vendor-login"}\n';
+    const gateway = (grok: boolean) =>
+      `${JSON.stringify({
+        version: 3,
+        credentials: {
+          gatewai: validConfig.credentials.gatewai,
+          bifrost: validConfig.credentials.bifrost,
+        },
+        gatewaiBaseUrl: "https://gatewai.example/v1",
+        bifrostBaseUrl: "https://bifrost.example/v1",
+        ...(grok ? { grokBin } : {}),
+      })}\n`;
+
+    try {
+      for (const path of [
+        codexHome,
+        configDir,
+        bin,
+        dirname(claudeSettingsPath),
+        dirname(grokLogin),
+      ])
+        mkdirSync(path, { recursive: true });
+      writeFileSync(join(codexHome, "config.toml"), "# retained\n", { mode: 0o600 });
+      writeFileSync(claudeSettingsPath, '{"theme":"dark"}\n', { mode: 0o600 });
+      writeFileSync(grokConfig, originalGrokConfig, { mode: 0o600 });
+      writeFileSync(grokLogin, originalGrokLogin, { mode: 0o600 });
+      writeFileSync(gatewayConfig, gateway(false), { mode: 0o600 });
+      writeFileSync(
+        grokBin,
+        `#!/usr/bin/env bash
+if [ "\${1:-}" = login ]; then
+  printf '{"access_token":"gateway-token"}\\n' > "$HOME/.grok/auth.json"
+  chmod 600 "$HOME/.grok/auth.json"
+fi
+`,
+        { mode: 0o700 },
+      );
+      const env = {
+        ...process.env,
+        HOME: home,
+        CODEX_HOME: codexHome,
+        LLM_GATEWAY_CONFIG: gatewayConfig,
+        PATH: fixturePath(bin),
+      };
+      const run = (...args: string[]) => spawnSync(script, args, { encoding: "utf8", env });
+      const statePath = join(configDir, "llm-gateway-state.json");
+      const readGrokState = () =>
+        JSON.parse(readFileSync(statePath, "utf8")) as {
+          grokEnabled: boolean;
+          grokConfigBackupPath: string | null;
+          grokAuthBackupPath: string | null;
+        };
+
+      const enroll = run();
+      assert.equal(enroll.status, 0, enroll.stderr);
+      assert.equal(readGrokState().grokEnabled, false);
+      // Something added to Codex after enrollment must survive a client-set change.
+      const codexConfigPath = join(codexHome, "config.toml");
+      writeFileSync(
+        codexConfigPath,
+        `${readFileSync(codexConfigPath, "utf8")}\n[marketplaces.later]\nsource_type = "git"\n`,
+      );
+
+      writeFileSync(gatewayConfig, gateway(true), { mode: 0o600 });
+      const join_ = run();
+      assert.equal(join_.status, 0, join_.stderr);
+      assert.match(join_.stdout, /canonical Grok gateway routing/);
+      assert.match(readFileSync(codexConfigPath, "utf8"), /\[marketplaces\.later\]/);
+      assert.match(readFileSync(grokConfig, "utf8"), /default = "grok-4\.6"/);
+      assert.equal(readFileSync(`${grokConfig}.llm-gateway.backup`, "utf8"), originalGrokConfig);
+      assert.equal(readFileSync(`${grokLogin}.llm-gateway.backup`, "utf8"), originalGrokLogin);
+      assert.equal(readGrokState().grokEnabled, true);
+      const check = run("--check");
+      assert.equal(check.status, 0, check.stderr);
+      assert.match(check.stdout, /Grok=true/);
+
+      writeFileSync(gatewayConfig, gateway(false), { mode: 0o600 });
+      const leave = run();
+      assert.equal(leave.status, 0, leave.stderr);
+      assert.match(readFileSync(codexConfigPath, "utf8"), /\[marketplaces\.later\]/);
+      assert.equal(readFileSync(grokConfig, "utf8"), originalGrokConfig);
+      assert.equal(readFileSync(grokLogin, "utf8"), originalGrokLogin);
+      assert.equal(existsSync(`${grokConfig}.llm-gateway.backup`), false);
+      assert.equal(existsSync(`${grokLogin}.llm-gateway.backup`), false);
+      assert.deepEqual(readGrokState(), {
+        ...readGrokState(),
+        grokEnabled: false,
+        grokConfigBackupPath: null,
+        grokAuthBackupPath: null,
+      });
+      assert.equal(run("--check").status, 0);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  },
+);
