@@ -9,6 +9,11 @@ import { CommandRunner } from "../../lib/command.ts";
 import { fail, runMain } from "../../lib/program.ts";
 
 const decodeObject = Schema.decodeUnknownEffect(Schema.Record(Schema.String, Schema.Unknown));
+const decodeStrings = Schema.decodeUnknownEffect(Schema.Array(Schema.String));
+
+// Helium's canvas and audio noise trip Stytch device-fingerprint verdicts, which
+// breaks magic-link sign-in; "@2" is Chromium's disabled state for a flag entry.
+export const disabledFlags = ["helium-noise-canvas@2", "helium-noise-audio@2"];
 
 export const configureHelium = Effect.fn("configureHelium")(function* (
   root: string,
@@ -20,7 +25,7 @@ export const configureHelium = Effect.fn("configureHelium")(function* (
   const running = yield* runner.run("pgrep", ["-u", String(process.getuid()), "-x", "Helium"]);
   if (running.status === 0) {
     const message =
-      "Quit Helium and rerun bootstrap/darwin/configure-helium.ts to apply vertical tabs.";
+      "Quit Helium and rerun bootstrap/darwin/configure-helium.ts to apply vertical tabs and flags.";
     if (!skipRunning) return yield* fail(message);
     yield* Console.log(`Deferred Helium preferences: ${message}`);
     return;
@@ -60,13 +65,40 @@ export const configureHelium = Effect.fn("configureHelium")(function* (
     updates.push({ path, contents, mode });
   }
 
+  const statePath = join(root, "Local State");
+  const stateExists = yield* fs.exists(statePath);
+  const stateSource = stateExists ? yield* fs.readFileString(statePath) : "{}";
+  const stateParsed = yield* Effect.try({
+    try: (): unknown => JSON.parse(stateSource),
+    catch: () => new Error(`Invalid JSON in ${statePath}`),
+  });
+  const state = yield* decodeObject(stateParsed);
+  const stateBrowser = yield* decodeObject(state.browser === undefined ? {} : state.browser);
+  const flags = yield* decodeStrings(
+    stateBrowser.enabled_labs_experiments === undefined
+      ? []
+      : stateBrowser.enabled_labs_experiments,
+  );
+  const flagNames = new Set(disabledFlags.map((flag) => flag.split("@")[0]));
+  const missing = disabledFlags.filter((flag) => !flags.includes(flag));
+  if (missing.length > 0) {
+    // Drop any other state of the same flag so the disabled entry wins.
+    const kept = flags.filter((flag) => !flagNames.has(flag.split("@")[0] ?? flag));
+    const contents = JSON.stringify({
+      ...state,
+      browser: { ...stateBrowser, enabled_labs_experiments: [...kept, ...disabledFlags] },
+    });
+    const mode = stateExists ? (yield* fs.stat(statePath)).mode & 0o777 : 0o600;
+    updates.push({ path: statePath, contents, mode });
+  }
+
   for (const { path, contents, mode } of updates) {
     const directory = dirname(path);
     yield* fs.makeDirectory(directory, { recursive: true });
     yield* Effect.scoped(
       Effect.gen(function* () {
         const temporary = yield* fs.makeTempDirectoryScoped({ directory, prefix: ".helium." });
-        const staged = join(temporary, "Preferences");
+        const staged = join(temporary, "staged");
         yield* fs.writeFileString(staged, `${contents}\n`, { mode });
         yield* fs.chmod(staged, mode);
         yield* fs.rename(staged, path);
@@ -74,7 +106,7 @@ export const configureHelium = Effect.fn("configureHelium")(function* (
     );
   }
   yield* Console.log(
-    `Helium vertical tabs: ${updates.length} updated, ${profiles.length} profiles checked.`,
+    `Helium: ${updates.length} files updated, ${profiles.length} profiles checked, ${missing.length} flags pinned.`,
   );
 });
 

@@ -511,7 +511,7 @@
         "test",
         "bootstrap/darwin/configure-helium.test.ts"
       ],
-      "output": "Helium all-profile vertical tabs, preservation, fresh profile, running-browser deferral, and malformed data"
+      "output": "Helium all-profile vertical tabs, disabled noise flags, preservation, fresh profile, running-browser deferral, and malformed data"
     },
     {
       "id": "linux-maintenance-schedule",

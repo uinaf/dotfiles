@@ -156,6 +156,10 @@ the result, even with this flag set.
   receive the setting on the next setup or maintenance run with Helium closed.
   Other preferences, including the sidebar side, stay unchanged. The setting uses
   [Helium's profile layout preference](https://github.com/imputnet/helium/blob/main/patches/helium/ui/layout/core.patch).
+  The same step disables the `helium-noise-canvas` and `helium-noise-audio`
+  flags in `Local State`. Together they make Stytch device fingerprinting
+  return a block verdict, which sends magic-link sign-ins to
+  `stytch.com/redirect-error`; each flag alone is not enough. Other flags stay.
 - For simulators, SDKs, and signing certificates, follow
   [Mobile and TV development](mobile-and-tv-development.md).
 
