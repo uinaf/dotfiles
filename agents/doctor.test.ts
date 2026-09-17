@@ -181,7 +181,6 @@ test("names the login command for each expired harness and exits 1", () => {
 
 test("flags Grok config parse errors and installation drift", () => {
   const { repoDir, home } = createFixture();
-  mkdirSync(join(home, ".grok", "bin"), { recursive: true });
   const replies = new Map(healthy);
   replies.set("grok mcp doctor --json", {
     stdout: "",
@@ -195,7 +194,6 @@ test("flags Grok config parse errors and installation drift", () => {
     runtime.stdout.value,
     /FAIL {2}Grok: shared-mcp - ~\/\.grok\/config\.toml does not parse: TOML parse error/,
   );
-  assert.match(runtime.stdout.value, /FAIL {2}Grok: install - ~\/\.grok\/bin exists/);
   assert.match(
     runtime.stdout.value,
     /FAIL {2}Grok: install - grok resolves to \/opt\/homebrew\/bin\/grok, not the mise pin/,

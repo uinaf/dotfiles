@@ -270,20 +270,12 @@ function grokFinding(server: McpServer, doctor: GrokDoctor | undefined, text: st
   };
 }
 
-// Grok's self-updater, a global npm install, and the Homebrew cask all shadow
-// the mise pin that every managed host installs. Any other copy is drift.
+// A global npm install or the Homebrew cask shadows the mise pin that every
+// managed host installs. The pin's npm postinstall stages the versioned binary
+// under ~/.grok/bin itself, so that directory is part of the managed layout.
 function grokDriftFindings(runtime: Runtime): Finding[] {
   const findings: Finding[] = [];
   const home = runtime.env.HOME;
-  if (home !== undefined && existsSync(join(home, ".grok", "bin"))) {
-    findings.push({
-      harness: "grok",
-      server: "install",
-      status: "failed",
-      detail: "~/.grok/bin exists (self-updater copy shadows the mise pin)",
-      repair: "rm -rf ~/.grok/bin",
-    });
-  }
   const which = capture(runtime, "sh", ["-c", "command -v grok"]);
   const path = which.stdout.trim();
   if (
