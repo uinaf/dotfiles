@@ -29,6 +29,10 @@ brew "watchman"
 # Platform development
 cask "android-commandlinetools"
 
+# Agent tools. Grok ships raw binaries; the cask keeps it under the root-controlled
+# prefix that the agent doctor expects. Linux pins it in linux/mise.toml.
+cask "grok-build"
+
 # Download and media helpers
 brew "aria2"
 brew "ffmpeg"

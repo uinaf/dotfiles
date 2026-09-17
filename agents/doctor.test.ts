@@ -21,6 +21,7 @@ type Reply = { status?: number; stdout?: string; stderr?: string };
 
 class FixtureRuntime implements Runtime {
   readonly env: NodeJS.ProcessEnv;
+  platform: NodeJS.Platform = "darwin";
   readonly stdout = new BufferWriter();
   readonly stderr = new BufferWriter();
   readonly installedCommands = new Set([
@@ -195,6 +196,26 @@ test("flags Grok config parse errors and installation drift", () => {
     /FAIL {2}Grok: install - grok resolves to \/h\/\.local\/share\/mise\/shims\/grok/,
   );
   assert.match(runtime.stdout.value, /repair: npm uninstall -g @xai-official\/grok/);
+});
+
+test("accepts the mise pin as Grok's managed install on Linux", () => {
+  const { repoDir, home } = createFixture();
+  const replies = new Map(healthy);
+  replies.set("sh -c command -v grok", { stdout: `${home}/.local/share/mise/shims/grok\n` });
+  const runtime = new FixtureRuntime(repoDir, home, replies);
+  runtime.platform = "linux";
+  assert.equal(main([], runtime), 0);
+  assert.doesNotMatch(runtime.stdout.value, /Grok: install/);
+
+  replies.set("sh -c command -v grok", { stdout: "/opt/homebrew/bin/grok\n" });
+  const homebrew = new FixtureRuntime(repoDir, home, replies);
+  homebrew.platform = "linux";
+  assert.equal(main([], homebrew), 1);
+  assert.match(homebrew.stdout.value, /not the mise pin/);
+  assert.match(
+    homebrew.stdout.value,
+    /repair: npm uninstall -g @xai-official\/grok; mise install http:grok/,
+  );
 });
 
 test("skips harnesses that are not installed", () => {

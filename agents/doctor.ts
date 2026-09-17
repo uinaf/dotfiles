@@ -270,34 +270,40 @@ function grokFinding(server: McpServer, doctor: GrokDoctor | undefined, text: st
   };
 }
 
-// Grok's self-updater and npm package both shadow the Homebrew cask. Every
-// managed host installs the cask, so any other copy is drift.
+// Grok's self-updater and npm package both shadow the managed install: the
+// Homebrew cask on macOS, the mise http pin on Linux. Any other copy is drift.
 function grokDriftFindings(runtime: Runtime): Finding[] {
   const findings: Finding[] = [];
   const home = runtime.env.HOME;
+  const linux = runtime.platform === "linux";
+  const managed = linux ? "mise pin" : "Homebrew cask";
   if (home !== undefined && existsSync(join(home, ".grok", "bin"))) {
     findings.push({
       harness: "grok",
       server: "install",
       status: "failed",
-      detail: "~/.grok/bin exists (self-updater copy shadows the Homebrew cask)",
+      detail: `~/.grok/bin exists (self-updater copy shadows the ${managed})`,
       repair: "rm -rf ~/.grok/bin",
     });
   }
   const which = capture(runtime, "sh", ["-c", "command -v grok"]);
   const path = which.stdout.trim();
+  const managedPrefixes = linux
+    ? [`${home ?? ""}/.local/share/mise/`]
+    : ["/opt/homebrew/bin/", "/usr/local/bin/"];
   if (
     which.status === 0 &&
     path.length > 0 &&
-    !path.startsWith("/opt/homebrew/bin/") &&
-    !path.startsWith("/usr/local/bin/")
+    !managedPrefixes.some((prefix) => path.startsWith(prefix))
   ) {
     findings.push({
       harness: "grok",
       server: "install",
       status: "failed",
-      detail: `grok resolves to ${path}, not the Homebrew cask`,
-      repair: "npm uninstall -g @xai-official/grok; mise reshim; brew install --cask grok-build",
+      detail: `grok resolves to ${path}, not the ${managed}`,
+      repair: linux
+        ? "npm uninstall -g @xai-official/grok; mise install http:grok; mise reshim"
+        : "npm uninstall -g @xai-official/grok; mise reshim; brew install --cask grok-build",
     });
   }
   return findings;

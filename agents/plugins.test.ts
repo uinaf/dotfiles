@@ -57,6 +57,7 @@ class BufferWriter {
 
 class FixtureRuntime implements Runtime {
   readonly env: NodeJS.ProcessEnv;
+  readonly platform: NodeJS.Platform = "darwin";
   readonly stdout = new BufferWriter();
   readonly stderr = new BufferWriter();
   readonly calls: CommandCall[] = [];

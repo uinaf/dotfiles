@@ -21,6 +21,7 @@ export type Writer = {
 
 export type Runtime = {
   env: NodeJS.ProcessEnv;
+  platform: NodeJS.Platform;
   repoDir?: string;
   stdout: Writer;
   stderr: Writer;
@@ -53,6 +54,7 @@ function executableNames(command: string, env: NodeJS.ProcessEnv): string[] {
 export function createRuntime(env: NodeJS.ProcessEnv = process.env): Runtime {
   return {
     env,
+    platform: process.platform,
     stdout: process.stdout,
     stderr: process.stderr,
     commandExists(command) {

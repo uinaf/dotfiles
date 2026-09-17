@@ -18,7 +18,6 @@ cask "telegram"
 cask "zoom"
 
 # Agent tools
-cask "grok-build"
 cask "uinaf/tap/slopwake"
 
 # Cloud tooling

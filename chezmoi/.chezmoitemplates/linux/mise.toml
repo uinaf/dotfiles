@@ -5,3 +5,7 @@
 # btop has no macOS release asset; Homebrew supplies it there.
 btop = "1.4.7"
 "github:uinaf/ffss" = { version = "2.2.1", version_prefix = "slopguard/v", matching_regex = "^slopguard_v.*_linux_(amd64|arm64)\\.tar\\.gz$" }
+# Grok Build publishes raw binaries at x.ai without a release feed Renovate can
+# read; bump the version in all three places by hand. The URLs stay literal
+# because chezmoi renders this file. macOS installs the Homebrew cask instead.
+"http:grok" = { version = "1.0.34", bin = "grok", platforms = { linux-x64 = { url = "https://x.ai/cli/grok-1.0.34-linux-x86_64" }, linux-arm64 = { url = "https://x.ai/cli/grok-1.0.34-linux-aarch64" } } }
