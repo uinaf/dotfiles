@@ -134,6 +134,7 @@
           "trust-agent-worktrees",
           "install-gh-extensions",
           "configure-codex",
+          "configure-llm-gateway",
           "sync-agents",
           "install-t3-service"
         ],

@@ -7,7 +7,7 @@ Profiles configure one Unix user; host permissions provide isolation.
 | Profile                | Role                                                        |
 | ---------------------- | ----------------------------------------------------------- |
 | `developer`            | Default: runtimes and coding agents for any Unix user       |
-| `devbox`               | Human-operated SSH coding host                              |
+| `devbox`               | Human-operated SSH coding host with gateway routing         |
 | `workstation`          | Human laptop or desktop                                     |
 | `personal-devbox`      | Single-owner devbox with personal tools and gateway routing |
 | `personal-workstation` | Workstation with personal apps and gateway routing          |
