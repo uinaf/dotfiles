@@ -71,7 +71,7 @@ jobs:
           # token stays on this step only.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # renovate: datasource=github-releases depName=jdx/mise
-          MISE_VERSION: "v2026.9.3"
+          MISE_VERSION: "v2026.9.4"
         run: |
           set -euo pipefail
           # Not ~/.local/bin: converge.ts fronts that directory, and its tests
