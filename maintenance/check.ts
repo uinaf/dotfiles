@@ -49,6 +49,12 @@ type BrewItem = {
 type BrewBacklog = {
   formulae: BrewItem[];
   casks: BrewItem[];
+  record_lag?: BrewItem[];
+  cask_verification?: Array<{
+    name: string;
+    status: "record_lag" | "pending" | "unknown";
+    app_version?: string;
+  }>;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -106,6 +112,37 @@ export function parseBrewBacklog(contents: string): BrewBacklog {
   };
 }
 
+const CaskInventory = Schema.Struct({
+  casks: Schema.Array(
+    Schema.Struct({
+      token: Schema.String,
+      full_token: Schema.optionalKey(Schema.String),
+      bundle_short_version: Schema.optionalKey(Schema.NullOr(Schema.String)),
+      bundle_version: Schema.optionalKey(Schema.NullOr(Schema.String)),
+    }),
+  ),
+});
+
+function reconcileCaskVersions(backlog: BrewBacklog, inventory: unknown): BrewBacklog {
+  const apps = Schema.is(CaskInventory)(inventory) ? inventory.casks : [];
+  const record_lag: BrewItem[] = [];
+  const casks: BrewItem[] = [];
+  const cask_verification = backlog.casks.map((item) => {
+    const app = apps.find((entry) => entry.token === item.name || entry.full_token === item.name);
+    const short = app?.bundle_short_version;
+    const build = app?.bundle_version;
+    const app_version =
+      short && build && item.current_version.includes(",")
+        ? `${short},${build}`
+        : short || build || undefined;
+    const status =
+      app_version === item.current_version ? "record_lag" : app_version ? "pending" : "unknown";
+    (status === "record_lag" ? record_lag : casks).push(item);
+    return { name: item.name, status, ...(app_version ? { app_version } : {}) } as const;
+  });
+  return { ...backlog, casks, record_lag, cask_verification };
+}
+
 function firstLine(result: RawCommandResult): string {
   return (
     `${result.stdout}\n${result.stderr}`
@@ -158,7 +195,8 @@ function summaryLine(result: RawCommandResult) {
   };
 }
 
-function agentProbes(profile: ProfileConfig): Probe[] {
+function agentProbes(context: MaintenanceContext): Probe[] {
+  const profile = context.profileConfig;
   const versions: Array<[string, string, string[]]> = [
     ["node", "node", ["--version"]],
     ["npm", "npm", ["--version"]],
@@ -170,7 +208,18 @@ function agentProbes(profile: ProfileConfig): Probe[] {
   if (profile.capabilities.personal) versions.push(["pi", "pi", ["--version"]]);
   if (profile.capabilities.personal && profile.capabilities.workstation)
     versions.push(["grok", "grok", ["--version"]]);
-  return versions.map(([id, command, args]) => probe(`version_${id}`, command, args, firstLine));
+  const env = {
+    PATH: [
+      join(context.home, ".local/bin"),
+      join(context.home, ".local/share/mise/shims"),
+      context.env.PATH,
+    ]
+      .filter(Boolean)
+      .join(":"),
+  };
+  return versions.map(([id, command, args]) =>
+    probe(`version_${id}`, command, args, firstLine, { env }),
+  );
 }
 
 function checkoutPath(context: MaintenanceContext): string | undefined {
@@ -216,7 +265,7 @@ function buildProbes(context: MaintenanceContext): Probe[] {
       (result) => parseNpmBacklog(result.stdout),
       { allowedStatuses: [0, 1] },
     ),
-    ...agentProbes(context.profileConfig),
+    ...agentProbes(context),
   ];
 
   if (hostOwner) {
@@ -318,6 +367,25 @@ async function runBrewBacklogProbe(
     context,
     runner,
   );
+  if (backlog.status === "ok" && context.platform === "darwin") {
+    const value = parseBrewBacklog(JSON.stringify(backlog.value));
+    if (value.casks.length > 0) {
+      const inventory = await runProbe(
+        probe(
+          "brew_cask_apps",
+          "brew",
+          ["info", "--json=v2", "--cask", ...value.casks.map((item) => item.name)],
+          (result) => Schema.decodeUnknownSync(CaskInventory)(JSON.parse(result.stdout)),
+        ),
+        context,
+        runner,
+      );
+      backlog.value = reconcileCaskVersions(
+        value,
+        inventory.status === "ok" ? inventory.value : undefined,
+      );
+    }
+  }
   return { ...backlog, duration_ms: Math.round(performance.now() - started) };
 }
 

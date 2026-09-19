@@ -441,3 +441,53 @@ test("rendered profiles keep updater scope, scheduling, and paths valid", async 
     await rm(root, { recursive: true, force: true });
   }
 });
+
+for (const loaded of [true, false]) {
+  test(`status inspects a namespaced system updater and ${loaded ? "compares its plist" : "fails when neither domain is loaded"}`, async (t) => {
+    const uid = process.getuid?.();
+    assert.ok(uid);
+    const home = await mkdtemp(join(tmpdir(), "dotfiles-system-status-"));
+    t.onTestFinished(() => rm(home, { recursive: true, force: true }));
+    await mkdir(join(home, ".config/dotfiles"), { recursive: true });
+    await writeFile(join(home, ".config/dotfiles/launchd-namespace"), "example.host\n", {
+      mode: 0o600,
+    });
+    const service = "system/example.host.software-update.fixture";
+    const plist = "/Library/LaunchDaemons/example.host.software-update.fixture.plist";
+    const calls: string[][] = [];
+    const runner = CommandRunner.of({
+      run: (command, args = []) => {
+        calls.push([command, ...args]);
+        if (command === "id") return Effect.succeed({ status: 0, stdout: "fixture\n", stderr: "" });
+        if (command === "plutil")
+          return Effect.succeed({ status: 0, stdout: JSON.stringify(fixturePlist), stderr: "" });
+        return Effect.succeed({
+          status: loaded && args[1] === service ? 0 : 113,
+          stdout: launchdPrintFixture,
+          stderr: "",
+        });
+      },
+    });
+    const operation = Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      return yield* manageSchedule("status", home, uid).pipe(
+        Effect.provideService(FileSystem.FileSystem, {
+          ...fs,
+          exists: (path) => (path === plist ? Effect.succeed(true) : fs.exists(path)),
+        }),
+      );
+    }).pipe(Effect.provideService(CommandRunner, runner), Effect.provide(NodeServices.layer));
+    if (loaded) await Effect.runPromise(operation);
+    else
+      assert.match(
+        String(await Effect.runPromise(operation.pipe(Effect.flip))),
+        /not loaded in the GUI or system domain/,
+      );
+    assert.deepEqual(calls, [
+      ["launchctl", "print", `gui/${uid}/${updateLabel}`],
+      ["id", "-un", String(uid)],
+      ["launchctl", "print", service],
+      ...(loaded ? [["plutil", "-convert", "json", "-o", "-", plist]] : []),
+    ]);
+  });
+}

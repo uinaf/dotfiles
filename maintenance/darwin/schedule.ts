@@ -131,14 +131,27 @@ export const manageSchedule = Effect.fn("manageSoftwareUpdateSchedule")(function
   if (!home || !home.startsWith("/") || uid <= 0)
     return yield* fail("a non-root macOS user home is required");
   const domain = `gui/${uid}`;
-  const service = `${domain}/${updateLabel}`;
-  const plist = join(home, `Library/LaunchAgents/${updateLabel}.plist`);
+  let service = `${domain}/${updateLabel}`;
+  let plist = join(home, `Library/LaunchAgents/${updateLabel}.plist`);
   const logs = join(home, "Library/Logs/dotfiles");
   const log = join(logs, "software-update.log");
   const runner = yield* CommandRunner;
-  const current = yield* runner.run("launchctl", ["print", service]);
+  let current = yield* runner.run("launchctl", ["print", service]);
 
   if (action === "status") {
+    if (current.status !== 0) {
+      const user = (yield* runChecked("id", ["-un", String(uid)])).stdout.trim();
+      const namespace = yield* resolveLaunchdNamespaceContract(
+        "",
+        join(home, ".config/dotfiles/launchd-namespace"),
+        uid,
+      );
+      const label = launchdLabel("software-update", user, namespace);
+      service = `system/${label}`;
+      plist = `/Library/LaunchDaemons/${label}.plist`;
+      current = yield* runner.run("launchctl", ["print", service]);
+    }
+    yield* Console.log(`Scheduler: ${service}`);
     yield* Console.log(`Log: ${log}`);
     const fs = yield* FileSystem.FileSystem;
     const receiptPath = join(home, ".local/state/dotfiles/updates/software-update.json");
@@ -147,7 +160,7 @@ export const manageSchedule = Effect.fn("manageSoftwareUpdateSchedule")(function
       : undefined;
     if (receipt !== undefined) yield* Console.log(receipt);
     if (current.status !== 0)
-      return yield* fail("software maintenance is not loaded in this GUI session");
+      return yield* fail("software maintenance is not loaded in the GUI or system domain");
     yield* Console.log(current.stdout);
     const warning = receiptWarning(receipt, Date.now());
     if (warning) yield* Console.log(`WARNING: ${warning}`);
@@ -167,7 +180,9 @@ export const manageSchedule = Effect.fn("manageSoftwareUpdateSchedule")(function
       } else if (comparison.drift.length > 0) {
         for (const entry of comparison.drift) yield* Console.log(`WARNING: ${entry}`);
         yield* Console.log(
-          "Reload required: wait for the job to be idle, then run mise run maintenance:disable and mise run maintenance:enable.",
+          service.startsWith("system/")
+            ? "Reload required: wait for the job to be idle, then have an administrator re-enroll the system updater."
+            : "Reload required: wait for the job to be idle, then run mise run maintenance:disable and mise run maintenance:enable.",
         );
       } else {
         yield* Console.log(

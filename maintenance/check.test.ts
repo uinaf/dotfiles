@@ -473,3 +473,106 @@ test("npm inventory distinguishes outdated packages from error envelopes", async
     }
   }
 });
+
+test("SSH agent probes preserve the installed gateway wrapper outside the inherited PATH", async (t) => {
+  const home = await mkdtemp(join(tmpdir(), "dotfiles-ssh-probe-"));
+  t.onTestFinished(() => rm(home, { recursive: true, force: true }));
+  await mkdir(join(home, ".local/bin"), { recursive: true });
+  await writeFile(
+    join(home, ".local/bin/cursor-agent"),
+    "#!/bin/sh\necho gateway-wrapper-version\n",
+    { mode: 0o700 },
+  );
+  const { runProcess } = await import("./probes.ts");
+  const snapshot = await collectMaintenanceSnapshot(
+    {
+      ...context(),
+      home,
+      cwd: home,
+      env: { PATH: "/usr/bin:/bin" },
+      profileConfig: { ...profileConfig, agentLayers: [] },
+    },
+    (command, args, options) =>
+      command === "cursor-agent"
+        ? runProcess(command, args, options)
+        : Promise.resolve(result("{}")),
+  );
+  assert.equal(snapshot.probes.version_cursor_agent.status, "ok");
+  assert.equal(snapshot.probes.version_cursor_agent.value, "gateway-wrapper-version");
+  await rm(join(home, ".local/bin/cursor-agent"));
+  const missing = await collectMaintenanceSnapshot(
+    {
+      ...context(),
+      home,
+      cwd: home,
+      env: { PATH: "/usr/bin:/bin" },
+      profileConfig: { ...profileConfig, agentLayers: [] },
+    },
+    (command, args, options) =>
+      command === "cursor-agent"
+        ? runProcess(command, args, options)
+        : Promise.resolve(result("{}")),
+  );
+  assert.equal(missing.probes.version_cursor_agent.status, "unavailable");
+});
+
+for (const inventoryAvailable of [true, false]) {
+  test(`cask backlog retains unverified versions when inventory is ${inventoryAvailable ? "available" : "failed"}`, async () => {
+    const casks = ["current", "outdated", "unknown", "compound"].map((name) => ({
+      name,
+      installed_versions: ["1.0"],
+      current_version: name === "compound" ? "2.0,20" : "2.0",
+    }));
+    const snapshot = await collectMaintenanceSnapshot(
+      {
+        ...context(),
+        platform: "darwin",
+        ownsHomebrew: true,
+        profileConfig: { ...profileConfig, agentLayers: [] },
+      },
+      async (command, args) => {
+        if (command === "brew" && args[0] === "outdated")
+          return result(JSON.stringify({ formulae: [], casks }));
+        if (command === "brew" && args[0] === "info")
+          return inventoryAvailable
+            ? result(
+                JSON.stringify({
+                  casks: [
+                    { token: "current", bundle_short_version: "2.0", bundle_version: "20" },
+                    { token: "outdated", bundle_short_version: "1.5", bundle_version: "15" },
+                    {
+                      token: "unknown",
+                      bundle_short_version: null,
+                      bundle_version: null,
+                      auto_updates: true,
+                    },
+                    { token: "compound", bundle_short_version: "2.0", bundle_version: "20" },
+                  ],
+                }),
+              )
+            : result("", 1);
+        return result("{}");
+      },
+    );
+    const backlog = snapshot.probes.brew_outdated_greedy.value as {
+      casks: { name: string }[];
+      record_lag: { name: string }[];
+      cask_verification: { status: string }[];
+    };
+    assert.deepEqual(
+      backlog.record_lag.map((item) => item.name),
+      inventoryAvailable ? ["current", "compound"] : [],
+    );
+    assert.deepEqual(
+      backlog.casks.map((item) => item.name),
+      inventoryAvailable ? ["outdated", "unknown"] : casks.map((item) => item.name),
+    );
+    assert.deepEqual(
+      backlog.cask_verification.map((item) => item.status),
+      inventoryAvailable
+        ? ["record_lag", "pending", "unknown", "record_lag"]
+        : ["unknown", "unknown", "unknown", "unknown"],
+    );
+    assert.equal(snapshot.summary.backlog_count, inventoryAvailable ? 2 : 4);
+  });
+}

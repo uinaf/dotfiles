@@ -115,7 +115,10 @@ logs live under `~/.local/state/dotfiles/logs/`.
 - Private receipts live at `~/.local/state/dotfiles/updates/<job>.json`.
   Compare `running` receipts with the scheduler; they do not prove process
   liveness.
-- On macOS, `maintenance:status` warns about plist drift and stale receipts.
+- On macOS, `maintenance:status` inspects the GUI updater or, when absent, the
+  system updater under the stored host namespace. It reports the selected domain
+  and compares that job’s plist and the user’s receipt without changing enrollment.
+  It warns about plist drift and stale receipts.
   Notifications alone cannot detect a scheduler that never starts.
 
 For always-on hosts, provision an owner-only regular file at
@@ -276,6 +279,15 @@ their own recovery procedure.
   cached applicability, live-scan decisions, and incomplete/timed-out probes.
   On Linux it has no Homebrew or OS probes; the mise, npm, and coding-agent
   inventories remain.
+- Coding-agent version probes include the user's managed `~/.local/bin` wrappers
+  and mise shims even in noninteractive SSH sessions. Gateway wrappers remain
+  the executable boundary.
+- Homebrew cask receipts are compared with installed bundle versions from
+  `brew info --json=v2`. Exact target matches appear under `record_lag` and do
+  not count toward the backlog. Mismatches remain pending; missing app versions
+  or failed inspection remain `unknown` and count toward the backlog. This
+  includes package-based casks without a readable app bundle. Self-update
+  metadata alone never establishes currentness.
 - [macOS inventory policy](../maintenance/darwin/macos-updates.ts) owns
   cache freshness and live-scan decisions. Stale/unavailable sources remain
   visible; cached applicability is never presented as live. Force a scan with
