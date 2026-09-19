@@ -11,8 +11,8 @@
     "typecheck": "vp check --no-fmt --no-lint"
   },
   "dependencies": {
-    "@effect/platform-node": "4.0.0-rc.112",
-    "effect": "4.0.0-rc.112"
+    "@effect/platform-node": "4.0.0-rc.115",
+    "effect": "4.0.0-rc.115"
   },
   "devDependencies": {
     "@types/node": "24.13.4",
