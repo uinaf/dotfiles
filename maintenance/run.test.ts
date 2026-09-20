@@ -6,8 +6,8 @@ import { test } from "vite-plus/test";
 import { closeSync, lstatSync, openSync, readFileSync, writeSync } from "node:fs";
 import { NodeServices } from "@effect/platform-node";
 import { Effect, Exit } from "effect";
-import { CommandError, CommandRunner } from "../lib/command.ts";
-import { BoundedCommand } from "./bounded-command.ts";
+import { CommandRunner } from "../lib/command.ts";
+import { BoundedCommand, BoundedCommandError } from "./bounded-command.ts";
 import { runUpdate } from "./run.ts";
 import { dailyLog, logDirectory, rotateUpdateLog } from "./logs.ts";
 
@@ -41,7 +41,12 @@ for (const scenario of [
       run: () => {
         executions++;
         return scenario === "spawn"
-          ? Effect.fail(new CommandError({ command: "missing", message: "secret diagnostic" }))
+          ? Effect.fail(
+              new BoundedCommandError({
+                cause: new Error("secret diagnostic"),
+                cleanupComplete: true,
+              }),
+            )
           : Effect.succeed({
               status: expected,
               timedOut: scenario === "timeout",
@@ -434,4 +439,50 @@ test("interrupted failure delivery retains the cleanup gate", async (t) => {
   );
   assert.equal(result, 125);
   assert.equal(executions, 1);
+});
+
+test("an unwritable initial receipt prevents launch and recovers after storage is repaired", async (t) => {
+  const home = await mkdtemp(join(tmpdir(), "dotfiles-update-storage-"));
+  t.onTestFinished(() => rm(home, { recursive: true, force: true }));
+  const directory = join(home, ".local/state/dotfiles/updates");
+  const obstruction = join(directory, `software-update.json.${process.pid}.tmp`);
+  await mkdir(obstruction, { recursive: true });
+  let executions = 0;
+  const runner = BoundedCommand.of({
+    run: () => {
+      executions++;
+      return Effect.succeed({ status: 0, timedOut: false, cleanupComplete: true });
+    },
+  });
+  const execute = () =>
+    Effect.runPromise(
+      runUpdate("software-update", home, "fixture", []).pipe(
+        Effect.provideService(BoundedCommand, runner),
+        Effect.provide(NodeServices.layer),
+      ),
+    );
+  assert.equal(await execute(), 125);
+  assert.equal(executions, 0);
+  await rm(obstruction, { recursive: true });
+  assert.equal(await execute(), 0);
+  assert.equal(executions, 1);
+});
+
+test("a pre-spawn failure remains retryable without removing the receipt", async (t) => {
+  const home = await mkdtemp(join(tmpdir(), "dotfiles-update-spawn-"));
+  t.onTestFinished(() => rm(home, { recursive: true, force: true }));
+  const execute = (command: string, args: string[]) =>
+    Effect.runPromise(
+      runUpdate("software-update", home, command, args).pipe(
+        Effect.provide(BoundedCommand.layer),
+        Effect.provide(CommandRunner.layer),
+        Effect.provide(NodeServices.layer),
+      ),
+    );
+  assert.equal(await execute(join(home, "missing-executable"), []), 127);
+  const receipt = JSON.parse(
+    await readFile(join(home, ".local/state/dotfiles/updates/software-update.json"), "utf8"),
+  );
+  assert.equal(receipt.cleanupComplete, undefined);
+  assert.equal(await execute(process.execPath, ["-e", "process.exit(0)"]), 0);
 });

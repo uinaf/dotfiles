@@ -31,8 +31,8 @@ and [Linux timer](../chezmoi/private_dot_config/systemd/user/dotfiles-software-u
   update steps; the host owns Linux packages.
 - Requests acknowledge launch, not completion. Check status and the log summary.
   Updates have a one-hour execution limit. A timeout captures diagnostics,
-  stops the observed update processes, and reports exit code `124` and a failed
-  heartbeat. The next scheduled run can proceed after cleanup succeeds.
+  stops the observed update processes, reports exit code `124`, and sends a
+  failure heartbeat. The next scheduled run can proceed after cleanup succeeds.
 - `maintenance:update` preserves an active run. Separate `topgrade` or `brew`
   processes can overlap it; check for idle before interactive work.
 - No sudo credentials or interactive input are supplied. Privileged installers
@@ -116,7 +116,8 @@ logs live under `~/.local/state/dotfiles/logs/`.
   History counts are retained totals, not lifetime totals.
 - Private receipts live at `~/.local/state/dotfiles/updates/<job>.json`.
   Compare `running` receipts with the scheduler; they do not prove process
-  liveness.
+  liveness. An update starts only after its initial receipt is saved. History
+  logging remains best-effort; missing executables remain retryable after repair.
 - The latest timeout report lives at
   `~/.local/state/dotfiles/updates/diagnostics/software-update-timeout.json`.
   It is owner-only, survives reboot, and is replaced on the next timeout.

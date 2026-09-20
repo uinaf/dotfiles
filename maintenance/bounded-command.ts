@@ -12,7 +12,15 @@ import {
   unlinkSync,
 } from "node:fs";
 import { join } from "node:path";
-import { CommandError, CommandRunner } from "../lib/command.ts";
+import { CommandRunner } from "../lib/command.ts";
+
+export class BoundedCommandError extends Schema.TaggedError<BoundedCommandError>()(
+  "BoundedCommandError",
+  {
+    cause: Schema.Defect(),
+    cleanupComplete: Schema.Boolean,
+  },
+) {}
 
 export type BoundedCommandOptions = {
   readonly diagnosticDirectory: string;
@@ -66,7 +74,7 @@ export class BoundedCommand extends Context.Service<
       command: string,
       args: readonly string[],
       options: BoundedCommandOptions,
-    ) => Effect.Effect<BoundedCommandResult, CommandError>;
+    ) => Effect.Effect<BoundedCommandResult, BoundedCommandError>;
   }
 >()("dotfiles/maintenance/BoundedCommand") {
   static readonly layer = Layer.effect(
@@ -267,14 +275,14 @@ export class BoundedCommand extends Context.Service<
           } else {
             const remaining = yield* observe.pipe(Effect.catch(() => Effect.succeed([])));
             if (remaining.length > 0) yield* cleanup;
-            else if (inventoryFailed) cleanupComplete = false;
+            else if (inventoryFailed || !owned.has(rootPid)) cleanupComplete = false;
           }
           completed = true;
           return { ...outcome, diagnosticPath, cleanupComplete };
         }).pipe(
           Effect.scoped,
           Effect.mapError(
-            (cause) => new CommandError({ command, message: "Update command failed", cause }),
+            (cause) => new BoundedCommandError({ cause, cleanupComplete: rootPid === 0 }),
           ),
         );
       });

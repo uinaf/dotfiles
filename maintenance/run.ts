@@ -54,9 +54,12 @@ export const runUpdate = Effect.fn("runMonitoredUpdate")(function* (
       const temporary = `${path}.${process.pid}.tmp`;
       yield* fs.writeFileString(temporary, record, { mode: 0o600 });
       yield* fs.rename(temporary, path);
+      return true;
     },
     Effect.catch(() =>
-      Console.error("Could not write update receipt; inspect launchd and the update log."),
+      Console.error("Could not write update receipt; inspect launchd and the update log.").pipe(
+        Effect.as(false),
+      ),
     ),
   );
 
@@ -107,21 +110,24 @@ export const runUpdate = Effect.fn("runMonitoredUpdate")(function* (
     yield* Console.error(
       "Previous update cleanup is unverified; refusing to start another update.",
     );
-  yield* receipt({ state: "running", cleanupComplete: false });
-  const execution = blocked
-    ? { status: 125, timedOut: false, cleanupComplete: false }
-    : yield* runner
-        .run(command, args, {
-          diagnosticDirectory: join(directory, "diagnostics"),
-        })
-        .pipe(
-          Effect.catch(() =>
-            Effect.gen(function* () {
-              yield* Console.error("Update command failed to execute.");
-              return { status: 127, timedOut: false, cleanupComplete: false };
-            }),
-          ),
-        );
+  const gateSaved = yield* receipt({ state: "running", cleanupComplete: false });
+  if (!gateSaved)
+    yield* Console.error("Cannot persist the cleanup gate; refusing to start another update.");
+  const execution =
+    blocked || !gateSaved
+      ? { status: 125, timedOut: false, cleanupComplete: false }
+      : yield* runner
+          .run(command, args, {
+            diagnosticDirectory: join(directory, "diagnostics"),
+          })
+          .pipe(
+            Effect.catch((error) =>
+              Effect.gen(function* () {
+                yield* Console.error("Update command failed to execute.");
+                return { status: 127, timedOut: false, cleanupComplete: error.cleanupComplete };
+              }),
+            ),
+          );
   const status = execution.cleanupComplete ? execution.status : execution.status || 1;
   if (execution.timedOut) {
     yield* Console.error("Update exceeded its execution deadline; reporting failure.");

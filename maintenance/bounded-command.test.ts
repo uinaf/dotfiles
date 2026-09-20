@@ -171,3 +171,29 @@ test("unavailable process inventory reports incomplete cleanup", async (t) => {
   assert.equal(result.cleanupComplete, false);
   assert.equal(result.diagnosticPath, undefined);
 });
+
+test("a missed root identity cannot certify cleanup even when the command exits normally", async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), "dotfiles-missed-root-"));
+  t.onTestFinished(() => rm(directory, { recursive: true, force: true }));
+  const result = await Effect.runPromise(
+    Effect.gen(function* () {
+      const command = yield* BoundedCommand;
+      return yield* command.run(process.execPath, ["-e", "process.exit(0)"], {
+        diagnosticDirectory: join(directory, "diagnostics"),
+        timeoutMs: 2_000,
+      });
+    }).pipe(
+      Effect.provide(BoundedCommand.layer),
+      Effect.provideService(
+        CommandRunner,
+        CommandRunner.of({
+          run: () => Effect.succeed({ status: 0, stdout: "", stderr: "" }),
+        }),
+      ),
+      Effect.provide(NodeServices.layer),
+    ),
+  );
+  assert.equal(result.status, 0);
+  assert.equal(result.timedOut, false);
+  assert.equal(result.cleanupComplete, false);
+});
