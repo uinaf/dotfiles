@@ -30,7 +30,7 @@ const runChezmoi = Effect.fn("runChezmoi")(function* (
 const matchesManagedTarget = Effect.fn("matchesManagedTarget")(function* (
   context: ChezmoiContext,
   target: string,
-  expectedType: "file" | "symlink" | "remove",
+  expectedType: "file" | "symlink",
 ) {
   const fs = yield* FileSystem.FileSystem;
   const link = yield* fs.readLink(target).pipe(Effect.option);
@@ -100,7 +100,7 @@ const backupPath = Effect.fn("backupPath")(function* (
 const replaceAgentPath = Effect.fn("replaceAgentPath")(function* (
   context: ChezmoiContext,
   target: string,
-  expectedType: "file" | "symlink" | "remove",
+  expectedType: "file" | "symlink",
 ) {
   const matches = yield* matchesManagedTarget(context, target, expectedType);
   if (matches) return;
@@ -129,7 +129,6 @@ const managedTargets = Effect.fn("managedTargets")(function* (
 export const backupPreexistingTargets = Effect.fn("backupPreexistingTargets")(function* (
   context: ChezmoiContext,
 ) {
-  yield* replaceAgentPath(context, join(context.home, ".agents/AGENTS.md"), "remove");
   for (const target of yield* managedTargets(context, "files")) {
     if (target === join(context.home, "AGENTS.md")) {
       yield* replaceAgentPath(context, target, "file");

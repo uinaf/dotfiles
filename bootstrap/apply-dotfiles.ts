@@ -6,7 +6,6 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { validateLocalAgentRules } from "../agents/rules-local.ts";
 import { backupPreexistingTargets, type ChezmoiContext } from "./managed-files.ts";
-import { retireLaunchAgents } from "./darwin/launch-agents.ts";
 import { convergeUserManager } from "./linux/user-manager.ts";
 import { refreshAgentRules } from "../agents/rules.ts";
 import { CommandRunner } from "../lib/command.ts";
@@ -163,7 +162,6 @@ const program = Effect.gen(function* () {
     offline: process.env.DOTFILES_AGENT_RULES_OFFLINE === "1",
   });
   yield* backupPreexistingTargets(context);
-  yield* retireLaunchAgents(process.getuid?.() ?? -1, args.dryRun);
   const applyArgs = [...context.baseArgs, "--force", "apply"];
   if (args.dryRun) applyArgs.push("--dry-run");
   if (args.verbose) applyArgs.push("--verbose");

@@ -1,21 +1,15 @@
 import { type AgentLayer } from "../profiles/model.ts";
 import { type Runtime, writeLine } from "./runtime.ts";
 
-// Claude must precede cursor and opencode: their skill links resolve into the
+// Claude must precede opencode: their skill links resolve into the
 // Claude marketplace checkout that Claude's own sync creates and updates.
-export const HARNESSES = ["claude", "codex", "cursor", "grok", "opencode"] as const;
-
-// Keep legacy lock entries readable so their managed resources can be retired.
-export const ACTIVE_HARNESSES: readonly Harness[] = HARNESSES.filter(
-  (harness) => harness !== "cursor",
-);
+export const HARNESSES = ["claude", "codex", "grok", "opencode"] as const;
 
 export type Harness = (typeof HARNESSES)[number];
 
 export const HARNESS_INFO: Record<Harness, { binary: string; label: string }> = {
   claude: { binary: "claude", label: "Claude Code" },
   codex: { binary: "codex", label: "Codex" },
-  cursor: { binary: "cursor-agent", label: "Cursor" },
   grok: { binary: "grok", label: "Grok" },
   opencode: { binary: "opencode", label: "OpenCode" },
 };
@@ -46,7 +40,7 @@ export function readHarnesses(value: unknown, invalidMessage: string): readonly 
 }
 
 export function harnessPresent(runtime: Runtime): boolean {
-  return ACTIVE_HARNESSES.some((harness) => runtime.commandExists(HARNESS_INFO[harness].binary));
+  return HARNESSES.some((harness) => runtime.commandExists(HARNESS_INFO[harness].binary));
 }
 
 export type SyncFailure = {

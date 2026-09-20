@@ -19,8 +19,7 @@ authorization URL; with --no-browser (SSH) open it on a machine that can reach
 the loopback callback port, e.g. through \`ssh -L PORT:127.0.0.1:PORT\`.`;
 
 // Grok 1.0.25 keys ~/.grok/mcp_credentials.json by "<name>:<url>" and stores
-// token_received_at in seconds. Earlier releases keyed by name or URL with
-// milliseconds; both legacy keys are written so a downgrade keeps working.
+// token_received_at in seconds.
 type StoredCredentials = {
   client_id: string;
   issuer: string;
@@ -117,9 +116,6 @@ export function writeCredentials(
     ? (JSON.parse(readFileSync(path, "utf8")) as Record<string, unknown>)
     : {};
   existing[`${server}:${serverUrl}`] = entry;
-  const legacy = { ...entry, token_received_at: entry.token_received_at * 1000 };
-  existing[server] = legacy;
-  existing[serverUrl] = legacy;
   mkdirSync(dirname(path), { recursive: true });
   const temporary = `${path}.tmp-${process.pid}`;
   writeFileSync(temporary, `${JSON.stringify(existing, null, 2)}\n`, { mode: 0o600 });

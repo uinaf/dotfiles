@@ -2,7 +2,7 @@ import { Console, Effect, FileSystem, Option, Schema } from "effect";
 import { join } from "node:path";
 import { CommandRunner } from "../lib/command.ts";
 import { CliFailure, fail } from "../lib/program.ts";
-import { type Harness, HARNESS_INFO, ACTIVE_HARNESSES } from "./harness.ts";
+import { type Harness, HARNESS_INFO, HARNESSES } from "./harness.ts";
 
 const PACKAGE = "@vectorize-io/hindsight-coding-agents";
 
@@ -10,7 +10,6 @@ const PACKAGE = "@vectorize-io/hindsight-coding-agents";
 const INSTALLER_NAMES: Record<Harness, string> = {
   claude: "claude-code",
   codex: "codex",
-  cursor: "cursor-cli",
   grok: "grok-build",
   opencode: "opencode",
 };
@@ -22,12 +21,6 @@ const ServerConfig = Schema.Union([
 ]);
 const RuntimePackage = Schema.Struct({ version: Schema.NonEmptyString });
 const JsonObject = Schema.Record(Schema.String, Schema.Unknown);
-const CursorMcpEntry = Schema.Struct({
-  command: Schema.Literal("node"),
-  args: Schema.Tuple([Schema.String]),
-  env: Schema.Struct({ HINDSIGHT_MCP_HARNESS: Schema.Literal("cursor-cli") }),
-});
-
 export type Paths = {
   home: string;
   configPath: string;
@@ -62,47 +55,6 @@ const readJson = Effect.fn("readJson")(function* (path: string) {
   return yield* Schema.decodeUnknownEffect(JsonObject)(parsed).pipe(Effect.mapError(() => path));
 });
 
-export const retireCursorHindsight = Effect.fn("retireCursorHindsight")(function* (
-  paths: Paths,
-  check: boolean,
-) {
-  const fs = yield* FileSystem.FileSystem;
-  const path = join(paths.home, ".cursor/mcp.json");
-  if (!(yield* fs.exists(path))) return;
-  for (const candidate of [join(paths.home, ".cursor"), path]) {
-    if (Option.isSome(yield* fs.readLink(candidate).pipe(Effect.option)))
-      return yield* fail("refusing to edit symlinked Cursor MCP configuration");
-  }
-  const config = yield* readJson(path).pipe(
-    Effect.mapError(() => failure("Cursor MCP configuration must contain a JSON object")),
-  );
-  if (!config || !Schema.is(JsonObject)(config.mcpServers)) return;
-  const entry = config.mcpServers.hindsight;
-  if (
-    !Schema.is(CursorMcpEntry)(entry) ||
-    entry.args[0] !== join(paths.runtimeDir, "dist/mcp-server.js")
-  )
-    return;
-  if (check) return yield* fail("retired Cursor Hindsight MCP entry remains configured");
-  const mcpServers = { ...config.mcpServers };
-  delete mcpServers.hindsight;
-  yield* Effect.scoped(
-    Effect.gen(function* () {
-      const temporary = yield* fs.makeTempFileScoped({
-        directory: join(paths.home, ".cursor"),
-        prefix: ".hindsight-retire-",
-      });
-      yield* fs.writeFileString(
-        temporary,
-        `${JSON.stringify({ ...config, mcpServers }, null, 2)}\n`,
-      );
-      yield* fs.chmod(temporary, 0o600);
-      yield* fs.rename(temporary, path);
-    }),
-  );
-  yield* Console.log("hindsight: removed retired Cursor MCP entry");
-});
-
 // The server endpoint and token are machine-local credentials; setup requires
 // them to exist and never writes them.
 const requireServerConfig = Effect.fn("requireServerConfig")(function* (configPath: string) {
@@ -125,7 +77,7 @@ const requireServerConfig = Effect.fn("requireServerConfig")(function* (configPa
 // Every managed harness reads its own config; a missing HINDSIGHT_MCP_HARNESS
 // is the drift that leaves the MCP server dead after a runtime update.
 export function wiredInText(
-  harness: Exclude<Harness, "claude" | "cursor" | "opencode">,
+  harness: Exclude<Harness, "claude" | "opencode">,
   toml: string | undefined,
 ): boolean {
   if (toml === undefined) return false;
@@ -156,12 +108,6 @@ const wired = Effect.fn("wired")(function* (paths: Paths, harness: Harness) {
         Effect.orElseSucceed(() => undefined),
       );
       return mcpEnvMatches(config?.mcpServers, INSTALLER_NAMES.claude);
-    }
-    case "cursor": {
-      const config = yield* readJson(join(paths.home, ".cursor/mcp.json")).pipe(
-        Effect.orElseSucceed(() => undefined),
-      );
-      return mcpEnvMatches(config?.mcpServers, INSTALLER_NAMES.cursor);
     }
     case "codex":
       return wiredInText(harness, yield* readText(join(paths.home, ".codex/config.toml")));
@@ -210,9 +156,7 @@ const inspect = Effect.fn("inspectHindsight")(function* (
   commandExists: (binary: string) => boolean,
 ) {
   yield* requireServerConfig(paths.configPath);
-  const harnesses = ACTIVE_HARNESSES.filter((harness) =>
-    commandExists(HARNESS_INFO[harness].binary),
-  );
+  const harnesses = HARNESSES.filter((harness) => commandExists(HARNESS_INFO[harness].binary));
   const [installed, latest] = yield* Effect.all([
     installedVersion(paths.runtimeDir),
     latestVersion(),
@@ -240,7 +184,6 @@ export const configureHindsight = Effect.fn("configureHindsight")(function* (
   commandExists: (binary: string) => boolean,
   check: boolean,
 ) {
-  yield* retireCursorHindsight(paths, check);
   const report = yield* inspect(paths, commandExists);
   if (report.harnesses.length === 0) {
     yield* Console.log("hindsight: no managed coding agent installed; nothing to wire");

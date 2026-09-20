@@ -556,9 +556,8 @@ test("skips the updater when managed skill installation fails", () => {
   assert.match(runtime.stderr.value, /Skill installation failed for 1 skill/);
 });
 
-test("skill manifests hold valid, non-legacy skill entries", () => {
+test("skill manifests hold valid, consistent skill entries", () => {
   const scriptDir = dirname(fileURLToPath(import.meta.url));
-  const legacySources = new Set(["uinaf/agents", "uinaf/skills"]);
   const namePattern = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
   const sourcePattern = /^(?:[A-Za-z0-9][A-Za-z0-9._-]*\/[A-Za-z0-9._-]+|https:\/\/[^\s]+)$/;
 
@@ -591,7 +590,6 @@ test("skill manifests hold valid, non-legacy skill entries", () => {
   for (const skill of layerSkills.flat()) {
     assert.match(skill.name, namePattern, `invalid skill name: ${skill.name}`);
     assert.match(skill.source, sourcePattern, `invalid skill source: ${skill.source}`);
-    assert.equal(legacySources.has(skill.source), false, `legacy skill source: ${skill.source}`);
     const previousSource = sourceByName.get(skill.name);
     assert.ok(
       previousSource === undefined || previousSource === skill.source,

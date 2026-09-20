@@ -10,11 +10,9 @@ preserves the selected Codex model and reasoning effort; model defaults belong
 to Codex configuration.
 
 [Gateway enrollment](../agents/gateway/enrollment.ts) owns input validation,
-configuration, login retirement, and rollback. Bootstrap requests `setup` or
-`maintenance`: setup applies configuration before retiring unpreserved logins;
-maintenance applies it without retiring logins. The existing
-[gateway command](../bootstrap/configure-llm-gateway.ts) also exposes explicit
-apply, check, retirement, and rollback operations.
+configuration, and rollback. Setup and maintenance preserve vendor logins.
+The [gateway command](../bootstrap/configure-llm-gateway.ts) exposes apply,
+check, and rollback operations.
 Grok maintenance replaces only the managed gateway block, preserving newer
 preferences. Adding or removing `grokBin` changes the client set in place, so
 Codex and Claude keep everything added since enrollment. Rollback retains its
@@ -132,9 +130,6 @@ Plugin-specific ownership changes stay in
   marketplace checkout must exist. Links follow its updates.
 - Existing files or never-owned links at a selected skill name are reported
   rather than replaced. First sync does not prune links.
-- Cursor is retired from installation and active agent targets. Legacy ownership
-  remains readable for cleanup without its CLI. Hindsight removes only its matching
-  Cursor MCP entry; unrelated settings remain intact.
 
 ## MCP Sync
 

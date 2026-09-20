@@ -2,11 +2,6 @@ import { Schema } from "effect";
 import { isAbsolute } from "node:path";
 import type { ConfigEdit } from "../codex/config.ts";
 
-const PreservedLogin = Schema.Literals(["codex", "claude", "cursor", "grok"]);
-export type PreservedLogin = Exclude<typeof PreservedLogin.Type, "cursor">;
-const PreservedLogins = Schema.Array(PreservedLogin).pipe(
-  Schema.check(Schema.makeFilter((values) => new Set(values).size === values.length)),
-);
 const AbsolutePath = Schema.NonEmptyString.pipe(Schema.check(Schema.makeFilter(isAbsolute)));
 const GatewayShape = Schema.Struct({
   version: Schema.Literal(3),
@@ -17,15 +12,10 @@ const GatewayShape = Schema.Struct({
         Schema.isPattern(/^sk-bf-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/),
       ),
     ),
-    cursor: Schema.optionalKey(
-      Schema.String.pipe(Schema.check(Schema.isPattern(/^crsr_[A-Za-z0-9_-]{64}$/))),
-    ),
   }),
   gatewaiBaseUrl: Schema.NonEmptyString,
   bifrostBaseUrl: Schema.NonEmptyString,
-  cursorAgentBin: Schema.optionalKey(AbsolutePath),
   grokBin: Schema.optionalKey(AbsolutePath),
-  preservedLogins: Schema.optionalKey(Schema.Unknown),
 });
 const GatewayUrl = Schema.String.pipe(
   Schema.check(
@@ -46,13 +36,7 @@ const GatewayUrl = Schema.String.pipe(
     }),
   ),
 );
-export type GatewayConfig = Omit<
-  typeof GatewayShape.Type,
-  "preservedLogins" | "cursorAgentBin" | "credentials"
-> & {
-  credentials: Omit<typeof GatewayShape.Type.credentials, "cursor">;
-  preservedLogins?: readonly PreservedLogin[];
-};
+export type GatewayConfig = typeof GatewayShape.Type;
 
 export function parseGatewayConfig(contents: string): GatewayConfig {
   let input: unknown;
@@ -71,35 +55,13 @@ export function parseGatewayConfig(contents: string): GatewayConfig {
     if (!Schema.is(GatewayUrl)(value[field]))
       throw new Error(`${field} must be an HTTPS /v1 URL without credentials, query, or fragment`);
   }
-  let preservedLogins: readonly PreservedLogin[] | undefined;
-  if (value.preservedLogins !== undefined) {
-    try {
-      preservedLogins = Schema.decodeUnknownSync(PreservedLogins)(value.preservedLogins).filter(
-        (login): login is PreservedLogin => login !== "cursor",
-      );
-    } catch {
-      throw new Error("preservedLogins must list unique clients from codex, claude, cursor, grok");
-    }
-  }
-  // Legacy fields remain readable for convergence but never reach a client.
-  return {
-    version: value.version,
-    credentials: { gatewai: value.credentials.gatewai, bifrost: value.credentials.bifrost },
-    gatewaiBaseUrl: value.gatewaiBaseUrl,
-    bifrostBaseUrl: value.bifrostBaseUrl,
-    ...(value.grokBin ? { grokBin: value.grokBin } : {}),
-    ...(preservedLogins ? { preservedLogins } : {}),
-  };
+  return value;
 }
 
 export function gatewayEdits(config: GatewayConfig, credentialPath: string): ConfigEdit[] {
   return [
     { keyPath: "model_provider", value: "gatewai", mergeStrategy: "upsert" },
     { keyPath: "features.apps", value: false, mergeStrategy: "upsert" },
-    { keyPath: "mcp_servers.node_repl", value: null, mergeStrategy: "replace" },
-    { keyPath: "mcp_servers.computer-use", value: null, mergeStrategy: "replace" },
-    { keyPath: "notify", value: null, mergeStrategy: "replace" },
-    { keyPath: "model_providers.llm_gateway", value: null, mergeStrategy: "replace" },
     { keyPath: "model_providers.gatewai.name", value: "Gatewai", mergeStrategy: "upsert" },
     {
       keyPath: "model_providers.gatewai.base_url",

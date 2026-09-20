@@ -79,9 +79,8 @@ and URLs:
 
 [`GatewayShape` and `parseGatewayConfig`](../agents/gateway/gateway-config.ts)
 own optional fields and validation. Credentials stay in owner-only configuration
-or client stores. Maintenance removes retired Cursor fields and recognized
-dotfiles-owned Cursor adapters, then migrates gateway ownership state. Manual
-commands and symlinks are preserved.
+or client stores. Gateway state uses version 9; unsupported state must be migrated
+before enrollment or maintenance.
 
 ```zsh
 ./bootstrap/configure-llm-gateway.ts
@@ -90,16 +89,9 @@ commands and symlinks are preserved.
 ./bootstrap/configure-bifrost-clients.ts --check
 ```
 
-- `configure-llm-gateway.ts` and `./dotfiles maintain` preserve saved Codex,
-  Claude, and Grok logins. Bifrost enrollment removes OpenCode's built-in
-  `opencode` and `opencode-go` credentials, including during maintenance.
-- Personal `./dotfiles apply` retires them, respecting `preservedLogins`.
-- To retire after checking explicit enrollment:
-
-```zsh
-./bootstrap/configure-llm-gateway.ts --retire-auth
-./bootstrap/configure-llm-gateway.ts --check
-```
+Gateway setup and maintenance preserve existing vendor logins. Grok enrollment
+backs up its previous authentication for rollback. Sign out through each client's
+own command when you no longer need its vendor login.
 
 ### Client Troubleshooting
 
@@ -119,8 +111,7 @@ commands and symlinks are preserved.
 ```
 
 - Restores saved client configuration; removes helpers.
-- Deleted logins cannot be restored. Authenticate retired clients again before
-  direct use.
+- Restores the saved Grok login when one existed before enrollment.
 
 ## System Services
 

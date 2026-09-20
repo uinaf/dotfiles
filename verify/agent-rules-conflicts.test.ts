@@ -1,12 +1,5 @@
 import assert from "node:assert/strict";
-import {
-  chmodSync,
-  mkdirSync,
-  readFileSync,
-  readdirSync,
-  symlinkSync,
-  writeFileSync,
-} from "node:fs";
+import { chmodSync, mkdirSync, readdirSync, symlinkSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { afterEach, test } from "vite-plus/test";
 
@@ -18,18 +11,6 @@ import {
 } from "./agent-rules-fixture.ts";
 
 afterEach(cleanupFixtures);
-
-test("ignores the retired agents.local.md path", () => {
-  const { home } = createFixture();
-  const retiredRules = join(home, ".config/dotfiles/agents.local.md");
-  mkdirSync(dirname(retiredRules), { recursive: true });
-  writeFileSync(retiredRules, "# Retired fixture rules\n");
-  chmodSync(retiredRules, 0o600);
-
-  runWrapper(home);
-
-  assert.doesNotMatch(assertManagedRules(home), /Retired fixture rules/);
-});
 
 test("omits the private start layer for blank Markdown", () => {
   const { home } = createFixture();
@@ -59,7 +40,7 @@ test("replaces a conflicting rule file without a backup", () => {
 
 test("replaces a conflicting home rule file without a backup", () => {
   const { home } = createFixture();
-  writeFileSync(join(home, "AGENTS.md"), "unmanaged Cursor rules\n");
+  writeFileSync(join(home, "AGENTS.md"), "unmanaged fixture rules\n");
 
   runWrapper(home);
 
@@ -68,24 +49,6 @@ test("replaces a conflicting home rule file without a backup", () => {
     readdirSync(home).some((name) => name.startsWith("AGENTS.md.backup.")),
     false,
   );
-});
-
-test("removes the retired rule file without a backup or removing installed skills", () => {
-  const { home } = createFixture();
-  const installedSkill = join(home, ".agents/skills/example/SKILL.md");
-  mkdirSync(dirname(installedSkill), { recursive: true });
-  writeFileSync(join(home, ".agents/AGENTS.md"), "retired shared rules\n");
-  writeFileSync(installedSkill, "installed skill\n");
-
-  runWrapper(home);
-
-  assertManagedRules(home);
-  assert.equal(readdirSync(join(home, ".agents")).includes("AGENTS.md"), false);
-  assert.equal(
-    readdirSync(join(home, ".agents")).some((name) => name.includes(".backup.")),
-    false,
-  );
-  assert.equal(readFileSync(installedSkill, "utf8"), "installed skill\n");
 });
 
 test("replaces a broken rule link without a backup", () => {

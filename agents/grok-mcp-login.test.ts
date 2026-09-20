@@ -26,7 +26,7 @@ test("reads the url of the named server from config.toml", () => {
   assert.equal(serverUrlFromConfig(toml, "missing"), undefined);
 });
 
-test("writes the native key plus legacy keys with owner-only permissions", () => {
+test("writes the native credential key with owner-only permissions", () => {
   const root = mkdtempSync(join(tmpdir(), "dotfiles-grok-login-"));
   temporaryDirectories.push(root);
   const path = join(root, "mcp_credentials.json");
@@ -39,7 +39,6 @@ test("writes the native key plus legacy keys with owner-only permissions", () =>
   });
   const stored = JSON.parse(readFileSync(path, "utf8"));
   assert.equal(stored["srv:https://srv.example/mcp"].token_received_at, 1700000000);
-  assert.equal(stored.srv.token_received_at, 1700000000000);
-  assert.equal(stored["https://srv.example/mcp"].client_id, "cid");
+  assert.deepEqual(Object.keys(stored), ["srv:https://srv.example/mcp"]);
   assert.equal(statSync(path).mode & 0o777, 0o600);
 });
