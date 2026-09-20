@@ -13,7 +13,6 @@
         "maintenance/converge.test.ts",
         "lib/lock.test.ts",
         "lib/git-checkout.test.ts",
-        "bootstrap/install-cursor-agent.test.ts",
         "lib/program.test.ts",
         "lib/command.test.ts"
       ],
@@ -131,12 +130,6 @@
       "output": "Claude user settings preserve unrelated keys and select Fable 5.1 at medium effort"
     },
     {
-      "id": "cursor-settings",
-      "domain": "agents",
-      "command": ["node", "verify/cursor-settings.ts"],
-      "output": "Cursor user settings preserve unrelated keys and select profile-aware Grok defaults"
-    },
-    {
       "id": "codex-settings",
       "domain": "agents",
       "command": [
@@ -162,7 +155,6 @@
         "bootstrap/configure-llm-gateway.test.ts",
         "bootstrap/configure-llm-gateway-grok.test.ts",
         "agents/gateway/adapters.test.ts",
-        "agents/gateway/acp.test.ts",
         "agents/gateway/gateway-runtime.test.ts",
         "agents/gateway/enrollment.test.ts"
       ],
@@ -446,10 +438,9 @@
         "vp",
         "test",
         "agents/doctor.test.ts",
-        "agents/grok-mcp-login.test.ts",
-        "agents/cursor-mcp-seed.test.ts"
+        "agents/grok-mcp-login.test.ts"
       ],
-      "output": "Per-harness MCP auth reporting, Grok credential-store writes, and Cursor per-project token seeding"
+      "output": "Per-harness MCP auth reporting, Grok credential-store writes"
     },
     {
       "id": "gh-extensions",

@@ -19,7 +19,7 @@ const usage = `Usage:
 Applies per-user dotfiles and runs only the setup steps owned by the selected
 role. An existing ~/.config/dotfiles/profile is used when --profile is omitted.
 --maintenance also installs declared packages and updates agent assets, preserving
-Codex, Claude, Cursor, and Grok logins. Bifrost enrollment retires OpenCode's built-in credentials.`;
+Codex, Claude, and Grok logins. Bifrost enrollment retires OpenCode's built-in credentials.`;
 
 const execute = Effect.fn("executeInstallCommand")(function* (
   label: string,
@@ -46,8 +46,6 @@ const runStep = Effect.fn("runInstallStep")(function* (
   switch (step) {
     case "apply-dotfiles":
       return yield* execute(step, bootstrap("apply-dotfiles.ts"), ["--profile", profile]);
-    case "install-cursor-agent":
-      return yield* execute(step, bootstrap("install-cursor-agent.ts"), []);
     case "install-t3-service":
       // Unattended maintenance never installs a new background service.
       if (maintenance) return;

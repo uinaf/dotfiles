@@ -5,6 +5,11 @@ import { type Runtime, writeLine } from "./runtime.ts";
 // Claude marketplace checkout that Claude's own sync creates and updates.
 export const HARNESSES = ["claude", "codex", "cursor", "grok", "opencode"] as const;
 
+// Keep legacy lock entries readable so their managed resources can be retired.
+export const ACTIVE_HARNESSES: readonly Harness[] = HARNESSES.filter(
+  (harness) => harness !== "cursor",
+);
+
 export type Harness = (typeof HARNESSES)[number];
 
 export const HARNESS_INFO: Record<Harness, { binary: string; label: string }> = {
@@ -41,7 +46,7 @@ export function readHarnesses(value: unknown, invalidMessage: string): readonly 
 }
 
 export function harnessPresent(runtime: Runtime): boolean {
-  return HARNESSES.some((harness) => runtime.commandExists(HARNESS_INFO[harness].binary));
+  return ACTIVE_HARNESSES.some((harness) => runtime.commandExists(HARNESS_INFO[harness].binary));
 }
 
 export type SyncFailure = {

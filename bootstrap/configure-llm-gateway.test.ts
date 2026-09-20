@@ -3,17 +3,12 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import {
-  chmodSync,
-  copyFileSync,
   existsSync,
-  lstatSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
-  readlinkSync,
   rmSync,
   statSync,
-  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -21,11 +16,9 @@ import { dirname, join } from "node:path";
 import { test } from "vite-plus/test";
 
 import {
-  assertCursorAgentBinSafe,
   claudeGatewayBaseUrl,
   claudeGatewaySettings,
   grokGatewaySettings,
-  resolveOnPath,
 } from "../agents/gateway/enrollment.ts";
 import {
   codexGatewaiOverrides,
@@ -128,6 +121,17 @@ fs.writeFileSync(path.join(process.env.HOME, ".grok/auth.json"), "{}\\n", { mode
 
 test("gateway config is strict and provider edits use command-backed Responses auth", () => {
   const config = parseGatewayConfig(JSON.stringify(validConfig));
+  assert.deepEqual(
+    parseGatewayConfig(
+      JSON.stringify({
+        ...validConfig,
+        credentials: { ...validConfig.credentials, cursor: `crsr_${"a".repeat(64)}` },
+        cursorAgentBin: "/missing/retired-cursor-agent",
+        preservedLogins: ["cursor", "claude"],
+      }),
+    ),
+    { ...validConfig, preservedLogins: ["claude"] },
+  );
   assert.throws(
     () => parseGatewayConfig(JSON.stringify({ ...validConfig, token: "secret" })),
     /unknown field/,
@@ -241,19 +245,6 @@ test("gateway config is strict and provider edits use command-backed Responses a
     /conflicts with the gateway/,
   );
 
-  assert.throws(
-    () =>
-      assertCursorAgentBinSafe("/Users/example/.local/bin/agent", [
-        "/Users/example/.local/bin/agent",
-      ]),
-    /versioned vendor executable/,
-  );
-
-  assert.equal(resolveOnPath("cursor-agent", ""), null);
-  assert.equal(resolveOnPath("cursor-agent", "relative/bin"), null);
-  assert.equal(resolveOnPath("definitely-not-a-command", "/usr/bin:/bin"), null);
-  assert.equal(resolveOnPath("sh", "/nonexistent::/bin"), "/bin/sh");
-
   assert.match(
     grokGatewaySettings('[ui]\ntheme = "dark"\n', config.gatewaiBaseUrl, "/helper"),
     /models_base_url = "https:\/\/gatewai\.example\/v1"/,
@@ -292,67 +283,22 @@ test(
     const configDir = join(home, ".config/dotfiles");
     const gatewayConfig = join(configDir, "llm-gateway.json");
     const claudeSettingsPath = join(home, ".claude/settings.json");
-    const cursorBin = join(home, ".local/share/cursor-agent/versions/test/cursor-agent");
-    const cursorCommands = [join(home, ".local/bin/cursor-agent")];
-    // Cursor's installer ships this name too, but Homebrew's Grok cask wins on PATH
-    // and dotfiles must leave it exactly as the vendor left it.
-    const agentCommand = join(home, ".local/bin/agent");
-    const launcherDir = join(home, ".local/libexec/dotfiles/bin");
-    const launcherCommand = join(launcherDir, "cursor-agent");
-    const decoyDir = join(root, "decoy");
-    const originalCursorTargets = ["../share/cursor-agent/versions/test/cursor-agent"];
     const originalCodex =
       '# retained\nmodel = "gpt-6-astra"\nmodel_reasoning_effort = "high"\nforced_login_method = "chatgpt"\n';
     const originalAuth = '{"tokens":"saved-login-state"}\n';
     const originalClaudeAuth = '{"oauth":"saved-login-state"}\n';
-    const originalCursorAuth = '{"accessToken":"saved-login-state"}\n';
     const originalClaudeSettings =
       '{"permissions":{"defaultMode":"auto"},"env":{"KEEP":"yes"},"theme":"dark"}\n';
     try {
       mkdirSync(codexHome, { recursive: true });
       mkdirSync(configDir, { recursive: true });
       mkdirSync(bin, { recursive: true });
-      mkdirSync(dirname(cursorBin), { recursive: true });
-      mkdirSync(dirname(cursorCommands[0]), { recursive: true });
       mkdirSync(dirname(claudeSettingsPath), { recursive: true });
-      mkdirSync(join(home, ".cursor"), { recursive: true });
       writeFileSync(join(codexHome, "config.toml"), originalCodex, { mode: 0o600 });
       writeFileSync(join(codexHome, "auth.json"), originalAuth, { mode: 0o600 });
       writeFileSync(join(home, ".claude/.credentials.json"), originalClaudeAuth, { mode: 0o600 });
-      writeFileSync(join(home, ".cursor/auth.json"), originalCursorAuth, { mode: 0o600 });
       writeFileSync(claudeSettingsPath, originalClaudeSettings, { mode: 0o600 });
-      writeFileSync(
-        gatewayConfig,
-        `${JSON.stringify({ ...validConfig, cursorAgentBin: cursorBin })}\n`,
-        { mode: 0o600 },
-      );
-      writeFileSync(
-        cursorBin,
-        `#!/usr/bin/env bash
-case "\${1:-}" in
-  models) exit 0 ;;
-  logout) rm -f "$HOME/.cursor/auth.json" ;;
-  --version) printf '2026.08.11-e8db854\\n' ;;
-  acp)
-    while IFS= read -r line; do
-      printf '%s\\n' "$line" >> "\${ACP_REQUEST_LOG:?}"
-      method="$(printf '%s' "$line" | jq -r '.method // empty')"
-      id="$(printf '%s' "$line" | jq -c '.id')"
-      if [ "$method" = authenticate ]; then
-        printf '{"jsonrpc":"2.0","id":%s,"error":{"code":-32602,"message":"browser login"}}\\n' "$id"
-      else
-        printf '{"jsonrpc":"2.0","id":%s,"result":{}}\\n' "$id"
-      fi
-    done
-    ;;
-  *) exit 2 ;;
-esac
-`,
-        { mode: 0o700 },
-      );
-      for (const [index, command] of cursorCommands.entries())
-        symlinkSync(originalCursorTargets[index], command);
-      symlinkSync("../share/cursor-agent/versions/test/cursor-agent", agentCommand);
+      writeFileSync(gatewayConfig, `${JSON.stringify(validConfig)}\n`, { mode: 0o600 });
       writeFileSync(
         join(bin, "claude"),
         `#!/usr/bin/env bash
@@ -368,7 +314,7 @@ rm -f "$HOME/.claude/.credentials.json"
         HOME: home,
         CODEX_HOME: codexHome,
         LLM_GATEWAY_CONFIG: gatewayConfig,
-        PATH: [launcherDir, fixturePath(bin)].join(":"),
+        PATH: fixturePath(bin),
       };
       const run = (...args: string[]) => spawnSync(script, args, { encoding: "utf8", env });
 
@@ -399,37 +345,6 @@ rm -f "$HOME/.claude/.credentials.json"
       assert.equal(appliedClaude.permissions.defaultMode, "auto");
       assert.equal(appliedClaude.theme, "dark");
       assert.equal(statSync(claudeSettingsPath).mode & 0o777, 0o600);
-      for (const command of cursorCommands) {
-        assert.equal(lstatSync(command).isSymbolicLink(), false);
-        assert.equal(statSync(command).mode & 0o777, 0o700);
-      }
-      const state = JSON.parse(readFileSync(join(configDir, "llm-gateway-state.json"), "utf8")) as {
-        version: number;
-        authRetired: boolean;
-        cursorCommands: Array<{ path: string; target: string }>;
-      };
-      assert.equal(state.version, 7);
-      assert.equal(state.authRetired, false);
-      assert.deepEqual(
-        state.cursorCommands.map((command) => command.target),
-        originalCursorTargets,
-      );
-      assert.deepEqual(
-        state.cursorCommands.map((command) => command.path),
-        cursorCommands,
-      );
-      assert.equal(lstatSync(agentCommand).isSymbolicLink(), true);
-      assert.equal(
-        statSync(join(home, ".local/libexec/dotfiles/cursor-acp-api-key-auth")).mode & 0o777,
-        0o700,
-      );
-      assert.equal(
-        statSync(join(home, ".local/libexec/dotfiles/cursor-agent-api")).mode & 0o777,
-        0o700,
-      );
-      assert.equal(statSync(launcherCommand).mode & 0o777, 0o700);
-      assert.equal(lstatSync(launcherCommand).isSymbolicLink(), false);
-      assert.equal(resolveOnPath("cursor-agent", env.PATH), launcherCommand);
       const bifrostCredential = spawnSync(
         join(home, ".local/libexec/dotfiles/llm-gateway-credential"),
         ["bifrost"],
@@ -441,6 +356,39 @@ rm -f "$HOME/.claude/.credentials.json"
       assert.equal(bifrostCredential.status, 0, bifrostCredential.stderr);
       assert.equal(bifrostCredential.stdout.trim(), validConfig.credentials.bifrost);
 
+      const statePath = join(configDir, "llm-gateway-state.json");
+      const originalState = JSON.parse(readFileSync(statePath, "utf8"));
+      for (const version of [6, 7]) {
+        const command = join(home, ".local/bin/cursor-agent");
+        writeFileSync(
+          statePath,
+          JSON.stringify({
+            ...originalState,
+            version,
+            cursorCommands: [{ path: command, target: "/missing/retired-cursor-agent" }],
+          }),
+          { mode: 0o600 },
+        );
+        writeFileSync(
+          gatewayConfig,
+          JSON.stringify({
+            ...validConfig,
+            credentials: { ...validConfig.credentials, cursor: `crsr_${"a".repeat(64)}` },
+            cursorAgentBin: "/missing/retired-cursor-agent",
+          }),
+          { mode: 0o600 },
+        );
+        const migration = run("--maintenance");
+        assert.equal(migration.status, 0, migration.stderr);
+        assert.deepEqual(JSON.parse(readFileSync(statePath, "utf8")), originalState);
+        assert.deepEqual(JSON.parse(readFileSync(gatewayConfig, "utf8")), validConfig);
+        assert.equal(existsSync(command), false);
+        assert.equal(
+          readFileSync(`${claudeSettingsPath}.llm-gateway.backup`, "utf8"),
+          originalClaudeSettings,
+        );
+      }
+
       const second = run("--maintenance");
       assert.equal(second.status, 0, second.stderr);
       const maintainedCodex = readFileSync(join(codexHome, "config.toml"), "utf8");
@@ -451,7 +399,6 @@ rm -f "$HOME/.claude/.credentials.json"
         readFileSync(join(home, ".claude/.credentials.json"), "utf8"),
         originalClaudeAuth,
       );
-      assert.equal(readFileSync(join(home, ".cursor/auth.json"), "utf8"), originalCursorAuth);
 
       const failingCodex = join(bin, "failing-codex");
       writeFileSync(failingCodex, "#!/bin/sh\nexit 17\n", { mode: 0o700 });
@@ -466,7 +413,6 @@ rm -f "$HOME/.claude/.credentials.json"
         readFileSync(join(home, ".claude/.credentials.json"), "utf8"),
         originalClaudeAuth,
       );
-      assert.equal(readFileSync(join(home, ".cursor/auth.json"), "utf8"), originalCursorAuth);
       assert.equal(
         readFileSync(join(codexHome, "config.toml.llm-gateway.backup"), "utf8"),
         originalCodex,
@@ -478,189 +424,10 @@ rm -f "$HOME/.claude/.credentials.json"
 
       const check = run("--check");
       assert.equal(check.status, 0, check.stderr);
-      for (const command of [
-        join(home, ".local/libexec/dotfiles/cursor-agent-api"),
-        join(home, ".local/bin/cursor-agent-api"),
-        launcherCommand,
-        ...cursorCommands,
-      ]) {
-        const cursorStatus = spawnSync(command, ["status"], { encoding: "utf8", env });
-        assert.equal(cursorStatus.status, 0, cursorStatus.stderr);
-        assert.equal(cursorStatus.stdout.trim(), "API key authenticated");
-        const cursorAbout = spawnSync(command, ["about"], { encoding: "utf8", env });
-        assert.equal(cursorAbout.status, 0, cursorAbout.stderr);
-        assert.match(cursorAbout.stdout, /CLI Version\s{2,}2026\.08\.11-e8db854/);
-        assert.match(cursorAbout.stdout, /User Email\s{2,}api-key@local/);
-        const cursorAboutJson = spawnSync(command, ["about", "--format", "json"], {
-          encoding: "utf8",
-          env,
-        });
-        assert.equal(cursorAboutJson.status, 0, cursorAboutJson.stderr);
-        assert.deepEqual(JSON.parse(cursorAboutJson.stdout), {
-          cliVersion: "2026.08.11-e8db854",
-          userEmail: "api-key@local",
-        });
-        const cursorLogin = spawnSync(command, ["login", "--help"], { encoding: "utf8", env });
-        assert.notEqual(cursorLogin.status, 0);
-        assert.match(cursorLogin.stderr, /saved-login changes are disabled/);
-        const acpLog = join(root, `acp-${command.replace(/\//g, "_")}.log`);
-        const cursorAcp = spawnSync(command, ["acp"], {
-          encoding: "utf8",
-          env: { ...env, ACP_REQUEST_LOG: acpLog },
-          input: [
-            '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}',
-            '{"jsonrpc":"2.0","id":2,"method":"authenticate","params":{"methodId":"cursor_login"}}',
-            "",
-          ].join("\n"),
-        });
-        assert.equal(cursorAcp.status, 0, cursorAcp.stderr);
-        assert.match(cursorAcp.stdout, /"id":1,"result":\{\}/);
-        assert.match(cursorAcp.stdout, /"id":2,"result":\{\}/);
-        assert.doesNotMatch(cursorAcp.stdout, /browser login/);
-        assert.match(readFileSync(acpLog, "utf8"), /"method":"initialize"/);
-        assert.doesNotMatch(readFileSync(acpLog, "utf8"), /"method":"authenticate"/);
-      }
-
-      mkdirSync(decoyDir, { recursive: true });
-      writeFileSync(join(decoyDir, "cursor-agent"), "#!/usr/bin/env bash\nexit 0\n", {
-        mode: 0o700,
-      });
-      const shadowedCheck = spawnSync(script, ["--check"], {
-        encoding: "utf8",
-        env: { ...env, PATH: [decoyDir, env.PATH].join(":") },
-      });
-      assert.notEqual(shadowedCheck.status, 0);
-      assert.match(shadowedCheck.stderr, /is not the managed API-key launcher/);
-
-      const updatedCursorBin = join(
-        home,
-        ".local/share/cursor-agent/versions/updated/cursor-agent",
-      );
-      mkdirSync(dirname(updatedCursorBin), { recursive: true });
-      writeFileSync(
-        updatedCursorBin,
-        `#!/usr/bin/env bash
-case "\${1:-}" in
-  models) exit 0 ;;
-  logout) rm -f "$HOME/.cursor/auth.json" ;;
-  --version) printf '2026.08.25-3e8eec8\\n' ;;
-  *) exit 2 ;;
-esac
-`,
-        { mode: 0o700 },
-      );
-      for (const command of cursorCommands) {
-        rmSync(command, { force: true });
-        symlinkSync(updatedCursorBin, command);
-      }
-      // The self-updater has just replaced ~/.local/bin/cursor-agent with a vendor
-      // symlink. Callers that resolve the name from PATH must still reach the
-      // launcher during the window before the next convergence repairs it.
-      const homeLocalBin = join(home, ".local/bin");
-      const shimmedPath = [launcherDir, homeLocalBin, fixturePath(bin)].join(":");
-      const shimmed = resolveOnPath("cursor-agent", shimmedPath);
-      assert.equal(shimmed, launcherCommand);
-      assert.ok(shimmed);
-      const shimmedStatus = spawnSync(shimmed, ["status"], { encoding: "utf8", env });
-      assert.equal(shimmedStatus.status, 0, shimmedStatus.stderr);
-      assert.equal(shimmedStatus.stdout.trim(), "API key authenticated");
-
-      const unshimmedPath = [homeLocalBin, fixturePath(bin)].join(":");
-      const unshimmed = resolveOnPath("cursor-agent", unshimmedPath);
-      assert.equal(unshimmed, join(homeLocalBin, "cursor-agent"));
-      assert.ok(unshimmed);
-      const unshimmedStatus = spawnSync(unshimmed, ["status"], { encoding: "utf8", env });
-      assert.notEqual(unshimmedStatus.status, 0);
-      assert.notEqual(unshimmedStatus.stdout.trim(), "API key authenticated");
-
-      const stableAfterUpdate = spawnSync(
-        join(home, ".local/libexec/dotfiles/cursor-agent-api"),
-        ["about", "--format", "json"],
-        {
-          encoding: "utf8",
-          env,
-        },
-      );
-      assert.equal(stableAfterUpdate.status, 0, stableAfterUpdate.stderr);
-      assert.deepEqual(JSON.parse(stableAfterUpdate.stdout), {
-        cliVersion: "2026.08.25-3e8eec8",
-        userEmail: "api-key@local",
-      });
-      const repairAfterUpdate = run();
-      assert.equal(repairAfterUpdate.status, 0, repairAfterUpdate.stderr);
-      for (const command of cursorCommands)
-        assert.equal(lstatSync(command).isSymbolicLink(), false);
-      assert.deepEqual(JSON.parse(readFileSync(gatewayConfig, "utf8")), {
-        ...validConfig,
-        cursorAgentBin: updatedCursorBin,
-      });
-      const versionAfterRepair = spawnSync(
-        join(home, ".local/libexec/dotfiles/cursor-agent-api"),
-        ["--version"],
-        { encoding: "utf8", env },
-      );
-      assert.equal(versionAfterRepair.status, 0, versionAfterRepair.stderr);
-      assert.equal(versionAfterRepair.stdout.trim(), "2026.08.25-3e8eec8");
-
-      // A host enrolled under version 6 converges. The `agent` copy it installed is
-      // unreachable behind Homebrew's Grok cask, so convergence removes it and the
-      // state stops claiming the name.
-      const statePath = join(configDir, "llm-gateway-state.json");
-      const downgradeToV6 = () => {
-        const current = JSON.parse(readFileSync(statePath, "utf8")) as {
-          cursorCommands: Array<{ path: string; target: string }>;
-        };
-        writeFileSync(
-          statePath,
-          `${JSON.stringify(
-            {
-              ...current,
-              version: 6,
-              cursorCommands: [
-                ...current.cursorCommands,
-                { path: agentCommand, target: originalCursorTargets[0] },
-              ],
-            },
-            null,
-            2,
-          )}\n`,
-          { mode: 0o600 },
-        );
-      };
-
-      downgradeToV6();
-      rmSync(agentCommand, { force: true });
-      copyFileSync(join(home, ".local/libexec/dotfiles/cursor-agent-api"), agentCommand);
-      chmodSync(agentCommand, 0o700);
-      const migrate = run();
-      assert.equal(migrate.status, 0, migrate.stderr);
-      const migrated = JSON.parse(readFileSync(statePath, "utf8")) as {
-        version: number;
-        cursorCommands: Array<{ path: string }>;
-      };
-      assert.equal(migrated.version, 7);
-      assert.deepEqual(
-        migrated.cursorCommands.map((command) => command.path),
-        cursorCommands,
-      );
-      assert.equal(existsSync(agentCommand), false);
-      assert.equal(run("--check").status, 0);
-
-      // The same migration on a host whose installer has already restored its own
-      // symlink leaves that vendor file alone.
-      downgradeToV6();
-      symlinkSync(originalCursorTargets[0], agentCommand);
-      const migrateVendor = run();
-      assert.equal(migrateVendor.status, 0, migrateVendor.stderr);
-      assert.equal((JSON.parse(readFileSync(statePath, "utf8")) as { version: number }).version, 7);
-      assert.equal(lstatSync(agentCommand).isSymbolicLink(), true);
-      assert.equal(readlinkSync(agentCommand), originalCursorTargets[0]);
-
       const retire = run("--setup");
       assert.equal(retire.status, 0, retire.stderr);
       assert.equal(existsSync(join(codexHome, "auth.json")), false);
       assert.equal(existsSync(join(home, ".claude/.credentials.json")), false);
-      assert.equal(existsSync(join(home, ".cursor/auth.json")), false);
       assert.doesNotMatch(
         readFileSync(join(codexHome, "config.toml"), "utf8"),
         /forced_login_method/,
@@ -675,13 +442,11 @@ esac
 
       writeFileSync(join(codexHome, "auth.json"), originalAuth, { mode: 0o600 });
       writeFileSync(join(home, ".claude/.credentials.json"), originalClaudeAuth, { mode: 0o600 });
-      writeFileSync(join(home, ".cursor/auth.json"), originalCursorAuth, { mode: 0o600 });
       const repeatedRetire = run("--retire-auth");
       assert.equal(repeatedRetire.status, 0, repeatedRetire.stderr);
       assert.match(repeatedRetire.stdout, /retired returned coding vendor login state/);
       assert.equal(existsSync(join(codexHome, "auth.json")), false);
       assert.equal(existsSync(join(home, ".claude/.credentials.json")), false);
-      assert.equal(existsSync(join(home, ".cursor/auth.json")), false);
       const repeatedCheck = run("--check");
       assert.equal(repeatedCheck.status, 0, repeatedCheck.stderr);
 
@@ -690,23 +455,8 @@ esac
       assert.equal(readFileSync(join(codexHome, "config.toml"), "utf8"), originalCodex);
       assert.equal(existsSync(join(codexHome, "auth.json")), false);
       assert.equal(existsSync(join(home, ".claude/.credentials.json")), false);
-      assert.equal(existsSync(join(home, ".cursor/auth.json")), false);
       assert.match(rollback.stdout, /requires reauthentication/);
       assert.equal(readFileSync(claudeSettingsPath, "utf8"), originalClaudeSettings);
-      assert.equal(existsSync(join(home, ".local/bin/cursor-agent-api")), false);
-      assert.equal(existsSync(join(home, ".local/libexec/dotfiles/cursor-agent-api")), false);
-      assert.equal(existsSync(launcherCommand), false);
-      assert.equal(
-        existsSync(join(home, ".local/libexec/dotfiles/cursor-acp-api-key-auth")),
-        false,
-      );
-      assert.equal(existsSync(join(home, ".local/libexec/dotfiles/llm-gateway-credential")), false);
-      for (const [index, command] of cursorCommands.entries()) {
-        assert.equal(lstatSync(command).isSymbolicLink(), true);
-        assert.equal(readlinkSync(command), originalCursorTargets[index]);
-      }
-      assert.equal(lstatSync(agentCommand).isSymbolicLink(), true);
-      assert.equal(readlinkSync(agentCommand), "../share/cursor-agent/versions/test/cursor-agent");
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

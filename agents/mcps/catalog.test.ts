@@ -5,7 +5,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, test } from "vite-plus/test";
 
-import { HARNESSES } from "../harness.ts";
+import { ACTIVE_HARNESSES as HARNESSES } from "../harness.ts";
 import { readLayeredServers, readServers } from "./catalog.ts";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");

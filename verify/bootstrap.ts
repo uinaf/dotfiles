@@ -152,7 +152,6 @@ const program = Effect.gen(function* () {
       "java -version",
       "codex --version",
       "claude --version",
-      "cursor-agent --version",
       "glab --version",
       "aws --version",
       "topgrade --version",

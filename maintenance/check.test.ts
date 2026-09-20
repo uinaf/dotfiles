@@ -289,7 +289,7 @@ test("interrupting the collector reaps every owned probe before completing", asy
     await completion;
     await rm(root, { recursive: true, force: true });
   });
-  const commands = ["mise", "npm", "node", "codex", "claude", "opencode", "cursor-agent"];
+  const commands = ["mise", "npm", "node", "codex", "claude", "opencode"];
   for (const command of commands) {
     await writeFile(
       join(bin, command),
@@ -478,11 +478,9 @@ test("SSH agent probes preserve the installed gateway wrapper outside the inheri
   const home = await mkdtemp(join(tmpdir(), "dotfiles-ssh-probe-"));
   t.onTestFinished(() => rm(home, { recursive: true, force: true }));
   await mkdir(join(home, ".local/bin"), { recursive: true });
-  await writeFile(
-    join(home, ".local/bin/cursor-agent"),
-    "#!/bin/sh\necho gateway-wrapper-version\n",
-    { mode: 0o700 },
-  );
+  await writeFile(join(home, ".local/bin/claude"), "#!/bin/sh\necho gateway-wrapper-version\n", {
+    mode: 0o700,
+  });
   const { runProcess } = await import("./probes.ts");
   const snapshot = await collectMaintenanceSnapshot(
     {
@@ -493,13 +491,11 @@ test("SSH agent probes preserve the installed gateway wrapper outside the inheri
       profileConfig: { ...profileConfig, agentLayers: [] },
     },
     (command, args, options) =>
-      command === "cursor-agent"
-        ? runProcess(command, args, options)
-        : Promise.resolve(result("{}")),
+      command === "claude" ? runProcess(command, args, options) : Promise.resolve(result("{}")),
   );
-  assert.equal(snapshot.probes.version_cursor_agent.status, "ok");
-  assert.equal(snapshot.probes.version_cursor_agent.value, "gateway-wrapper-version");
-  await rm(join(home, ".local/bin/cursor-agent"));
+  assert.equal(snapshot.probes.version_claude.status, "ok");
+  assert.equal(snapshot.probes.version_claude.value, "gateway-wrapper-version");
+  await rm(join(home, ".local/bin/claude"));
   const missing = await collectMaintenanceSnapshot(
     {
       ...context(),
@@ -509,11 +505,9 @@ test("SSH agent probes preserve the installed gateway wrapper outside the inheri
       profileConfig: { ...profileConfig, agentLayers: [] },
     },
     (command, args, options) =>
-      command === "cursor-agent"
-        ? runProcess(command, args, options)
-        : Promise.resolve(result("{}")),
+      command === "claude" ? runProcess(command, args, options) : Promise.resolve(result("{}")),
   );
-  assert.equal(missing.probes.version_cursor_agent.status, "unavailable");
+  assert.equal(missing.probes.version_claude.status, "unavailable");
 });
 
 for (const inventoryAvailable of [true, false]) {

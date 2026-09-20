@@ -3,7 +3,7 @@ import { isAbsolute } from "node:path";
 import type { ConfigEdit } from "../codex/config.ts";
 
 const PreservedLogin = Schema.Literals(["codex", "claude", "cursor", "grok"]);
-export type PreservedLogin = typeof PreservedLogin.Type;
+export type PreservedLogin = Exclude<typeof PreservedLogin.Type, "cursor">;
 const PreservedLogins = Schema.Array(PreservedLogin).pipe(
   Schema.check(Schema.makeFilter((values) => new Set(values).size === values.length)),
 );
@@ -46,7 +46,11 @@ const GatewayUrl = Schema.String.pipe(
     }),
   ),
 );
-export type GatewayConfig = Omit<typeof GatewayShape.Type, "preservedLogins"> & {
+export type GatewayConfig = Omit<
+  typeof GatewayShape.Type,
+  "preservedLogins" | "cursorAgentBin" | "credentials"
+> & {
+  credentials: Omit<typeof GatewayShape.Type.credentials, "cursor">;
   preservedLogins?: readonly PreservedLogin[];
 };
 
@@ -67,18 +71,25 @@ export function parseGatewayConfig(contents: string): GatewayConfig {
     if (!Schema.is(GatewayUrl)(value[field]))
       throw new Error(`${field} must be an HTTPS /v1 URL without credentials, query, or fragment`);
   }
-  if ((value.cursorAgentBin === undefined) !== (value.credentials.cursor === undefined)) {
-    throw new Error("cursorAgentBin and credentials.cursor must be configured together");
-  }
   let preservedLogins: readonly PreservedLogin[] | undefined;
   if (value.preservedLogins !== undefined) {
     try {
-      preservedLogins = Schema.decodeUnknownSync(PreservedLogins)(value.preservedLogins);
+      preservedLogins = Schema.decodeUnknownSync(PreservedLogins)(value.preservedLogins).filter(
+        (login): login is PreservedLogin => login !== "cursor",
+      );
     } catch {
       throw new Error("preservedLogins must list unique clients from codex, claude, cursor, grok");
     }
   }
-  return { ...value, preservedLogins };
+  // Legacy fields remain readable for convergence but never reach a client.
+  return {
+    version: value.version,
+    credentials: { gatewai: value.credentials.gatewai, bifrost: value.credentials.bifrost },
+    gatewaiBaseUrl: value.gatewaiBaseUrl,
+    bifrostBaseUrl: value.bifrostBaseUrl,
+    ...(value.grokBin ? { grokBin: value.grokBin } : {}),
+    ...(preservedLogins ? { preservedLogins } : {}),
+  };
 }
 
 export function gatewayEdits(config: GatewayConfig, credentialPath: string): ConfigEdit[] {

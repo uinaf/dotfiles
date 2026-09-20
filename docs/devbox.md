@@ -78,9 +78,9 @@ and URLs:
 ```
 
 [`GatewayShape` and `parseGatewayConfig`](../agents/gateway/gateway-config.ts)
-own optional fields and validation. For Cursor, pair its API key with the
-versioned vendor executable in `cursorAgentBin`; using the managed launcher
-would recurse. Credentials stay in owner-only configuration or client stores.
+own optional fields and validation. Credentials stay in owner-only configuration
+or client stores. Maintenance removes retired Cursor fields from legacy gateway
+configuration and migrates its ownership state without restoring Cursor commands.
 
 ```zsh
 ./bootstrap/configure-llm-gateway.ts
@@ -90,7 +90,7 @@ would recurse. Credentials stay in owner-only configuration or client stores.
 ```
 
 - `configure-llm-gateway.ts` and `./dotfiles maintain` preserve saved Codex,
-  Claude, Cursor, and Grok logins. Bifrost enrollment removes OpenCode's built-in
+  Claude, and Grok logins. Bifrost enrollment removes OpenCode's built-in
   `opencode` and `opencode-go` credentials, including during maintenance.
 - Personal `./dotfiles apply` retires them, respecting `preservedLogins`.
 - To retire after checking explicit enrollment:
@@ -110,16 +110,6 @@ would recurse. Credentials stay in owner-only configuration or client stores.
 - **Claude:** enrollment refuses conflicting `ANTHROPIC_API_KEY`,
   `ANTHROPIC_AUTH_TOKEN`, Bedrock, or Vertex settings. Resolve those deliberately
   before retrying.
-- **Cursor:** `cursor-agent` resolves from `~/.local/libexec/dotfiles/bin`, which
-  is fronted on `PATH` and never written by the vendor. Cursor self-updates
-  replace the commands in `~/.local/bin`; the stable launcher follows the vendor
-  executable. Point integrations that take an explicit path at
-  `~/.local/libexec/dotfiles/cursor-agent-api`. It blocks browser login/logout
-  and checks API-key health through `status`, `whoami`, and `about`. `--version`
-  and `--help` pass through unauthenticated, so only `--check` proves which
-  launcher `PATH` reaches.
-- **`agent`:** both Cursor and Grok install this name. Call `cursor-agent` or
-  `grok` to select the intended client.
 
 ### Rollback
 
@@ -127,7 +117,7 @@ would recurse. Credentials stay in owner-only configuration or client stores.
 ./bootstrap/configure-llm-gateway.ts --rollback
 ```
 
-- Restores saved client configuration and Cursor symlinks; removes helpers.
+- Restores saved client configuration; removes helpers.
 - Deleted logins cannot be restored. Authenticate retired clients again before
   direct use.
 

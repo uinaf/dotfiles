@@ -126,7 +126,7 @@ test("reports every harness usable and exits 0", () => {
   assert.equal(main([], runtime), 0);
   assert.match(runtime.stdout.value, /ok {4}Claude Code: shared-mcp - connected/);
   assert.match(runtime.stdout.value, /\? {5}Codex: shared-mcp - o_auth/);
-  assert.match(runtime.stdout.value, /ok {4}Cursor: shared-mcp - ready in \/fixture\/project/);
+  assert.doesNotMatch(runtime.stdout.value, /Cursor: shared-mcp/);
   assert.match(runtime.stdout.value, /ok {4}OpenCode: shared-mcp - connected/);
   assert.match(runtime.stdout.value, /ok {4}Grok: shared-mcp - 9 tools discovered/);
   assert.match(runtime.stdout.value, /All managed MCP servers are usable\./);
@@ -164,10 +164,7 @@ test("names the login command for each expired harness and exits 1", () => {
     runtime.stdout.value,
     /LOGIN Claude Code: shared-mcp[^\n]*\n {6}repair: claude mcp login shared-mcp/,
   );
-  assert.match(
-    runtime.stdout.value,
-    /LOGIN Cursor: shared-mcp[^\n]*\n {6}repair: cursor-agent mcp login shared-mcp/,
-  );
+  assert.doesNotMatch(runtime.stdout.value, /LOGIN Cursor/);
   assert.match(
     runtime.stdout.value,
     /LOGIN OpenCode: shared-mcp[^\n]*\n {6}repair: opencode mcp auth shared-mcp/,
@@ -176,7 +173,7 @@ test("names the login command for each expired harness and exits 1", () => {
     runtime.stdout.value,
     /LOGIN Grok: shared-mcp[^\n]*\n {6}repair: \.\/agents\/grok-mcp-login\.ts shared-mcp/,
   );
-  assert.match(runtime.stdout.value, /4 MCP server state\(s\) need attention\./);
+  assert.match(runtime.stdout.value, /3 MCP server state\(s\) need attention\./);
 });
 
 test("flags Grok config parse errors and installation drift", () => {
