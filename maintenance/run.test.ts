@@ -6,13 +6,15 @@ import { test } from "vite-plus/test";
 import { closeSync, lstatSync, openSync, readFileSync, writeSync } from "node:fs";
 import { NodeServices } from "@effect/platform-node";
 import { Effect, Exit } from "effect";
-import { CommandRunner, CommandError } from "../lib/command.ts";
+import { CommandError, CommandRunner } from "../lib/command.ts";
+import { BoundedCommand } from "./bounded-command.ts";
 import { runUpdate } from "./run.ts";
 import { dailyLog, logDirectory, rotateUpdateLog } from "./logs.ts";
 
 for (const scenario of [
   "success",
   "failure",
+  "timeout",
   "spawn",
   "delivery",
   "retried",
@@ -33,13 +35,18 @@ for (const scenario of [
     }
     let executions = 0;
     const sent: string[] = [];
-    const expected = scenario === "failure" ? 23 : scenario === "spawn" ? 127 : 0;
-    const runner = CommandRunner.of({
+    const expected =
+      scenario === "failure" ? 23 : scenario === "spawn" ? 127 : scenario === "timeout" ? 124 : 0;
+    const runner = BoundedCommand.of({
       run: () => {
         executions++;
         return scenario === "spawn"
           ? Effect.fail(new CommandError({ command: "missing", message: "secret diagnostic" }))
-          : Effect.succeed({ status: expected, stdout: "", stderr: "" });
+          : Effect.succeed({
+              status: expected,
+              timedOut: scenario === "timeout",
+              cleanupComplete: true,
+            });
       },
     });
     const rejections = scenario === "delivery" ? 2 : scenario === "retried" ? 1 : 0;
@@ -55,7 +62,7 @@ for (const scenario of [
     });
     const result = await Effect.runPromise(
       runUpdate("software-update", home, "fixture", [], send, wait).pipe(
-        Effect.provideService(CommandRunner, runner),
+        Effect.provideService(BoundedCommand, runner),
         Effect.provide(NodeServices.layer),
       ),
     );
@@ -67,6 +74,7 @@ for (const scenario of [
     );
     assert.doesNotMatch(receipt, /secret-token|secret diagnostic/);
     assert.equal(JSON.parse(receipt).exitCode, expected);
+    assert.equal(JSON.parse(receipt).timedOut, scenario === "timeout" ? true : undefined);
     const historyPath = join(
       logDirectory(home),
       `software-update-history-${new Date().toISOString().slice(0, 10)}.log`,
@@ -77,10 +85,11 @@ for (const scenario of [
       .trim()
       .split("\n")
       .map((line) => JSON.parse(line));
-    assert.equal(records.length, 2);
+    assert.equal(records.length, 3);
     assert.equal(records[0].state, "running");
-    assert.equal(records[0].startedAt, records[1].startedAt);
-    assert.deepEqual(records[1], JSON.parse(receipt));
+    assert.equal(records[0].cleanupComplete, false);
+    assert.equal(records[0].startedAt, records[2].startedAt);
+    assert.deepEqual(records[2], JSON.parse(receipt));
     assert.equal((await stat(historyPath)).mode & 0o777, 0o600);
     assert.equal(
       JSON.parse(receipt).heartbeat,
@@ -111,12 +120,12 @@ test("history write failure does not prevent updates or the latest receipt", asy
   const home = await mkdtemp(join(tmpdir(), "dotfiles-report-"));
   t.onTestFinished(() => rm(home, { recursive: true, force: true }));
   await writeFile(join(home, "Library"), "blocks log directory");
-  const runner = CommandRunner.of({
-    run: () => Effect.succeed({ status: 23, stdout: "", stderr: "" }),
+  const runner = BoundedCommand.of({
+    run: () => Effect.succeed({ status: 23, timedOut: false, cleanupComplete: true }),
   });
   const result = await Effect.runPromise(
     runUpdate("software-update", home, "fixture", []).pipe(
-      Effect.provideService(CommandRunner, runner),
+      Effect.provideService(BoundedCommand, runner),
       Effect.provide(NodeServices.layer),
     ),
   );
@@ -176,10 +185,10 @@ for (const status of ["network", 400, 401, 403, 404, 408, 429, 500, 503] as cons
     let commands = 0;
     let sends = 0;
     let waits = 0;
-    const runner = CommandRunner.of({
+    const runner = BoundedCommand.of({
       run: () => {
         commands++;
-        return Effect.succeed({ status: 23, stdout: "", stderr: "" });
+        return Effect.succeed({ status: 23, timedOut: false, cleanupComplete: true });
       },
     });
     const send: typeof fetch = async () => {
@@ -197,7 +206,7 @@ for (const status of ["network", 400, 401, 403, 404, 408, 429, 500, 503] as cons
         Effect.sync(() => {
           waits++;
         }),
-      ).pipe(Effect.provideService(CommandRunner, runner), Effect.provide(NodeServices.layer)),
+      ).pipe(Effect.provideService(BoundedCommand, runner), Effect.provide(NodeServices.layer)),
     );
     assert.equal(result, 23);
     assert.equal(commands, 1);
@@ -226,10 +235,10 @@ test("interrupting heartbeat delivery aborts fetch without retrying the update o
   let aborted = false;
   const started = Promise.withResolvers<void>();
   const controller = new AbortController();
-  const runner = CommandRunner.of({
+  const runner = BoundedCommand.of({
     run: () => {
       commands++;
-      return Effect.succeed({ status: 0, stdout: "", stderr: "" });
+      return Effect.succeed({ status: 0, timedOut: false, cleanupComplete: true });
     },
   });
   const send: typeof fetch = (_input, init) =>
@@ -256,7 +265,7 @@ test("interrupting heartbeat delivery aborts fetch without retrying the update o
       Effect.sync(() => {
         waits++;
       }),
-    ).pipe(Effect.provideService(CommandRunner, runner), Effect.provide(NodeServices.layer)),
+    ).pipe(Effect.provideService(BoundedCommand, runner), Effect.provide(NodeServices.layer)),
     { signal: controller.signal },
   );
   t.onTestFinished(async () => {
@@ -271,4 +280,158 @@ test("interrupting heartbeat delivery aborts fetch without retrying the update o
   assert.equal(commands, 1);
   assert.equal(sends, 1);
   assert.equal(waits, 0);
+});
+
+test("a real timeout sends failure and a following run replaces the failed receipt", async (t) => {
+  const home = await mkdtemp(join(tmpdir(), "dotfiles-update-deadline-"));
+  t.onTestFinished(() => rm(home, { recursive: true, force: true }));
+  await mkdir(join(home, ".config/dotfiles"), { recursive: true });
+  await writeFile(
+    join(home, ".config/dotfiles/update-heartbeats.json"),
+    JSON.stringify({ "software-update": "https://monitor.example/private-token" }),
+    { mode: 0o600 },
+  );
+  const sent: string[] = [];
+  const send: typeof fetch = async (input) => {
+    sent.push(input instanceof Request ? input.url : input.toString());
+    return new Response(null, { status: 200 });
+  };
+  const receiptPath = join(home, ".local/state/dotfiles/updates/software-update.json");
+  const execute = (script: string) =>
+    Effect.runPromise(
+      Effect.gen(function* () {
+        const bounded = yield* BoundedCommand;
+        return yield* runUpdate(
+          "software-update",
+          home,
+          process.execPath,
+          ["-e", script],
+          send,
+        ).pipe(
+          Effect.provideService(
+            BoundedCommand,
+            BoundedCommand.of({
+              run: (command, args, options) =>
+                bounded.run(command, args, {
+                  ...options,
+                  timeoutMs: 1_000,
+                  termGraceMs: 100,
+                  pollIntervalMs: 50,
+                }),
+            }),
+          ),
+        );
+      }).pipe(
+        Effect.provide(BoundedCommand.layer),
+        Effect.provide(CommandRunner.layer),
+        Effect.provide(NodeServices.layer),
+      ),
+    );
+  assert.equal(await execute("setInterval(() => {}, 1000)"), 124);
+  const failure = JSON.parse(await readFile(receiptPath, "utf8"));
+  assert.equal(failure.state, "finished");
+  assert.equal(failure.timedOut, true);
+  assert.equal(failure.cleanupComplete, true);
+  assert.equal(failure.heartbeat, "sent");
+  assert.equal(await execute("process.exit(0)"), 0);
+  const recovery = JSON.parse(await readFile(receiptPath, "utf8"));
+  assert.equal(recovery.exitCode, 0);
+  assert.equal(recovery.timedOut, undefined);
+  assert.equal(recovery.heartbeat, "sent");
+  assert.deepEqual(sent, [
+    "https://monitor.example/private-token/fail",
+    "https://monitor.example/private-token",
+  ]);
+});
+
+for (const previous of ["incomplete", "unreadable"] as const) {
+  test(`a ${previous} cleanup receipt prevents the next update from overlapping`, async (t) => {
+    const home = await mkdtemp(join(tmpdir(), "dotfiles-update-blocked-"));
+    t.onTestFinished(() => rm(home, { recursive: true, force: true }));
+    const directory = join(home, ".local/state/dotfiles/updates");
+    await mkdir(directory, { recursive: true });
+    const path = join(directory, "software-update.json");
+    await writeFile(
+      path,
+      previous === "incomplete" ? JSON.stringify({ cleanupComplete: false }) : "invalid",
+    );
+    let executions = 0;
+    const runner = BoundedCommand.of({
+      run: () => {
+        executions++;
+        return Effect.succeed({ status: 0, timedOut: false, cleanupComplete: true });
+      },
+    });
+    const execute = () =>
+      Effect.runPromise(
+        runUpdate("software-update", home, "fixture", []).pipe(
+          Effect.provideService(BoundedCommand, runner),
+          Effect.provide(NodeServices.layer),
+        ),
+      );
+    assert.equal(await execute(), 125);
+    assert.equal(await execute(), 125);
+    assert.equal(executions, 0);
+    assert.equal(JSON.parse(await readFile(path, "utf8")).cleanupComplete, false);
+    await rm(path);
+    assert.equal(await execute(), 0);
+    assert.equal(executions, 1);
+  });
+}
+
+test("interrupted failure delivery retains the cleanup gate", async (t) => {
+  const home = await mkdtemp(join(tmpdir(), "dotfiles-update-interrupted-"));
+  await mkdir(join(home, ".config/dotfiles"), { recursive: true });
+  await writeFile(
+    join(home, ".config/dotfiles/update-heartbeats.json"),
+    JSON.stringify({
+      "software-update": "https://monitor.example/fixture",
+    }),
+    { mode: 0o600 },
+  );
+  const controller = new AbortController();
+  const started = Promise.withResolvers<void>();
+  let executions = 0;
+  const runner = BoundedCommand.of({
+    run: () => {
+      executions++;
+      return Effect.succeed({ status: 124, timedOut: true, cleanupComplete: false });
+    },
+  });
+  const send: typeof fetch = (_input, init) =>
+    new Promise((_resolve, reject) => {
+      assert.ok(init?.signal);
+      init.signal.addEventListener("abort", () => reject(new Error("aborted")), { once: true });
+      started.resolve();
+    });
+  const completion = Effect.runPromiseExit(
+    runUpdate("software-update", home, "fixture", [], send).pipe(
+      Effect.provideService(BoundedCommand, runner),
+      Effect.provide(NodeServices.layer),
+    ),
+    { signal: controller.signal },
+  );
+  t.onTestFinished(async () => {
+    controller.abort();
+    await completion;
+    await rm(home, { recursive: true, force: true });
+  });
+  await started.promise;
+  controller.abort();
+  assert.equal(Exit.isFailure(await completion), true);
+  const receipt = JSON.parse(
+    await readFile(join(home, ".local/state/dotfiles/updates/software-update.json"), "utf8"),
+  );
+  assert.equal(receipt.cleanupComplete, false);
+  const result = await Effect.runPromise(
+    runUpdate(
+      "software-update",
+      home,
+      "fixture",
+      [],
+      async () => new Response(null, { status: 200 }),
+    ).pipe(Effect.provideService(BoundedCommand, runner), Effect.provide(NodeServices.layer)),
+  );
+  assert.equal(result, 125);
+  assert.equal(executions, 1);
 });

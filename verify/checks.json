@@ -54,8 +54,16 @@
     {
       "id": "update-run",
       "domain": "maintenance",
-      "command": ["corepack", "pnpm", "exec", "vp", "test", "maintenance/run.test.ts"],
-      "output": "Monitored update run receipts, heartbeat delivery, and on-demand serialization"
+      "command": [
+        "corepack",
+        "pnpm",
+        "exec",
+        "vp",
+        "test",
+        "maintenance/run.test.ts",
+        "maintenance/bounded-command.test.ts"
+      ],
+      "output": "Update deadlines, detached child cleanup, private diagnostics, receipts, and heartbeat delivery"
     },
     {
       "id": "static",

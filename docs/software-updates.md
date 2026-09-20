@@ -30,7 +30,9 @@ and [Linux timer](../chezmoi/private_dot_config/systemd/user/dotfiles-software-u
   [Topgrade config](../chezmoi/private_dot_config/topgrade.toml.tmpl) selects
   update steps; the host owns Linux packages.
 - Requests acknowledge launch, not completion. Check status and the log summary.
-  A stuck run blocks later runs.
+  Updates have a one-hour execution limit. A timeout captures diagnostics,
+  stops the observed update processes, and reports exit code `124` and a failed
+  heartbeat. The next scheduled run can proceed after cleanup succeeds.
 - `maintenance:update` preserves an active run. Separate `topgrade` or `brew`
   processes can overlap it; check for idle before interactive work.
 - No sudo credentials or interactive input are supplied. Privileged installers
@@ -115,6 +117,12 @@ logs live under `~/.local/state/dotfiles/logs/`.
 - Private receipts live at `~/.local/state/dotfiles/updates/<job>.json`.
   Compare `running` receipts with the scheduler; they do not prove process
   liveness.
+- The latest timeout report lives at
+  `~/.local/state/dotfiles/updates/diagnostics/software-update-timeout.json`.
+  It is owner-only, survives reboot, and is replaced on the next timeout.
+  Reports include process identities and bounded macOS stack samples, excluding
+  command arguments and environment values. Linux reports process metadata.
+  Diagnostic failure does not prevent process cleanup or failure reporting.
 - On macOS, `maintenance:status` inspects the GUI updater or, when absent, the
   system updater under the stored host namespace. It reports the selected domain
   and compares that job’s plist and the user’s receipt without changing enrollment.
@@ -151,6 +159,15 @@ mise run maintenance:disable
   units take effect without re-enrolling.
 - Disabling stops the job and children. After interruption, inspect logs/package
   state before retrying. Never delete Homebrew locks during another package run.
+- Deadline cleanup tracks same-user descendants across process sessions,
+  checks recorded start times before signaling, and escalates from TERM to KILL.
+  A process that detaches and loses its parent before observation can escape
+  tracking. If a receipt reports `cleanupComplete: false`, inspect remaining
+  processes before requesting another run. Later runs refuse to start and report
+  exit code `125` until the incomplete or unreadable receipt is removed. Remove
+  `~/.local/state/dotfiles/updates/software-update.json` only after verifying the
+  previous update and its descendants have stopped. This bounds a stuck updater;
+  it does not repair the underlying package or operating-system failure.
 
 ### Upgrading From the Scripts Layout
 

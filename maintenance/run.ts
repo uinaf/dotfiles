@@ -6,11 +6,13 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { CommandRunner } from "../lib/command.ts";
 import { fail, runMain } from "../lib/program.ts";
+import { BoundedCommand } from "./bounded-command.ts";
 import { dailyLog, rotateUpdateLog } from "./logs.ts";
 
 const Job = Schema.Literal("software-update");
 type Job = typeof Job.Type;
 const Config = Schema.Record(Schema.String, Schema.String);
+const PreviousReceipt = Schema.Struct({ cleanupComplete: Schema.optionalKey(Schema.Boolean) });
 type Delivery = "not-configured" | "sent" | "failed";
 
 class HeartbeatFailure extends Schema.TaggedError<HeartbeatFailure>()("HeartbeatFailure", {
@@ -27,7 +29,7 @@ export const runUpdate = Effect.fn("runMonitoredUpdate")(function* (
   retryWait: Effect.Effect<void> = Effect.sleep("10 seconds"),
 ) {
   const fs = yield* FileSystem.FileSystem;
-  const runner = yield* CommandRunner;
+  const runner = yield* BoundedCommand;
   const startedAt = new Date().toISOString();
   const directory = join(home, ".local/state/dotfiles/updates");
   const path = join(directory, `${job}.json`);
@@ -94,16 +96,50 @@ export const runUpdate = Effect.fn("runMonitoredUpdate")(function* (
     ),
   );
 
-  yield* receipt({ state: "running" });
-  const status = yield* runner.run(command, args, { output: "inherit" }).pipe(
-    Effect.map((result) => result.status),
-    Effect.catch(() =>
-      Effect.gen(function* () {
-        yield* Console.error("Update command could not start.");
-        return 127;
-      }),
-    ),
-  );
+  const blocked = yield* Effect.gen(function* () {
+    if (!(yield* fs.exists(path))) return false;
+    const previous = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(PreviousReceipt))(
+      yield* fs.readFileString(path),
+    );
+    return previous.cleanupComplete === false;
+  }).pipe(Effect.catch(() => Effect.succeed(true)));
+  if (blocked)
+    yield* Console.error(
+      "Previous update cleanup is unverified; refusing to start another update.",
+    );
+  yield* receipt({ state: "running", cleanupComplete: false });
+  const execution = blocked
+    ? { status: 125, timedOut: false, cleanupComplete: false }
+    : yield* runner
+        .run(command, args, {
+          diagnosticDirectory: join(directory, "diagnostics"),
+        })
+        .pipe(
+          Effect.catch(() =>
+            Effect.gen(function* () {
+              yield* Console.error("Update command failed to execute.");
+              return { status: 127, timedOut: false, cleanupComplete: false };
+            }),
+          ),
+        );
+  const status = execution.cleanupComplete ? execution.status : execution.status || 1;
+  if (execution.timedOut) {
+    yield* Console.error("Update exceeded its execution deadline; reporting failure.");
+    yield* Console.error(
+      "diagnosticPath" in execution && execution.diagnosticPath
+        ? `Timeout diagnostics: ${execution.diagnosticPath}`
+        : "Timeout diagnostics could not be saved.",
+    );
+  }
+  if (!execution.cleanupComplete)
+    yield* Console.error("Update process cleanup is incomplete; inspect before retrying.");
+  // Persist cleanup before network delivery: cancellation must not reopen the retry gate.
+  yield* receipt({
+    state: "running",
+    exitCode: status,
+    cleanupComplete: execution.cleanupComplete,
+    ...(execution.timedOut ? { timedOut: true } : {}),
+  });
   if (destination) {
     const deliver = Effect.tryPromise({
       try: async (signal) => {
@@ -146,6 +182,10 @@ export const runUpdate = Effect.fn("runMonitoredUpdate")(function* (
     finishedAt: new Date().toISOString(),
     exitCode: status,
     heartbeat: delivery,
+    ...(execution.timedOut ? { timedOut: true } : {}),
+    ...(execution.timedOut || !execution.cleanupComplete
+      ? { cleanupComplete: execution.cleanupComplete }
+      : {}),
   });
   return status;
 });
@@ -157,6 +197,10 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1
       return yield* fail("Usage: run.ts <software-update> -- COMMAND [ARGS...]", 2);
     }
     process.exitCode = yield* runUpdate(job, process.env.HOME, command, args);
-  }).pipe(Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer));
+  }).pipe(
+    Effect.provide(BoundedCommand.layer),
+    Effect.provide(CommandRunner.layer),
+    Effect.provide(NodeServices.layer),
+  );
   runMain(program);
 }
