@@ -105,12 +105,12 @@ printf "%s\\n" "$*"
         cursorCommands: unknown[];
         grokEnabled: boolean;
       };
-      assert.equal(state.version, 7);
-      assert.deepEqual(state.cursorCommands, []);
+      assert.equal(state.version, 8);
+      assert.equal(state.cursorCommands, undefined);
       assert.equal(state.grokEnabled, true);
       const check = run("--check");
       assert.equal(check.status, 0, check.stderr);
-      assert.match(check.stdout, /Cursor=false, Grok=true/);
+      assert.match(check.stdout, /Grok=true/);
 
       const retire = run("--retire-auth");
       assert.equal(retire.status, 0, retire.stderr);

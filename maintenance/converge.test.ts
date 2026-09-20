@@ -166,7 +166,6 @@ for (const failure of [false, true]) {
       "apply-dotfiles.ts",
       "install-oh-my-zsh.ts",
       "install-t3-service.ts",
-      "install-cursor-agent.ts",
       "trust-agent-worktrees.ts",
       "install-gh-extensions.ts",
       "configure-codex.ts",

@@ -122,21 +122,18 @@ Each sync keeps an ignored `agents/{skills,plugins,mcps}.lock.json`:
 and the next lock from selected entries, previous ownership, and available
 harnesses. Syncs execute those removals and pass deferred entries back to the
 plan; the lock is written only after successful apply and removal operations.
-Plugin-specific ownership changes, including Cursor install mode, stay in
+Plugin-specific ownership changes stay in
 [plugin sync](../agents/plugins.ts).
 
 ## Plugin Sync
 
-- Cursor marketplace installs need completion in `/plugins`. If imports are
-  blocked, `cursorMode: "skills"` uses skill links and requires both `cursor`
-  and `claude` in `harnesses`.
-- OpenCode always uses skill links. Both link from
+- OpenCode uses skill links from
   `~/.claude/plugins/marketplaces/<marketplaceId>/skills/`, so the Claude
   marketplace checkout must exist. Links follow its updates.
 - Existing files or never-owned links at a selected skill name are reported
   rather than replaced. First sync does not prune links.
-- Cursor marketplace removal stays interactive and remains owned until a later
-  sync confirms removal.
+- Cursor is retired from installation and active agent targets. Legacy ownership
+  remains readable for cleanup; no Cursor CLI is installed or configured.
 
 ## MCP Sync
 
@@ -147,9 +144,7 @@ every installed harness at once and get the repair command per row:
 mise run agents:doctor
 ```
 
-Use the repair command printed by [doctor.ts](../agents/doctor.ts). Cursor
-stores OAuth tokens per project; use [cursor-mcp-seed.ts](../agents/cursor-mcp-seed.ts)
-to seed a new checkout or worktree.
+Use the repair command printed by [doctor.ts](../agents/doctor.ts).
 
 Over SSH the callback port stays on the remote host: run the login under
 `ssh -t` (Claude and Codex need a TTY) and forward the printed loopback port

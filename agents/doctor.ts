@@ -6,7 +6,7 @@ import { Effect } from "effect";
 
 import { runMain } from "../lib/program.ts";
 import { readProfileModel, requireProfile } from "../profiles/model.ts";
-import { HARNESS_INFO, HARNESSES, type Harness, parseSyncArgs } from "./harness.ts";
+import { HARNESS_INFO, ACTIVE_HARNESSES, type Harness, parseSyncArgs } from "./harness.ts";
 import { type McpServer, readLayeredServers } from "./mcps/catalog.ts";
 import {
   createRuntime,
@@ -19,9 +19,8 @@ import {
 const USAGE = `Usage: ./agents/doctor.ts [--profile PROFILE]
 
 Reports the MCP authentication state of every managed server in each installed
-harness and the command that repairs it. Cursor stores MCP OAuth per project
-directory, so its row describes the current working directory. Exits 1 when a
-server needs a login or the Grok installation drifted from the profile.`;
+harness and the command that repairs it. Exits 1 when a server needs a login
+or the Grok installation drifted from the profile.`;
 
 type Status = "ok" | "needs_login" | "unknown" | "failed";
 
@@ -131,42 +130,6 @@ function codexFinding(runtime: Runtime, server: McpServer): Finding {
     detail: `${auth}; session validity is only reported at startup`,
     repair,
   };
-}
-
-function cursorFinding(runtime: Runtime, server: McpServer, text: string): Finding {
-  const line = text
-    .split("\n")
-    .map((item) => item.trim())
-    .find((item) => item.startsWith(`${server.name}:`));
-  const repair = `cursor-agent mcp login ${server.name}  # in the project directory, or: ./agents/cursor-mcp-seed.ts`;
-  if (line === undefined) {
-    return {
-      harness: "cursor",
-      server: server.name,
-      status: "failed",
-      detail: "not listed",
-      repair: "mise run agents:sync",
-    };
-  }
-  const state = line.slice(server.name.length + 1).trim();
-  if (state === "ready") {
-    return {
-      harness: "cursor",
-      server: server.name,
-      status: "ok",
-      detail: `ready in ${runtime.env.PWD ?? process.cwd()}`,
-    };
-  }
-  if (state.includes("auth")) {
-    return {
-      harness: "cursor",
-      server: server.name,
-      status: "needs_login",
-      detail: `${state} in ${runtime.env.PWD ?? process.cwd()}`,
-      repair,
-    };
-  }
-  return { harness: "cursor", server: server.name, status: "unknown", detail: state, repair };
 }
 
 function opencodeFinding(server: McpServer, text: string): Finding {
@@ -298,7 +261,7 @@ function collect(runtime: Runtime, servers: readonly McpServer[]): Finding[] {
   const findings: Finding[] = [];
   const selected = (harness: Harness) =>
     servers.filter((server) => server.harnesses.includes(harness));
-  for (const harness of HARNESSES) {
+  for (const harness of ACTIVE_HARNESSES) {
     const { binary, label } = HARNESS_INFO[harness];
     if (!runtime.commandExists(binary)) {
       writeLine(runtime.stdout, `Skipping ${label}: '${binary}' is not installed`);
@@ -315,11 +278,6 @@ function collect(runtime: Runtime, servers: readonly McpServer[]): Finding[] {
       case "codex":
         findings.push(...chosen.map((server) => codexFinding(runtime, server)));
         break;
-      case "cursor": {
-        const text = capture(runtime, "cursor-agent", ["mcp", "list"]).text;
-        findings.push(...chosen.map((server) => cursorFinding(runtime, server, text)));
-        break;
-      }
       case "opencode": {
         const text = capture(runtime, "opencode", ["mcp", "list"]).text;
         findings.push(...chosen.map((server) => opencodeFinding(server, text)));

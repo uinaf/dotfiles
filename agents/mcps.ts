@@ -21,6 +21,7 @@ import {
   type Harness,
   HARNESS_INFO,
   HARNESSES,
+  ACTIVE_HARNESSES,
   harnessPresent,
   isSafeName,
   parseSyncArgs,
@@ -695,12 +696,14 @@ function apply(runtime: Runtime, options: McpOptions): number {
   const ownership = planOwnership({
     previous: previouslyManaged ?? [],
     selected: servers.map((server) => ({ name: server.name, harnesses: server.harnesses })),
-    available: HARNESSES.filter((harness) => runtime.commandExists(HARNESS_INFO[harness].binary)),
+    available: ACTIVE_HARNESSES.filter((harness) =>
+      runtime.commandExists(HARNESS_INFO[harness].binary),
+    ),
     keyOf: serverName,
   });
 
   const failures: McpFailure[] = [];
-  for (const harness of HARNESSES) {
+  for (const harness of ACTIVE_HARNESSES) {
     if (harness === "claude") {
       applyClaude(runtime, servers, failures);
     } else if (harness === "codex") {

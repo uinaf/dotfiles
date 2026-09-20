@@ -2,7 +2,14 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { type AgentLayer } from "../../profiles/model.ts";
-import { composeLayers, type Harness, HARNESSES, isSafeName, readHarnesses } from "../harness.ts";
+import {
+  composeLayers,
+  type Harness,
+  HARNESSES,
+  ACTIVE_HARNESSES,
+  isSafeName,
+  readHarnesses,
+} from "../harness.ts";
 import { readLocalOverlay } from "../local.ts";
 import { errorMessage } from "../runtime.ts";
 
@@ -14,7 +21,7 @@ export type McpServer = {
 
 function readManifestHarnesses(value: unknown, path: string, name: string): readonly Harness[] {
   if (value === undefined) {
-    return HARNESSES;
+    return ACTIVE_HARNESSES;
   }
   return readHarnesses(
     value,

@@ -2,7 +2,7 @@ import { Console, Effect, FileSystem, Option, Schema } from "effect";
 import { join } from "node:path";
 import { CommandRunner } from "../lib/command.ts";
 import { CliFailure, fail } from "../lib/program.ts";
-import { type Harness, HARNESS_INFO, HARNESSES } from "./harness.ts";
+import { type Harness, HARNESS_INFO, ACTIVE_HARNESSES } from "./harness.ts";
 
 const PACKAGE = "@vectorize-io/hindsight-coding-agents";
 
@@ -164,7 +164,9 @@ const inspect = Effect.fn("inspectHindsight")(function* (
   commandExists: (binary: string) => boolean,
 ) {
   yield* requireServerConfig(paths.configPath);
-  const harnesses = HARNESSES.filter((harness) => commandExists(HARNESS_INFO[harness].binary));
+  const harnesses = ACTIVE_HARNESSES.filter((harness) =>
+    commandExists(HARNESS_INFO[harness].binary),
+  );
   const [installed, latest] = yield* Effect.all([
     installedVersion(paths.runtimeDir),
     latestVersion(),

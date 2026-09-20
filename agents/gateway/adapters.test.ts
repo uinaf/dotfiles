@@ -29,27 +29,14 @@ function fixture(t: TestContext, installedBundles = bundles) {
   mkdirSync(bin);
   for (const [name, contents] of Object.entries(installedBundles))
     writeFileSync(join(installed, name), contents, { mode: 0o700 });
-  const vendor = join(home, ".local/share/cursor-agent/versions/fixture/cursor-agent");
-  mkdirSync(dirname(vendor), { recursive: true });
-  writeFileSync(
-    vendor,
-    `#!${process.execPath}
-if (process.argv[2] === "models") process.exit(Number(process.env.MODELS_EXIT || 0));
-if (process.argv[2] === "--version") { console.log("fixture-version"); process.exit(Number(process.env.VERSION_EXIT || 0)); }
-else { console.log(JSON.stringify({ args: process.argv.slice(2), memory: process.env.AGENT_CLI_CREDENTIAL_STORE, keyPresent: Boolean(process.env.CURSOR_API_KEY) })); process.exit(Number(process.env.VENDOR_EXIT || 0)); }
-`,
-    { mode: 0o700 },
-  );
   const config = {
     version: 3,
     credentials: {
       gatewai: "0123456789abcdefghijklmnopqrstuvwxyz_ABCD",
       bifrost: "sk-bf-11111111-1111-4111-8111-111111111111",
-      cursor: `crsr_${"a".repeat(64)}`,
     },
     gatewaiBaseUrl: "https://gateway.example/v1",
     bifrostBaseUrl: "https://bifrost.example/v1",
-    cursorAgentBin: vendor,
   };
   const configPath = join(home, ".config/dotfiles/llm-gateway.json");
   mkdirSync(dirname(configPath), { recursive: true });
@@ -74,40 +61,15 @@ else { console.log(JSON.stringify({ args: process.argv.slice(2), memory: process
 test("installed adapters run outside the checkout with no module graph, jq, Python, or Node on PATH", (t) => {
   const f = fixture(t);
   assert.equal(existsSync(join(f.root, "node_modules")), false);
-  for (const kind of ["gatewai", "bifrost", "cursor"] as const) {
+  for (const kind of ["gatewai", "bifrost"] as const) {
     const result = f.run("llm-gateway-credential", [kind]);
     assert.equal(result.status, 0, result.stderr);
     assert.equal(result.stdout.trim(), f.config.credentials[kind]);
     assert.equal(result.stderr, "");
   }
-  const about = f.run("cursor-agent-api", ["about", "--format", "json"]);
-  assert.equal(about.status, 0, about.stderr);
-  assert.deepEqual(JSON.parse(about.stdout), {
-    cliVersion: "fixture-version",
-    userEmail: "api-key@local",
-  });
-  const vendor = f.run("cursor-agent-api", ["chat", "hello"], { VENDOR_EXIT: "37" });
-  assert.equal(vendor.status, 37, vendor.stderr);
-  assert.deepEqual(JSON.parse(vendor.stdout), {
-    args: ["chat", "hello"],
-    memory: "memory",
-    keyPresent: true,
-  });
-});
-
-test("Cursor probes preserve failed vendor statuses without reporting authenticated", (t) => {
-  const f = fixture(t);
-  for (const args of [["status"], ["whoami"], ["about", "--format=json"]]) {
-    const result = f.run("cursor-agent-api", args, { MODELS_EXIT: "23" });
-    assert.equal(result.status, 23);
-    assert.equal(result.stdout, "");
-    assert.match(result.stderr, /command failed/);
-    assert.ok(!result.stderr.includes(f.config.credentials.cursor));
-  }
-  const version = f.run("cursor-agent-api", ["about", "--format=json"], { VERSION_EXIT: "29" });
-  assert.equal(version.status, 29);
-  assert.equal(version.stdout, "");
-  assert.match(version.stderr, /command failed/);
+  const retired = f.run("llm-gateway-credential", ["cursor"]);
+  assert.notEqual(retired.status, 0);
+  assert.equal(retired.stdout, "");
 });
 
 test("credential validation is fail closed and never includes rejected payloads in diagnostics", (t) => {
@@ -192,7 +154,7 @@ test("mise interpreter path survives pruning the version used during enrollment"
   assert.equal(result.stdout, "ready\n");
 });
 
-test("installed bundles handle quoted interpreter paths and ancestor ESM packages without consuming stdin", async (t) => {
+test("installed bundles handle quoted interpreter paths and ancestor ESM packages", async (t) => {
   const root = mkdtempSync(join(tmpdir(), "gateway quoted interpreter "));
   t.onTestFinished(() => rmSync(root, { recursive: true, force: true }));
   const directory = join(root, "Node's installs with spaces");
@@ -204,26 +166,4 @@ test("installed bundles handle quoted interpreter paths and ancestor ESM package
   const credential = f.run("llm-gateway-credential", ["gatewai"]);
   assert.equal(credential.status, 0, credential.stderr);
   assert.equal(credential.stdout.trim(), f.config.credentials.gatewai);
-  const vendor = join(f.root, "echo.cjs");
-  writeFileSync(
-    vendor,
-    `
-    process.stdin.pipe(process.stdout);
-    process.stdin.on("end", () => { process.exitCode = 37; });
-  `,
-  );
-  const request = '{"id":17,"method":"session/new"}\n';
-  const forwarded = spawnSync(
-    join(f.installed, "cursor-acp-api-key-auth"),
-    [process.execPath, vendor],
-    {
-      cwd: f.root,
-      encoding: "utf8",
-      env: f.env,
-      input: request,
-      timeout: 10_000,
-    },
-  );
-  assert.equal(forwarded.status, 37, forwarded.stderr);
-  assert.equal(forwarded.stdout, request);
 });

@@ -23,6 +23,7 @@ import {
   type Harness,
   HARNESS_INFO,
   HARNESSES,
+  ACTIVE_HARNESSES,
   harnessPresent,
   isSafeName,
   parseSyncArgs,
@@ -147,7 +148,7 @@ function readManifestHarnesses(
   name: string,
 ): readonly Harness[] {
   if (value === undefined) {
-    return HARNESSES;
+    return ACTIVE_HARNESSES;
   }
   return readHarnesses(
     value,
@@ -913,7 +914,9 @@ function apply(runtime: Runtime, options: PluginOptions): number {
   const ownership = planOwnership({
     previous: previouslyManaged ?? [],
     selected: plugins,
-    available: HARNESSES.filter((harness) => runtime.commandExists(HARNESS_INFO[harness].binary)),
+    available: ACTIVE_HARNESSES.filter((harness) =>
+      runtime.commandExists(HARNESS_INFO[harness].binary),
+    ),
     keyOf: pluginRef,
     // Native skill links replace Cursor marketplace ownership, even when selected.
     extraDropped: (owned, next) =>
@@ -929,7 +932,7 @@ function apply(runtime: Runtime, options: PluginOptions): number {
   });
 
   const failures: PluginFailure[] = [];
-  for (const harness of HARNESSES) {
+  for (const harness of ACTIVE_HARNESSES) {
     applyHarness(
       runtime,
       harness,

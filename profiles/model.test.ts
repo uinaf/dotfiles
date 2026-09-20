@@ -109,7 +109,8 @@ test("TypeScript rejects malformed, unsupported, missing, and wrong-type data", 
   const missingRuntimeStep = rawModel();
   missingRuntimeStep.profileModel.profiles.workstation.installSteps = [
     "apply-dotfiles",
-    "install-cursor-agent",
+    "trust-agent-worktrees",
+    "configure-codex",
   ];
   assert.throws(() => parseProfileModel(JSON.stringify(missingRuntimeStep)), /install-runtimes/);
 
@@ -196,7 +197,8 @@ test("chezmoi rejects unsupported, unknown, missing, and wrong-type data", () =>
   const missingRuntimeStep = rawModel();
   missingRuntimeStep.profileModel.profiles.workstation.installSteps = [
     "apply-dotfiles",
-    "install-cursor-agent",
+    "trust-agent-worktrees",
+    "configure-codex",
   ];
   assert.notEqual(renderProfile("workstation", missingRuntimeStep.profileModel).status, 0);
 

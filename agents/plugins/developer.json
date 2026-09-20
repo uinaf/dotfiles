@@ -3,7 +3,7 @@
     {
       "marketplace": "uinaf/ffss",
       "name": "ffss",
-      "cursorMode": "skills"
+      "harnesses": ["claude", "codex", "grok", "opencode"]
     }
   ]
 }

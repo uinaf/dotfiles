@@ -9,7 +9,6 @@ cask "google-chrome"
 cask "helium-browser"
 cask "slack"
 cask "chatgpt"
-cask "cursor"
 cask "t3-code"
 cask "zed"
 
