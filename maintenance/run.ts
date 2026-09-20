@@ -115,7 +115,7 @@ export const runUpdate = Effect.fn("runMonitoredUpdate")(function* (
     yield* Console.error("Cannot persist the cleanup gate; refusing to start another update.");
   const execution =
     blocked || !gateSaved
-      ? { status: 125, timedOut: false, cleanupComplete: false }
+      ? { status: 125, timedOut: false, cleanupComplete: !blocked }
       : yield* runner
           .run(command, args, {
             diagnosticDirectory: join(directory, "diagnostics"),

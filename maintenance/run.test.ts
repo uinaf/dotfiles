@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { test } from "vite-plus/test";
 import { closeSync, lstatSync, openSync, readFileSync, writeSync } from "node:fs";
 import { NodeServices } from "@effect/platform-node";
-import { Effect, Exit } from "effect";
+import { Effect, Exit, FileSystem } from "effect";
 import { CommandRunner } from "../lib/command.ts";
 import { BoundedCommand, BoundedCommandError } from "./bounded-command.ts";
 import { runUpdate } from "./run.ts";
@@ -485,4 +485,43 @@ test("a pre-spawn failure remains retryable without removing the receipt", async
   );
   assert.equal(receipt.cleanupComplete, undefined);
   assert.equal(await execute(process.execPath, ["-e", "process.exit(0)"]), 0);
+});
+
+test("a transient initial receipt failure does not leave a cleanup block for an unstarted command", async (t) => {
+  const home = await mkdtemp(join(tmpdir(), "dotfiles-update-transient-storage-"));
+  t.onTestFinished(() => rm(home, { recursive: true, force: true }));
+  let rejectInitialWrite = true;
+  let executions = 0;
+  const runner = BoundedCommand.of({
+    run: () => {
+      executions++;
+      return Effect.succeed({ status: 0, timedOut: false, cleanupComplete: true });
+    },
+  });
+  const execute = () =>
+    Effect.runPromise(
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        return yield* runUpdate("software-update", home, "fixture", []).pipe(
+          Effect.provideService(FileSystem.FileSystem, {
+            ...fs,
+            writeFileString: (path, content, options) => {
+              if (rejectInitialWrite && path.endsWith(`software-update.json.${process.pid}.tmp`)) {
+                rejectInitialWrite = false;
+                return fs.writeFileString(home, content, options);
+              }
+              return fs.writeFileString(path, content, options);
+            },
+          }),
+        );
+      }).pipe(Effect.provideService(BoundedCommand, runner), Effect.provide(NodeServices.layer)),
+    );
+  assert.equal(await execute(), 125);
+  assert.equal(executions, 0);
+  const receipt = JSON.parse(
+    await readFile(join(home, ".local/state/dotfiles/updates/software-update.json"), "utf8"),
+  );
+  assert.notEqual(receipt.cleanupComplete, false);
+  assert.equal(await execute(), 0);
+  assert.equal(executions, 1);
 });
