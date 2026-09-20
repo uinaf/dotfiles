@@ -197,3 +197,40 @@ test("a missed root identity cannot certify cleanup even when the command exits 
   assert.equal(result.timedOut, false);
   assert.equal(result.cleanupComplete, false);
 });
+
+test("a system account reported with a negative UID does not invalidate the update inventory", async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), "dotfiles-system-uid-"));
+  t.onTestFinished(() => rm(directory, { recursive: true, force: true }));
+  const result = await Effect.runPromise(
+    Effect.gen(function* () {
+      const runner = yield* CommandRunner;
+      return yield* Effect.gen(function* () {
+        const command = yield* BoundedCommand;
+        return yield* command.run(process.execPath, ["-e", "setTimeout(() => {}, 100)"], {
+          diagnosticDirectory: join(directory, "diagnostics"),
+          timeoutMs: 2_000,
+        });
+      }).pipe(
+        Effect.provide(BoundedCommand.layer),
+        Effect.provideService(
+          CommandRunner,
+          CommandRunner.of({
+            run: (command, args, options) =>
+              runner.run(command, args, options).pipe(
+                Effect.map((result) =>
+                  command === "/bin/ps"
+                    ? {
+                        ...result,
+                        stdout: `${result.stdout}\n999999 1 -2 Sun Sep 20 10:53:05 2026 S 0.0\n`,
+                      }
+                    : result,
+                ),
+              ),
+          }),
+        ),
+      );
+    }).pipe(Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer)),
+  );
+  assert.equal(result.status, 0);
+  assert.equal(result.cleanupComplete, true);
+});

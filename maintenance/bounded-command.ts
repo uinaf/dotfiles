@@ -37,7 +37,7 @@ export type BoundedCommandResult = {
 const ProcessRow = Schema.Struct({
   pid: Schema.Int.pipe(Schema.check(Schema.isGreaterThan(0))),
   ppid: Schema.Int.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
-  uid: Schema.Int.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
+  uid: Schema.Int,
   started: Schema.String.pipe(
     Schema.check(Schema.isPattern(/^[A-Za-z]{3} [A-Za-z]{3} \d{1,2} \d{2}:\d{2}:\d{2} \d{4}$/)),
   ),
