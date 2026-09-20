@@ -12,7 +12,6 @@ const BifrostKey = Schema.String.pipe(
 const BifrostAuth = Schema.Struct({ type: Schema.Literal("api"), key: BifrostKey });
 const JsonObject = Schema.Record(Schema.String, Schema.Unknown);
 const GatewayConfig = Schema.Struct({ bifrostBaseUrl: Schema.String });
-const retiredProviders = ["opencode", "opencode-go"] as const;
 export const models = [
   { id: "ollama/kimi-k3", context: 1_048_576, output: 943_718, input: ["text", "image"] },
   { id: "ollama/deepseek-v4-flash:0731", context: 1_048_576, output: 943_718, input: ["text"] },
@@ -210,8 +209,7 @@ export const configureBifrostClients = Effect.fn("configureBifrostClients")(func
       Option.isNone(auth.info) ||
       (auth.info.value.mode & 0o077) !== 0 ||
       Option.isNone(bifrostAuth) ||
-      bifrostAuth.value.key !== key ||
-      retiredProviders.some((provider) => provider in auth.value)
+      bifrostAuth.value.key !== key
     )
       return yield* fail("OpenCode Bifrost authentication drifted");
     if (
@@ -230,9 +228,7 @@ export const configureBifrostClients = Effect.fn("configureBifrostClients")(func
     yield* Console.log("ok OpenCode and Pi use the six-model Bifrost catalog");
     return;
   }
-  const desiredAuth = { ...auth.value };
-  for (const provider of retiredProviders) delete desiredAuth[provider];
-  yield* writeObject(authPath, "auth.json", { ...desiredAuth, bifrost: { type: "api", key } });
+  yield* writeObject(authPath, "auth.json", { ...auth.value, bifrost: { type: "api", key } });
   yield* writeObject(openCodePath, "opencode.json", {
     ...openCode.value,
     provider: { ...openCodeProviders, bifrost: desiredOpenCodeProvider },

@@ -23,7 +23,6 @@ import {
   type Harness,
   HARNESS_INFO,
   HARNESSES,
-  ACTIVE_HARNESSES,
   harnessPresent,
   isSafeName,
   parseSyncArgs,
@@ -32,7 +31,7 @@ import {
   type SyncFailure,
 } from "./harness.ts";
 import { planOwnership } from "./ownership.ts";
-import { migrateLegacyLock, readLockFile, writeLockFile } from "./lock.ts";
+import { readLockFile, writeLockFile } from "./lock.ts";
 import {
   createRuntime,
   errorMessage,
@@ -46,22 +45,15 @@ export { type Harness, HARNESSES } from "./harness.ts";
 // `owner/repo` as accepted by the marketplace-add subcommands.
 const MARKETPLACE_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*\/[A-Za-z0-9][A-Za-z0-9._-]*$/;
 
-// How Cursor installs a plugin: through its marketplace and the interactive
-// /plugins flow, or by linking standard skill directories into Cursor's
-// native discovery path when team policy blocks third-party imports.
-type CursorMode = "marketplace" | "skills";
-
 export type Plugin = {
   marketplace: string;
   marketplaceId: string;
   name: string;
   harnesses: readonly Harness[];
-  cursorMode: CursorMode;
 };
 
 // Native skill discovery paths, relative to HOME, per link-capable harness.
 const SKILL_LINK_ROOTS = {
-  cursor: [".cursor", "skills"],
   opencode: [".config", "opencode", "skills"],
 } as const;
 
@@ -84,7 +76,6 @@ type HarnessSpec = {
   marketplaceArgs?: (plugin: Plugin) => string[];
   // Codex refreshes Git marketplace snapshots by configured name, not plugin ref.
   upgradeMarketplaceArgs?: (plugin: Plugin) => string[];
-  // Cursor exposes no non-interactive install subcommand; installation happens via /plugins.
   installArgs?: (plugin: Plugin) => string[];
   // `--update` refreshes an already-installed plugin. Claude needs `-y` because
   // apply captures stdout and is therefore not a TTY.
@@ -113,15 +104,6 @@ const HARNESS_SPECS: Record<Harness, HarnessSpec> = {
     upgradeMarketplaceArgs: (plugin) => ["plugin", "marketplace", "upgrade", plugin.marketplaceId],
     installArgs: (plugin) => ["plugin", "add", pluginRef(plugin)],
   },
-  cursor: {
-    ...HARNESS_INFO.cursor,
-    marketplaceArgs: (plugin) => [
-      "plugin",
-      "marketplace",
-      "add",
-      `github.com/${plugin.marketplace}`,
-    ],
-  },
   grok: {
     ...HARNESS_INFO.grok,
     installArgs: (plugin) => ["plugin", "install", plugin.marketplace, "--trust"],
@@ -148,7 +130,7 @@ function readManifestHarnesses(
   name: string,
 ): readonly Harness[] {
   if (value === undefined) {
-    return ACTIVE_HARNESSES;
+    return HARNESSES;
   }
   return readHarnesses(
     value,
@@ -196,20 +178,7 @@ function readPlugin(value: unknown, manifestPath: string): Plugin {
     );
   }
 
-  const cursorMode =
-    "cursorMode" in value && value.cursorMode !== undefined ? value.cursorMode : "marketplace";
-  if (cursorMode !== "marketplace" && cursorMode !== "skills") {
-    throw new Error(
-      `Invalid plugins manifest at ${manifestPath}: ${value.name} cursorMode must be "marketplace" or "skills"`,
-    );
-  }
-  if (cursorMode === "skills" && (!harnesses.includes("cursor") || !harnesses.includes("claude"))) {
-    throw new Error(
-      `Invalid plugins manifest at ${manifestPath}: ${value.name} sets cursorMode "skills" without targeting cursor and claude; the Cursor skill links resolve the Claude marketplace checkout`,
-    );
-  }
-
-  return { marketplace: value.marketplace, marketplaceId, name: value.name, harnesses, cursorMode };
+  return { marketplace: value.marketplace, marketplaceId, name: value.name, harnesses };
 }
 
 export function readPlugins(manifestPath: string): Plugin[] {
@@ -292,12 +261,10 @@ function readLockedPlugin(value: unknown, lockPath: string): Plugin {
     !("marketplaceId" in value) ||
     typeof value.marketplaceId !== "string" ||
     !isSafeName(value.marketplaceId) ||
-    !("cursorMode" in value) ||
-    (value.cursorMode !== "marketplace" && value.cursorMode !== "skills") ||
     !("harnesses" in value)
   ) {
     throw new Error(
-      `Invalid managed plugins lock at ${lockPath}: expected explicit marketplace, marketplaceId, name, cursorMode, and harnesses`,
+      `Invalid managed plugins lock at ${lockPath}: expected explicit marketplace, marketplaceId, name, and harnesses`,
     );
   }
 
@@ -305,7 +272,6 @@ function readLockedPlugin(value: unknown, lockPath: string): Plugin {
     marketplace: value.marketplace,
     marketplaceId: value.marketplaceId,
     name: value.name,
-    cursorMode: value.cursorMode,
     harnesses: readLockedHarnesses(value.harnesses, lockPath, value.name),
   };
 }
@@ -350,7 +316,6 @@ function uninstallArgs(harness: Harness, plugin: Plugin): string[] | undefined {
       return ["plugin", "remove", pluginRef(plugin)];
     case "grok":
       return ["plugin", "uninstall", plugin.name, "--confirm"];
-    case "cursor":
     case "opencode":
       return undefined;
   }
@@ -378,13 +343,6 @@ function removeStalePlugins(
 
       const args = uninstallArgs(harness, plugin);
       if (args === undefined) {
-        if (harness === "cursor" && plugin.cursorMode === "marketplace") {
-          leftoverHarnesses.push(harness);
-          writeLine(
-            runtime.stdout,
-            `${spec.label} plugin removal is interactive; disable ${pluginRef(plugin)} in /plugins`,
-          );
-        }
         continue;
       }
 
@@ -416,11 +374,7 @@ export function planHarness(
   options: { update?: boolean } = {},
 ): PlannedCommand[] {
   const spec = HARNESS_SPECS[harness];
-  let selected = plugins.filter((plugin) => plugin.harnesses.includes(harness));
-  if (harness === "cursor") {
-    // Native-skills plugins install through skill links, never marketplace commands.
-    selected = selected.filter((plugin) => plugin.cursorMode !== "skills");
-  }
+  const selected = plugins.filter((plugin) => plugin.harnesses.includes(harness));
   const planned: PlannedCommand[] = [];
   const marketplaces = new Set<string>();
 
@@ -517,7 +471,7 @@ function ownedMarketplaceTarget(
 
 // Removes links that point at a previously owned Claude marketplace checkout
 // and are dangling or no longer a planned target: a skill removed upstream, a
-// deselected marketplace, or a plugin that left native-skills mode.
+// deselected marketplace, or a plugin removed from the manifest.
 function removeStaleSkillLinks(
   home: string,
   linkRoot: string,
@@ -668,14 +622,6 @@ function pruneNativeSkillLinks(
       root: SKILL_LINK_ROOTS.opencode,
       selected: plugins.filter((plugin) => plugin.harnesses.includes("opencode")),
     },
-    {
-      binary: HARNESS_SPECS.cursor.binary,
-      label: HARNESS_SPECS.cursor.label,
-      root: SKILL_LINK_ROOTS.cursor,
-      selected: plugins.filter(
-        (plugin) => plugin.harnesses.includes("cursor") && plugin.cursorMode === "skills",
-      ),
-    },
   ] as const;
 
   for (const job of jobs) {
@@ -791,29 +737,6 @@ function applyHarness(
     return;
   }
 
-  let commandSelected = selected;
-  if (harness === "cursor") {
-    // Native-skills plugins bypass the blocked marketplace import entirely;
-    // linking also prunes links left behind by a plugin that changed mode.
-    const nativeSkills = selected.filter((plugin) => plugin.cursorMode === "skills");
-    commandSelected = selected.filter((plugin) => plugin.cursorMode === "marketplace");
-    linkClaudeSkills(
-      runtime,
-      spec.label,
-      nativeSkills,
-      failures,
-      SKILL_LINK_ROOTS.cursor,
-      pruneLinks,
-      ownedMarketplaceIds,
-    );
-    if (commandSelected.length === 0) {
-      if (selected.length === 0) {
-        writeLine(runtime.stdout, `No ${spec.label} plugins are selected for this profile`);
-      }
-      return;
-    }
-  }
-
   if (selected.length === 0) {
     writeLine(runtime.stdout, `No ${spec.label} plugins are selected for this profile`);
     return;
@@ -881,13 +804,6 @@ function applyHarness(
       }
     }
   }
-
-  if (spec.marketplaceArgs !== undefined && spec.installArgs === undefined) {
-    writeLine(
-      runtime.stdout,
-      `${spec.label} plugin installation is interactive; run /plugins to enable ${commandSelected.map(pluginRef).join(", ")}`,
-    );
-  }
 }
 
 type PluginOptions = {
@@ -909,30 +825,17 @@ function apply(runtime: Runtime, options: PluginOptions): number {
   writeLine(runtime.stdout, `Profile: ${profileName}`);
   writeLine(runtime.stdout, `Plugin layers: ${layers.join(", ")}`);
 
-  const pluginLockPath = migrateLegacyLock(repoDir, "plugins");
+  const pluginLockPath = join(repoDir, "agents", "plugins.lock.json");
   const previouslyManaged = readPluginLock(pluginLockPath);
   const ownership = planOwnership({
     previous: previouslyManaged ?? [],
     selected: plugins,
-    available: ACTIVE_HARNESSES.filter((harness) =>
-      runtime.commandExists(HARNESS_INFO[harness].binary),
-    ),
+    available: HARNESSES.filter((harness) => runtime.commandExists(HARNESS_INFO[harness].binary)),
     keyOf: pluginRef,
-    // Native skill links replace Cursor marketplace ownership, even when selected.
-    extraDropped: (owned, next) =>
-      owned.cursorMode === "marketplace" &&
-      next.cursorMode === "skills" &&
-      owned.harnesses.includes("cursor") &&
-      next.harnesses.includes("cursor")
-        ? ["cursor"]
-        : [],
-    mergeExtra: (existing, deferred) => {
-      if (deferred.harnesses.includes("cursor")) existing.cursorMode = deferred.cursorMode;
-    },
   });
 
   const failures: PluginFailure[] = [];
-  for (const harness of ACTIVE_HARNESSES) {
+  for (const harness of HARNESSES) {
     applyHarness(
       runtime,
       harness,

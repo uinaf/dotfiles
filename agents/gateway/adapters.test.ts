@@ -67,9 +67,9 @@ test("installed adapters run outside the checkout with no module graph, jq, Pyth
     assert.equal(result.stdout.trim(), f.config.credentials[kind]);
     assert.equal(result.stderr, "");
   }
-  const retired = f.run("llm-gateway-credential", ["cursor"]);
-  assert.notEqual(retired.status, 0);
-  assert.equal(retired.stdout, "");
+  const unknown = f.run("llm-gateway-credential", ["unknown"]);
+  assert.notEqual(unknown.status, 0);
+  assert.equal(unknown.stdout, "");
 });
 
 test("credential validation is fail closed and never includes rejected payloads in diagnostics", (t) => {

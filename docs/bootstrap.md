@@ -92,7 +92,7 @@ before using Git updates or contribution commands.
 Before applying a `devbox` or personal profile, provision the owner-only
 [LLM gateway config](devbox.md#opt-in-coding-llm-gateway); personal profiles
 also need the [Hindsight server config](agents.md#hindsight-memory). Setup
-retires saved coding-client logins except those listed in `preservedLogins`.
+preserves saved coding-client logins.
 
 ```zsh
 profile=workstation # choose your profile
@@ -212,7 +212,7 @@ git pull --ff-only
 ```
 
 Follow [Apply a profile](#apply-a-profile) with the installed role, including
-its verification step. Personal `apply` retires unpreserved coding-client logins. Unattended
+its verification step. Setup preserves coding-client logins. Unattended
 [convergence](software-updates.md#dotfiles-convergence) uses `./dotfiles maintain`,
 which preserves [gateway client logins](devbox.md#opt-in-coding-llm-gateway).
 For package-only refreshes, use

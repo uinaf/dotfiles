@@ -10,7 +10,7 @@ import { Effect } from "effect";
 import { readLayeredSkills, readSkillLock, type Skill } from "./skills/catalog.ts";
 import { runMain } from "../lib/program.ts";
 import { readProfileModel, requireProfile } from "../profiles/model.ts";
-import { migrateLegacyLock, writeLockFile } from "./lock.ts";
+import { writeLockFile } from "./lock.ts";
 import {
   createRuntime,
   errorMessage,
@@ -289,7 +289,7 @@ function sync(runtime: Runtime, options: SyncOptions): number {
     profileName,
     profile.agentLayers,
   );
-  const skillLockPath = migrateLegacyLock(repoDir, "skills");
+  const skillLockPath = join(repoDir, "agents", "skills.lock.json");
   const previouslyManagedSkills = readSkillLock(skillLockPath);
   const agents = findInstalledAgents(runtime);
 

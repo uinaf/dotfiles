@@ -224,11 +224,6 @@ const program = Effect.gen(function* () {
       );
   });
   const configuration = Effect.gen(function* () {
-    if (
-      (yield* fs.exists(join(home, ".tool-versions"))) ||
-      (yield* fs.readLink(join(home, ".tool-versions")).pipe(Effect.option))._tag === "Some"
-    )
-      return yield* fail("legacy ~/.tool-versions exists");
     const paths = [
       join(home, ".config/dotfiles/profile"),
       join(home, ".config/mise/config.toml"),

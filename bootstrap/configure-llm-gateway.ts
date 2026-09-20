@@ -6,7 +6,6 @@ import { runMain } from "../lib/program.ts";
 
 const modes = [
   ["--check", "check"],
-  ["--retire-auth", "retire-auth"],
   ["--rollback", "rollback"],
   ["--setup", "setup"],
   ["--maintenance", "maintenance"],
@@ -24,7 +23,7 @@ runMain(
             : undefined;
       if (mode === undefined)
         throw new Error(
-          "usage: configure-llm-gateway.ts [--check|--retire-auth|--rollback|--setup|--maintenance]",
+          "usage: configure-llm-gateway.ts [--check|--rollback|--setup|--maintenance]",
         );
       await configureGateway(mode);
     },

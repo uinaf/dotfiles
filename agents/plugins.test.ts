@@ -1,4 +1,3 @@
-import { ACTIVE_HARNESSES } from "./harness.ts";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import {
@@ -61,7 +60,7 @@ class FixtureRuntime implements Runtime {
   readonly stdout = new BufferWriter();
   readonly stderr = new BufferWriter();
   readonly calls: CommandCall[] = [];
-  readonly installedCommands = new Set(["claude", "codex", "cursor-agent", "grok", "opencode"]);
+  readonly installedCommands = new Set(["claude", "codex", "grok", "opencode"]);
   readonly failures: ReadonlyMap<string, FixtureFailure>;
   readonly outputs: ReadonlyMap<string, string>;
   readonly profile: string;
@@ -192,13 +191,11 @@ function lockPlugin(plugin: {
   marketplace: string;
   name: string;
   harnesses?: readonly string[];
-  cursorMode?: "marketplace" | "skills";
 }): unknown {
   return {
     marketplace: plugin.marketplace,
     marketplaceId: plugin.marketplace.split("/")[1],
     name: plugin.name,
-    cursorMode: plugin.cursorMode ?? "marketplace",
     harnesses: plugin.harnesses ?? [...HARNESSES],
   };
 }
@@ -216,37 +213,9 @@ test("defaults a manifest entry to every harness and derives the marketplace id"
   const first = plugins[0];
 
   assert.ok(first !== undefined);
-  assert.deepEqual(first.harnesses, ACTIVE_HARNESSES);
+  assert.deepEqual(first.harnesses, HARNESSES);
   assert.equal(first.marketplaceId, "shared-market");
-  assert.equal(first.cursorMode, "marketplace");
   assert.equal(pluginRef(first), "shared-plugin@shared-market");
-});
-
-test("rejects an unknown cursorMode and skills mode without cursor and claude", () => {
-  const { repoDir } = createFixture();
-  writeManifest(repoDir, "developer", [
-    { marketplace: "fixture/market", name: "one", cursorMode: "symlink" },
-  ]);
-  assert.throws(
-    () => readPlugins(manifestPath(repoDir, "developer")),
-    /cursorMode must be "marketplace" or "skills"/,
-  );
-
-  writeManifest(repoDir, "developer", [
-    { marketplace: "fixture/market", name: "one", cursorMode: "skills", harnesses: ["cursor"] },
-  ]);
-  assert.throws(
-    () => readPlugins(manifestPath(repoDir, "developer")),
-    /sets cursorMode "skills" without targeting cursor and claude/,
-  );
-
-  writeManifest(repoDir, "developer", [
-    { marketplace: "fixture/market", name: "one", cursorMode: "skills", harnesses: ["claude"] },
-  ]);
-  assert.throws(
-    () => readPlugins(manifestPath(repoDir, "developer")),
-    /sets cursorMode "skills" without targeting cursor and claude/,
-  );
 });
 
 test("honours an explicit marketplaceId when the marketplace name diverges", () => {
@@ -404,7 +373,6 @@ test("plans nothing for a harness the entry does not target", () => {
 
   assert.equal(planHarness("claude", plugins).length, 2);
   assert.deepEqual(planHarness("codex", plugins), []);
-  assert.deepEqual(planHarness("cursor", plugins), []);
 });
 
 test("applies the developer layer across every installed harness", () => {
@@ -484,7 +452,6 @@ test("refreshes a stale installed plugin or source on --update", () => {
     "plugin add second-plugin@shared-market",
   ]);
   assert.deepEqual(harnessCalls(runtime, "grok"), ["plugin list", "plugin update shared-plugin"]);
-  assert.deepEqual(harnessCalls(runtime, "cursor-agent"), []);
   assert.deepEqual(harnessCalls(runtime, "opencode"), []);
   for (const skill of ["alpha", "beta"]) {
     assert.equal(
@@ -516,7 +483,6 @@ test("keeps OpenCode skill links after a Claude source refresh", () => {
   assert.ok(
     harnessCalls(runtime, "claude").includes("plugin update shared-plugin@shared-market -y"),
   );
-  assert.deepEqual(harnessCalls(runtime, "cursor-agent"), []);
   assert.equal(readlinkSync(opencodeLink(home, "alpha")), alpha);
   assert.equal(existsSync(join(alpha, "SKILL.md")), true);
 });
@@ -688,13 +654,10 @@ test("skips a harness whose CLI is not installed", () => {
   const { repoDir, home } = createFixture();
   const runtime = new FixtureRuntime(repoDir, home);
   runtime.installedCommands.delete("codex");
-  runtime.installedCommands.delete("cursor-agent");
 
   assert.equal(main([], runtime), 0);
   assert.match(runtime.stdout.value, /Skipping Codex plugins: 'codex' is not installed/);
-  assert.doesNotMatch(runtime.stdout.value, /Skipping Cursor plugins/);
   assert.deepEqual(harnessCalls(runtime, "codex"), []);
-  assert.deepEqual(harnessCalls(runtime, "cursor-agent"), []);
   assert.equal(harnessCalls(runtime, "claude").length, 3);
 });
 
@@ -819,17 +782,11 @@ test("removes only plugins dropped from the previous managed lock", () => {
   );
   assert.ok(harnessCalls(runtime, "codex").includes("plugin remove retired-plugin@retired-market"));
   assert.ok(harnessCalls(runtime, "grok").includes("plugin uninstall retired-plugin --confirm"));
-  assert.match(
-    runtime.stdout.value,
-    /Cursor plugin removal is interactive; disable retired-plugin@retired-market in \/plugins/,
-  );
   const locked = JSON.parse(readFileSync(pluginLockPath(repoDir), "utf8")).plugins;
   assert.deepEqual(locked.map(pluginRef), [
     "shared-plugin@shared-market",
     "second-plugin@shared-market",
-    "retired-plugin@retired-market",
   ]);
-  assert.deepEqual(locked[2]?.harnesses, ["cursor"]);
 });
 
 test("keeps a dropped plugin in the lock when its harness CLI is missing", () => {
@@ -936,7 +893,6 @@ test("rejects a lock that omits explicit harness membership", () => {
           marketplace: "fixture/shared-market",
           marketplaceId: "shared-market",
           name: "shared-plugin",
-          cursorMode: "marketplace",
         },
       ],
     }),
@@ -946,7 +902,7 @@ test("rejects a lock that omits explicit harness membership", () => {
   assert.equal(main([], runtime), 1);
   assert.match(
     runtime.stderr.value,
-    /expected explicit marketplace, marketplaceId, name, cursorMode, and harnesses/,
+    /expected explicit marketplace, marketplaceId, name, and harnesses/,
   );
   assert.equal(harnessCalls(runtime, "claude").length, 0);
 });
@@ -1022,35 +978,6 @@ test("does not replace an owned skill name when a new marketplace reuses it", ()
     readlinkSync(opencodeLink(home, "alpha")),
     join(managedRoot, "shared-market", "skills", "alpha"),
   );
-});
-
-test("keeps previous Cursor mode when that CLI is absent during a mode change", () => {
-  const { repoDir, home } = createFixture();
-  writePluginLock(repoDir, [
-    {
-      marketplace: "fixture/shared-market",
-      name: "shared-plugin",
-      cursorMode: "skills",
-      harnesses: [...HARNESSES],
-    },
-    {
-      marketplace: "fixture/shared-market",
-      name: "second-plugin",
-      cursorMode: "skills",
-      harnesses: [...HARNESSES],
-    },
-  ]);
-  writeManifest(repoDir, "developer", [
-    { marketplace: "fixture/shared-market", name: "shared-plugin", cursorMode: "marketplace" },
-    { marketplace: "fixture/shared-market", name: "second-plugin", cursorMode: "marketplace" },
-  ]);
-  const runtime = new FixtureRuntime(repoDir, home);
-  runtime.installedCommands.delete("cursor-agent");
-
-  assert.equal(main([], runtime), 0);
-  const locked = JSON.parse(readFileSync(pluginLockPath(repoDir), "utf8")).plugins;
-  assert.equal(locked[0]?.cursorMode, "skills");
-  assert.ok(locked[0]?.harnesses.includes("cursor"));
 });
 
 test("does not replace a never-owned link when a new marketplace is selected", () => {

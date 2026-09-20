@@ -118,10 +118,9 @@
         "test",
         "bootstrap/darwin/photo-analysis.test.ts",
         "bootstrap/managed-files.test.ts",
-        "bootstrap/darwin/launch-agents.test.ts",
         "bootstrap/linux/user-manager.test.ts"
       ],
-      "output": "Home backups, retired LaunchAgents, and Linux user-manager PATH convergence and macOS devbox Photos policy drift"
+      "output": "Home backups and Linux user-manager PATH convergence and macOS devbox Photos policy drift"
     },
     {
       "id": "claude-settings",
@@ -492,12 +491,6 @@
       "domain": "homebrew",
       "command": ["corepack", "pnpm", "exec", "vp", "test", "homebrew/verify/layers.test.ts"],
       "output": "Evaluated per-profile Homebrew layers and composed manifest parity"
-    },
-    {
-      "id": "agent-lock-migration",
-      "domain": "agents",
-      "command": ["corepack", "pnpm", "exec", "vp", "test", "agents/lock.test.ts"],
-      "output": "Preserved private ownership state across directory migration"
     },
     {
       "id": "helium-preferences",

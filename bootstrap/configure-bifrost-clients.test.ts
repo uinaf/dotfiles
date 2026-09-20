@@ -35,8 +35,8 @@ function fixture() {
     auth,
     `${JSON.stringify({
       anthropic: { type: "api", key: "kept" },
-      opencode: { type: "api", key: "retired" },
-      "opencode-go": { type: "api", key: "retired" },
+      opencode: { type: "api", key: "kept" },
+      "opencode-go": { type: "api", key: "kept" },
     })}\n`,
     { mode: 0o644 },
   );
@@ -111,8 +111,8 @@ test("configures and checks OpenCode and Pi with the Bifrost catalog", () => {
     type: "api",
     key: "sk-bf-11111111-1111-4111-8111-111111111111",
   });
-  assert.equal("opencode" in auth, false);
-  assert.equal("opencode-go" in auth, false);
+  assert.deepEqual(auth.opencode, { type: "api", key: "kept" });
+  assert.deepEqual(auth["opencode-go"], { type: "api", key: "kept" });
 
   const openCode = JSON.parse(readFileSync(paths.openCode, "utf8"));
   assert.deepEqual(openCode.enabled_providers, ["bifrost"]);
@@ -149,7 +149,7 @@ test("check rejects authentication and catalog drift", () => {
   );
 
   execFileSync(script, { env: paths.env });
-  writeFileSync(paths.auth, `${JSON.stringify({ opencode: { type: "api", key: "retired" } })}\n`, {
+  writeFileSync(paths.auth, `${JSON.stringify({ opencode: { type: "api", key: "kept" } })}\n`, {
     mode: 0o600,
   });
   assert.throws(

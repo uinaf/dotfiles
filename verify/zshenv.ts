@@ -22,6 +22,7 @@ const program = Effect.scoped(
         `HOME=${home}`,
         "PATH=/usr/bin:/bin",
         "/bin/zsh",
+        "-e",
         "-c",
         code,
       ]);
@@ -48,9 +49,7 @@ const program = Effect.scoped(
       '[[ "$LANG" == en_US.UTF-8 ]]; [[ -z ${DOTFILES_ZSHENV_LOCAL+x} ]]; [[ -z ${HOMEBREW_NO_AUTO_UPDATE+x} ]]',
     );
     yield* fs.writeFileString(join(directory, "devbox.env"), "", { mode: 0o600 });
-    yield* run(
-      '[[ "$AGENT_CLI_CREDENTIAL_STORE" == file ]]; [[ "$HOMEBREW_NO_AUTO_UPDATE" == 1 ]]',
-    );
+    yield* run('[[ -z ${AGENT_CLI_CREDENTIAL_STORE+x} ]]; [[ "$HOMEBREW_NO_AUTO_UPDATE" == 1 ]]');
     const overlay = join(directory, "zshenv.local");
     yield* fs.writeFileString(
       overlay,

@@ -2,7 +2,7 @@ import { Console, Effect, FileSystem, Option, Schema } from "effect";
 import { join } from "node:path";
 import { CommandRunner } from "../lib/command.ts";
 import { CliFailure, fail } from "../lib/program.ts";
-import { type Harness, HARNESS_INFO, ACTIVE_HARNESSES } from "./harness.ts";
+import { type Harness, HARNESS_INFO, HARNESSES } from "./harness.ts";
 
 const PACKAGE = "@vectorize-io/hindsight-coding-agents";
 
@@ -10,7 +10,6 @@ const PACKAGE = "@vectorize-io/hindsight-coding-agents";
 const INSTALLER_NAMES: Record<Harness, string> = {
   claude: "claude-code",
   codex: "codex",
-  cursor: "cursor-cli",
   grok: "grok-build",
   opencode: "opencode",
 };
@@ -22,7 +21,6 @@ const ServerConfig = Schema.Union([
 ]);
 const RuntimePackage = Schema.Struct({ version: Schema.NonEmptyString });
 const JsonObject = Schema.Record(Schema.String, Schema.Unknown);
-
 export type Paths = {
   home: string;
   configPath: string;
@@ -79,7 +77,7 @@ const requireServerConfig = Effect.fn("requireServerConfig")(function* (configPa
 // Every managed harness reads its own config; a missing HINDSIGHT_MCP_HARNESS
 // is the drift that leaves the MCP server dead after a runtime update.
 export function wiredInText(
-  harness: Exclude<Harness, "claude" | "cursor" | "opencode">,
+  harness: Exclude<Harness, "claude" | "opencode">,
   toml: string | undefined,
 ): boolean {
   if (toml === undefined) return false;
@@ -110,12 +108,6 @@ const wired = Effect.fn("wired")(function* (paths: Paths, harness: Harness) {
         Effect.orElseSucceed(() => undefined),
       );
       return mcpEnvMatches(config?.mcpServers, INSTALLER_NAMES.claude);
-    }
-    case "cursor": {
-      const config = yield* readJson(join(paths.home, ".cursor/mcp.json")).pipe(
-        Effect.orElseSucceed(() => undefined),
-      );
-      return mcpEnvMatches(config?.mcpServers, INSTALLER_NAMES.cursor);
     }
     case "codex":
       return wiredInText(harness, yield* readText(join(paths.home, ".codex/config.toml")));
@@ -164,9 +156,7 @@ const inspect = Effect.fn("inspectHindsight")(function* (
   commandExists: (binary: string) => boolean,
 ) {
   yield* requireServerConfig(paths.configPath);
-  const harnesses = ACTIVE_HARNESSES.filter((harness) =>
-    commandExists(HARNESS_INFO[harness].binary),
-  );
+  const harnesses = HARNESSES.filter((harness) => commandExists(HARNESS_INFO[harness].binary));
   const [installed, latest] = yield* Effect.all([
     installedVersion(paths.runtimeDir),
     latestVersion(),

@@ -6,7 +6,7 @@ import { Effect } from "effect";
 
 import { runMain } from "../lib/program.ts";
 import { readProfileModel, requireProfile } from "../profiles/model.ts";
-import { HARNESS_INFO, ACTIVE_HARNESSES, type Harness, parseSyncArgs } from "./harness.ts";
+import { HARNESS_INFO, HARNESSES, type Harness, parseSyncArgs } from "./harness.ts";
 import { type McpServer, readLayeredServers } from "./mcps/catalog.ts";
 import {
   createRuntime,
@@ -261,7 +261,7 @@ function collect(runtime: Runtime, servers: readonly McpServer[]): Finding[] {
   const findings: Finding[] = [];
   const selected = (harness: Harness) =>
     servers.filter((server) => server.harnesses.includes(harness));
-  for (const harness of ACTIVE_HARNESSES) {
+  for (const harness of HARNESSES) {
     const { binary, label } = HARNESS_INFO[harness];
     if (!runtime.commandExists(binary)) {
       writeLine(runtime.stdout, `Skipping ${label}: '${binary}' is not installed`);

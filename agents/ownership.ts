@@ -9,7 +9,6 @@ function staleEntries<P extends HarnessOwned, C extends HarnessOwned>(
   previous: readonly P[],
   current: readonly C[],
   keyOf: (entry: P | C) => string,
-  extraDropped?: (owned: P, next: C) => readonly Harness[],
 ): P[] {
   const currentByKey = new Map(current.map((entry) => [keyOf(entry), entry]));
   const stale: P[] = [];
@@ -21,11 +20,6 @@ function staleEntries<P extends HarnessOwned, C extends HarnessOwned>(
       continue;
     }
     const dropped = owned.harnesses.filter((harness) => !next.harnesses.includes(harness));
-    for (const harness of extraDropped?.(owned, next) ?? []) {
-      if (!dropped.includes(harness)) {
-        dropped.push(harness);
-      }
-    }
     if (dropped.length > 0) {
       stale.push({ ...owned, harnesses: dropped });
     }
@@ -75,7 +69,6 @@ function mergeLockEntries<T extends HarnessOwned>(
   current: readonly T[],
   leftover: readonly T[],
   keyOf: (entry: T) => string,
-  mergeExtra?: (existing: T, extra: T) => void,
 ): T[] {
   const byKey = new Map(
     current.map((entry) => [keyOf(entry), { ...entry, harnesses: [...entry.harnesses] }]),
@@ -90,7 +83,6 @@ function mergeLockEntries<T extends HarnessOwned>(
     existing.harnesses = HARNESSES.filter(
       (harness) => existing.harnesses.includes(harness) || extra.harnesses.includes(harness),
     );
-    mergeExtra?.(existing, extra);
   }
 
   return [...byKey.values()];
@@ -103,15 +95,12 @@ export function planOwnership<T extends HarnessOwned>(options: {
   selected: readonly T[];
   available: readonly Harness[];
   keyOf: (entry: T) => string;
-  extraDropped?: (owned: T, next: T) => readonly Harness[];
-  mergeExtra?: (existing: T, deferred: T) => void;
 }): { removals: T[]; nextLock: (deferred: readonly T[]) => T[] } {
-  const { previous, selected, available, keyOf, extraDropped, mergeExtra } = options;
+  const { previous, selected, available, keyOf } = options;
   const applied = presentHarnessEntries(available, selected);
   const retained = retainAbsentEntries(available, previous, selected, keyOf);
   return {
-    removals: staleEntries(previous, selected, keyOf, extraDropped),
-    nextLock: (deferred) =>
-      mergeLockEntries(applied, [...deferred, ...retained], keyOf, mergeExtra),
+    removals: staleEntries(previous, selected, keyOf),
+    nextLock: (deferred) => mergeLockEntries(applied, [...deferred, ...retained], keyOf),
   };
 }

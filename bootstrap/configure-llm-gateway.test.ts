@@ -121,17 +121,6 @@ fs.writeFileSync(path.join(process.env.HOME, ".grok/auth.json"), "{}\\n", { mode
 
 test("gateway config is strict and provider edits use command-backed Responses auth", () => {
   const config = parseGatewayConfig(JSON.stringify(validConfig));
-  assert.deepEqual(
-    parseGatewayConfig(
-      JSON.stringify({
-        ...validConfig,
-        credentials: { ...validConfig.credentials, cursor: `crsr_${"a".repeat(64)}` },
-        cursorAgentBin: "/missing/retired-cursor-agent",
-        preservedLogins: ["cursor", "claude"],
-      }),
-    ),
-    { ...validConfig, preservedLogins: ["claude"] },
-  );
   assert.throws(
     () => parseGatewayConfig(JSON.stringify({ ...validConfig, token: "secret" })),
     /unknown field/,
@@ -143,21 +132,6 @@ test("gateway config is strict and provider edits use command-backed Responses a
       ),
     /HTTPS \/v1 URL/,
   );
-  assert.deepEqual(
-    parseGatewayConfig(JSON.stringify({ ...validConfig, preservedLogins: ["claude"] }))
-      .preservedLogins,
-    ["claude"],
-  );
-  assert.throws(
-    () =>
-      parseGatewayConfig(JSON.stringify({ ...validConfig, preservedLogins: ["claude", "claude"] })),
-    /preservedLogins must list unique clients/,
-  );
-  assert.throws(
-    () => parseGatewayConfig(JSON.stringify({ ...validConfig, preservedLogins: ["opencode"] })),
-    /preservedLogins must list unique clients/,
-  );
-
   const edits = gatewayEdits(
     config,
     "/Users/example/.local/libexec/dotfiles/llm-gateway-credential",
@@ -167,7 +141,6 @@ test("gateway config is strict and provider edits use command-backed Responses a
     false,
   );
   assert.ok(edits.some((edit) => edit.keyPath === "features.apps" && edit.value === false));
-  assert.ok(edits.some((edit) => edit.keyPath === "mcp_servers.node_repl" && edit.value === null));
   assert.ok(
     edits.some(
       (edit) => edit.keyPath === "model_providers.gatewai.name" && edit.value === "Gatewai",
@@ -273,7 +246,7 @@ test("gateway config is strict and provider edits use command-backed Responses a
 });
 
 test(
-  "apply preserves login state, explicit retirement clears it, and rollback remains honest",
+  "setup and maintenance preserve login state and rollback restores configuration",
   { skip: !codexInstalled },
   () => {
     const root = mkdtempSync(join(tmpdir(), "dotfiles-llm-gateway-"));
@@ -356,39 +329,6 @@ rm -f "$HOME/.claude/.credentials.json"
       assert.equal(bifrostCredential.status, 0, bifrostCredential.stderr);
       assert.equal(bifrostCredential.stdout.trim(), validConfig.credentials.bifrost);
 
-      const statePath = join(configDir, "llm-gateway-state.json");
-      const originalState = JSON.parse(readFileSync(statePath, "utf8"));
-      for (const version of [6, 7]) {
-        const command = join(home, ".local/bin/cursor-agent");
-        writeFileSync(
-          statePath,
-          JSON.stringify({
-            ...originalState,
-            version,
-            cursorCommands: [{ path: command, target: "/missing/retired-cursor-agent" }],
-          }),
-          { mode: 0o600 },
-        );
-        writeFileSync(
-          gatewayConfig,
-          JSON.stringify({
-            ...validConfig,
-            credentials: { ...validConfig.credentials, cursor: `crsr_${"a".repeat(64)}` },
-            cursorAgentBin: "/missing/retired-cursor-agent",
-          }),
-          { mode: 0o600 },
-        );
-        const migration = run("--maintenance");
-        assert.equal(migration.status, 0, migration.stderr);
-        assert.deepEqual(JSON.parse(readFileSync(statePath, "utf8")), originalState);
-        assert.deepEqual(JSON.parse(readFileSync(gatewayConfig, "utf8")), validConfig);
-        assert.equal(existsSync(command), false);
-        assert.equal(
-          readFileSync(`${claudeSettingsPath}.llm-gateway.backup`, "utf8"),
-          originalClaudeSettings,
-        );
-      }
-
       const second = run("--maintenance");
       assert.equal(second.status, 0, second.stderr);
       const maintainedCodex = readFileSync(join(codexHome, "config.toml"), "utf8");
@@ -424,38 +364,22 @@ rm -f "$HOME/.claude/.credentials.json"
 
       const check = run("--check");
       assert.equal(check.status, 0, check.stderr);
-      const retire = run("--setup");
-      assert.equal(retire.status, 0, retire.stderr);
-      assert.equal(existsSync(join(codexHome, "auth.json")), false);
-      assert.equal(existsSync(join(home, ".claude/.credentials.json")), false);
-      assert.doesNotMatch(
-        readFileSync(join(codexHome, "config.toml"), "utf8"),
-        /forced_login_method/,
+      const setup = run("--setup");
+      assert.equal(setup.status, 0, setup.stderr);
+      assert.equal(readFileSync(join(codexHome, "auth.json"), "utf8"), originalAuth);
+      assert.equal(
+        readFileSync(join(home, ".claude/.credentials.json"), "utf8"),
+        originalClaudeAuth,
       );
-      const retiredState = JSON.parse(
-        readFileSync(join(configDir, "llm-gateway-state.json"), "utf8"),
-      ) as { authRetired: boolean };
-      assert.equal(retiredState.authRetired, true);
-      const retiredCheck = run("--check");
-      assert.equal(retiredCheck.status, 0, retiredCheck.stderr);
-      assert.match(retiredCheck.stdout, /auth-retired=true/);
-
-      writeFileSync(join(codexHome, "auth.json"), originalAuth, { mode: 0o600 });
-      writeFileSync(join(home, ".claude/.credentials.json"), originalClaudeAuth, { mode: 0o600 });
-      const repeatedRetire = run("--retire-auth");
-      assert.equal(repeatedRetire.status, 0, repeatedRetire.stderr);
-      assert.match(repeatedRetire.stdout, /retired returned coding vendor login state/);
-      assert.equal(existsSync(join(codexHome, "auth.json")), false);
-      assert.equal(existsSync(join(home, ".claude/.credentials.json")), false);
-      const repeatedCheck = run("--check");
-      assert.equal(repeatedCheck.status, 0, repeatedCheck.stderr);
 
       const rollback = run("--rollback");
       assert.equal(rollback.status, 0, rollback.stderr);
       assert.equal(readFileSync(join(codexHome, "config.toml"), "utf8"), originalCodex);
-      assert.equal(existsSync(join(codexHome, "auth.json")), false);
-      assert.equal(existsSync(join(home, ".claude/.credentials.json")), false);
-      assert.match(rollback.stdout, /requires reauthentication/);
+      assert.equal(readFileSync(join(codexHome, "auth.json"), "utf8"), originalAuth);
+      assert.equal(
+        readFileSync(join(home, ".claude/.credentials.json"), "utf8"),
+        originalClaudeAuth,
+      );
       assert.equal(readFileSync(claudeSettingsPath, "utf8"), originalClaudeSettings);
     } finally {
       rmSync(root, { recursive: true, force: true });

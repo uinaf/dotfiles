@@ -18,19 +18,17 @@ import { writeConfigEdits } from "../codex/config.ts";
 
 import {
   type GatewayConfig,
-  type PreservedLogin,
   parseGatewayConfig,
   gatewayEdits,
   codexGatewaiOverrides,
 } from "./gateway-config.ts";
 
 type ClientState = {
-  version: 8;
+  version: 9;
   codexConfigExisted: boolean;
   codexBackupPath: string | null;
   claudeSettingsExisted: boolean;
   claudeBackupPath: string | null;
-  authRetired: boolean;
   grokEnabled: boolean;
   grokConfigExisted: boolean;
   grokConfigBackupPath: string | null;
@@ -142,15 +140,13 @@ function readState(path: string): ClientState {
     throw new Error("LLM gateway state has an invalid shape");
   }
   const versioned =
-    (value.version === 6 || value.version === 7 || value.version === 8) &&
+    value.version === 9 &&
     exactKeys(value, [
       "version",
       "codexConfigExisted",
       "codexBackupPath",
-      ...(value.version === 8 ? [] : ["cursorCommands"]),
       "claudeSettingsExisted",
       "claudeBackupPath",
-      "authRetired",
       "grokEnabled",
       "grokConfigExisted",
       "grokConfigBackupPath",
@@ -158,36 +154,21 @@ function readState(path: string): ClientState {
       "grokAuthBackupPath",
     ]);
   if (!versioned)
-    throw new Error("LLM gateway state has an invalid shape; roll back and re-enroll pre-v6 hosts");
+    throw new Error(
+      "LLM gateway state must use version 9; follow the breaking-release migration instructions",
+    );
   if (
     typeof value.codexConfigExisted !== "boolean" ||
     !(value.codexBackupPath === null || typeof value.codexBackupPath === "string")
   ) {
     throw new Error("LLM gateway state has invalid values");
   }
-  if (value.version !== 8) {
-    if (
-      !Array.isArray(value.cursorCommands) ||
-      !value.cursorCommands.every(
-        (command) =>
-          isRecord(command) &&
-          exactKeys(command, ["path", "target"]) &&
-          typeof command.path === "string" &&
-          typeof command.target === "string",
-      )
-    )
-      throw new Error("LLM gateway state has invalid legacy Cursor commands");
-    delete value.cursorCommands;
-  }
-  value.version = 8;
   if (
     typeof value.claudeSettingsExisted !== "boolean" ||
     !(value.claudeBackupPath === null || typeof value.claudeBackupPath === "string")
   ) {
     throw new Error("LLM gateway state has invalid Claude settings values");
   }
-  if (typeof value.authRetired !== "boolean")
-    throw new Error("LLM gateway state has an invalid auth retirement value");
   if (typeof value.grokEnabled !== "boolean")
     throw new Error("LLM gateway state has an invalid Grok value");
   if (
@@ -203,19 +184,6 @@ function readState(path: string): ClientState {
     throw new Error("LLM gateway state has invalid Grok auth values");
   }
   return value as ClientState;
-}
-
-function runLogout(
-  command: string,
-  args: readonly string[],
-  env: NodeJS.ProcessEnv,
-  label: string,
-): void {
-  const result = spawnSync(command, args, { encoding: "utf8", env });
-  if (result.status !== 0)
-    throw new Error(
-      `${label} logout failed: ${result.stderr.trim() || result.stdout.trim() || `exit ${result.status ?? 1}`}`,
-    );
 }
 
 function withoutEnvironmentKey(env: NodeJS.ProcessEnv, key: string): NodeJS.ProcessEnv {
@@ -306,7 +274,7 @@ function assertInstalledFile(source: string, target: string): void {
     throw new Error(`installed helper mode drifted: ${target}`);
 }
 
-type GatewayOperation = "apply" | "check" | "retire-auth" | "rollback";
+type GatewayOperation = "apply" | "check" | "rollback";
 
 export async function configureGateway(
   mode: GatewayOperation | "setup" | "maintenance",
@@ -318,18 +286,15 @@ export async function configureGateway(
     );
     validateLocalInputs(configPath);
     await configureGateway("apply");
-    if (mode === "setup") await configureGateway("retire-auth");
     return;
   }
 
   const home = resolve(process.env.HOME || "");
   const codexHome = resolve(process.env.CODEX_HOME || join(home, ".codex"));
   const codexConfig = resolve(process.env.CODEX_CONFIG_PATH || join(codexHome, "config.toml"));
-  const codexAuth = join(codexHome, "auth.json");
   const claudeSettings = resolve(
     process.env.CLAUDE_SETTINGS_PATH || join(home, ".claude/settings.json"),
   );
-  const claudeAuth = join(home, ".claude/.credentials.json");
   const configPath = resolve(
     process.env.LLM_GATEWAY_CONFIG || join(home, ".config/dotfiles/llm-gateway.json"),
   );
@@ -370,11 +335,7 @@ export async function configureGateway(
     if (state.codexBackupPath) rmSync(state.codexBackupPath, { force: true });
     if (state.claudeBackupPath) rmSync(state.claudeBackupPath, { force: true });
     rmSync(statePath, { force: true });
-    process.stdout.write(
-      state.authRetired
-        ? "rolled back LLM gateway; coding login state was retired and requires reauthentication\n"
-        : "rolled back LLM gateway; saved Codex, Claude, and Grok login state remains available\n",
-    );
+    process.stdout.write("rolled back LLM gateway configuration\n");
     return;
   }
 
@@ -387,10 +348,10 @@ export async function configureGateway(
     config.gatewaiBaseUrl,
     credentialTarget,
   );
-  if (mode === "check" || mode === "retire-auth") {
+  if (mode === "check") {
     if (!existsSync(statePath) || !ownerOnly(statePath))
       throw new Error("LLM gateway state is missing or not owner-only");
-    const state = readState(statePath);
+    readState(statePath);
     assertInstalledFile(sourceCredential, credentialTarget);
     assertInstalledFile(sourceCodexGatewai, codexGatewaiTarget);
     const overridesProbe = spawnSync(codexGatewaiTarget, ["--gateway-overrides"], {
@@ -462,76 +423,13 @@ export async function configureGateway(
         throw new Error(`${kind} credential helper failed: ${detail}`);
       }
     }
-    const preserved = new Set<PreservedLogin>(config.preservedLogins ?? []);
-    if (mode === "check" && state.authRetired) {
-      const logins = [
-        ["Codex", "codex", codexAuth],
-        ["Claude", "claude", claudeAuth],
-      ] as const;
-      for (const [label, kind, path] of logins) {
-        if (!preserved.has(kind) && existsSync(path))
-          throw new Error(`${label} saved login state remains after retirement`);
-      }
-      if (
-        !preserved.has("grok") &&
-        state.grokAuthBackupPath &&
-        existsSync(state.grokAuthBackupPath)
-      ) {
-        throw new Error("Grok saved vendor login remains after retirement");
-      }
-    }
-    if (mode === "check") {
-      const preservedNote =
-        preserved.size > 0 ? `, preserved-logins=${[...preserved].sort().join("+")}` : "";
-      process.stdout.write(
-        `ok Gatewai/Bifrost config, helpers, resolved credentials, Codex and Claude on Gatewai, Grok=${Boolean(config.grokBin)}, and auth-retired=${state.authRetired}${preservedNote}\n`,
-      );
-      return;
-    }
-
-    const returnedAuth =
-      state.authRetired &&
-      ((!preserved.has("codex") && existsSync(codexAuth)) ||
-        (!preserved.has("claude") && existsSync(claudeAuth)) ||
-        (!preserved.has("grok") &&
-          Boolean(state.grokAuthBackupPath && existsSync(state.grokAuthBackupPath))));
-    if (state.authRetired && !returnedAuth) {
-      process.stdout.write(
-        "coding vendor login state is already retired; gateway routing remains configured\n",
-      );
-      return;
-    }
-
-    if (!preserved.has("codex") && (!state.authRetired || existsSync(codexAuth))) {
-      runLogout(
-        process.env.CODEX_BIN || "codex",
-        ["logout"],
-        { ...process.env, CODEX_HOME: codexHome },
-        "Codex",
-      );
-    }
-    if (!preserved.has("claude") && (!state.authRetired || existsSync(claudeAuth))) {
-      runLogout("claude", ["auth", "logout"], process.env, "Claude");
-    }
-    await writeConfigEdits([
-      { keyPath: "forced_login_method", value: null, mergeStrategy: "replace" },
-    ]);
-    const retireGrok = !preserved.has("grok");
-    if (retireGrok && state.grokAuthBackupPath) rmSync(state.grokAuthBackupPath, { force: true });
-    atomicWriteJson(statePath, {
-      ...state,
-      authRetired: true,
-      grokAuthExisted: retireGrok ? false : state.grokAuthExisted,
-      grokAuthBackupPath: retireGrok ? null : state.grokAuthBackupPath,
-    } satisfies ClientState);
     process.stdout.write(
-      state.authRetired
-        ? "retired returned coding vendor login state; gateway routing remains configured\n"
-        : `retired saved Codex, Claude, and Grok vendor logins; gateway routing remains configured\n`,
+      `ok Gatewai/Bifrost config, helpers, resolved credentials, Codex and Claude on Gatewai, Grok=${Boolean(config.grokBin)}\n`,
     );
     return;
   }
 
+  if (existsSync(statePath)) readState(statePath);
   if (!existsSync(statePath)) {
     const codexExisted = existsSync(codexConfig);
     const claudeExisted = existsSync(claudeSettings);
@@ -548,12 +446,11 @@ export async function configureGateway(
       ? captureOptionalBackup(grokAuth, grokAuthBackupPath, "Grok auth")
       : { existed: false, backupPath: null };
     atomicWriteJson(statePath, {
-      version: 8,
+      version: 9,
       codexConfigExisted: codexExisted,
       codexBackupPath: codexExisted ? codexBackupPath : null,
       claudeSettingsExisted: claudeExisted,
       claudeBackupPath: claudeExisted ? claudeBackupPath : null,
-      authRetired: false,
       grokEnabled: Boolean(config.grokBin),
       grokConfigExisted: grokConfigState.existed,
       grokConfigBackupPath: grokConfigState.backupPath,
@@ -566,16 +463,12 @@ export async function configureGateway(
     // would also restore the Codex and Claude snapshots and drop everything
     // added to them since enrollment.
     if (!state.grokEnabled && config.grokBin) {
-      const preserved = new Set<PreservedLogin>(config.preservedLogins ?? []);
       const grokConfigState = captureOptionalBackup(
         grokConfig,
         grokConfigBackupPath,
         "Grok config",
       );
-      const grokAuthState =
-        state.authRetired && !preserved.has("grok")
-          ? (rmSync(grokAuth, { force: true }), { existed: false, backupPath: null })
-          : captureOptionalBackup(grokAuth, grokAuthBackupPath, "Grok auth");
+      const grokAuthState = captureOptionalBackup(grokAuth, grokAuthBackupPath, "Grok auth");
       atomicWriteJson(statePath, {
         ...state,
         grokEnabled: true,
@@ -626,8 +519,7 @@ export async function configureGateway(
   await writeConfigEdits(gatewayEdits(config, credentialTarget));
   chmodSync(codexConfig, 0o600);
   atomicWriteJson(claudeSettings, desiredClaudeSettings);
-  const finalState = readState(statePath);
   process.stdout.write(
-    `configured Codex and Claude gateway routing${config.grokBin ? " plus canonical Grok gateway routing" : ""}; ${finalState.authRetired ? "vendor logins remain retired" : "vendor login backups remain available"}\n`,
+    `configured Codex and Claude gateway routing${config.grokBin ? " plus canonical Grok gateway routing" : ""}\n`,
   );
 }
