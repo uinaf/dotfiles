@@ -9,6 +9,7 @@ import {
   readFileSync,
   rmSync,
   statSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -19,6 +20,7 @@ import {
   claudeGatewayBaseUrl,
   claudeGatewaySettings,
   grokGatewaySettings,
+  retireCursorGatewayHelpers,
 } from "../agents/gateway/enrollment.ts";
 import {
   codexGatewaiOverrides,
@@ -26,6 +28,23 @@ import {
   parseGatewayConfig,
 } from "../agents/gateway/gateway-config.ts";
 import { codexInstalled, fixturePath, script, validConfig } from "./llm-gateway-fixture.ts";
+
+test("Cursor helper retirement preserves manual commands and symlinked targets", (t) => {
+  const home = mkdtempSync(join(tmpdir(), "dotfiles-cursor-collision-"));
+  t.onTestFinished(() => rmSync(home, { recursive: true, force: true }));
+  const bin = join(home, ".local/bin");
+  mkdirSync(bin, { recursive: true });
+  const manual = "#!/bin/sh\necho manual\n";
+  writeFileSync(join(bin, "cursor-agent"), manual, { mode: 0o700 });
+  const target = join(home, "external-helper");
+  writeFileSync(target, manual, { mode: 0o700 });
+  symlinkSync(target, join(bin, "cursor-agent-api"));
+  retireCursorGatewayHelpers(home);
+  retireCursorGatewayHelpers(home, true);
+  assert.equal(readFileSync(join(bin, "cursor-agent"), "utf8"), manual);
+  assert.equal(readFileSync(join(bin, "cursor-agent-api"), "utf8"), manual);
+  assert.equal(readFileSync(target, "utf8"), manual);
+});
 
 for (const configExisted of [false, true]) {
   test(
@@ -358,14 +377,34 @@ rm -f "$HOME/.claude/.credentials.json"
 
       const statePath = join(configDir, "llm-gateway-state.json");
       const originalState = JSON.parse(readFileSync(statePath, "utf8"));
-      for (const version of [6, 7]) {
+      for (const version of [6, 7, 8]) {
         const command = join(home, ".local/bin/cursor-agent");
+        const helpers = [
+          command,
+          join(home, ".local/bin/cursor-agent-api"),
+          join(home, ".local/libexec/dotfiles/bin/cursor-agent"),
+          join(home, ".local/libexec/dotfiles/cursor-agent-api"),
+          join(home, ".local/libexec/dotfiles/cursor-acp-api-key-auth"),
+        ];
+        for (const helper of helpers) {
+          mkdirSync(dirname(helper), { recursive: true });
+          writeFileSync(
+            helper,
+            `#!/bin/sh\n':' //; exec '/fixture/node' --input-type=commonjs --eval 'eval(require("node:fs").readFileSync(process.argv[1], "utf8"))' "$0" "$@"\n` +
+              (helper.endsWith("cursor-acp-api-key-auth")
+                ? '"usage: cursor-acp-api-key-auth <cursor-agent> [args...]"; "filterCursorAuthentication";\n'
+                : '"Cursor Agent executable is unavailable"; "CURSOR_API_KEY";\n'),
+            { mode: 0o700 },
+          );
+        }
         writeFileSync(
           statePath,
           JSON.stringify({
             ...originalState,
             version,
-            cursorCommands: [{ path: command, target: "/missing/retired-cursor-agent" }],
+            ...(version === 8
+              ? {}
+              : { cursorCommands: [{ path: command, target: "/missing/retired-cursor-agent" }] }),
           }),
           { mode: 0o600 },
         );
@@ -382,7 +421,7 @@ rm -f "$HOME/.claude/.credentials.json"
         assert.equal(migration.status, 0, migration.stderr);
         assert.deepEqual(JSON.parse(readFileSync(statePath, "utf8")), originalState);
         assert.deepEqual(JSON.parse(readFileSync(gatewayConfig, "utf8")), validConfig);
-        assert.equal(existsSync(command), false);
+        for (const helper of helpers) assert.equal(existsSync(helper), false, helper);
         assert.equal(
           readFileSync(`${claudeSettingsPath}.llm-gateway.backup`, "utf8"),
           originalClaudeSettings,

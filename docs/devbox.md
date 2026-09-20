@@ -79,8 +79,9 @@ and URLs:
 
 [`GatewayShape` and `parseGatewayConfig`](../agents/gateway/gateway-config.ts)
 own optional fields and validation. Credentials stay in owner-only configuration
-or client stores. Maintenance removes retired Cursor fields from legacy gateway
-configuration and migrates its ownership state without restoring Cursor commands.
+or client stores. Maintenance removes retired Cursor fields and recognized
+dotfiles-owned Cursor adapters, then migrates gateway ownership state. Manual
+commands and symlinks are preserved.
 
 ```zsh
 ./bootstrap/configure-llm-gateway.ts

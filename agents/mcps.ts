@@ -52,7 +52,7 @@ type McpLock = {
   servers: LockedServer[];
 };
 
-function readServerLock(lockPath: string): LockedServer[] | undefined {
+export function readServerLock(lockPath: string): LockedServer[] | undefined {
   const parsed = readLockFile(lockPath, "MCP");
   if (parsed === undefined) {
     return undefined;
@@ -98,7 +98,7 @@ function readServerLock(lockPath: string): LockedServer[] | undefined {
   return servers;
 }
 
-function writeServerLock(lockPath: string, servers: readonly LockedServer[]): void {
+export function writeServerLock(lockPath: string, servers: readonly LockedServer[]): void {
   const lock: McpLock = { version: 1, servers: [...servers] };
   writeLockFile(lockPath, lock);
 }
@@ -607,7 +607,7 @@ function removeOpenCodeServers(
   return true;
 }
 
-function removeStaleServers(
+export function removeStaleServers(
   runtime: Runtime,
   stale: readonly LockedServer[],
   failures: McpFailure[],
@@ -619,6 +619,10 @@ function removeStaleServers(
   for (const server of stale) {
     const leftoverHarnesses: Harness[] = [];
     for (const harness of server.harnesses) {
+      if (harness === "cursor") {
+        cursorNames.push(server.name);
+        continue;
+      }
       const { binary, label } = HARNESS_INFO[harness];
       if (!runtime.commandExists(binary)) {
         leftoverHarnesses.push(harness);
@@ -626,10 +630,6 @@ function removeStaleServers(
         continue;
       }
 
-      if (harness === "cursor") {
-        cursorNames.push(server.name);
-        continue;
-      }
       if (harness === "opencode") {
         opencodeNames.push(server.name);
         continue;

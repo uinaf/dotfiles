@@ -1,5 +1,6 @@
 import { bundleGatewayHelpers } from "./bundle.ts";
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import {
   chmodSync,
   copyFileSync,
@@ -103,6 +104,45 @@ function atomicWriteText(target: string, value: string, mode: number): void {
   const temporary = `${target}.tmp.${process.pid}`;
   writeFileSync(temporary, value, { mode });
   renameSync(temporary, target);
+}
+
+export function retireCursorGatewayHelpers(home: string, check = false): void {
+  const root = resolve(home);
+  const targets = [
+    ".local/bin/cursor-agent",
+    ".local/bin/cursor-agent-api",
+    ".local/bin/agent",
+    ".local/libexec/dotfiles/bin/cursor-agent",
+    ".local/libexec/dotfiles/cursor-agent-api",
+    ".local/libexec/dotfiles/cursor-acp-api-key-auth",
+  ];
+  for (const relative of targets) {
+    const target = join(root, relative);
+    if (!existsSync(target)) continue;
+    let linkedParent = false;
+    for (let directory = dirname(target); directory !== root; directory = dirname(directory)) {
+      if (lstatSync(directory).isSymbolicLink()) linkedParent = true;
+    }
+    const info = lstatSync(target);
+    if (linkedParent || !info.isFile() || info.uid !== process.getuid?.()) continue;
+    const contents = readFileSync(target, "utf8");
+    const bundled =
+      contents.startsWith("#!/bin/sh\n':' //; exec ") &&
+      contents.includes(
+        `--input-type=commonjs --eval 'eval(require("node:fs").readFileSync(process.argv[1], "utf8"))' "$0" "$@"`,
+      ) &&
+      (relative.endsWith("cursor-acp-api-key-auth")
+        ? contents.includes("usage: cursor-acp-api-key-auth <cursor-agent> [args...]") &&
+          contents.includes("filterCursorAuthentication")
+        : contents.includes("Cursor Agent executable is unavailable") &&
+          contents.includes("CURSOR_API_KEY"));
+    const legacy =
+      createHash("sha256").update(contents).digest("hex") ===
+      "c6f3c7b7047541909675004989a30cba726bb9970fad3549f4e6bdbed2da61d3";
+    if (!bundled && !legacy) continue;
+    if (check) throw new Error(`retired managed Cursor helper remains installed: ${target}`);
+    rmSync(target);
+  }
 }
 
 function captureOptionalBackup(
@@ -388,6 +428,7 @@ export async function configureGateway(
     credentialTarget,
   );
   if (mode === "check" || mode === "retire-auth") {
+    retireCursorGatewayHelpers(home, true);
     if (!existsSync(statePath) || !ownerOnly(statePath))
       throw new Error("LLM gateway state is missing or not owner-only");
     const state = readState(statePath);
@@ -532,6 +573,8 @@ export async function configureGateway(
     return;
   }
 
+  if (existsSync(statePath)) readState(statePath);
+  retireCursorGatewayHelpers(home);
   if (!existsSync(statePath)) {
     const codexExisted = existsSync(codexConfig);
     const claudeExisted = existsSync(claudeSettings);

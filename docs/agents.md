@@ -133,7 +133,8 @@ Plugin-specific ownership changes stay in
 - Existing files or never-owned links at a selected skill name are reported
   rather than replaced. First sync does not prune links.
 - Cursor is retired from installation and active agent targets. Legacy ownership
-  remains readable for cleanup; no Cursor CLI is installed or configured.
+  remains readable for cleanup without its CLI. Hindsight removes only its matching
+  Cursor MCP entry; unrelated settings remain intact.
 
 ## MCP Sync
 

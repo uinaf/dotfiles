@@ -4,8 +4,10 @@ import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync 
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { test } from "vite-plus/test";
+import { NodeServices } from "@effect/platform-node";
+import { Effect } from "effect";
 
-import { wiredInText } from "../agents/hindsight.ts";
+import { defaultPaths, retireCursorHindsight, wiredInText } from "../agents/hindsight.ts";
 
 const script = resolve(import.meta.dirname, "configure-hindsight.ts");
 
@@ -75,6 +77,44 @@ function npxCalls(paths: Fixture): string[] {
     return [];
   }
 }
+
+test("retires only owned Cursor Hindsight MCP entries without the Cursor CLI", async (t) => {
+  const paths = fixture({ installed: "1.0.0" });
+  t.onTestFinished(() => rmSync(paths.root, { recursive: true, force: true }));
+  assert.equal(run(paths).status, 0);
+  const cursor = join(paths.home, ".cursor/mcp.json");
+  mkdirSync(dirname(cursor), { recursive: true });
+  const owned = {
+    command: "node",
+    args: [join(paths.home, ".hindsight/coding-agents/dist/mcp-server.js")],
+    env: { HINDSIGHT_MCP_HARNESS: "cursor-cli" },
+  };
+  const other = { command: "other", args: ["server.js"] };
+  const original = { theme: "dark", mcpServers: { hindsight: owned, other } };
+  writeFileSync(cursor, JSON.stringify(original));
+  const check = run(paths, ["--check"]);
+  assert.notEqual(check.status, 0);
+  assert.deepEqual(JSON.parse(readFileSync(cursor, "utf8")), original);
+  await Effect.runPromise(
+    retireCursorHindsight(defaultPaths(paths.home), false).pipe(Effect.provide(NodeServices.layer)),
+  );
+  assert.deepEqual(JSON.parse(readFileSync(cursor, "utf8")), {
+    theme: "dark",
+    mcpServers: { other },
+  });
+  assert.equal(run(paths).status, 0);
+  assert.equal(npxCalls(paths).length, 1);
+  for (const hindsight of [
+    { ...owned, command: "custom-node" },
+    { ...owned, args: ["/other/mcp-server.js"] },
+    { ...owned, env: { HINDSIGHT_MCP_HARNESS: "other" } },
+  ]) {
+    const manual = JSON.stringify({ mcpServers: { hindsight } });
+    writeFileSync(cursor, manual);
+    assert.equal(run(paths).status, 0);
+    assert.equal(readFileSync(cursor, "utf8"), manual);
+  }
+});
 
 test("installs the published runtime for present harnesses and then converges", (t) => {
   const paths = fixture({ published: "1.2.3" });

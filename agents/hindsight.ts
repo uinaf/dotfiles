@@ -22,6 +22,11 @@ const ServerConfig = Schema.Union([
 ]);
 const RuntimePackage = Schema.Struct({ version: Schema.NonEmptyString });
 const JsonObject = Schema.Record(Schema.String, Schema.Unknown);
+const CursorMcpEntry = Schema.Struct({
+  command: Schema.Literal("node"),
+  args: Schema.Tuple([Schema.String]),
+  env: Schema.Struct({ HINDSIGHT_MCP_HARNESS: Schema.Literal("cursor-cli") }),
+});
 
 export type Paths = {
   home: string;
@@ -55,6 +60,47 @@ const readJson = Effect.fn("readJson")(function* (path: string) {
   if (text === undefined) return undefined;
   const parsed = yield* Effect.try({ try: () => JSON.parse(text) as unknown, catch: () => path });
   return yield* Schema.decodeUnknownEffect(JsonObject)(parsed).pipe(Effect.mapError(() => path));
+});
+
+export const retireCursorHindsight = Effect.fn("retireCursorHindsight")(function* (
+  paths: Paths,
+  check: boolean,
+) {
+  const fs = yield* FileSystem.FileSystem;
+  const path = join(paths.home, ".cursor/mcp.json");
+  if (!(yield* fs.exists(path))) return;
+  for (const candidate of [join(paths.home, ".cursor"), path]) {
+    if (Option.isSome(yield* fs.readLink(candidate).pipe(Effect.option)))
+      return yield* fail("refusing to edit symlinked Cursor MCP configuration");
+  }
+  const config = yield* readJson(path).pipe(
+    Effect.mapError(() => failure("Cursor MCP configuration must contain a JSON object")),
+  );
+  if (!config || !Schema.is(JsonObject)(config.mcpServers)) return;
+  const entry = config.mcpServers.hindsight;
+  if (
+    !Schema.is(CursorMcpEntry)(entry) ||
+    entry.args[0] !== join(paths.runtimeDir, "dist/mcp-server.js")
+  )
+    return;
+  if (check) return yield* fail("retired Cursor Hindsight MCP entry remains configured");
+  const mcpServers = { ...config.mcpServers };
+  delete mcpServers.hindsight;
+  yield* Effect.scoped(
+    Effect.gen(function* () {
+      const temporary = yield* fs.makeTempFileScoped({
+        directory: join(paths.home, ".cursor"),
+        prefix: ".hindsight-retire-",
+      });
+      yield* fs.writeFileString(
+        temporary,
+        `${JSON.stringify({ ...config, mcpServers }, null, 2)}\n`,
+      );
+      yield* fs.chmod(temporary, 0o600);
+      yield* fs.rename(temporary, path);
+    }),
+  );
+  yield* Console.log("hindsight: removed retired Cursor MCP entry");
 });
 
 // The server endpoint and token are machine-local credentials; setup requires
@@ -194,6 +240,7 @@ export const configureHindsight = Effect.fn("configureHindsight")(function* (
   commandExists: (binary: string) => boolean,
   check: boolean,
 ) {
+  yield* retireCursorHindsight(paths, check);
   const report = yield* inspect(paths, commandExists);
   if (report.harnesses.length === 0) {
     yield* Console.log("hindsight: no managed coding agent installed; nothing to wire");

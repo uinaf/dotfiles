@@ -7,7 +7,7 @@ import { afterEach, test } from "vite-plus/test";
 import { fileURLToPath } from "node:url";
 
 import { readProfileModel } from "../profiles/model.ts";
-import { main } from "./mcps.ts";
+import { main, readServerLock, writeServerLock, removeStaleServers } from "./mcps.ts";
 import { ACTIVE_HARNESSES as HARNESSES } from "./harness.ts";
 import { type Runtime } from "./runtime.ts";
 
@@ -414,6 +414,7 @@ test("removes only servers dropped from the previous managed lock", () => {
     ),
   );
   const runtime = new FixtureRuntime(repoDir, home);
+  runtime.installedCommands.delete("cursor-agent");
 
   assert.equal(main([], runtime), 0);
   assert.ok(harnessCalls(runtime, "claude").includes("mcp remove -s user retired-mcp"));
@@ -429,6 +430,40 @@ test("removes only servers dropped from the previous managed lock", () => {
     version: 1,
     servers: [{ name: "shared-mcp", harnesses: [...HARNESSES] }],
   });
+});
+
+test("focused Cursor retirement preserves other ownership without invoking harnesses", () => {
+  const { repoDir, home } = createFixture();
+  writeMcpLock(repoDir, [{ name: "old", harnesses: ["cursor", "claude"] }]);
+  mkdirSync(dirname(cursorConfigPath(home)), { recursive: true });
+  writeFileSync(
+    cursorConfigPath(home),
+    JSON.stringify({
+      mcpServers: { old: { url: "https://old.example" }, manual: { command: "manual" } },
+    }),
+  );
+  const runtime = new FixtureRuntime(repoDir, home);
+  runtime.installedCommands.clear();
+  const previous = readServerLock(mcpLockPath(repoDir));
+  assert.ok(previous);
+  const failures: Array<{ diagnostic: string; summary: string }> = [];
+  assert.deepEqual(
+    removeStaleServers(runtime, [{ name: "old", harnesses: ["cursor"] }], failures),
+    [],
+  );
+  assert.deepEqual(failures, []);
+  writeServerLock(
+    mcpLockPath(repoDir),
+    previous.map((server) => ({
+      ...server,
+      harnesses: server.harnesses.filter((harness) => harness !== "cursor"),
+    })),
+  );
+  assert.deepEqual(readServerLock(mcpLockPath(repoDir)), [{ name: "old", harnesses: ["claude"] }]);
+  assert.deepEqual(JSON.parse(readFileSync(cursorConfigPath(home), "utf8")), {
+    mcpServers: { manual: { command: "manual" } },
+  });
+  assert.deepEqual(runtime.calls, []);
 });
 
 test("keeps a dropped server in the lock when its harness CLI is missing", () => {
