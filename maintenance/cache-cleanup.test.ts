@@ -177,19 +177,20 @@ test("one total budget cancels the active command and prevents subsequent cleanu
   assert.deepEqual(calls, ["df", "find"]);
 });
 
-test("codex session retention prunes by age while root state and recent sessions survive", async (t) => {
+test("codex retention honours day boundaries, keeps roots, locks, and root state", async (t) => {
   const f = await fixture(t);
   const expired = await Promise.all([
-    f.file(".codex/archived_sessions/2026/01/02/rollout-old.jsonl", 40),
-    f.file(".codex/sessions/2026/01/02/rollout-ancient.jsonl", 100),
-    f.file(".codex/visualizations/2026/01/chart.html", 40),
-    f.file(".codex/.tmp/scratch", 9),
+    f.file(".codex/archived_sessions/2026/01/02/rollout.jsonl", 31.5),
+    f.file(".codex/sessions/2026/01/02/rollout.jsonl", 91.5),
+    f.file(".codex/visualizations/2026/01/chart.html", 31.5),
+    f.file(".codex/.tmp/scratch", 8.5),
   ]);
   const retained = await Promise.all([
-    f.file(".codex/archived_sessions/2026/09/01/rollout-fresh.jsonl", 20),
-    f.file(".codex/sessions/2026/08/01/rollout-recent.jsonl", 60),
-    f.file(".codex/visualizations/2026/09/chart.html", 20),
-    f.file(".codex/.tmp/warm", 3),
+    f.file(".codex/archived_sessions/2026/09/rollout.jsonl", 30.5),
+    f.file(".codex/sessions/2026/08/rollout.jsonl", 90.5),
+    f.file(".codex/visualizations/2026/09/chart.html", 30.5),
+    f.file(".codex/.tmp/warm", 7.5),
+    f.file(".codex/.tmp/curated-plugins.lock", 400),
   ]);
   const protectedState = await Promise.all([
     f.file(".codex/config.toml", 400),
@@ -205,4 +206,29 @@ test("codex session retention prunes by age while root state and recent sessions
   assert.equal((await f.run(true)).status, 0);
   for (const path of expired) await assert.rejects(access(path), { code: "ENOENT" });
   await Promise.all([...retained, ...protectedState].map((path) => access(path)));
+  for (const root of ["archived_sessions", "sessions", "visualizations", ".tmp"])
+    await access(join(f.home, ".codex", root));
+});
+
+test("codex retention empties a session root without removing the root itself", async (t) => {
+  const f = await fixture(t);
+  const only = await f.file(".codex/archived_sessions/2026/01/02/rollout.jsonl", 100);
+  assert.equal((await f.run(true)).status, 0);
+  await assert.rejects(access(only), { code: "ENOENT" });
+  await access(join(f.home, ".codex", "archived_sessions"));
+  await assert.rejects(access(join(f.home, ".codex/archived_sessions/2026")), { code: "ENOENT" });
+});
+
+test("codex retention follows CODEX_HOME and leaves the default tree alone", async (t) => {
+  const f = await fixture(t);
+  const elsewhere = join(f.home, "codex-home");
+  process.env.CODEX_HOME = elsewhere;
+  t.onTestFinished(() => {
+    delete process.env.CODEX_HOME;
+  });
+  const configured = await f.file("codex-home/archived_sessions/2026/01/rollout.jsonl", 100);
+  const untouched = await f.file(".codex/archived_sessions/2026/01/rollout.jsonl", 100);
+  assert.equal((await f.run(true)).status, 0);
+  await assert.rejects(access(configured), { code: "ENOENT" });
+  await access(untouched);
 });

@@ -5,8 +5,6 @@ import { CommandRunner } from "../lib/command.ts";
 
 export const cacheCleanupTimeoutMs = 30 * 60_000;
 
-// Codex entries name session subtrees, never `.codex` itself: the root holds
-// config, skills, memories, and the sqlite databases that own live state.
 const caches = [
   ["Library/Developer/Xcode/DerivedData", 30],
   ["Library/Developer/CoreSimulator/Caches", 30],
@@ -15,11 +13,21 @@ const caches = [
   [".gradle/daemon", 14],
   ["Library/Caches/go-build", 30],
   ["Library/Logs/DiagnosticReports", 30],
-  [".codex/archived_sessions", 30],
-  [".codex/sessions", 90],
-  [".codex/visualizations", 30],
-  [".codex/.tmp", 7],
 ] as const;
+
+// Codex entries name session subtrees, never the Codex root: that root holds
+// config, skills, memories, and the sqlite databases owning live state. Codex
+// synchronises curated plugins through lock files under `.tmp`, so those stay.
+const codexCaches = [
+  ["archived_sessions", 30, undefined],
+  ["sessions", 90, undefined],
+  ["visualizations", 30, undefined],
+  [".tmp", 7, "*.lock"],
+] as const;
+
+// Codex honours CODEX_HOME over the Unix home directory; hygiene must clean the
+// same tree Codex writes to.
+const codexHome = (home: string) => process.env.CODEX_HOME ?? join(home, ".codex");
 
 export const cacheCleanup = Effect.fn("cacheCleanup")(function* (
   home: string,
@@ -77,8 +85,13 @@ export const cacheCleanup = Effect.fn("cacheCleanup")(function* (
   const cleanup = Effect.gen(function* () {
     const before = yield* used();
     yield* log(`start used=${gigabytes(before)} dry_run=${apply ? 0 : 1}`);
-    for (const [relative, days] of caches) {
-      const path = join(home, relative);
+    const targets: readonly (readonly [string, number, string | undefined])[] = [
+      ...caches.map(([relative, days]) => [join(home, relative), days, undefined] as const),
+      ...codexCaches.map(
+        ([relative, days, keep]) => [join(codexHome(home), relative), days, keep] as const,
+      ),
+    ];
+    for (const [path, days, keep] of targets) {
       const info = yield* fs.stat(path).pipe(Effect.option);
       if (Option.isNone(info) || info.value.type !== "Directory") continue;
       yield* log(`prune files older than ${days} days under ${path}`);
@@ -86,11 +99,14 @@ export const cacheCleanup = Effect.fn("cacheCleanup")(function* (
         path,
         "-type",
         "f",
+        ...(keep === undefined ? [] : ["!", "-name", keep]),
         "-mtime",
         `+${days}`,
         apply ? "-delete" : "-print0",
       ]);
-      if (apply) yield* checked("find", [path, "-type", "d", "-empty", "-delete"]);
+      // -mindepth 1 keeps the cache root itself when every file under it expired.
+      if (apply)
+        yield* checked("find", [path, "-mindepth", "1", "-type", "d", "-empty", "-delete"]);
       else lines.push(`  would remove ${result.stdout.split("\0").filter(Boolean).length} files`);
     }
     if (

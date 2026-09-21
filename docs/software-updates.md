@@ -91,6 +91,18 @@ git config --local --unset dotfiles.hygiene # include it again
   and age thresholds. It preserves project sources and persistent container
   data; review the preview for the current targets. Shared Homebrew cleanup
   belongs to its prefix owner.
+- The sweep deletes Codex conversation history, which Codex itself never
+  reclaims. Archived sessions go after 30 days, live sessions after 90,
+  visualizations after 30, and `.tmp` scratch after 7, under `CODEX_HOME` when
+  set. Deletion is permanent and has no Codex-side undo, so preview before
+  applying. Config, skills, memories, plugins, worktrees, and the sqlite
+  databases sit at the Codex root and are never swept.
+- Two consequences follow from deleting rollout files directly. Codex keeps
+  thread rows in `state_*.sqlite` and `session_index.jsonl`, so a pruned session
+  can still be listed while no longer opening, and the databases do not shrink;
+  reclaim those with Codex's own `codex delete`. Archiving also preserves the
+  original mtime, so a session archived long after its last activity is eligible
+  immediately rather than 30 days later.
 - Private state: `~/.local/state/dotfiles/hygiene.json`. A live/ambiguous hygiene
   lock fails for inspection; stale process locks recover automatically.
 
