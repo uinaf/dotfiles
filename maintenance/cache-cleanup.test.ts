@@ -176,3 +176,33 @@ test("one total budget cancels the active command and prevents subsequent cleanu
   assert.equal(cancelled, true);
   assert.deepEqual(calls, ["df", "find"]);
 });
+
+test("codex session retention prunes by age while root state and recent sessions survive", async (t) => {
+  const f = await fixture(t);
+  const expired = await Promise.all([
+    f.file(".codex/archived_sessions/2026/01/02/rollout-old.jsonl", 40),
+    f.file(".codex/sessions/2026/01/02/rollout-ancient.jsonl", 100),
+    f.file(".codex/visualizations/2026/01/chart.html", 40),
+    f.file(".codex/.tmp/scratch", 9),
+  ]);
+  const retained = await Promise.all([
+    f.file(".codex/archived_sessions/2026/09/01/rollout-fresh.jsonl", 20),
+    f.file(".codex/sessions/2026/08/01/rollout-recent.jsonl", 60),
+    f.file(".codex/visualizations/2026/09/chart.html", 20),
+    f.file(".codex/.tmp/warm", 3),
+  ]);
+  const protectedState = await Promise.all([
+    f.file(".codex/config.toml", 400),
+    f.file(".codex/history.jsonl", 400),
+    f.file(".codex/session_index.jsonl", 400),
+    f.file(".codex/thread_history_1.sqlite", 400),
+    f.file(".codex/memories/note.md", 400),
+    f.file(".codex/skills/custom/SKILL.md", 400),
+  ]);
+  const dry = await f.run(false);
+  assert.equal(dry.status, 0);
+  await Promise.all([...expired, ...retained, ...protectedState].map((path) => access(path)));
+  assert.equal((await f.run(true)).status, 0);
+  for (const path of expired) await assert.rejects(access(path), { code: "ENOENT" });
+  await Promise.all([...retained, ...protectedState].map((path) => access(path)));
+});

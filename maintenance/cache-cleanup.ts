@@ -5,6 +5,8 @@ import { CommandRunner } from "../lib/command.ts";
 
 export const cacheCleanupTimeoutMs = 30 * 60_000;
 
+// Codex entries name session subtrees, never `.codex` itself: the root holds
+// config, skills, memories, and the sqlite databases that own live state.
 const caches = [
   ["Library/Developer/Xcode/DerivedData", 30],
   ["Library/Developer/CoreSimulator/Caches", 30],
@@ -13,6 +15,10 @@ const caches = [
   [".gradle/daemon", 14],
   ["Library/Caches/go-build", 30],
   ["Library/Logs/DiagnosticReports", 30],
+  [".codex/archived_sessions", 30],
+  [".codex/sessions", 90],
+  [".codex/visualizations", 30],
+  [".codex/.tmp", 7],
 ] as const;
 
 export const cacheCleanup = Effect.fn("cacheCleanup")(function* (
