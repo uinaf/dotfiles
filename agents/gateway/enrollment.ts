@@ -186,10 +186,6 @@ function readState(path: string): ClientState {
   return value as ClientState;
 }
 
-function withoutEnvironmentKey(env: NodeJS.ProcessEnv, key: string): NodeJS.ProcessEnv {
-  return Object.fromEntries(Object.entries(env).filter(([name]) => name !== key));
-}
-
 const grokGatewayBegin = "# BEGIN dotfiles LLM gateway";
 const grokGatewayEnd = "# END dotfiles LLM gateway";
 const grokGatewayPattern = new RegExp(
