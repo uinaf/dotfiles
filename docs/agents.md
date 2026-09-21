@@ -20,6 +20,13 @@ original enrollment snapshot semantics.
 If a native TOML rewrite drops block comments, the exact configured gateway
 sections are still recognized; conflicting values remain an error.
 
+For T3 Code, set the Grok provider's binary path to
+`~/.local/libexec/dotfiles/grok-t3` after gateway enrollment. Grok can print an
+expired login status before refreshing its external credential during `models`.
+The launcher retries that probe once; other commands execute the configured
+`grokBin` directly. It preserves the token lifetime and reports genuine failures.
+Switch back to `grok` when T3 handles the refreshed credential itself.
+
 ## Global Rules
 
 [Rule sources](../agents/rules.json) supply the shared text.

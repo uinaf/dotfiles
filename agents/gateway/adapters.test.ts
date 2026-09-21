@@ -5,6 +5,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readFileSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -129,6 +130,74 @@ console.log(JSON.stringify({ args: process.argv.slice(2), config: process.env.LL
   assert.equal(received.cursor, null);
   assert.equal(received.gatewai, null);
   assert.ok(!result.stdout.includes(f.config.credentials.gatewai));
+});
+
+for (const scenario of ["refreshed", "logged-out", "error", "retry-error", "ready"] as const) {
+  test(`Grok models preserves ${scenario} status with at most one retry`, (t) => {
+    const f = fixture(t);
+    const grok = join(f.bin, "grok");
+    const calls = join(f.root, "calls");
+    writeFileSync(f.configPath, JSON.stringify({ ...f.config, grokBin: grok }));
+    writeFileSync(
+      grok,
+      `#!${process.execPath}
+const fs = require("node:fs");
+const path = ${JSON.stringify(calls)};
+const attempt = fs.existsSync(path) ? Number(fs.readFileSync(path, "utf8")) + 1 : 1;
+fs.writeFileSync(path, String(attempt));
+const scenario = ${JSON.stringify(scenario)};
+if (scenario === "error" || (scenario === "retry-error" && attempt === 2)) {
+  console.error("You are not authenticated.");
+  process.exit(7);
+}
+console.log(scenario === "ready" || (scenario === "refreshed" && attempt === 2)
+  ? "You are logged in with grok.com."
+  : "You are not authenticated.");
+console.log("Available models:\\n  * grok-4.6 (default)");
+`,
+      { mode: 0o700 },
+    );
+    const result = f.run("grok-t3", ["models"]);
+    const failed = scenario === "error" || scenario === "retry-error";
+    assert.equal(result.status, failed ? 7 : 0, result.stderr);
+    assert.equal(
+      readFileSync(calls, "utf8"),
+      scenario === "ready" || scenario === "error" ? "1" : "2",
+    );
+    if (failed) {
+      assert.equal(result.stdout, "");
+      assert.equal(result.stderr, "You are not authenticated.\n");
+    } else {
+      assert.equal(result.stdout.match(/Available models:/g)?.length, 1);
+      assert.equal(result.stdout.includes("You are logged in"), scenario !== "logged-out");
+    }
+  });
+}
+
+test("Grok ACP passes arguments and stdin through without a model probe", (t) => {
+  const f = fixture(t);
+  const grok = join(f.bin, "grok");
+  writeFileSync(f.configPath, JSON.stringify({ ...f.config, grokBin: grok }));
+  writeFileSync(
+    grok,
+    `#!${process.execPath}
+const fs = require("node:fs");
+console.log(JSON.stringify({ args: process.argv.slice(2), input: fs.readFileSync(0, "utf8") }));
+process.exit(9);
+`,
+    { mode: 0o700 },
+  );
+  const result = spawnSync(join(f.installed, "grok-t3"), ["agent", "stdio"], {
+    env: f.env,
+    input: '{"method":"initialize"}\n',
+    encoding: "utf8",
+    timeout: 10_000,
+  });
+  assert.equal(result.status, 9, result.stderr);
+  assert.deepEqual(JSON.parse(result.stdout), {
+    args: ["agent", "stdio"],
+    input: '{"method":"initialize"}\n',
+  });
 });
 
 test("mise interpreter path survives pruning the version used during enrollment", (t) => {

@@ -301,6 +301,7 @@ export async function configureGateway(
   const statePath = join(home, ".config/dotfiles/llm-gateway-state.json");
   const credentialTarget = join(home, ".local/libexec/dotfiles/llm-gateway-credential");
   const codexGatewaiTarget = join(home, ".local/libexec/dotfiles/codex-gatewai");
+  const grokT3Target = join(home, ".local/libexec/dotfiles/grok-t3");
   const grokHome = join(home, ".grok");
   const grokConfig = join(grokHome, "config.toml");
   const grokAuth = join(grokHome, "auth.json");
@@ -331,6 +332,7 @@ export async function configureGateway(
     }
     rmSync(credentialTarget, { force: true });
     rmSync(codexGatewaiTarget, { force: true });
+    rmSync(grokT3Target, { force: true });
     if (state.grokEnabled) restoreGrok(state, grokConfig, grokAuth);
     if (state.codexBackupPath) rmSync(state.codexBackupPath, { force: true });
     if (state.claudeBackupPath) rmSync(state.claudeBackupPath, { force: true });
@@ -342,6 +344,7 @@ export async function configureGateway(
   const helpers = await bundleGatewayHelpers();
   const sourceCredential = helpers["llm-gateway-credential"];
   const sourceCodexGatewai = helpers["codex-gatewai"];
+  const sourceGrokT3 = helpers["grok-t3"];
   const config = validateLocalInputs(configPath);
   const desiredClaudeSettings = claudeGatewaySettings(
     existsSync(claudeSettings) ? readFileSync(claudeSettings, "utf8") : "",
@@ -354,6 +357,7 @@ export async function configureGateway(
     readState(statePath);
     assertInstalledFile(sourceCredential, credentialTarget);
     assertInstalledFile(sourceCodexGatewai, codexGatewaiTarget);
+    assertInstalledFile(sourceGrokT3, grokT3Target);
     const overridesProbe = spawnSync(codexGatewaiTarget, ["--gateway-overrides"], {
       encoding: "utf8",
       env: { ...process.env, LLM_GATEWAY_CONFIG: configPath },
@@ -494,6 +498,7 @@ export async function configureGateway(
   atomicWriteJson(statePath, readState(statePath));
   atomicWriteText(credentialTarget, sourceCredential, 0o700);
   atomicWriteText(codexGatewaiTarget, sourceCodexGatewai, 0o700);
+  atomicWriteText(grokT3Target, sourceGrokT3, 0o700);
   if (config.grokBin) {
     const currentGrokConfig = existsSync(grokConfig) ? readFileSync(grokConfig, "utf8") : "";
     atomicWriteText(

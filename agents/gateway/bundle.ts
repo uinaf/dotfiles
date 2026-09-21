@@ -2,7 +2,7 @@ import { build } from "esbuild";
 import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 
-export const gatewayHelpers = ["llm-gateway-credential", "codex-gatewai"] as const;
+export const gatewayHelpers = ["llm-gateway-credential", "codex-gatewai", "grok-t3"] as const;
 export type GatewayHelper = (typeof gatewayHelpers)[number];
 
 export function gatewayInterpreter(executable: string): string {
@@ -49,5 +49,6 @@ export async function bundleGatewayHelpers(
   return {
     "llm-gateway-credential": helper("llm-gateway-credential"),
     "codex-gatewai": helper("codex-gatewai"),
+    "grok-t3": helper("grok-t3"),
   };
 }
