@@ -85,7 +85,7 @@ printf "%s\\n" "$*"
       const apply = run();
       assert.equal(apply.status, 0, apply.stderr);
       assert.match(apply.stdout, /canonical Grok gateway routing/);
-      assert.equal(readFileSync(grokLogin, "utf8"), '{"access_token":"gateway-token"}\n');
+      assert.equal(readFileSync(grokLogin, "utf8"), originalGrokLogin);
       assert.equal(readFileSync(`${grokLogin}.llm-gateway.backup`, "utf8"), originalGrokLogin);
       assert.equal(readFileSync(`${grokConfig}.llm-gateway.backup`, "utf8"), originalGrokConfig);
       assert.match(

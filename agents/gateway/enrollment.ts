@@ -386,8 +386,6 @@ export async function configureGateway(
       ) {
         throw new Error("Grok gateway config drifted");
       }
-      if (!existsSync(grokAuth) || !ownerOnly(grokAuth))
-        throw new Error("Grok gateway authentication is missing or not owner-only");
     }
     const contents = readFileSync(codexConfig, "utf8");
     for (const expected of [
@@ -502,20 +500,6 @@ export async function configureGateway(
       grokGatewaySettings(currentGrokConfig, config.gatewaiBaseUrl, credentialTarget),
       0o600,
     );
-    const login = spawnSync(config.grokBin, ["login"], {
-      encoding: "utf8",
-      env: {
-        ...withoutEnvironmentKey(process.env, "GROK_HOME"),
-        HOME: home,
-        LLM_GATEWAY_CONFIG: configPath,
-      },
-    });
-    if (login.status !== 0)
-      throw new Error(
-        `Grok gateway login failed: ${login.stderr.trim() || login.stdout.trim() || `exit ${login.status ?? 1}`}`,
-      );
-    if (!existsSync(grokAuth) || !ownerOnly(grokAuth))
-      throw new Error("Grok gateway login did not create owner-only authentication");
   }
   await writeConfigEdits(gatewayEdits(config, credentialTarget));
   chmodSync(codexConfig, 0o600);

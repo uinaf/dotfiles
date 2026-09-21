@@ -67,9 +67,7 @@ for (const configExisted of [false, true]) {
 const fs = require("node:fs");
 const path = require("node:path");
 if (process.argv[2] !== "login") process.exit(2);
-const config = path.join(process.env.HOME, ".grok/config.toml");
-fs.writeFileSync(config, fs.readFileSync(config, "utf8").split("\\n").filter(line => !line.startsWith("#")).join("\\n"));
-fs.writeFileSync(path.join(process.env.HOME, ".grok/auth.json"), "{}\\n", { mode: 0o600 });
+process.exit(99);
 `,
           { mode: 0o700 },
         );
@@ -83,7 +81,8 @@ fs.writeFileSync(path.join(process.env.HOME, ".grok/auth.json"), "{}\\n", { mode
         const run = (...args: string[]) => spawnSync(script, args, { encoding: "utf8", env });
         const apply = run();
         assert.equal(apply.status, 0, apply.stderr);
-        assert.doesNotMatch(readFileSync(grokConfig, "utf8"), /# BEGIN dotfiles LLM gateway/);
+        assert.match(readFileSync(grokConfig, "utf8"), /# BEGIN dotfiles LLM gateway/);
+        assert.equal(existsSync(join(home, ".grok/auth.json")), false);
         if (configExisted) assert.equal(readFileSync(backup, "utf8"), original);
         else assert.equal(existsSync(backup), false);
         const edited =
