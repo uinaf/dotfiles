@@ -201,7 +201,8 @@ function grokGatewayBlock(gatewaiBaseUrl: string, credentialPath: string): strin
   return [
     grokGatewayBegin,
     "[models]",
-    'default = "grok-4.6"',
+    'default = "grok-4.7"',
+    'default_reasoning_effort = "high"',
     "",
     "[endpoints]",
     `models_base_url = ${JSON.stringify(gatewaiBaseUrl)}`,
@@ -211,7 +212,7 @@ function grokGatewayBlock(gatewaiBaseUrl: string, credentialPath: string): strin
     'auth_provider_label = "Gatewai"',
     "auth_token_ttl = 3600",
     "",
-    '[model."grok-4.6"]',
+    '[model."grok-4.7"]',
     'api_backend = "responses"',
     grokGatewayEnd,
   ].join("\n");
@@ -237,7 +238,7 @@ export function grokGatewaySettings(
     .replace(grokGatewayPattern, "")
     .replace(grokUnmarkedGatewayPattern(gatewaiBaseUrl, credentialPath), "")
     .trimEnd();
-  for (const section of ["models", "endpoints", "auth", 'model."grok-4.6"']) {
+  for (const section of ["models", "endpoints", "auth", 'model."grok-4.7"']) {
     const escaped = section.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     if (new RegExp(`^\\s*\\[${escaped}\\]\\s*$`, "m").test(original)) {
       throw new Error(`Grok config conflicts with gateway section: ${section}`);
