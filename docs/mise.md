@@ -53,5 +53,7 @@ update holds, age gates, and groups of pins that must move together.
 
 [Runtime installation](../bootstrap/install.ts) also runs the
 runtime-package task, so package-only pin changes converge when runtimes are
-already installed. Ordinary project installs do not run that task; a project's
-`packageManager` selects its own package-manager version.
+already installed. Ordinary project installs do not run that task. pnpm is a mise pin rather
+than a Corepack shim, so a project's `packageManager` or `devEngines` field is
+honored by pnpm itself, and Corepack keeps `corepack pnpm` for repository
+tooling only.

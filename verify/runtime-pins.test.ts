@@ -23,16 +23,13 @@ test("CI, bootstrap, and profile Node use the package engine floor", () => {
 });
 
 test("profile pnpm matches the repository package manager", () => {
-  assert.equal(
-    `pnpm@${pin(tools, /corepack install --global pnpm@([\d.]+)/)}`,
-    manifest.packageManager,
-  );
+  assert.equal(`pnpm@${pin(tools, /^pnpm = "([^"]+)"/m)}`, manifest.packageManager);
 });
 
-test("package convergence pins Corepack before enable and pnpm", () => {
+test("package convergence pins Corepack before disabling its pnpm shim", () => {
   const corepack = pin(tools, /npm install --global corepack@([\d.]+)/);
   assert.match(corepack, /^\d+\.\d+\.\d+$/);
-  assert.ok(tools.indexOf(`corepack@${corepack}`) < tools.indexOf("corepack enable pnpm"));
+  assert.ok(tools.indexOf(`corepack@${corepack}`) < tools.indexOf("corepack disable pnpm"));
 });
 
 test("PyYAML live verification follows its installation pin", () => {
@@ -87,7 +84,7 @@ test("mise package convergence repeats without runtime installs and stops on fai
     const result = run();
     assert.equal(result.status, 0, result.stderr);
   }
-  assert.equal(readFileSync(log, "utf8"), "npm\nnpm\ncorepack\ncorepack\npython\n".repeat(2));
+  assert.equal(readFileSync(log, "utf8"), "npm\nnpm\ncorepack\npython\n".repeat(2));
   writeFileSync(log, "");
   assert.notEqual(run("npm").status, 0);
   assert.equal(readFileSync(log, "utf8"), "npm\n");

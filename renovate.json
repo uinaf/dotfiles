@@ -78,9 +78,9 @@
   "customManagers": [
     {
       "customType": "regex",
-      "description": "npm, pnpm, and Corepack installed by the mise runtime package task",
+      "description": "npm and Corepack installed by the mise runtime package task",
       "managerFilePatterns": ["/^chezmoi/\\.chezmoitemplates/mise-tasks\\.toml$/"],
-      "matchStrings": ["(?<depName>npm|pnpm|corepack)@(?<currentValue>[0-9][^\\s\"&]+)"],
+      "matchStrings": ["(?<depName>npm|corepack)@(?<currentValue>[0-9][^\\s\"&]+)"],
       "datasourceTemplate": "npm"
     },
     {
