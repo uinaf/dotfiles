@@ -197,12 +197,22 @@ const grokGatewayPattern = new RegExp(
   "g",
 );
 
-function grokGatewayBlock(gatewaiBaseUrl: string, credentialPath: string): string {
+type GrokGatewayModel = { model: string; reasoningEffort?: string };
+const grokGatewayModel: GrokGatewayModel = { model: "grok-4.7", reasoningEffort: "high" };
+// Previously rendered variants stay recognizable so re-enrollment migrates a
+// marker-less config instead of reporting a conflict.
+const grokLegacyGatewayModels: readonly GrokGatewayModel[] = [{ model: "grok-4.6" }];
+
+function grokGatewayBlock(
+  gatewaiBaseUrl: string,
+  credentialPath: string,
+  { model, reasoningEffort }: GrokGatewayModel = grokGatewayModel,
+): string {
   return [
     grokGatewayBegin,
     "[models]",
-    'default = "grok-4.7"',
-    'default_reasoning_effort = "high"',
+    `default = ${JSON.stringify(model)}`,
+    ...(reasoningEffort ? [`default_reasoning_effort = ${JSON.stringify(reasoningEffort)}`] : []),
     "",
     "[endpoints]",
     `models_base_url = ${JSON.stringify(gatewaiBaseUrl)}`,
@@ -212,17 +222,24 @@ function grokGatewayBlock(gatewaiBaseUrl: string, credentialPath: string): strin
     'auth_provider_label = "Gatewai"',
     "auth_token_ttl = 3600",
     "",
-    '[model."grok-4.7"]',
+    `[model.${JSON.stringify(model)}]`,
     'api_backend = "responses"',
     grokGatewayEnd,
   ].join("\n");
 }
 
-function grokUnmarkedGatewayPattern(gatewaiBaseUrl: string, credentialPath: string): RegExp {
+function grokUnmarkedGatewayPattern(
+  gatewaiBaseUrl: string,
+  credentialPath: string,
+  variant: GrokGatewayModel = grokGatewayModel,
+): RegExp {
   // Native TOML rewrites can drop comments. Recognize only our exact configured
   // sections; different values or extra managed-table keys remain conflicts.
   // Another tool's comment may follow, such as the Hindsight installer's marker.
-  const body = grokGatewayBlock(gatewaiBaseUrl, credentialPath).split("\n").slice(1, -1).join("\n");
+  const body = grokGatewayBlock(gatewaiBaseUrl, credentialPath, variant)
+    .split("\n")
+    .slice(1, -1)
+    .join("\n");
   return new RegExp(
     `(?:^|\\n)${body.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?=\\n\\s*(?:\\[|#|$)|$)`,
     "g",
@@ -234,11 +251,19 @@ export function grokGatewaySettings(
   gatewaiBaseUrl: string,
   credentialPath: string,
 ): string {
-  const original = contents
-    .replace(grokGatewayPattern, "")
-    .replace(grokUnmarkedGatewayPattern(gatewaiBaseUrl, credentialPath), "")
+  const original = [grokGatewayModel, ...grokLegacyGatewayModels]
+    .reduce(
+      (text, variant) =>
+        text.replace(grokUnmarkedGatewayPattern(gatewaiBaseUrl, credentialPath, variant), ""),
+      contents.replace(grokGatewayPattern, ""),
+    )
     .trimEnd();
-  for (const section of ["models", "endpoints", "auth", 'model."grok-4.7"']) {
+  for (const section of [
+    "models",
+    "endpoints",
+    "auth",
+    `model.${JSON.stringify(grokGatewayModel.model)}`,
+  ]) {
     const escaped = section.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     if (new RegExp(`^\\s*\\[${escaped}\\]\\s*$`, "m").test(original)) {
       throw new Error(`Grok config conflicts with gateway section: ${section}`);

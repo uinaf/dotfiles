@@ -61,3 +61,30 @@ test("unmarked Grok gateway sections followed by another tool's comment are reco
     /conflicts with gateway section: models/,
   );
 });
+
+test("a marker-less block from the previous Grok default migrates instead of conflicting", () => {
+  const credential = "/home/user/.local/libexec/dotfiles/llm-gateway-credential";
+  const legacy = [
+    "[models]",
+    'default = "grok-4.6"',
+    "",
+    "[endpoints]",
+    'models_base_url = "https://gatewai.example/v1"',
+    "",
+    "[auth]",
+    `auth_provider_command = "${credential} gatewai"`,
+    'auth_provider_label = "Gatewai"',
+    "auth_token_ttl = 3600",
+    "",
+    '[model."grok-4.6"]',
+    'api_backend = "responses"',
+  ].join("\n");
+  const result = grokGatewaySettings(
+    `[ui]\ntheme = "dark"\n\n${legacy}\n`,
+    "https://gatewai.example/v1",
+    credential,
+  );
+  assert.equal(result.match(/\[models\]/g)?.length, 1);
+  assert.doesNotMatch(result, /grok-4\.6/);
+  assert.match(result, /default = "grok-4\.7"\ndefault_reasoning_effort = "high"/);
+});
