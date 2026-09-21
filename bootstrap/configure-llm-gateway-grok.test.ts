@@ -88,7 +88,10 @@ printf "%s\\n" "$*"
       assert.equal(readFileSync(grokLogin, "utf8"), '{"access_token":"gateway-token"}\n');
       assert.equal(readFileSync(`${grokLogin}.llm-gateway.backup`, "utf8"), originalGrokLogin);
       assert.equal(readFileSync(`${grokConfig}.llm-gateway.backup`, "utf8"), originalGrokConfig);
-      assert.match(readFileSync(grokConfig, "utf8"), /default = "grok-4\.6"/);
+      assert.match(
+        readFileSync(grokConfig, "utf8"),
+        /default = "grok-4\.7"\ndefault_reasoning_effort = "high"/,
+      );
       assert.match(readFileSync(grokConfig, "utf8"), /\[ui\]\ntheme = "dark"/);
       const grok = spawnSync(grokBin, ["-p", "hello"], { encoding: "utf8", env });
       assert.equal(grok.status, 0, grok.stderr);
@@ -243,7 +246,10 @@ fi
       assert.equal(join_.status, 0, join_.stderr);
       assert.match(join_.stdout, /canonical Grok gateway routing/);
       assert.match(readFileSync(codexConfigPath, "utf8"), /\[marketplaces\.later\]/);
-      assert.match(readFileSync(grokConfig, "utf8"), /default = "grok-4\.6"/);
+      assert.match(
+        readFileSync(grokConfig, "utf8"),
+        /default = "grok-4\.7"\ndefault_reasoning_effort = "high"/,
+      );
       assert.equal(readFileSync(`${grokConfig}.llm-gateway.backup`, "utf8"), originalGrokConfig);
       assert.equal(readFileSync(`${grokLogin}.llm-gateway.backup`, "utf8"), originalGrokLogin);
       assert.equal(readGrokState().grokEnabled, true);
