@@ -18,7 +18,10 @@ mise run dotfiles:apply workstation
 
 - `./dotfiles apply <profile>` also runs the remaining
   [bootstrap steps](bootstrap.md). On Linux it reloads the systemd user
-  manager and hands it the shim `PATH` from `environment.d`.
+  manager and hands it the shim `PATH` from `environment.d`. The managed
+  `99-zz-dotfiles.conf` runs after the distro import of `/etc/environment`,
+  preserving its baseline while prepending user tools. Applying removes the
+  obsolete `50-dotfiles.conf`.
 - Both preview and apply refresh [agent rules](agents.md#global-rules),
   including during a dry run.
 - The wrapper backs up conflicting files and links before force-applying,
