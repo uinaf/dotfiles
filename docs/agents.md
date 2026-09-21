@@ -26,6 +26,8 @@ expired login status before refreshing its external credential during `models`.
 The launcher retries that probe once; other commands execute the configured
 `grokBin` directly. It preserves the token lifetime and reports genuine failures.
 Switch back to `grok` when T3 handles the refreshed credential itself.
+Also switch back before removing `grokBin` or rolling back gateway enrollment;
+those operations do not change T3's manually selected binary path.
 
 ## Global Rules
 
