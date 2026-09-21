@@ -1,5 +1,5 @@
 import { DateTime, Effect, FileSystem, Option } from "effect";
-import { join } from "node:path";
+import { isAbsolute, join } from "node:path";
 import { commandAvailable } from "../lib/command-available.ts";
 import { CommandRunner } from "../lib/command.ts";
 
@@ -26,8 +26,13 @@ const codexCaches = [
 ] as const;
 
 // Codex honours CODEX_HOME over the Unix home directory; hygiene must clean the
-// same tree Codex writes to.
-const codexHome = (home: string) => process.env.CODEX_HOME ?? join(home, ".codex");
+// same tree Codex writes to. Empty and relative values fall back rather than
+// resolving against the working directory, where they would name siblings of
+// the real cache roots and delete them.
+const codexHome = (home: string) => {
+  const configured = process.env.CODEX_HOME;
+  return configured && isAbsolute(configured) ? configured : join(home, ".codex");
+};
 
 export const cacheCleanup = Effect.fn("cacheCleanup")(function* (
   home: string,
