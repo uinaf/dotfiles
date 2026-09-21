@@ -392,13 +392,13 @@ export async function configureGateway(
     for (const expected of [
       'model_provider = "gatewai"',
       config.gatewaiBaseUrl,
-      config.bifrostBaseUrl,
       credentialTarget,
       "[model_providers.gatewai.auth]",
       'X-OpenAI-Actor-Authorization = "local-proxy"',
       'args = ["gatewai"]',
-      "[model_providers.bifrost.auth]",
-      'args = ["bifrost"]',
+      ...(config.bifrostBaseUrl
+        ? [config.bifrostBaseUrl, "[model_providers.bifrost.auth]", 'args = ["bifrost"]']
+        : []),
     ]) {
       if (!contents.includes(expected)) throw new Error("Codex gateway config drifted");
     }
@@ -412,7 +412,7 @@ export async function configureGateway(
     ) {
       throw new Error("Claude gateway settings drifted");
     }
-    const credentialKinds = ["gatewai", "bifrost"];
+    const credentialKinds = config.credentials.bifrost ? ["gatewai", "bifrost"] : ["gatewai"];
     for (const kind of credentialKinds) {
       const result = spawnSync(credentialTarget, [kind], {
         encoding: "utf8",
@@ -424,7 +424,7 @@ export async function configureGateway(
       }
     }
     process.stdout.write(
-      `ok Gatewai/Bifrost config, helpers, resolved credentials, Codex and Claude on Gatewai, Grok=${Boolean(config.grokBin)}\n`,
+      `ok ${credentialKinds.join("/")} config, helpers, resolved credentials, Codex and Claude on Gatewai, Grok=${Boolean(config.grokBin)}\n`,
     );
     return;
   }

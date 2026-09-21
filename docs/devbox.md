@@ -78,7 +78,13 @@ and URLs:
 ```
 
 [`GatewayShape` and `parseGatewayConfig`](../agents/gateway/gateway-config.ts)
-own optional fields and validation. Credentials stay in owner-only configuration
+own optional fields and validation. Gatewai-only enrollment omits both
+`credentials.bifrost` and `bifrostBaseUrl`; supplying only one is rejected. It
+configures Codex and Claude through Gatewai without adding a Bifrost provider.
+Existing unrelated provider settings are preserved. Run the Bifrost-specific
+client commands below only when that provider is allocated.
+
+Credentials stay in owner-only configuration
 or client stores. Gateway state uses version 9; unsupported state must be migrated
 before enrollment or maintenance.
 

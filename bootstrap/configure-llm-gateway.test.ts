@@ -386,3 +386,75 @@ rm -f "$HOME/.claude/.credentials.json"
     }
   },
 );
+
+test(
+  "Gatewai-only enrollment supports apply, maintenance, check and rollback",
+  { skip: !codexInstalled },
+  () => {
+    const root = mkdtempSync(join(tmpdir(), "dotfiles-gatewai-only-"));
+    try {
+      const home = join(root, "home");
+      const codexHome = join(home, ".codex");
+      const configPath = join(home, ".config/dotfiles/llm-gateway.json");
+      mkdirSync(dirname(configPath), { recursive: true });
+      mkdirSync(codexHome, { recursive: true });
+      const original = 'model = "gpt-6-astra"\n';
+      writeFileSync(join(codexHome, "config.toml"), original, { mode: 0o600 });
+      writeFileSync(
+        configPath,
+        JSON.stringify({
+          version: 3,
+          credentials: { gatewai: validConfig.credentials.gatewai },
+          gatewaiBaseUrl: validConfig.gatewaiBaseUrl,
+        }),
+        { mode: 0o600 },
+      );
+      const env = {
+        ...process.env,
+        HOME: home,
+        CODEX_HOME: codexHome,
+        LLM_GATEWAY_CONFIG: configPath,
+      };
+      for (const args of [[], ["--maintenance"], ["--check"]]) {
+        const result = spawnSync(script, args, { encoding: "utf8", env });
+        assert.equal(result.status, 0, result.stderr);
+      }
+      const codex = readFileSync(join(codexHome, "config.toml"), "utf8");
+      assert.match(codex, /model_provider = "gatewai"/);
+      assert.doesNotMatch(codex, /bifrost/);
+      const helper = join(home, ".local/libexec/dotfiles/llm-gateway-credential");
+      const gatewai = spawnSync(helper, ["gatewai"], { encoding: "utf8", env });
+      assert.equal(gatewai.status, 0, gatewai.stderr);
+      assert.equal(gatewai.stdout.trim(), validConfig.credentials.gatewai);
+      const missing = spawnSync(helper, ["bifrost"], { encoding: "utf8", env });
+      assert.notEqual(missing.status, 0);
+      assert.equal(missing.stdout, "");
+      assert.match(missing.stderr, /missing resolved bifrost credential/);
+      const rollback = spawnSync(script, ["--rollback"], { encoding: "utf8", env });
+      assert.equal(rollback.status, 0, rollback.stderr);
+      assert.equal(readFileSync(join(codexHome, "config.toml"), "utf8"), original);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  },
+);
+
+test("Bifrost URL and credential must be supplied together", () => {
+  const only = {
+    version: 3,
+    credentials: { gatewai: validConfig.credentials.gatewai },
+    gatewaiBaseUrl: validConfig.gatewaiBaseUrl,
+  };
+  assert.doesNotThrow(() => parseGatewayConfig(JSON.stringify(only)));
+  assert.throws(() =>
+    parseGatewayConfig(JSON.stringify({ ...only, bifrostBaseUrl: validConfig.bifrostBaseUrl })),
+  );
+  assert.throws(() =>
+    parseGatewayConfig(JSON.stringify({ ...only, credentials: validConfig.credentials })),
+  );
+  assert.throws(() =>
+    parseGatewayConfig(
+      JSON.stringify({ ...validConfig, bifrostBaseUrl: "http://bifrost.example/v1" }),
+    ),
+  );
+});

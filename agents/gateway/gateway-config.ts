@@ -7,16 +7,25 @@ const GatewayShape = Schema.Struct({
   version: Schema.Literal(3),
   credentials: Schema.Struct({
     gatewai: Schema.String.pipe(Schema.check(Schema.isPattern(/^[A-Za-z0-9_-]{32,}$/))),
-    bifrost: Schema.String.pipe(
-      Schema.check(
-        Schema.isPattern(/^sk-bf-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/),
+    bifrost: Schema.optionalKey(
+      Schema.String.pipe(
+        Schema.check(
+          Schema.isPattern(/^sk-bf-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/),
+        ),
       ),
     ),
   }),
   gatewaiBaseUrl: Schema.NonEmptyString,
-  bifrostBaseUrl: Schema.NonEmptyString,
+  bifrostBaseUrl: Schema.optionalKey(Schema.NonEmptyString),
   grokBin: Schema.optionalKey(AbsolutePath),
-});
+}).pipe(
+  Schema.check(
+    Schema.makeFilter(
+      (config) =>
+        (config.credentials.bifrost === undefined) === (config.bifrostBaseUrl === undefined),
+    ),
+  ),
+);
 const GatewayUrl = Schema.String.pipe(
   Schema.check(
     Schema.makeFilter((input) => {
@@ -52,14 +61,14 @@ export function parseGatewayConfig(contents: string): GatewayConfig {
     throw new Error("gateway config contains an unknown field or invalid value");
   }
   for (const field of ["gatewaiBaseUrl", "bifrostBaseUrl"] as const) {
-    if (!Schema.is(GatewayUrl)(value[field]))
+    if (value[field] !== undefined && !Schema.is(GatewayUrl)(value[field]))
       throw new Error(`${field} must be an HTTPS /v1 URL without credentials, query, or fragment`);
   }
   return value;
 }
 
 export function gatewayEdits(config: GatewayConfig, credentialPath: string): ConfigEdit[] {
-  return [
+  const edits: ConfigEdit[] = [
     { keyPath: "model_provider", value: "gatewai", mergeStrategy: "upsert" },
     { keyPath: "features.apps", value: false, mergeStrategy: "upsert" },
     { keyPath: "model_providers.gatewai.name", value: "Gatewai", mergeStrategy: "upsert" },
@@ -96,36 +105,40 @@ export function gatewayEdits(config: GatewayConfig, credentialPath: string): Con
       value: 0,
       mergeStrategy: "upsert",
     },
-    { keyPath: "model_providers.bifrost.name", value: "Bifrost", mergeStrategy: "upsert" },
-    {
-      keyPath: "model_providers.bifrost.base_url",
-      value: config.bifrostBaseUrl,
-      mergeStrategy: "upsert",
-    },
-    { keyPath: "model_providers.bifrost.wire_api", value: "responses", mergeStrategy: "upsert" },
-    {
-      keyPath: "model_providers.bifrost.requires_openai_auth",
-      value: false,
-      mergeStrategy: "upsert",
-    },
-    {
-      keyPath: "model_providers.bifrost.supports_websockets",
-      value: false,
-      mergeStrategy: "upsert",
-    },
-    {
-      keyPath: "model_providers.bifrost.auth.command",
-      value: credentialPath,
-      mergeStrategy: "upsert",
-    },
-    { keyPath: "model_providers.bifrost.auth.args", value: ["bifrost"], mergeStrategy: "upsert" },
-    { keyPath: "model_providers.bifrost.auth.timeout_ms", value: 5000, mergeStrategy: "upsert" },
-    {
-      keyPath: "model_providers.bifrost.auth.refresh_interval_ms",
-      value: 0,
-      mergeStrategy: "upsert",
-    },
   ];
+  if (config.bifrostBaseUrl !== undefined)
+    edits.push(
+      { keyPath: "model_providers.bifrost.name", value: "Bifrost", mergeStrategy: "upsert" },
+      {
+        keyPath: "model_providers.bifrost.base_url",
+        value: config.bifrostBaseUrl,
+        mergeStrategy: "upsert",
+      },
+      { keyPath: "model_providers.bifrost.wire_api", value: "responses", mergeStrategy: "upsert" },
+      {
+        keyPath: "model_providers.bifrost.requires_openai_auth",
+        value: false,
+        mergeStrategy: "upsert",
+      },
+      {
+        keyPath: "model_providers.bifrost.supports_websockets",
+        value: false,
+        mergeStrategy: "upsert",
+      },
+      {
+        keyPath: "model_providers.bifrost.auth.command",
+        value: credentialPath,
+        mergeStrategy: "upsert",
+      },
+      { keyPath: "model_providers.bifrost.auth.args", value: ["bifrost"], mergeStrategy: "upsert" },
+      { keyPath: "model_providers.bifrost.auth.timeout_ms", value: 5000, mergeStrategy: "upsert" },
+      {
+        keyPath: "model_providers.bifrost.auth.refresh_interval_ms",
+        value: 0,
+        mergeStrategy: "upsert",
+      },
+    );
+  return edits;
 }
 
 export function codexGatewaiOverrides(config: GatewayConfig, credentialPath: string): string[] {
