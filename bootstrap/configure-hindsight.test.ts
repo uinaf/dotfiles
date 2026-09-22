@@ -1,8 +1,16 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { test } from "vite-plus/test";
 
 import { wiredInText } from "../agents/hindsight.ts";
@@ -50,16 +58,18 @@ done
   );
   for (const harness of options.harnesses ?? ["claude", "codex", "grok"])
     writeFileSync(join(bin, harness), "#!/bin/sh\n", { mode: 0o700 });
+  // The current Node's bin directory is not on PATH: mise installs npm-backed agents such as grok next to node.
+  symlinkSync(process.execPath, join(bin, "node"));
   return {
     root,
     home,
     log,
-    // Only fixture binaries, the current Node, and system tools are visible, so host agents never leak in.
+    // Only fixture binaries and system tools are visible, so host agents never leak in.
     env: {
       ...process.env,
       HOME: home,
       HINDSIGHT_CONFIG: "",
-      PATH: `${bin}:${dirname(process.execPath)}:/usr/bin:/bin`,
+      PATH: `${bin}:/usr/bin:/bin`,
     },
   };
 }
