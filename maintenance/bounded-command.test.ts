@@ -63,6 +63,32 @@ for (const status of [0, 23]) {
   });
 }
 
+test("a command that exits before the first inventory still proves cleanup", async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), "dotfiles-bounded-"));
+  t.onTestFinished(() => rm(directory, { recursive: true, force: true }));
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        const command = yield* BoundedCommand;
+        return yield* command.run("/bin/sh", ["-c", "exit 0"], {
+          diagnosticDirectory: join(directory, "diagnostics"),
+          timeoutMs: 2_000,
+        });
+      }).pipe(
+        Effect.provide(BoundedCommand.layer),
+        Effect.provide(CommandRunner.layer),
+        Effect.provide(NodeServices.layer),
+      ),
+    );
+    assert.deepEqual(result, {
+      status: 0,
+      timedOut: false,
+      diagnosticPath: undefined,
+      cleanupComplete: true,
+    });
+  }
+});
+
 for (const diagnosticFailure of [false, true]) {
   test(`timeout cleans a detached TERM-resistant child with diagnostics ${diagnosticFailure ? "unavailable" : "available"}`, async (t) => {
     const directory = await mkdtemp(join(tmpdir(), "dotfiles-bounded-"));
