@@ -52,7 +52,6 @@ export type Plugin = {
   harnesses: readonly Harness[];
 };
 
-// Native skill discovery paths, relative to HOME, per link-capable harness.
 const SKILL_LINK_ROOTS = {
   opencode: [".config", "opencode", "skills"],
 } as const;

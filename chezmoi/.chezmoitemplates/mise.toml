@@ -1,6 +1,3 @@
-# Shared runtime and tool pins for every platform. This file and the
-# darwin/ and linux/ siblings stay plain TOML so Renovate's mise manager can
-# parse them; chezmoi concatenates them into ~/.config/mise/config.toml.
 [tools]
 node = "24.21.0"
 bun = "1.4.2"
@@ -23,12 +20,6 @@ rust = "1.98.1"
 "npm:t3" = "0.0.42"
 "npm:@xai-official/grok" = "1.0.40"
 
-# Command-line tools with binary releases live here on both platforms so one
-# pin serves macOS and Linux. Homebrew keeps what needs a compiler or a GUI
-# (git, tmux, ffmpeg, watchman, the Docker and Colima stack, casks) and, on
-# macOS, what privileged or secret-handling flows call by fixed path: age and
-# sops for the sudo askpass helper, xcodes for the root Xcode selection. On
-# Linux the host provides age and sops the same way.
 gh = "2.101.0"
 jq = "1.8.2"
 ripgrep = "15.2.0"

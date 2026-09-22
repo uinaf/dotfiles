@@ -78,11 +78,8 @@ export async function hygiene(
     throw new Error("hygiene lock exists; check for an active or interrupted cleanup", { cause });
   }
   try {
-    // The harness roots plus the project tree itself. A linked worktree created
-    // next to its owning clone used to fall outside every root, so it was never
-    // evaluated or reported and accumulated unseen. Eligibility still rests
-    // entirely on the per-worktree checks below, which retain anything dirty,
-    // busy, protected, detached, or not yet in the remote default.
+    // Eligibility rests entirely on the per-worktree checks below, which retain
+    // anything dirty, busy, protected, detached, or not yet in the remote default.
     const roots = [".t3/worktrees", ".codex/worktrees", ".claude/worktrees", "projects"].map(
       (path) => join(home, path),
     );

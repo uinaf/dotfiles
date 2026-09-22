@@ -1,8 +1,3 @@
-# Shared Homebrew layer for every managed Unix user on macOS: packages that
-# need a compiler, a GUI, a system service, or a fixed execution path. Other
-# binary-release tools belong in chezmoi/.chezmoitemplates/mise.toml.
-# Role-specific additions belong in Brewfile.<profile>.
-
 # Bootstrap and runtime tools
 brew "git"
 brew "mise"

@@ -308,7 +308,6 @@ const program = Effect.scoped(
 
     const appliedHome = join(temporary, "devbox-applied");
     yield* fs.makeDirectory(appliedHome);
-    // Profile application exercises rendering, using the same offline rules fixture as agent checks.
     yield* fs.makeDirectory(dirname(agentRulesCache(appliedHome)), {
       recursive: true,
       mode: 0o700,

@@ -6,7 +6,6 @@ import { type Harness, HARNESS_INFO, HARNESSES } from "./harness.ts";
 
 const PACKAGE = "@vectorize-io/hindsight-coding-agents";
 
-// Installer harness names for the coding clients this repository manages.
 const INSTALLER_NAMES: Record<Harness, string> = {
   claude: "claude-code",
   codex: "codex",

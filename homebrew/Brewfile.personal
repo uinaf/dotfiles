@@ -1,5 +1,3 @@
-# Personal additions shared by personal-workstation and personal-devbox.
-
 # Taps
 tap "uinaf/tap", trusted: true
 tap "openclaw/tap", trusted: true

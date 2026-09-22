@@ -278,7 +278,6 @@ export function cleanRepository(
       });
       continue;
     }
-    // Refresh remote, Git state, locks, and live activity immediately before removal.
     const fresh = candidates(repo, roots, activity(), runner).eligible.find(
       (item) =>
         item.kind === candidate.kind &&
