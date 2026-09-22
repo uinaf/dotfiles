@@ -11,8 +11,6 @@ permissions: {}
 
 jobs:
   verify:
-    # PR/manual checks use macOS because static.ts needs plutil. Direct pushes
-    # require mise run verify locally; a green release job does not prove tests.
     if: ${{ github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' }}
     runs-on: macos-26
     timeout-minutes: 20
@@ -41,8 +39,6 @@ jobs:
         run: ./verify/run.ts --skip-security
 
   verify-linux:
-    # The same deterministic checks on Ubuntu, plus a dry-run developer apply
-    # into a throwaway home, so a macOS-only change cannot land unnoticed.
     if: ${{ github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -64,24 +60,17 @@ jobs:
 
       - name: Install mise and the verification tools
         env:
-          # mise resolves tool releases through the GitHub API; unauthenticated
-          # runners share a 60-request budget per address and exhaust it. The
-          # token stays on this step only.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # renovate: datasource=github-releases depName=jdx/mise
           MISE_VERSION: "v2026.9.8"
         run: |
           set -euo pipefail
-          # Not ~/.local/bin: converge.ts fronts that directory, and its tests
-          # rely on a PATH stub taking precedence over the real mise.
           mkdir -p "$RUNNER_TEMP/bin"
           curl -fsSL https://mise.run | MISE_INSTALL_PATH="$RUNNER_TEMP/bin/mise" sh
-          # The verification tools follow the shared template pins.
           tools=$(sed -nE 's/^(chezmoi|shellcheck|actionlint|gitleaks) = "([^"]+)"$/\1@\2/p' chezmoi/.chezmoitemplates/mise.toml | tr '\n' ' ')
           # shellcheck disable=SC2086
           "$RUNNER_TEMP/bin/mise" --no-config use --global $tools
           printf '%s\n' "$RUNNER_TEMP/bin" "$HOME/.local/share/mise/shims" >> "$GITHUB_PATH"
-          # The fresh-home preview below swaps HOME; keep tool resolution here.
           printf 'MISE_DATA_DIR=%s\nMISE_GLOBAL_CONFIG_FILE=%s\n' "$HOME/.local/share/mise" "$HOME/.config/mise/config.toml" >> "$GITHUB_ENV"
           sudo apt-get install -y -qq zsh >/dev/null
 
@@ -101,8 +90,6 @@ jobs:
           set -euo pipefail
           home="$(mktemp -d)"
           chezmoi --source chezmoi --destination "$home" --override-data '{"dotfilesProfile":"devbox"}' cat "$home/.config/mise/config.toml" > "$home/mise.toml"
-          # Every pinned tool must resolve to a concrete release on Linux; a bad
-          # short name or asset regex fails here instead of on a user's first apply.
           MISE_GLOBAL_CONFIG_FILE="$home/mise.toml" mise install --dry-run
           MISE_GLOBAL_CONFIG_FILE="$home/mise.toml" mise exec github:uinaf/ffss -- slopguard version
 
@@ -111,13 +98,8 @@ jobs:
           set -euo pipefail
           home="$(mktemp -d)"
           units="$home/.config/systemd/user"
-          # chezmoi renders .chezmoi.homeDir from the real user, not the
-          # destination, and systemd-analyze checks that ExecStart's executable
-          # exists, so the stub node lives in the runner's own home.
           mkdir -p "$units" "$HOME/.local/share/mise/installs/node/latest/bin"
           install -m 0755 /dev/null "$HOME/.local/share/mise/installs/node/latest/bin/node"
-          # chezmoi cat renders the target path's content from the source; the
-          # destination file does not exist yet, so this only writes.
           for unit in dotfiles-software-update.service dotfiles-software-update.timer; do
             rendered="$(chezmoi --source chezmoi --destination "$home" --override-data '{"dotfilesProfile":"devbox"}' cat "$units/$unit")"
             printf '%s\n' "$rendered" > "$units/$unit"
@@ -157,7 +139,6 @@ jobs:
           GH_TOKEN: ${{ steps.release-bot.outputs.token }}
         run: gh auth setup-git
 
-      # GitHub links bot commits when the noreply email uses `{user-id}+{slug}[bot]@…`.
       - name: Resolve release bot identity
         id: release-bot-identity
         env:

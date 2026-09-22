@@ -1,5 +1,3 @@
-# Personal desktop additions.
-
 # App Store automation
 brew "mas"
 

@@ -1,4 +1,3 @@
-# Portable human-workstation Homebrew layer.
 # Run through brew-bundle.ts so the shared Brewfile installs first.
 
 # Human desktop

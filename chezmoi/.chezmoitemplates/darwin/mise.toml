@@ -1,4 +1,3 @@
-# macOS-only tool pins, appended to the shared mise.toml.
 [tools]
 # Claude Code comes from its GitHub release: the npm package fetches its native
 # binary in a postinstall that mise's npm backend does not run. The GitHub backend selects the
