@@ -12,7 +12,8 @@ go = "1.27.1"
 # pnpm 12 ships its own `pn` and `pnx` bins; Corepack's shim only provides
 # `pnpm`, so the runtime-package task disables it in favor of this pin.
 pnpm = "12.5.1"
-# rustup-managed toolchain; a repository's rust-toolchain.toml still wins.
+# rustup-managed toolchain. mise honors a repository's rust-toolchain.toml only
+# because "rust" is in idiomatic_version_file_enable_tools in config.toml.tmpl.
 rust = "1.98.1"
 # 0.1.19 dropped npm trusted-publisher metadata and provenance.
 "npm:@playwright/cli" = "0.1.18"

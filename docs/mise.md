@@ -53,7 +53,9 @@ update holds, age gates, and groups of pins that must move together.
 
 [Runtime installation](../bootstrap/install.ts) also runs the
 runtime-package task, so package-only pin changes converge when runtimes are
-already installed. Ordinary project installs do not run that task. pnpm is a mise pin rather
+already installed. Ordinary project installs do not run that task. The rust pin is the fallback
+toolchain; a checkout's `rust-toolchain.toml` wins because `rust` is listed in
+`idiomatic_version_file_enable_tools`. pnpm is a mise pin rather
 than a Corepack shim, so a project's `packageManager` or `devEngines` field is
 honored by pnpm itself, and Corepack keeps `corepack pnpm` for repository
 tooling only.
