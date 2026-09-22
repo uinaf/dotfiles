@@ -126,7 +126,7 @@
       "id": "claude-settings",
       "domain": "agents",
       "command": ["node", "verify/claude-settings.ts"],
-      "output": "Claude user settings preserve unrelated keys and select Fable 5.1 at medium effort"
+      "output": "Claude user settings preserve unrelated keys and select Opus 5.5 at medium effort"
     },
     {
       "id": "codex-settings",
