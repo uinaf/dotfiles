@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Schema } from "effect";
+import { Context, Effect, Layer, Schema, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 import {
   constants,
@@ -45,6 +45,9 @@ const ProcessRow = Schema.Struct({
   cpu: Schema.String,
 });
 type ProcessRow = typeof ProcessRow.Type;
+const gate =
+  'read -r _ || exit 125; command -v "$0" >/dev/null 2>&1 || exit 127; exec "$0" "$@" </dev/null';
+const release = new TextEncoder().encode("\n");
 
 function parseProcesses(output: string): ProcessRow[] {
   return output
@@ -175,9 +178,10 @@ export class BoundedCommand extends Context.Service<
           ),
         );
         return yield* Effect.gen(function* () {
+          // Hold the command until the first inventory records the root; exec keeps its identity.
           const handle = yield* spawner.spawn(
-            ChildProcess.make(command, args, {
-              stdin: "ignore",
+            ChildProcess.make("/bin/sh", ["-c", gate, command, ...args], {
+              stdin: "pipe",
               stdout: "inherit",
               stderr: "inherit",
               detached: false,
@@ -188,6 +192,9 @@ export class BoundedCommand extends Context.Service<
           rootPid = Number(handle.pid);
           yield* Effect.addFinalizer(() => (completed ? Effect.void : cleanup));
           yield* observe.pipe(Effect.catch(() => Effect.void));
+          yield* Stream.run(Stream.make(release), handle.stdin).pipe(
+            Effect.catch(() => Effect.void),
+          );
           const watcher = Effect.forever(
             observe.pipe(
               Effect.catch(() => Effect.void),
