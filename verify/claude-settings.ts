@@ -22,6 +22,7 @@ import { runApply } from "./home-fixture.ts";
 type Settings = Record<string, unknown> & {
   autoMemoryEnabled?: boolean;
   env?: Record<string, unknown>;
+  modelSettings?: Record<string, Record<string, unknown>>;
   permissions?: Record<string, unknown>;
 };
 type Fixture = {
@@ -51,6 +52,16 @@ const fixtures: Fixture[] = [
   {
     contents: '{"env":{"CLAUDE_CODE_DISABLE_1M_CONTEXT":"1","KEEP":"yes"}}',
     expected: { env: { CLAUDE_CODE_DISABLE_1M_CONTEXT: "1", KEEP: "yes" } },
+  },
+  {
+    contents:
+      '{"modelSettings":{"claude-opus-5-5":{"effortLevel":"high","maxEffortLevel":"xhigh"},"claude-sonnet-5":{"effortLevel":"low"}}}',
+    expected: {
+      modelSettings: {
+        "claude-opus-5-5": { maxEffortLevel: "xhigh" },
+        "claude-sonnet-5": { effortLevel: "low" },
+      },
+    },
   },
   {
     contents: '{\n    "theme": "dark",\n    "env": {\n        "KEEP": "yes"\n    }\n}\n',
@@ -131,6 +142,13 @@ function renderFixture(fixture: Fixture, root: string): Promise<void> {
           {
             ...actual,
             model: undefined,
+            modelSettings: {
+              ...actual.modelSettings,
+              "claude-opus-5-5": {
+                ...actual.modelSettings?.["claude-opus-5-5"],
+                effortLevel: undefined,
+              },
+            },
             effortLevel: undefined,
             outputStyle: undefined,
             attribution: undefined,
@@ -139,6 +157,13 @@ function renderFixture(fixture: Fixture, root: string): Promise<void> {
           {
             ...expected,
             model: undefined,
+            modelSettings: {
+              ...expected.modelSettings,
+              "claude-opus-5-5": {
+                ...expected.modelSettings?.["claude-opus-5-5"],
+                effortLevel: undefined,
+              },
+            },
             effortLevel: undefined,
             outputStyle: undefined,
             attribution: undefined,
@@ -147,6 +172,7 @@ function renderFixture(fixture: Fixture, root: string): Promise<void> {
           },
         );
         assert.equal(actual.model, "claude-opus-5-5");
+        assert.equal(actual.modelSettings?.["claude-opus-5-5"]?.effortLevel, "medium");
         assert.equal(actual.effortLevel, "medium");
         assert.equal(actual.outputStyle, "Concise");
         assert.equal(actual.autoMemoryEnabled, false);
@@ -191,6 +217,10 @@ async function verifyModeAndIdempotence(root: string): Promise<void> {
   const firstMtime = statSync(path, { bigint: true }).mtimeNs;
   assert.equal((JSON.parse(firstContents) as Settings).autoMemoryEnabled, false);
   assert.equal((JSON.parse(firstContents) as Settings).model, "claude-opus-5-5");
+  assert.equal(
+    (JSON.parse(firstContents) as Settings).modelSettings?.["claude-opus-5-5"]?.effortLevel,
+    "medium",
+  );
   assert.equal((JSON.parse(firstContents) as Settings).effortLevel, "medium");
   assert.equal((JSON.parse(firstContents) as Settings).outputStyle, "Concise");
   assert.equal((JSON.parse(firstContents) as Settings).permissions?.[managedMode], "auto");
