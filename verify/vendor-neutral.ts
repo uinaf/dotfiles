@@ -42,7 +42,7 @@ function allowed(file: string, content: string): boolean {
         "Copyright (c) 2026 uinaf",
       ]);
     case ".github/zizmor.yml":
-    case ".github/workflows/secrets.yml":
+    case ".github/workflows/scan.yml":
       return content.includes("uinaf/.github");
     case "renovate.json":
       return containsAny(content, [

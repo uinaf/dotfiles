@@ -44,7 +44,7 @@ For a real secret:
 ## Repository and Scope Policy
 
 - [Repository scan selection](../audit/repo.ts) and the
-  [CI workflow](../.github/workflows/secrets.yml) own scan scope and triggers.
+  [CI workflow](../.github/workflows/scan.yml) own scan scope and triggers.
 - Edit the installed `~/.config/dotfiles/audit.env` for accepted GitHub scopes
   and drift thresholds; see the [policy template](../chezmoi/private_dot_config/private_dotfiles/audit.env)
   and [policy loader](../audit/engine.ts), `loadAuditSettings()`. Keep it public-safe:
