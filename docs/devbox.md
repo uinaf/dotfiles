@@ -204,3 +204,25 @@ change iCloud Photos sync. Workstation, developer, and Linux profiles are exclud
 
 For suspected leftover development services, use the read-only
 [workload diagnostic](software-updates.md#development-workload-diagnostics).
+
+## Replace a Mac Devbox
+
+Enroll the new Mac as a separate deployment. Keep the old devbox working until
+the new one passes every check below.
+
+1. Set the final host name before enrolling anything that records it.
+2. Follow [Bootstrap](bootstrap.md) as the new Homebrew owner with the old
+   host's profile.
+3. Create a new SSH key and [age identity](identities.md#move-or-retire-a-deployment)
+   with a verified recovery copy. Obtain a separate gateway credential from its
+   owner; do not copy the old host's.
+4. On the old host, push or deliberately archive unpushed branches, stashes,
+   worktrees, and ignored work. Clone repositories on the new host from their
+   remotes. Never copy coding-agent logins, sessions, caches, or browser profiles.
+5. Install [system services](#system-services) and enroll
+   [headless updates](software-updates.md#headless-devbox-updates).
+6. Run [verification](#verification), then each moved repository's own build
+   and test gate on the new host.
+
+Then retire the old host's services, updater, gateway credential, and age
+recipient separately, each with its own proof.
