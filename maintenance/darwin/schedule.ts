@@ -147,7 +147,10 @@ const kickstartSystemUpdater = Effect.fn("kickstartSystemSoftwareUpdater")(funct
   const fs = yield* FileSystem.FileSystem;
   const runner = yield* CommandRunner;
   const kickstart = ["/bin/launchctl", "kickstart", service];
-  const result = (yield* fs.exists(join(home, ".config/dotfiles/devbox.env")))
+  const config = yield* fs
+    .readFileString(process.env.DEVBOX_CONFIG || join(home, ".config/dotfiles/devbox.env"))
+    .pipe(Effect.orElseSucceed(() => ""));
+  const result = /^\s*SOPS_SUDO_SECRET_FILE=\S/m.test(config)
     ? yield* runner.run(process.execPath, [sudoHelper, "--", ...kickstart], {
         stdin: interactive ? "inherit" : "ignore",
         output: "inherit",

@@ -59,13 +59,13 @@ function systemRunner(calls: string[][], kickstartStatus = 0, systemLoaded = tru
 
 async function runSystemUpdate(
   runner: CommandRunner["Service"],
-  options: { devbox: boolean; interactive: boolean },
+  options: { devbox?: string; interactive: boolean },
 ) {
   const home = await mkdtemp(join(tmpdir(), "dotfiles-schedule-run-"));
   try {
-    if (options.devbox) {
+    if (options.devbox !== undefined) {
       await mkdir(join(home, ".config/dotfiles"), { recursive: true });
-      await writeFile(join(home, ".config/dotfiles/devbox.env"), "", { mode: 0o600 });
+      await writeFile(join(home, ".config/dotfiles/devbox.env"), options.devbox, { mode: 0o600 });
     }
     return await Effect.runPromise(
       manageSchedule("run", home, 501, options.interactive).pipe(
@@ -82,7 +82,7 @@ async function runSystemUpdate(
 test("a missing job cannot silently run an uncoordinated updater", async () => {
   const calls: string[][] = [];
   const result = await runSystemUpdate(systemRunner(calls, 0, false), {
-    devbox: true,
+    devbox: "SOPS_SUDO_SECRET_FILE=/fixture/sudo.sops.json\n",
     interactive: false,
   });
   assert.ok(Result.isFailure(result));
@@ -96,7 +96,10 @@ test("a missing job cannot silently run an uncoordinated updater", async () => {
 
 test("enrolled devboxes start the system updater through the sudo helper", async () => {
   const calls: string[][] = [];
-  const result = await runSystemUpdate(systemRunner(calls), { devbox: true, interactive: false });
+  const result = await runSystemUpdate(systemRunner(calls), {
+    devbox: "SOPS_SUDO_SECRET_FILE=/fixture/sudo.sops.json\n",
+    interactive: false,
+  });
   assert.ok(Result.isSuccess(result));
   const kickstart = calls.at(-1) ?? [];
   assert.equal(kickstart[0], process.execPath);
@@ -104,10 +107,10 @@ test("enrolled devboxes start the system updater through the sudo helper", async
   assert.deepEqual(kickstart.slice(2), ["--", "/bin/launchctl", "kickstart", systemService]);
 });
 
-test("unattended callers without the helper never wait on a sudo prompt", async () => {
+test("unattended callers without sudo helper config never wait on a sudo prompt", async () => {
   const calls: string[][] = [];
   const result = await runSystemUpdate(systemRunner(calls, 1), {
-    devbox: false,
+    devbox: "DEVBOX_USER=fixture\n",
     interactive: false,
   });
   assert.deepEqual(calls.at(-1), [
@@ -127,7 +130,7 @@ test("unattended callers without the helper never wait on a sudo prompt", async 
 
 test("terminal callers without the helper get the sudo prompt", async () => {
   const calls: string[][] = [];
-  const result = await runSystemUpdate(systemRunner(calls), { devbox: false, interactive: true });
+  const result = await runSystemUpdate(systemRunner(calls), { interactive: true });
   assert.ok(Result.isSuccess(result));
   assert.deepEqual(calls.at(-1), [
     "/usr/bin/sudo",
