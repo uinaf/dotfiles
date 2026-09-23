@@ -218,11 +218,14 @@ function grokUnmarkedGatewayPattern(gatewaiBaseUrl: string, credentialPath: stri
   // Native TOML rewrites can drop comments. Recognize only our exact configured
   // sections; different values or extra managed-table keys remain conflicts.
   // Another tool's comment may follow, such as the Hindsight installer's marker.
-  const body = grokGatewayBlock(gatewaiBaseUrl, credentialPath).split("\n").slice(1, -1).join("\n");
-  return new RegExp(
-    `(?:^|\\n)${body.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?=\\n\\s*(?:\\[|#|$)|$)`,
-    "g",
-  );
+  // Grok's serializer writes integers with digit separators (3600 -> 3_600).
+  const body = grokGatewayBlock(gatewaiBaseUrl, credentialPath)
+    .split("\n")
+    .slice(1, -1)
+    .join("\n")
+    .replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+    .replace(/(?<== )\d+$/gm, (digits) => digits.split("").join("_?"));
+  return new RegExp(`(?:^|\\n)${body}(?=\\n\\s*(?:\\[|#|$)|$)`, "g");
 }
 
 export function grokGatewaySettings(

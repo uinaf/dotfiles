@@ -229,6 +229,11 @@ test("gateway config is strict and provider edits use command-backed Responses a
     .split("\n")
     .filter((line) => !line.startsWith("#"))
     .join("\n");
+  const nativeRewrite = unmarked.replace("auth_token_ttl = 3600", "auth_token_ttl = 3_600");
+  assert.equal(
+    grokGatewaySettings(nativeRewrite, config.gatewaiBaseUrl, "/helper"),
+    grokGatewaySettings("", config.gatewaiBaseUrl, "/helper"),
+  );
   assert.throws(
     () => grokGatewaySettings(`${unmarked}extra = true\n`, config.gatewaiBaseUrl, "/helper"),
     /conflicts with gateway section/,
