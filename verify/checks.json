@@ -156,7 +156,7 @@
       "id": "bifrost-clients",
       "domain": "agents",
       "command": ["pnpm", "exec", "vp", "test", "bootstrap/configure-bifrost-clients.test.ts"],
-      "output": "OpenCode and Pi Bifrost credential and six-model catalog convergence"
+      "output": "OpenCode Bifrost credential and six-model catalog convergence"
     },
     {
       "id": "hindsight",

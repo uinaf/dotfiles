@@ -26,8 +26,7 @@ const program = Effect.gen(function* () {
   const openCodePath = resolve(
     process.env.OPENCODE_CONFIG_PATH || join(home, ".config/opencode/opencode.json"),
   );
-  const piPath = resolve(process.env.PI_MODELS_PATH || join(home, ".pi/agent/models.json"));
-  yield* configureBifrostClients({ helper, gatewayPath, authPath, openCodePath, piPath, check });
+  yield* configureBifrostClients({ helper, gatewayPath, authPath, openCodePath, check });
 }).pipe(Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer));
 
 if (import.meta.main) {

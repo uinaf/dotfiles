@@ -116,7 +116,7 @@ exit "\${FAKE_BREW_EXIT:-0}"
     const cleanup = yield* bundle("devbox", ["--cleanup"]);
     assert.match(cleanup, /^arg=cleanup$/m);
     assert.match(cleanup, /^arg=--force$/m);
-    assert.doesNotMatch(cleanup, /^cleanup_entry=brew "pi-coding-agent"$/m);
+    assert.doesNotMatch(cleanup, /^cleanup_entry=brew "asc"$/m);
     assert.equal((yield* fs.glob("Brewfile.composed.*", { root: repoRoot })).length, 0);
     assert.equal(
       (yield* execute(
@@ -170,7 +170,7 @@ exit "\${FAKE_BREW_EXIT:-0}"
     assert.ok(localMaintenance.log.includes(`arg=${local}`));
     const localCleanup = yield* withLocal("devbox", ["--cleanup"]);
     assert.equal(localCleanup.result.status, 0, localCleanup.result.stderr);
-    assert.doesNotMatch(localCleanup.log, /^cleanup_entry=brew "pi-coding-agent"$/m);
+    assert.doesNotMatch(localCleanup.log, /^cleanup_entry=brew "asc"$/m);
     assert.match(localCleanup.log, /^cleanup_entry=brew "local-tool"$/m);
     assert.match(localCleanup.log, /^cleanup_entry=cask "local-app"$/m);
     assert.equal((yield* fs.glob("Brewfile.composed.*", { root: repoRoot })).length, 0);
