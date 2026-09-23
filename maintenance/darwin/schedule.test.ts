@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { test } from "vite-plus/test";
 import { fileURLToPath } from "node:url";
-import { Effect, FileSystem } from "effect";
+import { Effect, FileSystem, Result } from "effect";
 import { NodeServices } from "@effect/platform-node";
 import { CommandRunner } from "../../lib/command.ts";
 import { CliFailure } from "../../lib/program.ts";
@@ -39,23 +39,103 @@ test("on-demand updates reuse the loaded service without killing its current wor
   ]);
 });
 
-test("a missing job cannot silently run an uncoordinated updater", async () => {
-  const calls: string[][] = [];
-  const runner = CommandRunner.of({
+const systemService = `system/${updateLabel}.fixture`;
+
+function systemRunner(calls: string[][], kickstartStatus = 0, systemLoaded = true) {
+  return CommandRunner.of({
     run: (command, args = []) => {
       calls.push([command, ...args]);
-      return Effect.succeed({ status: 113, stdout: "", stderr: "service not found" });
+      if (command === "id") return Effect.succeed({ status: 0, stdout: "fixture", stderr: "" });
+      const status =
+        args[0] === "print"
+          ? args[1] === systemService && systemLoaded
+            ? 0
+            : 113
+          : kickstartStatus;
+      return Effect.succeed({ status, stdout: "", stderr: "" });
     },
   });
-  const failure = await Effect.runPromise(
-    manageSchedule("run", "/fixture/home", 501).pipe(
-      Effect.provideService(CommandRunner, runner),
-      Effect.provide(NodeServices.layer),
-      Effect.flip,
-    ),
+}
+
+async function runSystemUpdate(
+  runner: CommandRunner["Service"],
+  options: { devbox: boolean; interactive: boolean },
+) {
+  const home = await mkdtemp(join(tmpdir(), "dotfiles-schedule-run-"));
+  try {
+    if (options.devbox) {
+      await mkdir(join(home, ".config/dotfiles"), { recursive: true });
+      await writeFile(join(home, ".config/dotfiles/devbox.env"), "", { mode: 0o600 });
+    }
+    return await Effect.runPromise(
+      manageSchedule("run", home, 501, options.interactive).pipe(
+        Effect.provideService(CommandRunner, runner),
+        Effect.provide(NodeServices.layer),
+        Effect.result,
+      ),
+    );
+  } finally {
+    await rm(home, { recursive: true, force: true });
+  }
+}
+
+test("a missing job cannot silently run an uncoordinated updater", async () => {
+  const calls: string[][] = [];
+  const result = await runSystemUpdate(systemRunner(calls, 0, false), {
+    devbox: true,
+    interactive: false,
+  });
+  assert.ok(Result.isFailure(result));
+  assert.match(String(result.failure), /enable the scheduler first/);
+  assert.deepEqual(calls, [
+    ["launchctl", "print", `gui/501/${updateLabel}`],
+    ["id", "-un", "501"],
+    ["launchctl", "print", systemService],
+  ]);
+});
+
+test("enrolled devboxes start the system updater through the sudo helper", async () => {
+  const calls: string[][] = [];
+  const result = await runSystemUpdate(systemRunner(calls), { devbox: true, interactive: false });
+  assert.ok(Result.isSuccess(result));
+  const kickstart = calls.at(-1) ?? [];
+  assert.equal(kickstart[0], process.execPath);
+  assert.match(kickstart[1] ?? "", /identity\/sops-devbox-sudo\.ts$/);
+  assert.deepEqual(kickstart.slice(2), ["--", "/bin/launchctl", "kickstart", systemService]);
+});
+
+test("unattended callers without the helper never wait on a sudo prompt", async () => {
+  const calls: string[][] = [];
+  const result = await runSystemUpdate(systemRunner(calls, 1), {
+    devbox: false,
+    interactive: false,
+  });
+  assert.deepEqual(calls.at(-1), [
+    "/usr/bin/sudo",
+    "-n",
+    "--",
+    "/bin/launchctl",
+    "kickstart",
+    systemService,
+  ]);
+  assert.ok(Result.isFailure(result));
+  assert.match(
+    String(result.failure),
+    new RegExp(`run: sudo /bin/launchctl kickstart ${systemService.replaceAll(".", "\\.")}`),
   );
-  assert.match(String(failure), /enable the scheduler first/);
-  assert.deepEqual(calls, [["launchctl", "print", `gui/501/${updateLabel}`]]);
+});
+
+test("terminal callers without the helper get the sudo prompt", async () => {
+  const calls: string[][] = [];
+  const result = await runSystemUpdate(systemRunner(calls), { devbox: false, interactive: true });
+  assert.ok(Result.isSuccess(result));
+  assert.deepEqual(calls.at(-1), [
+    "/usr/bin/sudo",
+    "--",
+    "/bin/launchctl",
+    "kickstart",
+    systemService,
+  ]);
 });
 
 test("on-demand launch failures reach the caller", async () => {

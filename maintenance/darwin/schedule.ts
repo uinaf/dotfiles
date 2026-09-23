@@ -122,10 +122,53 @@ export function receiptWarning(receipt: string | undefined, now: number): string
   return undefined;
 }
 
+const sudoHelper = resolve(
+  fileURLToPath(new URL("../../identity/sops-devbox-sudo.ts", import.meta.url)),
+);
+
+const systemUpdater = Effect.fn("systemSoftwareUpdater")(function* (home: string, uid: number) {
+  const user = (yield* runChecked("id", ["-un", String(uid)])).stdout.trim();
+  const namespace = yield* resolveLaunchdNamespaceContract(
+    "",
+    join(home, ".config/dotfiles/launchd-namespace"),
+    uid,
+  );
+  const label = launchdLabel("software-update", user, namespace);
+  return { service: `system/${label}`, plist: `/Library/LaunchDaemons/${label}.plist` };
+});
+
+// Starting a system-domain job needs root. Devboxes enrolled in the SOPS sudo
+// helper start it unattended; otherwise sudo prompts on a terminal or fails.
+const kickstartSystemUpdater = Effect.fn("kickstartSystemSoftwareUpdater")(function* (
+  home: string,
+  service: string,
+  interactive: boolean,
+) {
+  const fs = yield* FileSystem.FileSystem;
+  const runner = yield* CommandRunner;
+  const kickstart = ["/bin/launchctl", "kickstart", service];
+  const result = (yield* fs.exists(join(home, ".config/dotfiles/devbox.env")))
+    ? yield* runner.run(process.execPath, [sudoHelper, "--", ...kickstart], {
+        stdin: interactive ? "inherit" : "ignore",
+        output: "inherit",
+      })
+    : yield* runner.run("/usr/bin/sudo", [...(interactive ? [] : ["-n"]), "--", ...kickstart], {
+        stdin: interactive ? "inherit" : "ignore",
+        output: "inherit",
+      });
+  if (result.status !== 0) {
+    return yield* fail(
+      `the system updater needs an administrator; run: sudo ${kickstart.join(" ")}`,
+      result.status,
+    );
+  }
+});
+
 export const manageSchedule = Effect.fn("manageSoftwareUpdateSchedule")(function* (
   action: string,
   home: string,
   uid: number,
+  interactive = process.stdin.isTTY === true,
 ) {
   if (!["enable", "disable", "run", "status"].includes(action)) return yield* fail(usage, 2);
   if (!home || !home.startsWith("/") || uid <= 0)
@@ -140,15 +183,7 @@ export const manageSchedule = Effect.fn("manageSoftwareUpdateSchedule")(function
 
   if (action === "status") {
     if (current.status !== 0) {
-      const user = (yield* runChecked("id", ["-un", String(uid)])).stdout.trim();
-      const namespace = yield* resolveLaunchdNamespaceContract(
-        "",
-        join(home, ".config/dotfiles/launchd-namespace"),
-        uid,
-      );
-      const label = launchdLabel("software-update", user, namespace);
-      service = `system/${label}`;
-      plist = `/Library/LaunchDaemons/${label}.plist`;
+      ({ service, plist } = yield* systemUpdater(home, uid));
       current = yield* runner.run("launchctl", ["print", service]);
     }
     yield* Console.log(`Scheduler: ${service}`);
@@ -197,10 +232,15 @@ export const manageSchedule = Effect.fn("manageSoftwareUpdateSchedule")(function
     return;
   }
   if (action === "run") {
-    if (current.status !== 0)
-      return yield* fail("enable the scheduler first with mise run maintenance:enable");
     // Without -k, kickstart never terminates or replaces an already-running update.
-    yield* runChecked("launchctl", ["kickstart", service]);
+    if (current.status === 0) {
+      yield* runChecked("launchctl", ["kickstart", service]);
+    } else {
+      ({ service } = yield* systemUpdater(home, uid));
+      if ((yield* runner.run("launchctl", ["print", service])).status !== 0)
+        return yield* fail("enable the scheduler first with mise run maintenance:enable");
+      yield* kickstartSystemUpdater(home, service, interactive);
+    }
     yield* Console.log(`Update requested; launchd keeps one instance. Log: ${log}`);
     return;
   }
@@ -213,16 +253,10 @@ export const manageSchedule = Effect.fn("manageSoftwareUpdateSchedule")(function
 
   const fs = yield* FileSystem.FileSystem;
   yield* readPersistedProfile(join(home, ".config/dotfiles/profile"), uid);
-  const user = (yield* runChecked("id", ["-un", String(uid)])).stdout.trim();
-  const namespace = yield* resolveLaunchdNamespaceContract(
-    "",
-    join(home, ".config/dotfiles/launchd-namespace"),
-    uid,
-  );
-  const systemLabel = launchdLabel("software-update", user, namespace);
-  if (yield* fs.exists(`/Library/LaunchDaemons/${systemLabel}.plist`)) {
+  const system = yield* systemUpdater(home, uid);
+  if (yield* fs.exists(system.plist)) {
     return yield* fail(
-      `system updater already enrolled: ${systemLabel}; use its launchctl commands`,
+      `system updater already enrolled: ${system.service}; use its launchctl commands`,
     );
   }
   const link = yield* fs.readLink(plist).pipe(Effect.option);

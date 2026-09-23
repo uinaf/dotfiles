@@ -201,7 +201,11 @@ sudo node bootstrap/darwin/install-devbox-service-daemons.ts \
 - Disable the user's GUI updater before enrollment. System and GUI enrollment
   reject duplicates. [Devbox scheduling](../maintenance/darwin/devbox.ts)
   owns the schedule.
-- Use the actual installed labels; `kickstart` without `-k` preserves active runs:
+- `mise run maintenance:update` falls back to the system updater when no GUI
+  job is loaded. Starting it needs root: owners with a
+  [devbox sudo](devbox.md#sudo-without-a-plaintext-password-file) config use
+  that helper unattended; others get a sudo prompt on a terminal, or a failure
+  naming the command below. `kickstart` without `-k` preserves active runs:
 
 ```sh
 launchctl print system/local.dotfiles.software-update.example
