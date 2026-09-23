@@ -183,69 +183,6 @@ mise run maintenance:disable
   previous update and its descendants have stopped. This bounds a stuck updater;
   it does not repair the underlying package or operating-system failure.
 
-### Upgrading From the Scripts Layout
-
-This breaking release removes the former `scripts/` entry points. Installed
-maintenance jobs retain checkout paths, so an unattended pull cannot complete
-this migration safely. Stop jobs before pulling; reapply the user configuration
-and have an administrator re-enroll macOS update daemons afterward.
-
-1. From the old checkout, inspect each enrolled user's maintenance status and
-   wait for active updates to finish. For a user-managed macOS agent or Linux
-   timer, stop enrollment as that user:
-
-   ```sh
-   mise run maintenance:status
-   mise run maintenance:disable
-   ```
-
-2. On macOS hosts with system update daemons, an administrator must also stop
-   every software/Homebrew update job referencing the checkout being moved.
-   Use each existing installed label, including its namespace; replace the
-   placeholder below and repeat for each affected job:
-
-   ```sh
-   update_label='<installed-update-label>'
-   launchctl print "system/$update_label"
-   # Wait for the job to finish before disabling and unloading it.
-   sudo launchctl disable "system/$update_label"
-   sudo launchctl bootout "system/$update_label"
-   ```
-
-3. As each checkout owner, run `git pull --ff-only`, then follow
-   [Apply a profile](bootstrap.md#apply-a-profile), including verification. Apply replaces the user's plist
-   or systemd unit and Topgrade configuration. It does not rewrite root-owned
-   LaunchDaemons. Keep schedulers disabled if apply or verification fails.
-
-   If this checkout uses the optional dotfiles pre-push hook, update its stored
-   verifier path after preparing dependencies:
-
-   ```sh
-   node verify/install-pre-push-hook.ts
-   ```
-
-   If gateway clients were previously configured, replace their copied helpers
-   with the bundled adapters and verify them:
-
-   ```sh
-   node bootstrap/configure-llm-gateway.ts
-   node bootstrap/configure-llm-gateway.ts --check
-   ```
-
-4. Restore the enrollment that was active before the upgrade. For a user-managed
-   agent or timer, run as that user:
-
-   ```sh
-   mise run maintenance:enable
-   mise run maintenance:status
-   ```
-
-   For macOS system jobs, have the administrator rerun the
-   [headless enrollment command](#headless-devbox-updates) from the updated
-   checkout using the existing user, repository, and namespace. Select
-   `--software-updates`. Repeat with `--check` to verify the new job contract.
-   Leave the competing GUI updater disabled. Re-enrollment starts the jobs.
-
 ## Headless Devbox Updates
 
 On Linux, `mise run maintenance:enable` plus lingering is the whole

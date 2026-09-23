@@ -199,11 +199,6 @@ scheduled execution without a GUI session.
 
 ## Updating an Existing Machine
 
-When upgrading from the former `scripts/` layout, first follow the
-[one-time scheduler migration](software-updates.md#upgrading-from-the-scripts-layout).
-Installed jobs must stop before the checkout moves and be re-enrolled afterward.
-Once they are stopped, continue below.
-
 Refresh the checkout:
 
 ```zsh
