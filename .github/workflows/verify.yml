@@ -58,6 +58,9 @@ jobs:
         with:
           node-version-file: ".node-version"
 
+      # GITHUB_TOKEN stays scoped to mise steps: unauthenticated runners exhaust
+      # the GitHub API budget. mise lives outside ~/.local/bin so the converge
+      # tests keep their PATH stub in front.
       - name: Install mise and the verification tools
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -93,6 +96,8 @@ jobs:
           MISE_GLOBAL_CONFIG_FILE="$home/mise.toml" mise install --dry-run
           MISE_GLOBAL_CONFIG_FILE="$home/mise.toml" mise exec github:uinaf/ffss -- slopguard version
 
+      # chezmoi resolves .chezmoi.homeDir from the real user, and systemd-analyze
+      # requires the ExecStart binary, so a stub node lives in the runner's home.
       - name: Verify the rendered systemd user units
         run: |
           set -euo pipefail

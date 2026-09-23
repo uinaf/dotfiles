@@ -170,14 +170,15 @@ mise run maintenance:disable
   changes need no launchd reload.
 - Linux: `./dotfiles apply` runs `systemctl --user daemon-reload`, so changed
   units take effect without re-enrolling.
-- Disabling stops the job and children. After interruption, inspect logs/package
-  state before retrying. Never delete Homebrew locks during another package run.
+- Disabling stops the job and children. An interrupted run leaves its receipt
+  at `cleanupComplete: false`; inspect logs/package state before retrying. Never delete Homebrew locks during another package run.
 - Deadline cleanup tracks same-user descendants across process sessions,
   checks recorded start times before signaling, and escalates from TERM to KILL.
   A process that detaches and loses its parent before observation can escape
   tracking. If a receipt reports `cleanupComplete: false`, inspect remaining
   processes before requesting another run. Later runs refuse to start and report
-  exit code `125` until the incomplete or unreadable receipt is removed. Remove
+  exit code `125` until the incomplete or unreadable receipt is removed, or when
+  they cannot save their own gate receipt. Remove
   `~/.local/state/dotfiles/updates/software-update.json` only after verifying the
   previous update and its descendants have stopped. This bounds a stuck updater;
   it does not repair the underlying package or operating-system failure.

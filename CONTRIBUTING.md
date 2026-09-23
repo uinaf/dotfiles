@@ -48,10 +48,8 @@ mise run verify               # also scan Git history for secrets
 ## Deliver
 
 - Use Conventional Commits; update the [owning guide](README.md#guides) when behavior changes.
-- PRs run [verification](.github/workflows/verify.yml) on macOS and Ubuntu plus secret scans. The Ubuntu job also previews the `developer` profile in a fresh home, resolves every Linux mise pin, and checks the rendered systemd units. Direct pushes require `mise run verify` locally; push workflows only evaluate releases.
-- The Ubuntu job scopes `GITHUB_TOKEN` to the mise install step because unauthenticated runners exhaust the GitHub API budget, installs mise outside `~/.local/bin` so the converge tests keep their PATH stub in front, and renders the systemd units through `chezmoi cat` with a stub `node` in the runner's own home because chezmoi resolves `.chezmoi.homeDir` from the real user and `systemd-analyze` requires the `ExecStart` binary to exist.
+- PRs run [verification](.github/workflows/verify.yml) on macOS and Ubuntu plus secret scans. The Ubuntu job also previews the `developer` profile in a fresh home, resolves every Linux mise pin, and checks the rendered systemd units. Only the macOS `verify` job and the scans are required checks. Direct pushes require `mise run verify` locally; push workflows only evaluate releases.
 - GitHub auto-merges eligible Renovate PRs after required CI passes. Add new mandatory checks to the ruleset; adding a workflow alone does not block merges. Admins retain direct pushes.
 - Git tags own release versions; keep `package.json` private and unversioned. Commit rules: [.releaserc.json](.releaserc.json).
-- Release commits use the `{user-id}+{slug}[bot]@users.noreply.github.com` email so GitHub links them to the app.
 - [pnpm-workspace.yaml](pnpm-workspace.yaml) excludes the Effect RC packages from the minimum release age by bare name so version bumps touch only `package.json`.
 - PR CI does not exercise the [release job](.github/workflows/verify.yml). Prove release-tool compatibility before updating its pins; holds live in [renovate.json](renovate.json).
