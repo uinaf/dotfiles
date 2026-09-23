@@ -18,13 +18,11 @@ function fixture() {
   const gateway = join(home, ".config/dotfiles/llm-gateway.json");
   const auth = join(home, ".local/share/opencode/auth.json");
   const openCode = join(home, ".config/opencode/opencode.json");
-  const pi = join(home, ".pi/agent/models.json");
   for (const directory of [
     join(root, "bin"),
     join(home, ".config/dotfiles"),
     dirname(auth),
     dirname(openCode),
-    dirname(pi),
   ]) {
     mkdirSync(directory, { recursive: true });
   }
@@ -50,16 +48,6 @@ function fixture() {
     { mode: 0o644 },
   );
   writeFileSync(
-    pi,
-    `${JSON.stringify({
-      providers: {
-        bifrost: { models: [{ id: "retired" }] },
-        local: { baseUrl: "http://localhost" },
-      },
-    })}\n`,
-    { mode: 0o644 },
-  );
-  writeFileSync(
     helper,
     `#!/bin/sh
 [ "$1" = bifrost ] || exit 2
@@ -71,7 +59,6 @@ printf 'sk-bf-11111111-1111-4111-8111-111111111111\\n'
   return {
     auth,
     openCode,
-    pi,
     env: {
       ...process.env,
       HOME: home,
@@ -79,7 +66,6 @@ printf 'sk-bf-11111111-1111-4111-8111-111111111111\\n'
       LLM_GATEWAY_CONFIG: gateway,
       OPENCODE_AUTH_PATH: auth,
       OPENCODE_CONFIG_PATH: openCode,
-      PI_MODELS_PATH: pi,
     },
   };
 }
@@ -100,7 +86,7 @@ test("can be imported without running the configurator", () => {
   );
 });
 
-test("configures and checks OpenCode and Pi with the Bifrost catalog", () => {
+test("configures and checks OpenCode with the Bifrost catalog", () => {
   const paths = fixture();
   execFileSync(script, { env: paths.env });
   execFileSync(script, ["--check"], { env: paths.env });
@@ -122,30 +108,19 @@ test("configures and checks OpenCode and Pi with the Bifrost catalog", () => {
   assert.equal(openCode.provider.bifrost.models[models[0].id].limit.context, models[0].context);
   assert.deepEqual(openCode.provider.anthropic, { name: "inactive" });
 
-  const pi = JSON.parse(readFileSync(paths.pi, "utf8"));
-  assert.deepEqual(
-    pi.providers.bifrost.models.map((model: { id: string }) => model.id),
-    modelIds,
-  );
-  assert.equal(pi.providers.bifrost.baseUrl, "https://bifrost.example/v1");
-  assert.match(pi.providers.bifrost.apiKey, /^!".*credential-helper" bifrost$/);
-  assert.equal(pi.providers.bifrost.models[0].contextWindow, models[0].context);
-  assert.deepEqual(pi.providers.local, { baseUrl: "http://localhost" });
-
-  for (const path of [paths.auth, paths.openCode, paths.pi])
-    assert.equal(statSync(path).mode & 0o777, 0o600);
+  for (const path of [paths.auth, paths.openCode]) assert.equal(statSync(path).mode & 0o777, 0o600);
 });
 
 test("check rejects authentication and catalog drift", () => {
   const paths = fixture();
   execFileSync(script, { env: paths.env });
-  const pi = JSON.parse(readFileSync(paths.pi, "utf8"));
-  pi.providers.bifrost.models = [];
-  writeFileSync(paths.pi, `${JSON.stringify(pi)}\n`, { mode: 0o600 });
+  const openCode = JSON.parse(readFileSync(paths.openCode, "utf8"));
+  openCode.provider.bifrost.models = {};
+  writeFileSync(paths.openCode, `${JSON.stringify(openCode)}\n`, { mode: 0o600 });
   assert.throws(
     () => execFileSync(script, ["--check"], { env: paths.env, encoding: "utf8" }),
     (error: NodeJS.ErrnoException & { stderr?: string }) =>
-      /Pi provider catalog drifted/.test(`${error.message}\n${error.stderr ?? ""}`),
+      /OpenCode provider catalog drifted/.test(`${error.message}\n${error.stderr ?? ""}`),
   );
 
   execFileSync(script, { env: paths.env });

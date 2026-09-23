@@ -84,10 +84,9 @@ export const configureBifrostClients = Effect.fn("configureBifrostClients")(func
   readonly gatewayPath: string;
   readonly authPath: string;
   readonly openCodePath: string;
-  readonly piPath: string;
   readonly check: boolean;
 }) {
-  const { helper, gatewayPath, authPath, openCodePath, piPath, check } = options;
+  const { helper, gatewayPath, authPath, openCodePath, check } = options;
   const fs = yield* FileSystem.FileSystem;
   const helperLink = yield* fs.readLink(helper).pipe(Effect.option);
   const helperInfo = yield* fs.stat(helper).pipe(Effect.option);
@@ -138,7 +137,6 @@ export const configureBifrostClients = Effect.fn("configureBifrostClients")(func
   );
   const auth = yield* readObject(authPath, "OpenCode auth");
   const openCode = yield* readObject(openCodePath, "OpenCode config");
-  const pi = yield* readObject(piPath, "Pi models config");
   const openCodeProviders =
     openCode.value.provider === undefined
       ? {}
@@ -149,15 +147,6 @@ export const configureBifrostClients = Effect.fn("configureBifrostClients")(func
                 exitCode: 1,
                 message: "OpenCode provider must contain a JSON object",
               }),
-          ),
-        );
-  const piProviders =
-    pi.value.providers === undefined
-      ? {}
-      : yield* Schema.decodeUnknownEffect(JsonObject)(pi.value.providers).pipe(
-          Effect.mapError(
-            () =>
-              new CliFailure({ exitCode: 1, message: "Pi providers must contain a JSON object" }),
           ),
         );
   const openCodeModels = Object.fromEntries(
@@ -175,27 +164,6 @@ export const configureBifrostClients = Effect.fn("configureBifrostClients")(func
     name: "bifrost",
     options: { baseURL: bifrostUrl.toString() },
     models: openCodeModels,
-  };
-  const desiredPiProvider = {
-    baseUrl: bifrostUrl.toString(),
-    api: "openai-completions",
-    apiKey: `!${JSON.stringify(helper)} bifrost`,
-    compat: {
-      supportsDeveloperRole: false,
-      supportsReasoningEffort: true,
-      supportsUsageInStreaming: true,
-      maxTokensField: "max_tokens",
-      requiresReasoningContentOnAssistantMessages: true,
-      thinkingFormat: "openai",
-    },
-    models: models.map((model) => ({
-      id: model.id,
-      reasoning: true,
-      input: [...model.input],
-      contextWindow: model.context,
-      maxTokens: model.output,
-      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-    })),
   };
   const bifrostAuth = yield* Schema.decodeUnknownEffect(BifrostAuth)(auth.value.bifrost).pipe(
     Effect.option,
@@ -219,13 +187,7 @@ export const configureBifrostClients = Effect.fn("configureBifrostClients")(func
       !isDeepStrictEqual(openCodeProviders.bifrost, desiredOpenCodeProvider)
     )
       return yield* fail("OpenCode provider catalog drifted");
-    if (
-      Option.isNone(pi.info) ||
-      (pi.info.value.mode & 0o077) !== 0 ||
-      !isDeepStrictEqual(piProviders.bifrost, desiredPiProvider)
-    )
-      return yield* fail("Pi provider catalog drifted");
-    yield* Console.log("ok OpenCode and Pi use the six-model Bifrost catalog");
+    yield* Console.log("ok OpenCode uses the six-model Bifrost catalog");
     return;
   }
   yield* writeObject(authPath, "auth.json", { ...auth.value, bifrost: { type: "api", key } });
@@ -234,9 +196,5 @@ export const configureBifrostClients = Effect.fn("configureBifrostClients")(func
     provider: { ...openCodeProviders, bifrost: desiredOpenCodeProvider },
     enabled_providers: ["bifrost"],
   });
-  yield* writeObject(piPath, "models.json", {
-    ...pi.value,
-    providers: { ...piProviders, bifrost: desiredPiProvider },
-  });
-  yield* Console.log("configured OpenCode and Pi with the six-model Bifrost catalog");
+  yield* Console.log("configured OpenCode with the six-model Bifrost catalog");
 });

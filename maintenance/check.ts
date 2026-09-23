@@ -204,7 +204,6 @@ function agentProbes(context: MaintenanceContext): Probe[] {
     ["claude", "claude", ["--version"]],
     ["opencode", "opencode", ["--version"]],
   ];
-  if (profile.capabilities.personal) versions.push(["pi", "pi", ["--version"]]);
   if (profile.capabilities.personal && profile.capabilities.workstation)
     versions.push(["grok", "grok", ["--version"]]);
   const env = {

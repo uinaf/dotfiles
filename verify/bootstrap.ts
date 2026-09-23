@@ -174,12 +174,7 @@ const program = Effect.gen(function* () {
   });
   const profileTools = Effect.gen(function* () {
     if (config.capabilities.personal)
-      yield* shellChecks([
-        "asc --version",
-        "crabbox --version",
-        "gitcrawl --version",
-        "pi --version",
-      ]);
+      yield* shellChecks(["asc --version", "crabbox --version", "gitcrawl --version"]);
     if (config.capabilities.workstation) yield* shell("op --version");
     if (config.capabilities.personal && config.capabilities.workstation)
       yield* shellChecks(["grok --version", "tailscale status --peers=false"]);
