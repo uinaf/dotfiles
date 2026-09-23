@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawn } from "node:child_process";
 import { NodeServices } from "@effect/platform-node";
-import { Effect, Exit } from "effect";
+import { Effect, Exit, Layer } from "effect";
 import { test } from "vite-plus/test";
 import { CommandRunner } from "../lib/command.ts";
 import { BoundedCommand, type BoundedCommandOptions } from "./bounded-command.ts";
@@ -87,6 +87,48 @@ test("a command that exits before the first inventory still proves cleanup", asy
       cleanupComplete: true,
     });
   }
+});
+
+test("a command that dies before release still returns", { timeout: 10_000 }, async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), "dotfiles-bounded-"));
+  t.onTestFinished(() => rm(directory, { recursive: true, force: true }));
+  // Kill the gate shell during the first inventory, before it is released.
+  const killing = Layer.effect(
+    CommandRunner,
+    Effect.gen(function* () {
+      const real = yield* CommandRunner;
+      let armed = true;
+      return CommandRunner.of({
+        run: (command, args, options) =>
+          armed && command === "/bin/ps"
+            ? Effect.gen(function* () {
+                armed = false;
+                const gates = yield* real.run("pgrep", ["-x", "-P", String(process.pid), "sh"]);
+                for (const pid of gates.stdout.split("\n").filter(Boolean))
+                  process.kill(Number(pid), "SIGKILL");
+                yield* Effect.sleep(200);
+                return yield* real.run(command, args, options);
+              })
+            : real.run(command, args, options),
+      });
+    }),
+  ).pipe(Layer.provide(CommandRunner.layer));
+  const exit = await Effect.runPromise(
+    Effect.gen(function* () {
+      const command = yield* BoundedCommand;
+      return yield* command.run("/bin/sh", ["-c", "exit 0"], {
+        diagnosticDirectory: join(directory, "diagnostics"),
+        timeoutMs: 2_000,
+        termGraceMs: 50,
+      });
+    }).pipe(
+      Effect.exit,
+      Effect.provide(BoundedCommand.layer),
+      Effect.provide(killing),
+      Effect.provide(NodeServices.layer),
+    ),
+  );
+  assert.ok(Exit.isFailure(exit) || exit.value.status !== 0);
 });
 
 for (const diagnosticFailure of [false, true]) {
