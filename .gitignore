@@ -17,6 +17,7 @@ chezmoi.toml
 /chezmoi/*dot_config/*dotfiles/*zshenv.local*
 Brewfile.composed.*
 Brewfile.local
+.vitest/
 
 # Legacy ownership state remains private until agent sync migrates it.
 /scripts/agents/*.lock.json
