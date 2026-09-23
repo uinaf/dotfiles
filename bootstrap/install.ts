@@ -63,7 +63,6 @@ const runStep = Effect.fn("runInstallStep")(function* (
       return yield* execute(step, "mise", [
         "exec",
         "--",
-        "corepack",
         "pnpm",
         "--dir",
         repoRoot,

@@ -73,7 +73,7 @@ test("installed hook reports missing repository dependencies", () => {
     assert.equal(result.status, 1);
     assert.match(
       result.stderr,
-      /missing repository dependencies; run corepack pnpm install --frozen-lockfile .* before pushing/,
+      /missing repository dependencies; run pnpm install --frozen-lockfile .* before pushing/,
     );
   } finally {
     rmSync(root, { recursive: true, force: true });

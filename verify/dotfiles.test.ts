@@ -146,6 +146,10 @@ test("fresh checkout launcher prepares dependencies without applying a profile",
     cpSync(join(repoRoot, "dotfiles"), join(root, "dotfiles"));
     const nodeVersion = "24.99.1";
     writeFileSync(join(root, ".node-version"), `${nodeVersion}\n`);
+    cpSync(join(repoRoot, "package.json"), join(root, "package.json"));
+    const pnpmVersion = JSON.parse(
+      readFileSync(join(root, "package.json"), "utf8"),
+    ).packageManager.replace(/^pnpm@/, "");
     const bin = join(root, "bin");
     mkdirSync(bin);
     const log = join(root, "commands");
@@ -164,6 +168,7 @@ test("fresh checkout launcher prepares dependencies without applying a profile",
       ".node-version",
       "bin",
       "dotfiles",
+      "package.json",
     ]);
     const prepared = spawnSync("/bin/sh", [join(root, "dotfiles"), "prepare"], {
       env,
@@ -172,7 +177,7 @@ test("fresh checkout launcher prepares dependencies without applying a profile",
     assert.equal(prepared.status, 0, prepared.stderr);
     assert.equal(
       readFileSync(log, "utf8"),
-      `--no-config x node@${nodeVersion} -- corepack pnpm --dir ${root} install --frozen-lockfile\n`,
+      `--no-config x node@${nodeVersion} pnpm@${pnpmVersion} -- pnpm --dir ${root} install --frozen-lockfile\n`,
     );
     const failed = spawnSync("/bin/sh", [join(root, "dotfiles"), "prepare"], {
       env: { ...env, TEST_EXIT: "23" },
@@ -187,7 +192,7 @@ test("fresh checkout launcher prepares dependencies without applying a profile",
     assert.equal(maintained.status, 0, maintained.stderr);
     assert.equal(
       readFileSync(log, "utf8"),
-      `--no-config x node@${nodeVersion} -- corepack pnpm --dir ${root} install --frozen-lockfile\n` +
+      `--no-config x node@${nodeVersion} pnpm@${pnpmVersion} -- pnpm --dir ${root} install --frozen-lockfile\n` +
         `--no-config x node@${nodeVersion} -- node ${root}/bootstrap/install.ts --maintenance\n`,
     );
     writeFileSync(log, "");
@@ -197,6 +202,15 @@ test("fresh checkout launcher prepares dependencies without applying a profile",
     });
     assert.equal(failedMaintenance.status, 23);
     assert.doesNotMatch(readFileSync(log, "utf8"), /install.ts/);
+    writeFileSync(join(root, "package.json"), "{}\n");
+    writeFileSync(log, "");
+    const unpinned = spawnSync("/bin/sh", [join(root, "dotfiles"), "prepare"], {
+      env,
+      encoding: "utf8",
+    });
+    assert.equal(unpinned.status, 1);
+    assert.match(unpinned.stderr, /no pnpm packageManager pin/);
+    assert.equal(readFileSync(log, "utf8"), "");
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
