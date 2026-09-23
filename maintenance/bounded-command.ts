@@ -192,7 +192,9 @@ export class BoundedCommand extends Context.Service<
           rootPid = Number(handle.pid);
           yield* Effect.addFinalizer(() => (completed ? Effect.void : cleanup));
           yield* observe.pipe(Effect.catch(() => Effect.void));
+          // A write to a child that already exited never settles.
           yield* Stream.run(Stream.make(release), handle.stdin).pipe(
+            Effect.raceFirst(handle.exitCode),
             Effect.catch(() => Effect.void),
           );
           const watcher = Effect.forever(
