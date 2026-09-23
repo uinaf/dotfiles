@@ -5,7 +5,6 @@
       "id": "dotfiles-convergence",
       "domain": "maintenance",
       "command": [
-        "corepack",
         "pnpm",
         "exec",
         "vp",
@@ -22,7 +21,6 @@
       "id": "host-hygiene",
       "domain": "maintenance",
       "command": [
-        "corepack",
         "pnpm",
         "exec",
         "vp",
@@ -39,7 +37,6 @@
       "id": "maintenance-schedule",
       "domain": "maintenance",
       "command": [
-        "corepack",
         "pnpm",
         "exec",
         "vp",
@@ -54,7 +51,6 @@
       "id": "update-run",
       "domain": "maintenance",
       "command": [
-        "corepack",
         "pnpm",
         "exec",
         "vp",
@@ -73,25 +69,25 @@
     {
       "id": "verification-runner",
       "domain": "static",
-      "command": ["corepack", "pnpm", "exec", "vp", "test", "verify/runner.test.ts"],
+      "command": ["pnpm", "exec", "vp", "test", "verify/runner.test.ts"],
       "output": "Prompt check results, bounded timeout, and scoped child cleanup"
     },
     {
       "id": "mise-tasks",
       "domain": "static",
-      "command": ["corepack", "pnpm", "exec", "vp", "test", "verify/mise-tasks.test.ts"],
+      "command": ["pnpm", "exec", "vp", "test", "verify/mise-tasks.test.ts"],
       "output": "Validated task graph, typed arguments, routing, and failure propagation"
     },
     {
       "id": "toolchain",
       "domain": "static",
-      "command": ["corepack", "pnpm", "exec", "vp", "check"],
+      "command": ["pnpm", "exec", "vp", "check"],
       "output": "Oxfmt formatting, Oxlint type-aware lint, and strict TypeScript checks"
     },
     {
       "id": "knip",
       "domain": "static",
-      "command": ["corepack", "pnpm", "exec", "knip"],
+      "command": ["pnpm", "exec", "knip"],
       "output": "Unused files, exports, and dependencies across CLI, adapter, and test entrypoints"
     },
     {
@@ -111,7 +107,6 @@
       "id": "apply-backups",
       "domain": "bootstrap",
       "command": [
-        "corepack",
         "pnpm",
         "exec",
         "vp",
@@ -132,7 +127,6 @@
       "id": "codex-settings",
       "domain": "agents",
       "command": [
-        "corepack",
         "pnpm",
         "exec",
         "vp",
@@ -146,7 +140,6 @@
       "id": "llm-gateway",
       "domain": "agents",
       "command": [
-        "corepack",
         "pnpm",
         "exec",
         "vp",
@@ -162,40 +155,25 @@
     {
       "id": "bifrost-clients",
       "domain": "agents",
-      "command": [
-        "corepack",
-        "pnpm",
-        "exec",
-        "vp",
-        "test",
-        "bootstrap/configure-bifrost-clients.test.ts"
-      ],
+      "command": ["pnpm", "exec", "vp", "test", "bootstrap/configure-bifrost-clients.test.ts"],
       "output": "OpenCode and Pi Bifrost credential and six-model catalog convergence"
     },
     {
       "id": "hindsight",
       "domain": "agents",
-      "command": [
-        "corepack",
-        "pnpm",
-        "exec",
-        "vp",
-        "test",
-        "bootstrap/configure-hindsight.test.ts"
-      ],
+      "command": ["pnpm", "exec", "vp", "test", "bootstrap/configure-hindsight.test.ts"],
       "output": "Hindsight runtime freshness, per-harness MCP wiring, and machine-local server configuration"
     },
     {
       "id": "agent-rule-sources",
       "domain": "agents",
-      "command": ["corepack", "pnpm", "exec", "vp", "test", "agents/rules.test.ts"],
+      "command": ["pnpm", "exec", "vp", "test", "agents/rules.test.ts"],
       "output": "Ordered remote rule validation, atomic machine-local cache updates, and offline fallback"
     },
     {
       "id": "agent-rules",
       "domain": "agents",
       "command": [
-        "corepack",
         "pnpm",
         "exec",
         "vp",
@@ -209,14 +187,7 @@
     {
       "id": "agent-worktree-trust",
       "domain": "agents",
-      "command": [
-        "corepack",
-        "pnpm",
-        "exec",
-        "vp",
-        "test",
-        "bootstrap/trust-agent-worktrees.test.ts"
-      ],
+      "command": ["pnpm", "exec", "vp", "test", "bootstrap/trust-agent-worktrees.test.ts"],
       "output": "Bounded generated-worktree mise config discovery and trust"
     },
     {
@@ -229,7 +200,6 @@
       "id": "operator-command",
       "domain": "bootstrap",
       "command": [
-        "corepack",
         "pnpm",
         "exec",
         "vp",
@@ -244,7 +214,7 @@
     {
       "id": "profile-model",
       "domain": "profiles",
-      "command": ["corepack", "pnpm", "exec", "vp", "test", "profiles/model.test.ts"],
+      "command": ["pnpm", "exec", "vp", "test", "profiles/model.test.ts"],
       "output": "Strict profile model parsing and chezmoi consumption"
     },
     {
@@ -264,34 +234,20 @@
     {
       "id": "tizen-archives",
       "domain": "bootstrap",
-      "command": ["corepack", "pnpm", "exec", "vp", "test", "bootstrap/darwin/tizen/pack.test.ts"],
+      "command": ["pnpm", "exec", "vp", "test", "bootstrap/darwin/tizen/pack.test.ts"],
       "output": "Owner-only signing archives, exclusive publication, and failed archive cleanup"
     },
     {
       "id": "chrome-state",
       "domain": "bootstrap",
-      "command": [
-        "corepack",
-        "pnpm",
-        "exec",
-        "vp",
-        "test",
-        "bootstrap/darwin/chrome-state.test.ts"
-      ],
+      "command": ["pnpm", "exec", "vp", "test", "bootstrap/darwin/chrome-state.test.ts"],
       "output": "Atomic Chrome Local State updates and malformed-input preservation",
       "platform": "darwin"
     },
     {
       "id": "spotlight-policy",
       "domain": "bootstrap",
-      "command": [
-        "corepack",
-        "pnpm",
-        "exec",
-        "vp",
-        "test",
-        "bootstrap/darwin/configure-spotlight.test.ts"
-      ],
+      "command": ["pnpm", "exec", "vp", "test", "bootstrap/darwin/configure-spotlight.test.ts"],
       "output": "Strict Spotlight policy verification, explicit opt-out, and command isolation",
       "platform": "darwin"
     },
@@ -330,7 +286,6 @@
       "id": "maintenance-check",
       "domain": "maintenance",
       "command": [
-        "corepack",
         "pnpm",
         "exec",
         "vp",
@@ -344,22 +299,13 @@
     {
       "id": "audit-adapters",
       "domain": "audit",
-      "command": [
-        "corepack",
-        "pnpm",
-        "exec",
-        "vp",
-        "test",
-        "audit/adapters.test.ts",
-        "audit/runtime.test.ts"
-      ],
+      "command": ["pnpm", "exec", "vp", "test", "audit/adapters.test.ts", "audit/runtime.test.ts"],
       "output": "Typed Lynis, repository scanner, and mSCP adapters"
     },
     {
       "id": "audit-data",
       "domain": "audit",
       "command": [
-        "corepack",
         "pnpm",
         "exec",
         "vp",
@@ -374,7 +320,6 @@
       "id": "audit-engine",
       "domain": "audit",
       "command": [
-        "corepack",
         "pnpm",
         "exec",
         "vp",
@@ -389,7 +334,6 @@
       "id": "agent-sync",
       "domain": "agents",
       "command": [
-        "corepack",
         "pnpm",
         "exec",
         "vp",
@@ -403,7 +347,6 @@
       "id": "agent-plugins",
       "domain": "agents",
       "command": [
-        "corepack",
         "pnpm",
         "exec",
         "vp",
@@ -417,7 +360,6 @@
       "id": "agent-mcps",
       "domain": "agents",
       "command": [
-        "corepack",
         "pnpm",
         "exec",
         "vp",
@@ -431,7 +373,6 @@
       "id": "agent-doctor",
       "domain": "agents",
       "command": [
-        "corepack",
         "pnpm",
         "exec",
         "vp",
@@ -463,7 +404,6 @@
       "id": "pre-push",
       "domain": "git",
       "command": [
-        "corepack",
         "pnpm",
         "exec",
         "vp",
@@ -483,38 +423,31 @@
     {
       "id": "linux-service-lifecycle",
       "domain": "bootstrap",
-      "command": ["corepack", "pnpm", "exec", "vp", "test", "bootstrap/install-t3-service.test.ts"],
+      "command": ["pnpm", "exec", "vp", "test", "bootstrap/install-t3-service.test.ts"],
       "output": "Linux timer lifecycle, T3 opt-in and service checks, and headless installation evidence"
     },
     {
       "id": "homebrew-layers",
       "domain": "homebrew",
-      "command": ["corepack", "pnpm", "exec", "vp", "test", "homebrew/verify/layers.test.ts"],
+      "command": ["pnpm", "exec", "vp", "test", "homebrew/verify/layers.test.ts"],
       "output": "Evaluated per-profile Homebrew layers and composed manifest parity"
     },
     {
       "id": "helium-preferences",
       "domain": "bootstrap",
-      "command": [
-        "corepack",
-        "pnpm",
-        "exec",
-        "vp",
-        "test",
-        "bootstrap/darwin/configure-helium.test.ts"
-      ],
+      "command": ["pnpm", "exec", "vp", "test", "bootstrap/darwin/configure-helium.test.ts"],
       "output": "Helium all-profile vertical tabs, disabled noise flags, preservation, fresh profile, running-browser deferral, and malformed data"
     },
     {
       "id": "linux-maintenance-schedule",
       "domain": "maintenance",
-      "command": ["corepack", "pnpm", "exec", "vp", "test", "maintenance/linux/schedule.test.ts"],
+      "command": ["pnpm", "exec", "vp", "test", "maintenance/linux/schedule.test.ts"],
       "output": "Linux timer lifecycle and owner isolation"
     },
     {
       "id": "mise-github-token",
       "domain": "identity",
-      "command": ["corepack", "pnpm", "exec", "vp", "test", "identity/mise-github-token.test.ts"],
+      "command": ["pnpm", "exec", "vp", "test", "identity/mise-github-token.test.ts"],
       "output": "Host-scoped GitHub credential forwarding, offline installed-tool fallback, and missing-helper failure"
     }
   ]

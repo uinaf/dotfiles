@@ -6,8 +6,6 @@ java = "temurin-21"
 ruby = "4.0.7"
 uv = "0.12.17"
 go = "1.27.1"
-# pnpm 12 ships its own `pn` and `pnx` bins; Corepack's shim only provides
-# `pnpm`, so the runtime-package task disables it in favor of this pin.
 pnpm = "12.5.1"
 # rustup-managed toolchain. mise honors a repository's rust-toolchain.toml only
 # because "rust" is in idiomatic_version_file_enable_tools in config.toml.tmpl.

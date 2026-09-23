@@ -19,10 +19,10 @@ mise trust
 Use the repository-local Vite+ CLI; no global installation is required:
 
 ```zsh
-corepack pnpm exec vp check
-corepack pnpm exec vp test
-corepack pnpm exec knip
-corepack pnpm exec vp fmt # format before committing
+pnpm exec vp check
+pnpm exec vp test
+pnpm exec knip
+pnpm exec vp fmt # format before committing
 ```
 
 [vite.config.ts](vite.config.ts) owns formatting, type-aware lint, and Vitest.

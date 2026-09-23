@@ -55,7 +55,8 @@ update holds, age gates, and groups of pins that must move together.
 runtime-package task, so package-only pin changes converge when runtimes are
 already installed. Ordinary project installs do not run that task. The rust pin is the fallback
 toolchain; a checkout's `rust-toolchain.toml` wins because `rust` is listed in
-`idiomatic_version_file_enable_tools`. pnpm is a mise pin rather
-than a Corepack shim, so a project's `packageManager` or `devEngines` field is
-honored by pnpm itself, and Corepack keeps `corepack pnpm` for repository
-tooling only.
+`idiomatic_version_file_enable_tools`. pnpm is a mise pin of pnpm's
+standalone release binary; in a project whose `packageManager` or `devEngines`
+field names another version, pnpm switches to that version itself. The
+[launcher](../dotfiles) runs this repository's pnpm at its `packageManager`
+pin before the profile's mise config exists.

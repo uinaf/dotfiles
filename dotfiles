@@ -3,6 +3,11 @@ set -eu
 
 repo_root="$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)"
 node_version=$(cat "$repo_root/.node-version")
+pnpm_version=$(sed -n 's/^  "packageManager": "pnpm@\([^"]*\)",*$/\1/p' "$repo_root/package.json")
+if [ -z "$pnpm_version" ]; then
+  printf 'FAILED: package.json has no pnpm packageManager pin\n' >&2
+  exit 1
+fi
 
 if [ "$#" -eq 1 ]; then
   case "$1" in
@@ -12,11 +17,11 @@ if [ "$#" -eq 1 ]; then
       exit 0
       ;;
     prepare)
-      mise --no-config x "node@$node_version" -- corepack pnpm --dir "$repo_root" install --frozen-lockfile
+      mise --no-config x "node@$node_version" "pnpm@$pnpm_version" -- pnpm --dir "$repo_root" install --frozen-lockfile
       exit 0
       ;;
     maintain)
-      mise --no-config x "node@$node_version" -- corepack pnpm --dir "$repo_root" install --frozen-lockfile
+      mise --no-config x "node@$node_version" "pnpm@$pnpm_version" -- pnpm --dir "$repo_root" install --frozen-lockfile
       exec mise --no-config x "node@$node_version" -- node "$repo_root/bootstrap/install.ts" --maintenance
       ;;
   esac
@@ -32,5 +37,5 @@ if ! command -v mise >/dev/null 2>&1; then
   exit 1
 fi
 
-mise --no-config x "node@$node_version" -- corepack pnpm --dir "$repo_root" install --frozen-lockfile
-exec mise --no-config x "node@$node_version" -- corepack pnpm --dir "$repo_root" exec node "$repo_root/bootstrap/cli.ts" "$@"
+mise --no-config x "node@$node_version" "pnpm@$pnpm_version" -- pnpm --dir "$repo_root" install --frozen-lockfile
+exec mise --no-config x "node@$node_version" "pnpm@$pnpm_version" -- pnpm --dir "$repo_root" exec node "$repo_root/bootstrap/cli.ts" "$@"

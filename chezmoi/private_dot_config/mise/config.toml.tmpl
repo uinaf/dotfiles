@@ -4,7 +4,6 @@
 {{ regexReplaceAll "(?m)^\\[tools\\]\n" (includeTemplate (printf "%s/mise.toml" .chezmoi.os) .) "" }}
 {{ includeTemplate "mise-tasks.toml" . }}
 [settings]
-node.corepack = true
 node.npm_shim = false
 idiomatic_version_file_enable_tools = ["java", "rust"]
 trusted_config_paths = ["~/.codex/worktrees", "~/.claude/worktrees"]

@@ -15,6 +15,21 @@ function pin(source: string, pattern: RegExp): string {
   return match[1];
 }
 
+function miseSettings() {
+  const source = read("chezmoi/private_dot_config/mise/config.toml.tmpl");
+  const settings = source.slice(source.indexOf("[settings]"), source.indexOf("[settings.github]"));
+  const parsed = spawnSync(
+    "python3",
+    [
+      "-c",
+      "import sys,tomllib,json; print(json.dumps(tomllib.loads(sys.stdin.read())['settings']))",
+    ],
+    { input: settings, encoding: "utf8" },
+  );
+  assert.equal(parsed.status, 0, parsed.stderr);
+  return JSON.parse(parsed.stdout);
+}
+
 test("CI, bootstrap, and profile Node use the package engine floor", () => {
   const node = read(".node-version").trim();
   assert.match(node, /^\d+\.\d+\.\d+$/);
@@ -26,10 +41,8 @@ test("profile pnpm matches the repository package manager", () => {
   assert.equal(`pnpm@${pin(tools, /^pnpm = "([^"]+)"/m)}`, manifest.packageManager);
 });
 
-test("package convergence pins Corepack before disabling its pnpm shim", () => {
-  const corepack = pin(tools, /npm install --global corepack@([\d.]+)/);
-  assert.match(corepack, /^\d+\.\d+\.\d+$/);
-  assert.ok(tools.indexOf(`corepack@${corepack}`) < tools.indexOf("corepack disable pnpm"));
+test("Node installs leave pnpm to the mise pin", () => {
+  assert.deepEqual(miseSettings().node, { npm_shim: false });
 });
 
 test("PyYAML live verification follows its installation pin", () => {
@@ -59,7 +72,7 @@ test("mise package convergence repeats without runtime installs and stops on fai
   writeFileSync(join(root, "mise.toml"), task);
   writeFileSync(join(root, "global.toml"), "");
   const log = join(root, "commands");
-  for (const name of ["npm", "corepack", "python"]) {
+  for (const name of ["npm", "python"]) {
     writeFileSync(
       join(bin, name),
       `#!/bin/sh\nprintf '%s\\n' '${name}' >> "$TEST_LOG"\n[ '${name}' != "\${TEST_FAIL:-}" ]\n`,
@@ -84,25 +97,14 @@ test("mise package convergence repeats without runtime installs and stops on fai
     const result = run();
     assert.equal(result.status, 0, result.stderr);
   }
-  assert.equal(readFileSync(log, "utf8"), "npm\nnpm\ncorepack\npython\n".repeat(2));
+  assert.equal(readFileSync(log, "utf8"), "npm\npython\n".repeat(2));
   writeFileSync(log, "");
   assert.notEqual(run("npm").status, 0);
   assert.equal(readFileSync(log, "utf8"), "npm\n");
 });
 
 test("mise and Renovate agree on CLI age exemptions without exempting runtimes or holds", () => {
-  const source = read("chezmoi/private_dot_config/mise/config.toml.tmpl");
-  const settings = source.slice(source.indexOf("[settings]"), source.indexOf("[settings.github]"));
-  const parsed = spawnSync(
-    "python3",
-    [
-      "-c",
-      "import sys,tomllib,json; print(json.dumps(tomllib.loads(sys.stdin.read())['settings']))",
-    ],
-    { input: settings, encoding: "utf8" },
-  );
-  assert.equal(parsed.status, 0, parsed.stderr);
-  const mise = JSON.parse(parsed.stdout);
+  const mise = miseSettings();
   const renovate = JSON.parse(read("renovate.json"));
   const cliRule = renovate.packageRules.find(
     (rule: { groupName?: string }) => rule.groupName === "mise CLI patch and minor",
