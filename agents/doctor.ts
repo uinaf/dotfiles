@@ -232,54 +232,107 @@ function grokFinding(server: McpServer, doctor: GrokDoctor | undefined, text: st
   };
 }
 
-// A global npm install (including one under a mise-managed Node) or the
-// Homebrew cask shadows the mise pin that every managed host installs. The pin's npm postinstall stages the versioned binary
-// under ~/.grok/bin itself, so that directory is part of the managed layout.
-// A mise shim can dispatch to any provider of grok, so only a shim that
-// resolves inside the pin's install prefix counts as the pin.
-function grokShimDrift(runtime: Runtime, path: string): string | undefined {
-  const which = capture(runtime, "mise", ["which", "grok"]);
-  const resolved = which.stdout.trim();
-  if (which.status !== 0 || resolved.length === 0) {
-    return `grok resolves to ${path}, which mise cannot resolve`;
+type Drift = { detail: string; repair: string };
+
+const reinstallGrok = "mise install npm:@xai-official/grok; mise reshim";
+
+// Every host installs Grok from the mise pin. Any other grok on PATH (a
+// global npm install, including one under a mise-managed Node, or the
+// Homebrew cask) can shadow it in a shell or job whose PATH order differs,
+// and a mise shim can dispatch to any provider of grok. A global npm install
+// also shadows the pin through the shim without appearing on PATH. Grok setup
+// aligns ~/.grok/bin/grok with the pin, so that path is managed.
+function grokInstallDrift(runtime: Runtime): Drift[] {
+  const home = runtime.env.HOME;
+  const drift: Drift[] = [];
+  const reported: string[] = [];
+  const foreign = (path: string) => {
+    reported.push(path);
+    drift.push({
+      detail: `grok resolves to ${path}, not the mise pin`,
+      repair: `remove ${path} with its installer (npm uninstall -g @xai-official/grok under that Node, or brew uninstall --cask grok-build); ${reinstallGrok}`,
+    });
+  };
+  const listed = capture(runtime, "which", ["-a", "grok"]);
+  if (listed.status !== 0 && listed.status !== 1) {
+    drift.push({
+      detail: `cannot list grok on PATH: which -a grok exited ${listed.status}`,
+      repair: "command -v grok, then compare it with mise where npm:@xai-official/grok",
+    });
   }
+  const paths = [
+    ...new Set(
+      listed.stdout
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean),
+    ),
+  ];
   const where = capture(runtime, "mise", ["where", "npm:@xai-official/grok"]);
-  const pin = where.stdout.trim();
-  if (where.status === 0 && pin.length > 0 && resolved.startsWith(`${pin}/`)) {
+  const pin = where.status === 0 ? where.stdout.trim() : "";
+  const pinned = (path: string) => pin.length > 0 && path.startsWith(`${pin}/`);
+  const shims = home === undefined ? undefined : `${home}/.local/share/mise/shims/`;
+  const staged = home === undefined ? undefined : `${home}/.grok/bin/grok`;
+  for (const path of paths) {
+    if (pinned(path) || path === staged) continue;
+    if (shims === undefined || !path.startsWith(shims)) {
+      foreign(path);
+      continue;
+    }
+    const which = capture(runtime, "mise", ["which", "grok"]);
+    const resolved = which.stdout.trim();
+    if (which.status !== 0 || resolved.length === 0) {
+      drift.push({
+        detail: `grok resolves to ${path}, which mise cannot resolve`,
+        repair: reinstallGrok,
+      });
+    } else if (!pinned(resolved)) {
+      foreign(resolved);
+    }
+  }
+  const npm = capture(runtime, "npm", [
+    "ls",
+    "--global",
+    "--json",
+    "--depth=0",
+    "@xai-official/grok",
+  ]);
+  const version = globalNpmGrokVersion(npm.stdout);
+  if (version !== undefined) {
+    const prefix = capture(runtime, "npm", ["prefix", "--global"]).stdout.trim();
+    if (prefix.length === 0 || !reported.some((path) => path.startsWith(`${prefix}/`))) {
+      drift.push({
+        detail: `npm has a global @xai-official/grok ${version} install`,
+        repair: "npm uninstall -g @xai-official/grok; mise reshim",
+      });
+    }
+  }
+  return drift;
+}
+
+function globalNpmGrokVersion(stdout: string): string | undefined {
+  try {
+    const parsed: unknown = JSON.parse(stdout);
+    if (typeof parsed !== "object" || parsed === null) return undefined;
+    const dependencies = (parsed as { dependencies?: unknown }).dependencies;
+    if (typeof dependencies !== "object" || dependencies === null) return undefined;
+    const grok = (dependencies as Record<string, unknown>)["@xai-official/grok"];
+    if (typeof grok !== "object" || grok === null) return undefined;
+    const version = (grok as { version?: unknown }).version;
+    return typeof version === "string" ? version : "unknown-version";
+  } catch {
     return undefined;
   }
-  return `grok resolves to ${resolved}, not the mise pin`;
 }
 
 function grokDriftFindings(runtime: Runtime): Finding[] {
-  const home = runtime.env.HOME;
-  const which = capture(runtime, "sh", ["-c", "command -v grok"]);
-  const path = which.stdout.trim();
-  if (which.status !== 0 || path.length === 0) {
-    return [];
-  }
-  const mise = home === undefined ? undefined : `${home}/.local/share/mise/`;
-  const detail =
-    mise === undefined
-      ? `grok resolves to ${path}, not the mise pin`
-      : path.startsWith(`${mise}shims/`)
-        ? grokShimDrift(runtime, path)
-        : !path.startsWith(mise) || path.startsWith(`${mise}installs/node/`)
-          ? `grok resolves to ${path}, not the mise pin`
-          : undefined;
-  if (detail === undefined) {
-    return [];
-  }
-  return [
-    {
-      harness: "grok",
-      server: "install",
-      status: "failed",
-      detail,
-      repair:
-        "npm uninstall -g @xai-official/grok; brew uninstall --cask grok-build; mise install npm:@xai-official/grok; mise reshim",
-    },
-  ];
+  return grokInstallDrift(runtime).map(({ detail, repair }) => ({
+    harness: "grok",
+    server: "install",
+    status: "failed",
+    detail,
+    repair,
+  }));
 }
 
 function collect(runtime: Runtime, servers: readonly McpServer[]): Finding[] {
