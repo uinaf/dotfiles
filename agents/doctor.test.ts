@@ -202,7 +202,10 @@ test("flags Grok config parse errors and installation drift", () => {
     runtime.stdout.value,
     /FAIL {2}Grok: install - grok resolves to \/opt\/homebrew\/bin\/grok, not the mise pin/,
   );
-  assert.match(runtime.stdout.value, /repair: npm uninstall -g @xai-official\/grok/);
+  assert.match(
+    runtime.stdout.value,
+    /repair: remove \/opt\/homebrew\/bin\/grok with its installer/,
+  );
 });
 
 test("accepts the mise pin as Grok's managed install", () => {
@@ -297,6 +300,42 @@ test("reports a global npm Grok that PATH does not expose", () => {
     runtime.stdout.value,
     /Grok: install - npm has a global @xai-official\/grok 1\.0\.40 install/,
   );
+});
+
+test("accepts Grok's pin-aligned staged binary on PATH", () => {
+  const { repoDir, home } = createFixture();
+  const replies = new Map(healthy);
+  replies.set("which -a grok", {
+    stdout:
+      "$HOME/.local/share/mise/installs/npm-xai-official-grok/1.0.41/bin/grok\n$HOME/.grok/bin/grok\n",
+  });
+  const runtime = new FixtureRuntime(repoDir, home, replies);
+  assert.equal(main([], runtime), 0);
+  assert.doesNotMatch(runtime.stdout.value, /Grok: install/);
+});
+
+test("reports a global npm Grok once when the shim already resolves to it", () => {
+  const { repoDir, home } = createFixture();
+  const replies = new Map(healthy);
+  replies.set("mise which grok", {
+    stdout: "$HOME/.local/share/mise/installs/node/24.21.0/bin/grok\n",
+  });
+  replies.set("npm ls --global --json --depth=0 @xai-official/grok", {
+    stdout: JSON.stringify({ dependencies: { "@xai-official/grok": { version: "1.0.40" } } }),
+  });
+  replies.set("npm prefix --global", { stdout: "$HOME/.local/share/mise/installs/node/24.21.0\n" });
+  const runtime = new FixtureRuntime(repoDir, home, replies);
+  assert.equal(main([], runtime), 1);
+  assert.equal(runtime.stdout.value.match(/Grok: install/g)?.length, 1);
+});
+
+test("reports when PATH cannot be listed for Grok", () => {
+  const { repoDir, home } = createFixture();
+  const replies = new Map(healthy);
+  replies.set("which -a grok", { status: 127, stderr: "spawnSync which ENOENT" });
+  const runtime = new FixtureRuntime(repoDir, home, replies);
+  assert.equal(main([], runtime), 1);
+  assert.match(runtime.stdout.value, /Grok: install - cannot list grok on PATH/);
 });
 
 test("skips harnesses that are not installed", () => {
