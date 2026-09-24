@@ -110,6 +110,14 @@ const healthy = new Map<string, Reply>([
     },
   ],
   ["sh -c command -v grok", { stdout: "$HOME/.local/share/mise/shims/grok\n" }],
+  [
+    "mise which grok",
+    { stdout: "$HOME/.local/share/mise/installs/npm-xai-official-grok/1.0.41/bin/grok\n" },
+  ],
+  [
+    "mise where npm:@xai-official/grok",
+    { stdout: "$HOME/.local/share/mise/installs/npm-xai-official-grok/1.0.41\n" },
+  ],
 ]);
 
 test("reports every harness usable and exits 0", () => {
@@ -205,6 +213,40 @@ test("reports a global npm Grok under a mise-managed Node", () => {
   const runtime = new FixtureRuntime(repoDir, home, replies);
   assert.equal(main([], runtime), 1);
   assert.match(runtime.stdout.value, /Grok: install - grok resolves to .*installs\/node\//);
+});
+
+test("reports a global npm Grok the mise shim dispatches to", () => {
+  const { repoDir, home } = createFixture();
+  const replies = new Map(healthy);
+  replies.set("mise which grok", {
+    stdout: "$HOME/.local/share/mise/installs/node/24.21.0/bin/grok\n",
+  });
+  const runtime = new FixtureRuntime(repoDir, home, replies);
+  assert.equal(main([], runtime), 1);
+  assert.match(runtime.stdout.value, /Grok: install - grok resolves to .*installs\/node\//);
+});
+
+test("reports a mise shim that resolves to another provider", () => {
+  const { repoDir, home } = createFixture();
+  const replies = new Map(healthy);
+  replies.set("mise which grok", {
+    stdout: "$HOME/.local/share/mise/installs/npm-other-grok/2.0.0/bin/grok\n",
+  });
+  const runtime = new FixtureRuntime(repoDir, home, replies);
+  assert.equal(main([], runtime), 1);
+  assert.match(runtime.stdout.value, /Grok: install - grok resolves to .*npm-other-grok/);
+});
+
+test("reports a mise shim that mise cannot resolve", () => {
+  const { repoDir, home } = createFixture();
+  const replies = new Map(healthy);
+  replies.set("mise which grok", { status: 1, stderr: "grok is not a mise bin" });
+  const runtime = new FixtureRuntime(repoDir, home, replies);
+  assert.equal(main([], runtime), 1);
+  assert.match(
+    runtime.stdout.value,
+    /Grok: install - grok resolves to .*shims\/grok, which mise cannot resolve/,
+  );
 });
 
 test("skips harnesses that are not installed", () => {
