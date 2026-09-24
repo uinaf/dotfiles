@@ -161,7 +161,11 @@ re-stages code but never rewires hosts; a harness whose MCP entry lacks
 version or that wiring drifts. Daily maintenance repeats the step.
 
 The server endpoint and token stay in owner-only `~/.hindsight/coding-agent.json`;
-setup requires them and never writes them. Provision a new machine once:
+setup requires them and never writes them. Each machine gets its own token from
+the owning private system; never copy one machine's token to another, so a
+single machine can be rotated or revoked alone. To rotate, replace `apiToken`
+in that file; restart running sessions so their MCP servers reload it.
+Provision a new machine once:
 
 ```zsh
 npx -y @vectorize-io/hindsight-coding-agents@latest install claude-code \
