@@ -25,6 +25,15 @@ function managedEdits(): ConfigEdit[] {
     { keyPath: "model", value: "gpt-6-sol", mergeStrategy: "upsert" },
     { keyPath: "model_reasoning_effort", value: "medium", mergeStrategy: "upsert" },
     { keyPath: "service_tier", value: null, mergeStrategy: "replace" },
+    // Auto review needs interactive approvals and a sandbox to escalate from.
+    // Permission profiles replace sandbox_mode; Codex rejects combining them.
+    { keyPath: "approval_policy", value: "on-request", mergeStrategy: "replace" },
+    { keyPath: "approvals_reviewer", value: "auto_review", mergeStrategy: "replace" },
+    { keyPath: "default_permissions", value: ":workspace", mergeStrategy: "replace" },
+    { keyPath: "sandbox_mode", value: null, mergeStrategy: "replace" },
+    { keyPath: "analytics.enabled", value: false, mergeStrategy: "upsert" },
+    { keyPath: "feedback.enabled", value: false, mergeStrategy: "upsert" },
+    { keyPath: "otel.metrics_exporter", value: "none", mergeStrategy: "upsert" },
     { keyPath: "features.fast_mode", value: null, mergeStrategy: "replace" },
     {
       keyPath: "features.context_management.experimental_mode",

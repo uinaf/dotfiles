@@ -302,6 +302,7 @@ const program = Effect.scoped(
       "trust-agent-worktrees",
       "install-gh-extensions",
       "configure-codex",
+      "configure-grok",
       "sync-agents",
     ])
       assert.ok(developerSteps.includes(step));

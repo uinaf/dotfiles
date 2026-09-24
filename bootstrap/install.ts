@@ -71,6 +71,8 @@ const runStep = Effect.fn("runInstallStep")(function* (
       ]);
     case "configure-codex":
       return yield* execute(step, bootstrap("configure-codex.ts"), ["--profile", profile]);
+    case "configure-grok":
+      return yield* execute(step, bootstrap("configure-grok.ts"), ["--profile", profile]);
     case "configure-helium":
       return yield* execute(
         step,

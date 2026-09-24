@@ -33,6 +33,18 @@ function assertDefaults(contents: string): void {
   assert.match(root, /^model = "gpt-6-sol"$/m);
   assert.match(root, /^model_reasoning_effort = "medium"$/m);
   assert.doesNotMatch(root, /^forced_login_method\s*=/m);
+  assert.match(root, /^approval_policy = "on-request"$/m);
+  assert.match(root, /^approvals_reviewer = "auto_review"$/m);
+  assert.match(root, /^default_permissions = ":workspace"$/m);
+  assert.doesNotMatch(root, /^sandbox_mode\s*=/m);
+  for (const [table, line] of [
+    ["analytics", "enabled = false"],
+    ["feedback", "enabled = false"],
+    ["otel", 'metrics_exporter = "none"'],
+  ]) {
+    const section = contents.split(new RegExp(`^\\[${table}\\][ \\t]*$`, "m"))[1]?.split(/^\[/m)[0];
+    assert.ok(section?.split("\n").includes(line), `${table} must contain ${line}`);
+  }
   assert.match(features, /^goals = true$/m);
   assert.match(features, /^memories = false$/m);
   assert.doesNotMatch(root, /^service_tier\s*=/m);
@@ -49,7 +61,7 @@ function assertDefaults(contents: string): void {
 }
 
 test(
-  "installed Codex removes forced login, preserves unrelated config, and is idempotent",
+  "installed Codex replaces full access with auto review, preserves unrelated config, and is idempotent",
   { skip: !codexInstalled },
   () => {
     const root = mkdtempSync(join(tmpdir(), "dotfiles-codex-config-"));
@@ -59,7 +71,7 @@ test(
       mkdirSync(home);
       writeFileSync(
         config,
-        'forced_login_method = "chatgpt"\nservice_tier = "default"\n# keep this comment\napproval_policy = "never"\n\n[features]\nfast_mode = false\n\n[mcp_servers.fixture]\ncommand = "example"\n',
+        'forced_login_method = "chatgpt"\nservice_tier = "default"\n# keep this comment\napproval_policy = "never"\napprovals_reviewer = "user"\ndefault_permissions = ":danger-full-access"\nsandbox_mode = "danger-full-access"\n\n[features]\nfast_mode = false\n\n[mcp_servers.fixture]\ncommand = "example"\n',
       );
       chmodSync(config, 0o644);
 
@@ -67,7 +79,6 @@ test(
       assert.equal(first.status, 0, first.stderr);
       const contents = readFileSync(config, "utf8");
       assert.ok(contents.includes("# keep this comment"));
-      assert.ok(contents.includes('approval_policy = "never"'));
       assert.ok(contents.includes('[mcp_servers.fixture]\ncommand = "example"'));
       assertDefaults(contents);
       assert.equal(statSync(config).mode & 0o777, 0o600);

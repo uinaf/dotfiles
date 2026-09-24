@@ -169,6 +169,7 @@ for (const failure of [false, true]) {
       "trust-agent-worktrees.ts",
       "install-gh-extensions.ts",
       "configure-codex.ts",
+      "configure-grok.ts",
       "configure-llm-gateway.ts",
       "configure-bifrost-clients.ts",
       "configure-hindsight.ts",

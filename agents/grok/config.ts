@@ -1,0 +1,168 @@
+import { Effect, FileSystem, Option } from "effect";
+import { dirname, join } from "node:path";
+import { fail } from "../../lib/program.ts";
+
+type Setting = { table: string; key: string; value: boolean | string };
+
+// mise pins own the Grok version, so its npm self-updater stays off. The
+// harness keys stop per-turn workspace and codebase uploads to xAI.
+const MANAGED_SETTINGS: readonly Setting[] = [
+  { table: "ui", key: "permission_mode", value: "auto" },
+  { table: "cli", key: "auto_update", value: false },
+  { table: "features", key: "telemetry", value: false },
+  { table: "features", key: "feedback", value: false },
+  { table: "telemetry", key: "trace_upload", value: false },
+  { table: "harness", key: "disable_workspace_teleport", value: true },
+  { table: "harness", key: "disable_codebase_upload", value: true },
+];
+
+const RETIRED_PLUGINS: ReadonlySet<string> = new Set(["ffsstack"]);
+
+type Line = { text: string; depth: number };
+
+// Bracket depth at the start of each line, so multi-line array values are
+// never mistaken for table headers or keys.
+function scan(contents: string): Line[] {
+  let depth = 0;
+  return contents.split("\n").map((text) => {
+    const line = { text, depth };
+    let quote: string | undefined;
+    for (let index = 0; index < text.length; index += 1) {
+      const char = text[index];
+      if (quote !== undefined) {
+        if (char === "\\" && quote === '"') index += 1;
+        else if (char === quote) quote = undefined;
+      } else if (char === '"' || char === "'") quote = char;
+      else if (char === "#") break;
+      else if (char === "[" && !(depth === 0 && /^\s*\[/.test(text))) depth += 1;
+      else if (char === "]" && depth > 0) depth -= 1;
+    }
+    return line;
+  });
+}
+
+const isHeader = (line: Line) => line.depth === 0 && /^\s*\[/.test(line.text);
+
+function headerName(line: Line): string | undefined {
+  const match = /^\s*\[([^[\]]+)\]\s*(?:#.*)?$/.exec(line.text);
+  return line.depth === 0 && match ? match[1].trim() : undefined;
+}
+
+function sectionOf(lines: readonly Line[], table: string): [number, number] | undefined {
+  const start = lines.findIndex((line) => headerName(line) === table);
+  if (start === -1) return undefined;
+  const next = lines.findIndex((line, index) => index > start && isHeader(line));
+  return [start, next === -1 ? lines.length : next];
+}
+
+// Returns the [first, last] line indexes of a key's assignment in a section.
+function keySpan(
+  lines: readonly Line[],
+  [start, end]: [number, number],
+  key: string,
+): [number, number] | undefined {
+  const pattern = new RegExp(`^\\s*${key}\\s*=`);
+  for (let index = start + 1; index < end; index += 1) {
+    if (lines[index].depth !== 0 || !pattern.test(lines[index].text)) continue;
+    let last = index;
+    while (last + 1 < end && lines[last + 1].depth > 0) last += 1;
+    return [index, last];
+  }
+  return undefined;
+}
+
+const render = (value: boolean | string) =>
+  typeof value === "boolean" ? String(value) : JSON.stringify(value);
+
+function rootDefines(lines: readonly Line[], table: string): boolean {
+  const pattern = new RegExp(`^\\s*${table.replace(/\./g, "\\.")}\\s*[.=]`);
+  for (const line of lines) {
+    if (isHeader(line)) return false;
+    if (line.depth === 0 && pattern.test(line.text)) return true;
+  }
+  return false;
+}
+
+function pruneRetiredPlugins(lines: Line[]): Line[] {
+  const section = sectionOf(lines, "plugins");
+  const span = section && keySpan(lines, section, "enabled");
+  if (!span) return lines;
+  const assignment = lines
+    .slice(span[0], span[1] + 1)
+    .map((line) => line.text)
+    .join("\n");
+  const ids = [...assignment.matchAll(/"((?:[^"\\]|\\.)*)"|'([^']*)'/g)].map(
+    (match) => match[1] ?? match[2],
+  );
+  if (!ids.some((id) => RETIRED_PLUGINS.has(id))) return lines;
+  const kept = ids.filter((id) => !RETIRED_PLUGINS.has(id));
+  const replacement =
+    kept.length === 0
+      ? ["enabled = []"]
+      : ["enabled = [", ...kept.map((id) => `    ${JSON.stringify(id)},`), "]"];
+  return scan(
+    [
+      ...lines.slice(0, span[0]).map((line) => line.text),
+      ...replacement,
+      ...lines.slice(span[1] + 1).map((line) => line.text),
+    ].join("\n"),
+  );
+}
+
+export function applyManagedSettings(contents: string): string {
+  let lines = pruneRetiredPlugins(scan(contents.replace(/\n*$/, "")));
+  const appended = new Map<string, string[]>();
+  for (const { table, key, value } of MANAGED_SETTINGS) {
+    const assignment = `${key} = ${render(value)}`;
+    const section = sectionOf(lines, table);
+    if (!section) {
+      if (rootDefines(lines, table))
+        throw new Error(`Grok config defines ${table} outside a [${table}] table`);
+      appended.set(table, [...(appended.get(table) ?? []), assignment]);
+      continue;
+    }
+    const span = keySpan(lines, section, key);
+    const texts = lines.map((line) => line.text);
+    if (span) texts.splice(span[0], span[1] - span[0] + 1, assignment);
+    else {
+      let insertAt = section[1];
+      while (insertAt - 1 > section[0] && texts[insertAt - 1].trim() === "") insertAt -= 1;
+      texts.splice(insertAt, 0, assignment);
+    }
+    lines = scan(texts.join("\n"));
+  }
+  const body = lines.map((line) => line.text).join("\n");
+  const tables = [...appended].map(([table, entries]) => [`[${table}]`, ...entries].join("\n"));
+  return `${[body, ...tables].filter((part) => part.trim() !== "").join("\n\n")}\n`;
+}
+
+export const configureGrokDefaults = Effect.fn("configureGrokDefaults")(function* (
+  configPath: string,
+) {
+  const fs = yield* FileSystem.FileSystem;
+  const link = yield* fs.readLink(configPath).pipe(Effect.option);
+  if (Option.isSome(link)) return yield* fail(`Grok config must be a regular file: ${configPath}`);
+  const info = yield* fs.stat(configPath).pipe(Effect.option);
+  if (Option.isSome(info) && info.value.type !== "File")
+    return yield* fail(`Grok config must be a regular file: ${configPath}`);
+  const original = Option.isSome(info) ? yield* fs.readFileString(configPath) : "";
+  const updated = yield* Effect.try({
+    try: () => applyManagedSettings(original),
+    catch: (error) => error,
+  });
+  if (updated === original && Option.isSome(info) && (info.value.mode & 0o077) === 0) return false;
+  yield* fs.makeDirectory(dirname(configPath), { recursive: true, mode: 0o700 });
+  yield* Effect.scoped(
+    Effect.gen(function* () {
+      const directory = yield* fs.makeTempDirectoryScoped({
+        directory: dirname(configPath),
+        prefix: ".config.toml.",
+      });
+      const temporary = join(directory, "config.toml");
+      yield* fs.writeFileString(temporary, updated, { mode: 0o600 });
+      yield* fs.rename(temporary, configPath);
+      yield* fs.chmod(configPath, 0o600);
+    }),
+  );
+  return true;
+});
