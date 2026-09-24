@@ -9,8 +9,8 @@ import { fail, runMain } from "../lib/program.ts";
 const usage = `Usage:
   bootstrap/trust-agent-worktrees.ts [--check]
 
-Trusts existing mise config files near the roots of Codex and Claude generated
-worktrees. With --check, verifies that any discovered config files are already
+Trusts existing mise config files near the roots of Codex, Claude, and T3 Code
+generated worktrees. With --check, verifies that any discovered config files are already
 trusted.`;
 
 const configNames = ["mise.toml", ".mise.toml"] as const;
@@ -58,6 +58,7 @@ const program = Effect.gen(function* () {
   const roots = [
     join(process.env.CODEX_HOME || join(home, ".codex"), "worktrees"),
     join(process.env.CLAUDE_HOME || join(home, ".claude"), "worktrees"),
+    join(process.env.T3_BASE_DIR || join(home, ".t3"), "worktrees"),
   ];
   const paths = yield* discoverMiseConfigs(roots);
 
