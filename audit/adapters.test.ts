@@ -191,7 +191,7 @@ test("linked worktree scan covers unignored files and skips dependency trees", (
     rmSync(join(linked, "removed.ts"));
     writeFileSync(join(linked, "untracked.ts"), "export {};\n");
     mkdirSync(join(linked, "node_modules/dependency/tests"), { recursive: true });
-    writeFileSync(join(linked, "node_modules/dependency/tests/fixture.ts"), "mongodb://u:p@h/db\n");
+    writeFileSync(join(linked, "node_modules/dependency/tests/fixture.ts"), "dependency fixture\n");
 
     const scans: Array<readonly string[]> = [];
     const command: CommandRunner = (name, args, options) => {
@@ -217,6 +217,35 @@ test("linked worktree scan covers unignored files and skips dependency trees", (
       join(linked, "tracked.ts"),
       join(linked, "untracked.ts"),
     ]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("linked worktree scan fails closed on paths that do not decode", () => {
+  const root = mkdtempSync(join(tmpdir(), "dotfiles-worktree-decode-test-"));
+  const scans: Array<readonly string[]> = [];
+  const command: CommandRunner = (name, args) => {
+    if (name === "git" && args.includes("worktree"))
+      return { status: 0, stdout: `worktree ${root}\n`, stderr: "" };
+    if (name === "git") return { status: 0, stdout: "tracked.ts\0secret-\uFFFD.env\0", stderr: "" };
+    if (name === "trufflehog" && args[0] === "filesystem") scans.push(args);
+    return { status: 0, stdout: "", stderr: "" };
+  };
+  try {
+    mkdirSync(join(root, ".git"));
+    const result = runRepoAudit(
+      {
+        format: "json",
+        mscp: false,
+        mscpDir: join(root, "mscp"),
+        mscpBaseline: "800-53r5_moderate",
+        allowSudoPrompt: false,
+      },
+      { command, repoRoot: join(root, "linked"), uid: 0, stdout: () => {} },
+    );
+    assert.equal(result.summary.failed, 1);
+    assert.deepEqual(scans, []);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

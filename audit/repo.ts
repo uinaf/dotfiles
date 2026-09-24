@@ -114,7 +114,8 @@ function trufflehogSource(repoRoot: string, command: CommandRunner): string {
 
 // The filesystem pass covers what Git would commit: tracked and unignored
 // files. Ignored dependency trees such as node_modules carry third-party
-// test fixtures that look like credentials.
+// test fixtures that look like credentials. A path that does not decode as
+// UTF-8 fails the listing instead of dropping out of the scan.
 function worktreeFiles(repoRoot: string, command: CommandRunner): string[] | undefined {
   const listed = command("git", [
     "-C",
@@ -125,7 +126,7 @@ function worktreeFiles(repoRoot: string, command: CommandRunner): string[] | und
     "--others",
     "--exclude-standard",
   ]);
-  if (listed.error || listed.status !== 0) return undefined;
+  if (listed.error || listed.status !== 0 || listed.stdout.includes("\uFFFD")) return undefined;
   return listed.stdout
     .split("\0")
     .filter(Boolean)
