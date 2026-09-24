@@ -124,3 +124,22 @@ test("compliant assignments keep their trailing comments", () => {
   const updated = applyManagedSettings("[cli]\nauto_update = false # pinned by mise\n");
   assert.ok(table(updated, "cli").includes("auto_update = false # pinned by mise"));
 });
+
+test("drift inside a string value is replaced", () => {
+  const updated = applyManagedSettings('[ui]\npermission_mode = "a uto"\n');
+  assert.ok(table(updated, "ui").includes('permission_mode = "auto"'));
+});
+
+test("quoted keys are updated instead of duplicated", () => {
+  const updated = applyManagedSettings('[ui]\n"permission_mode" = "ask"\n');
+  assert.deepEqual(
+    table(updated, "ui").filter((line) => line.includes("permission_mode")),
+    ['permission_mode = "auto"'],
+  );
+});
+
+test("a compliant configuration is returned byte for byte", () => {
+  const compliant = applyManagedSettings("");
+  for (const variant of [compliant.trimEnd(), `${compliant}\n\n`])
+    assert.equal(applyManagedSettings(variant), variant);
+});

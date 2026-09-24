@@ -91,7 +91,10 @@ const keyPattern = (key: string, suffix: string) =>
   new RegExp(
     `^\\s*${key
       .split(".")
-      .map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+      .map((part) => {
+        const escaped = part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        return `(?:${escaped}|"${escaped}"|'${escaped}')`;
+      })
       .join("\\s*\\.\\s*")}\\s*${suffix}`,
   );
 
@@ -115,15 +118,14 @@ function upsert(
   lines: readonly Line[],
   section: [number, number],
   key: string,
-  assignment: string,
+  value: string,
 ): Line[] {
+  const assignment = `${key} = ${value}`;
   const span = keySpan(lines, section, key);
-  if (
-    span &&
-    span[0] === span[1] &&
-    lines[span[0]].code.replace(/\s+/g, "") === assignment.replace(/\s+/g, "")
-  )
-    return [...lines];
+  if (span && span[0] === span[1]) {
+    const current = lines[span[0]].code;
+    if (current.slice(current.indexOf("=") + 1).trim() === value) return [...lines];
+  }
   const texts = lines.map((line) => line.text);
   if (span) texts.splice(span[0], span[1] - span[0] + 1, assignment);
   else {
@@ -171,7 +173,7 @@ export function applyManagedSettings(contents: string): string {
   for (const { table, key, value } of MANAGED_SETTINGS) {
     const section = sectionOf(lines, table);
     if (section) {
-      lines = upsert(lines, section, key, `${key} = ${render(value)}`);
+      lines = upsert(lines, section, key, render(value));
       continue;
     }
     const root = rootSection(lines);
@@ -179,14 +181,15 @@ export function applyManagedSettings(contents: string): string {
       throw new Error(`Grok config defines ${table} as an inline table`);
     const dotted = keyPattern(table, "\\.");
     if (lines.slice(0, root[1]).some((line) => !line.open && dotted.test(line.code))) {
-      lines = upsert(lines, root, `${table}.${key}`, `${table}.${key} = ${render(value)}`);
+      lines = upsert(lines, root, `${table}.${key}`, render(value));
       continue;
     }
     appended.set(table, [...(appended.get(table) ?? []), `${key} = ${render(value)}`]);
   }
   const body = lines.map((line) => line.text).join("\n");
   const tables = [...appended].map(([table, entries]) => [`[${table}]`, ...entries].join("\n"));
-  return `${[body, ...tables].filter((part) => part.trim() !== "").join("\n\n")}\n`;
+  const updated = [body, ...tables].filter((part) => part.trim() !== "").join("\n\n");
+  return updated === contents.replace(/\n*$/, "") ? contents : `${updated}\n`;
 }
 
 export const configureGrokDefaults = Effect.fn("configureGrokDefaults")(function* (
