@@ -18,34 +18,60 @@ const MANAGED_SETTINGS: readonly Setting[] = [
 
 const RETIRED_PLUGINS: ReadonlySet<string> = new Set(["ffsstack"]);
 
-type Line = { text: string; depth: number };
+type Line = { text: string; open: boolean; code: string };
 
-// Bracket depth at the start of each line, so multi-line array values are
-// never mistaken for table headers or keys.
+// Marks lines that start inside a multi-line array, inline table, or string
+// and strips comments, so value text is never read as a header or key.
 function scan(contents: string): Line[] {
   let depth = 0;
+  let multiline: string | undefined;
   return contents.split("\n").map((text) => {
-    const line = { text, depth };
+    const open = depth > 0 || multiline !== undefined;
+    const header = !open && /^\s*\[/.test(text);
+    let code = "";
     let quote: string | undefined;
     for (let index = 0; index < text.length; index += 1) {
       const char = text[index];
+      if (multiline !== undefined) {
+        if (multiline === '"""' && char === "\\") {
+          code += text.slice(index, index + 2);
+          index += 1;
+        } else if (text.startsWith(multiline, index)) {
+          code += multiline;
+          index += 2;
+          multiline = undefined;
+        } else code += char;
+        continue;
+      }
       if (quote !== undefined) {
-        if (char === "\\" && quote === '"') index += 1;
-        else if (char === quote) quote = undefined;
-      } else if (char === '"' || char === "'") quote = char;
-      else if (char === "#") break;
-      else if (char === "[" && !(depth === 0 && /^\s*\[/.test(text))) depth += 1;
-      else if (char === "]" && depth > 0) depth -= 1;
+        code += char;
+        if (char === "\\" && quote === '"') {
+          code += text[index + 1] ?? "";
+          index += 1;
+        } else if (char === quote) quote = undefined;
+        continue;
+      }
+      if (text.startsWith('"""', index) || text.startsWith("'''", index)) {
+        multiline = text.slice(index, index + 3);
+        code += multiline;
+        index += 2;
+        continue;
+      }
+      if (char === "#") break;
+      code += char;
+      if (char === '"' || char === "'") quote = char;
+      else if (!header && (char === "[" || char === "{")) depth += 1;
+      else if (!header && (char === "]" || char === "}") && depth > 0) depth -= 1;
     }
-    return line;
+    return { text, open, code };
   });
 }
 
-const isHeader = (line: Line) => line.depth === 0 && /^\s*\[/.test(line.text);
+const isHeader = (line: Line) => !line.open && /^\s*\[/.test(line.code);
 
 function headerName(line: Line): string | undefined {
-  const match = /^\s*\[([^[\]]+)\]\s*(?:#.*)?$/.exec(line.text);
-  return line.depth === 0 && match ? match[1].trim() : undefined;
+  const match = /^\s*\[([^[\]]+)\]\s*$/.exec(line.code);
+  return !line.open && match ? match[1].trim() : undefined;
 }
 
 function sectionOf(lines: readonly Line[], table: string): [number, number] | undefined {
@@ -55,33 +81,55 @@ function sectionOf(lines: readonly Line[], table: string): [number, number] | un
   return [start, next === -1 ? lines.length : next];
 }
 
+// The root section spans from before the first line to the first header.
+function rootSection(lines: readonly Line[]): [number, number] {
+  const first = lines.findIndex(isHeader);
+  return [-1, first === -1 ? lines.length : first];
+}
+
+const keyPattern = (key: string, suffix: string) =>
+  new RegExp(
+    `^\\s*${key
+      .split(".")
+      .map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+      .join("\\s*\\.\\s*")}\\s*${suffix}`,
+  );
+
 // Returns the [first, last] line indexes of a key's assignment in a section.
 function keySpan(
   lines: readonly Line[],
   [start, end]: [number, number],
   key: string,
 ): [number, number] | undefined {
-  const pattern = new RegExp(`^\\s*${key}\\s*=`);
+  const pattern = keyPattern(key, "=");
   for (let index = start + 1; index < end; index += 1) {
-    if (lines[index].depth !== 0 || !pattern.test(lines[index].text)) continue;
+    if (lines[index].open || !pattern.test(lines[index].code)) continue;
     let last = index;
-    while (last + 1 < end && lines[last + 1].depth > 0) last += 1;
+    while (last + 1 < end && lines[last + 1].open) last += 1;
     return [index, last];
   }
   return undefined;
 }
 
+function upsert(
+  lines: readonly Line[],
+  section: [number, number],
+  key: string,
+  assignment: string,
+): Line[] {
+  const span = keySpan(lines, section, key);
+  const texts = lines.map((line) => line.text);
+  if (span) texts.splice(span[0], span[1] - span[0] + 1, assignment);
+  else {
+    let insertAt = section[1];
+    while (insertAt - 1 > section[0] && texts[insertAt - 1].trim() === "") insertAt -= 1;
+    texts.splice(insertAt, 0, assignment);
+  }
+  return scan(texts.join("\n"));
+}
+
 const render = (value: boolean | string) =>
   typeof value === "boolean" ? String(value) : JSON.stringify(value);
-
-function rootDefines(lines: readonly Line[], table: string): boolean {
-  const pattern = new RegExp(`^\\s*${table.replace(/\./g, "\\.")}\\s*[.=]`);
-  for (const line of lines) {
-    if (isHeader(line)) return false;
-    if (line.depth === 0 && pattern.test(line.text)) return true;
-  }
-  return false;
-}
 
 function pruneRetiredPlugins(lines: Line[]): Line[] {
   const section = sectionOf(lines, "plugins");
@@ -89,7 +137,7 @@ function pruneRetiredPlugins(lines: Line[]): Line[] {
   if (!span) return lines;
   const assignment = lines
     .slice(span[0], span[1] + 1)
-    .map((line) => line.text)
+    .map((line) => line.code)
     .join("\n");
   const ids = [...assignment.matchAll(/"((?:[^"\\]|\\.)*)"|'([^']*)'/g)].map(
     (match) => match[1] ?? match[2],
@@ -113,23 +161,20 @@ export function applyManagedSettings(contents: string): string {
   let lines = pruneRetiredPlugins(scan(contents.replace(/\n*$/, "")));
   const appended = new Map<string, string[]>();
   for (const { table, key, value } of MANAGED_SETTINGS) {
-    const assignment = `${key} = ${render(value)}`;
     const section = sectionOf(lines, table);
-    if (!section) {
-      if (rootDefines(lines, table))
-        throw new Error(`Grok config defines ${table} outside a [${table}] table`);
-      appended.set(table, [...(appended.get(table) ?? []), assignment]);
+    if (section) {
+      lines = upsert(lines, section, key, `${key} = ${render(value)}`);
       continue;
     }
-    const span = keySpan(lines, section, key);
-    const texts = lines.map((line) => line.text);
-    if (span) texts.splice(span[0], span[1] - span[0] + 1, assignment);
-    else {
-      let insertAt = section[1];
-      while (insertAt - 1 > section[0] && texts[insertAt - 1].trim() === "") insertAt -= 1;
-      texts.splice(insertAt, 0, assignment);
+    const root = rootSection(lines);
+    if (keySpan(lines, root, table))
+      throw new Error(`Grok config defines ${table} as an inline table`);
+    const dotted = keyPattern(table, "\\.");
+    if (lines.slice(0, root[1]).some((line) => !line.open && dotted.test(line.code))) {
+      lines = upsert(lines, root, `${table}.${key}`, `${table}.${key} = ${render(value)}`);
+      continue;
     }
-    lines = scan(texts.join("\n"));
+    appended.set(table, [...(appended.get(table) ?? []), `${key} = ${render(value)}`]);
   }
   const body = lines.map((line) => line.text).join("\n");
   const tables = [...appended].map(([table, entries]) => [`[${table}]`, ...entries].join("\n"));

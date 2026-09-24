@@ -82,9 +82,33 @@ test("an empty enabled list survives when only retired plugins were enabled", ()
   assert.ok(table(updated, "plugins").includes("enabled = []"));
 });
 
-test("root dotted keys for a managed table are rejected rather than duplicated", () => {
+test("root dotted keys extend their table in place", () => {
+  const updated = applyManagedSettings('ui.theme = "groknight"\n\n[cli]\nauto_update = true\n');
+  const root = updated.split(/^\[/m)[0].split("\n");
+  assert.ok(root.includes('ui.theme = "groknight"'));
+  assert.ok(root.includes('ui.permission_mode = "auto"'));
+  assert.doesNotMatch(updated, /^\[ui\]$/m);
+  assert.equal(applyManagedSettings(updated), updated);
+});
+
+test("inline managed tables are rejected rather than duplicated", () => {
   assert.throws(
-    () => applyManagedSettings('ui.theme = "groknight"\n'),
-    /defines ui outside a \[ui\] table/,
+    () => applyManagedSettings('ui = { theme = "groknight" }\n'),
+    /defines ui as an inline table/,
   );
+});
+
+test("comments never become plugin ids", () => {
+  const updated = applyManagedSettings(
+    '[plugins]\nenabled = ["ffsstack", "ffss"] # replace "ffsstack" with "next"\n',
+  );
+  assert.deepEqual(table(updated, "plugins").slice(1, 4), ["enabled = [", '    "ffss",', "]"]);
+  assert.doesNotMatch(updated, /"next"/);
+});
+
+test("multi-line strings are never read as tables or keys", () => {
+  const prompt = '[agents.fixture]\nprompt = """\n[ui]\npermission_mode = "ask"\n"""\n';
+  const updated = applyManagedSettings(prompt);
+  assert.ok(updated.startsWith(prompt));
+  assertManaged(updated.slice(prompt.length));
 });
