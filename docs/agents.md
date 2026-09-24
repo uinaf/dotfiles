@@ -32,6 +32,11 @@ session. Setup replaces drifted values on each run.
 | Grok        | [Grok configuration](../agents/grok/config.ts)                                           | auto permission mode; no self-update, telemetry, feedback, trace, workspace, or codebase uploads; retired plugin ids pruned |
 | OpenCode    | [OpenCode modifier](../chezmoi/private_dot_config/opencode/modify_private_opencode.json) | sharing disabled; its build agent already allows tools without a review mode                                                |
 
+Grok's launcher runs whatever `~/.grok/bin/grok` links to, and mise installs
+the package without running the postinstall step that restages that link.
+Grok setup moves a stale link aside so the pinned launcher stages its own
+version, restoring it if staging fails; the doctor flags global npm installs.
+
 Claude usage metrics stay on: `DISABLE_TELEMETRY` also stops feature-flag
 fetching, which auto mode, Remote Control, and cross-machine messaging need.
 Model-training choices are account settings, not client configuration.

@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 
 import { NodeServices } from "@effect/platform-node";
-import { Console, Effect } from "effect";
+import { Console, Effect, Option } from "effect";
 import { join, resolve } from "node:path";
-import { configureGrokDefaults } from "../agents/grok/config.ts";
+import { alignPinnedBinary, configureGrokDefaults } from "../agents/grok/config.ts";
+import { CommandRunner } from "../lib/command.ts";
 import { fail, runMain } from "../lib/program.ts";
 import { profileModelFile, resolveProfile } from "../profiles/current.ts";
 import { readProfileModelEffect, requireProfile } from "../profiles/model.ts";
@@ -22,6 +23,12 @@ if (import.meta.main) {
     yield* Console.log(
       changed ? `configured Grok defaults in ${configPath}` : `ok Grok defaults in ${configPath}`,
     );
+    const pinned = yield* alignPinnedBinary(grokHome);
+    yield* Console.log(
+      Option.isSome(pinned)
+        ? `ok Grok runs the pinned ${pinned.value}`
+        : "Grok pin is not installed; skipping binary alignment",
+    );
   });
-  runMain(program.pipe(Effect.provide(NodeServices.layer)));
+  runMain(program.pipe(Effect.provide(CommandRunner.layer), Effect.provide(NodeServices.layer)));
 }

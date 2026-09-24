@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import {
+  existsSync,
   mkdirSync,
+  readlinkSync,
+  renameSync,
   mkdtempSync,
   readFileSync,
   rmSync,
@@ -29,10 +32,42 @@ function fixture() {
   return { root, home, config: join(home, "config.toml") };
 }
 
-function run(home: string) {
+// A fake mise reports the pinned install; its launcher stages like Grok's.
+function pin(root: string, version?: string) {
+  const bin = join(root, "bin");
+  const install = join(root, "install");
+  mkdirSync(bin, { recursive: true });
+  writeFileSync(
+    join(bin, "mise"),
+    version === undefined
+      ? "#!/bin/sh\necho 'mise ERROR npm:@xai-official/grok@1.0.1 not installed' >&2\nexit 1\n"
+      : `#!/bin/sh\nprintf '%s\\n' '${install}'\n`,
+    { mode: 0o755 },
+  );
+  if (version !== undefined) {
+    mkdirSync(join(install, "node_modules/@xai-official/grok"), { recursive: true });
+    mkdirSync(join(install, "node_modules/.bin"), { recursive: true });
+    writeFileSync(
+      join(install, "node_modules/@xai-official/grok/package.json"),
+      JSON.stringify({ version }),
+    );
+    writeFileSync(
+      join(install, "node_modules/.bin/grok"),
+      `#!/bin/sh\necho launched >> '${join(root, "launches")}'\nmkdir -p "$GROK_HOME/bin"\n[ -e "$GROK_HOME/bin/grok" ] || { : > "$GROK_HOME/bin/grok-${version}"; ln -s grok-${version} "$GROK_HOME/bin/grok"; }\necho "grok $(readlink "$GROK_HOME/bin/grok" | sed s/^grok-//) (fixture) [stable]"\n`,
+      { mode: 0o755 },
+    );
+  }
+  return bin;
+}
+
+function run(home: string, bin?: string) {
   return spawnSync(script, ["--profile", "workstation"], {
     encoding: "utf8",
-    env: { ...process.env, GROK_HOME: home },
+    env: {
+      ...process.env,
+      GROK_HOME: home,
+      PATH: `${bin ?? pin(dirname(home))}:${process.env.PATH}`,
+    },
   });
 }
 
@@ -82,4 +117,87 @@ test("installed Grok recognizes every managed key", { skip: !grokInstalled }, ()
     configWarnings?: { path: string }[];
   };
   assert.deepEqual(configWarnings ?? [], []);
+});
+
+test("a stale staged binary is replaced by the pinned version once", () => {
+  const { root, home } = fixture();
+  mkdirSync(join(home, "bin"), { recursive: true });
+  writeFileSync(join(home, "bin/grok-1.0.0"), "");
+  symlinkSync("grok-1.0.0", join(home, "bin/grok"));
+  const bin = pin(root, "1.0.1");
+  const first = run(home, bin);
+  assert.equal(first.status, 0, first.stderr);
+  assert.match(first.stdout, /^ok Grok runs the pinned 1\.0\.1$/m);
+  assert.equal(readlinkSync(join(home, "bin/grok")), "grok-1.0.1");
+  const second = run(home, bin);
+  assert.equal(second.status, 0, second.stderr);
+  assert.equal(readFileSync(join(root, "launches"), "utf8"), "launched\n");
+});
+
+test("a missing pin leaves staged binaries alone", () => {
+  const { root, home } = fixture();
+  mkdirSync(join(home, "bin"), { recursive: true });
+  symlinkSync("grok-1.0.0", join(home, "bin/grok"));
+  const result = run(home, pin(root));
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /skipping binary alignment/);
+  assert.equal(readlinkSync(join(home, "bin/grok")), "grok-1.0.0");
+  assert.equal(existsSync(join(root, "launches")), false);
+});
+
+test("other mise failures stop setup instead of skipping alignment", () => {
+  const { root, home } = fixture();
+  const bin = join(root, "bin");
+  mkdirSync(bin, { recursive: true });
+  writeFileSync(
+    join(bin, "mise"),
+    "#!/bin/sh\necho 'mise ERROR config is untrusted' >&2\nexit 1\n",
+    {
+      mode: 0o755,
+    },
+  );
+  const result = run(home, bin);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /could not resolve the Grok pin: mise ERROR config is untrusted/);
+});
+
+test("a launcher that stages a different version fails setup", () => {
+  const { root, home } = fixture();
+  const bin = pin(root, "1.0.1");
+  writeFileSync(
+    join(root, "install/node_modules/@xai-official/grok/package.json"),
+    JSON.stringify({ version: "1.0.2" }),
+  );
+  const result = run(home, bin);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /pinned Grok 1\.0\.2 did not stage \(exit 0\): grok 1\.0\.1/);
+});
+
+test("a failed staging restores the previous link", () => {
+  const { root, home } = fixture();
+  mkdirSync(join(home, "bin"), { recursive: true });
+  symlinkSync("grok-1.0.0", join(home, "bin/grok"));
+  const bin = pin(root, "1.0.1");
+  writeFileSync(
+    join(root, "install/node_modules/.bin/grok"),
+    "#!/bin/sh\necho 'download failed' >&2\nexit 7\n",
+    { mode: 0o755 },
+  );
+  const result = run(home, bin);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /did not stage \(exit 7\): download failed/);
+  assert.equal(readlinkSync(join(home, "bin/grok")), "grok-1.0.0");
+});
+
+test("a global-prefix pin layout is aligned too", () => {
+  const { root, home } = fixture();
+  const bin = pin(root, "1.0.1");
+  const install = join(root, "install");
+  mkdirSync(join(install, "lib"), { recursive: true });
+  renameSync(join(install, "node_modules"), join(install, "lib/node_modules"));
+  mkdirSync(join(install, "bin"));
+  renameSync(join(install, "lib/node_modules/.bin/grok"), join(install, "bin/grok"));
+  const result = run(home, bin);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(readlinkSync(join(home, "bin/grok")), "grok-1.0.1");
 });

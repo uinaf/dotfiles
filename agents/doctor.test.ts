@@ -196,6 +196,17 @@ test("accepts the mise pin as Grok's managed install", () => {
   assert.doesNotMatch(runtime.stdout.value, /Grok: install/);
 });
 
+test("reports a global npm Grok under a mise-managed Node", () => {
+  const { repoDir, home } = createFixture();
+  const replies = new Map(healthy);
+  replies.set("sh -c command -v grok", {
+    stdout: "$HOME/.local/share/mise/installs/node/24.21.0/bin/grok\n",
+  });
+  const runtime = new FixtureRuntime(repoDir, home, replies);
+  assert.equal(main([], runtime), 1);
+  assert.match(runtime.stdout.value, /Grok: install - grok resolves to .*installs\/node\//);
+});
+
 test("skips harnesses that are not installed", () => {
   const { repoDir, home } = createFixture();
   const runtime = new FixtureRuntime(repoDir, home, healthy);
