@@ -20,11 +20,29 @@ original enrollment snapshot semantics.
 If a native TOML rewrite drops block comments, the exact configured gateway
 sections are still recognized; conflicting values remain an error.
 
+## Permissions and Privacy
+
+Every harness starts in its auto-approval mode; switch to full access per
+session. Setup replaces drifted values on each run.
+
+| Harness     | Owner                                                                                    | Managed defaults                                                                                                            |
+| ----------- | ---------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Claude Code | [settings modifier](../chezmoi/private_dot_claude/modify_private_settings.json)          | auto mode; no error reports, `/feedback`, or session surveys                                                                |
+| Codex       | [Codex configuration](../agents/codex/config.ts)                                         | on-request approvals routed to auto review in the `:workspace` profile; no analytics, feedback, or Statsig metrics          |
+| Grok        | [Grok configuration](../agents/grok/config.ts)                                           | auto permission mode; no self-update, telemetry, feedback, trace, workspace, or codebase uploads; retired plugin ids pruned |
+| OpenCode    | [OpenCode modifier](../chezmoi/private_dot_config/opencode/modify_private_opencode.json) | sharing disabled; its build agent already allows tools without a review mode                                                |
+
+Claude usage metrics stay on: `DISABLE_TELEMETRY` also stops feature-flag
+fetching, which auto mode, Remote Control, and cross-machine messaging need.
+Model-training choices are account settings, not client configuration.
+
 ## Global Rules
 
 [Rule sources](../agents/rules.json) supply the shared text.
 [Chezmoi](../chezmoi/private_AGENTS.md.tmpl) combines it with private fragments
 into `~/AGENTS.md`; `~/.claude/CLAUDE.md` and `~/.codex/AGENTS.md` link there.
+Grok and OpenCode read `~/.claude/CLAUDE.md` through their default Claude
+compatibility, so they need no separate link.
 Edit shared rules at their configured source and private instructions in:
 
 | File                                 | Position            |

@@ -19,6 +19,7 @@
           "trust-agent-worktrees",
           "install-gh-extensions",
           "configure-codex",
+          "configure-grok",
           "sync-agents"
         ],
         "externalHomebrew": [
@@ -53,6 +54,7 @@
           "configure-codex",
           "configure-llm-gateway",
           "configure-bifrost-clients",
+          "configure-grok",
           "sync-agents",
           "configure-hindsight"
         ]
@@ -80,6 +82,7 @@
           "configure-codex",
           "configure-llm-gateway",
           "configure-bifrost-clients",
+          "configure-grok",
           "sync-agents",
           "configure-hindsight",
           "install-t3-service"
@@ -103,6 +106,7 @@
           "install-gh-extensions",
           "configure-helium",
           "configure-codex",
+          "configure-grok",
           "sync-agents"
         ],
         "externalHomebrew": [
@@ -130,6 +134,7 @@
           "install-gh-extensions",
           "configure-codex",
           "configure-llm-gateway",
+          "configure-grok",
           "sync-agents",
           "install-t3-service"
         ],

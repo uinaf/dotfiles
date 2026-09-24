@@ -137,6 +137,25 @@
       "output": "Codex typed atomic edits plus native write integration when Codex is installed"
     },
     {
+      "id": "grok-settings",
+      "domain": "agents",
+      "command": [
+        "pnpm",
+        "exec",
+        "vp",
+        "test",
+        "agents/grok/config.test.ts",
+        "bootstrap/configure-grok.test.ts"
+      ],
+      "output": "Grok permission, update, and privacy defaults plus native key recognition when Grok is installed"
+    },
+    {
+      "id": "opencode-settings",
+      "domain": "agents",
+      "command": ["pnpm", "exec", "vp", "test", "verify/opencode-settings.test.ts"],
+      "output": "OpenCode sharing is disabled while unrelated settings survive"
+    },
+    {
       "id": "llm-gateway",
       "domain": "agents",
       "command": [

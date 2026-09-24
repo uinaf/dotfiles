@@ -35,6 +35,18 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const sourceDir = join(repoRoot, "chezmoi");
 const templatePath = join(sourceDir, "private_dot_claude/modify_private_settings.json");
 const managedMode = "defaultMode";
+const managedEnv = {
+  CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY: "1",
+  DISABLE_ERROR_REPORTING: "1",
+  DISABLE_FEEDBACK_COMMAND: "1",
+};
+
+function unmanagedEnv(env: Record<string, unknown> | undefined) {
+  const rest = Object.fromEntries(
+    Object.entries(env ?? {}).filter(([key]) => !Object.hasOwn(managedEnv, key)),
+  );
+  return Object.keys(rest).length > 0 ? rest : undefined;
+}
 const fixtures: Fixture[] = [
   { contents: "", expected: {} },
   {
@@ -141,6 +153,7 @@ function renderFixture(fixture: Fixture, root: string): Promise<void> {
         assert.deepEqual(
           {
             ...actual,
+            env: unmanagedEnv(actual.env),
             model: undefined,
             modelSettings: {
               ...actual.modelSettings,
@@ -156,6 +169,7 @@ function renderFixture(fixture: Fixture, root: string): Promise<void> {
           },
           {
             ...expected,
+            env: expected.env,
             model: undefined,
             modelSettings: {
               ...expected.modelSettings,
@@ -178,6 +192,7 @@ function renderFixture(fixture: Fixture, root: string): Promise<void> {
         assert.equal(actual.autoMemoryEnabled, false);
         assert.deepEqual(actual.attribution, { commit: "", pr: "", sessionUrl: false });
         assert.equal(actual.permissions?.[managedMode], "auto");
+        assert.deepEqual({ ...actual.env, ...managedEnv }, actual.env);
         finish();
       } catch (failure) {
         reject(failure);
@@ -194,6 +209,7 @@ async function verifyMissingFile(root: string): Promise<void> {
   const written = JSON.parse(readFileSync(path, "utf8")) as Settings;
   assert.equal(written.autoMemoryEnabled, false);
   assert.equal(written.permissions?.[managedMode], "auto");
+  assert.deepEqual(written.env, managedEnv);
   assert.equal(Number(statSync(path, { bigint: true }).mode & 0o777n), 0o600);
 }
 
