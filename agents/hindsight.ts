@@ -1,10 +1,33 @@
 import { Console, Effect, FileSystem, Option, Schema } from "effect";
+import { createHash } from "node:crypto";
 import { dirname, join } from "node:path";
 import { CommandRunner } from "../lib/command.ts";
 import { CliFailure, fail } from "../lib/program.ts";
 import { type Harness, HARNESS_INFO, HARNESSES } from "./harness.ts";
 
 const PACKAGE = "@vectorize-io/hindsight-coding-agents";
+
+type Tarball = { url: string; sha256: string };
+type ClientOverride = Tarball & { base: string; version: string };
+export type Client = { version: string; tarball?: Tarball };
+
+// Published 0.7.0 writes Grok hooks into config.toml, where `grok inspect` flags them, and lets
+// Claude Code's hooks run a second time inside Grok (vectorize-io/hindsight#4718). While npm still
+// publishes that release, install a build of it with the fix; any newer release replaces this.
+export const CLIENT_OVERRIDE: ClientOverride | undefined = {
+  base: "0.7.0",
+  version: "0.7.1-altaywtf.0",
+  url: "https://github.com/altaywtf/hindsight/releases/download/coding-agents-v0.7.1-altaywtf.0/vectorize-io-hindsight-coding-agents-0.7.1-altaywtf.0.tgz",
+  sha256: "c3dcba013ded283a5793c672142555a4c6fe9699a5b80643c98723ecf15b1175",
+};
+
+export function wantedClient(
+  published: string,
+  override: ClientOverride | undefined = CLIENT_OVERRIDE,
+): Client {
+  if (override === undefined || published !== override.base) return { version: published };
+  return { version: override.version, tarball: { url: override.url, sha256: override.sha256 } };
+}
 
 const INSTALLER_NAMES: Record<Harness, string> = {
   claude: "claude-code",
@@ -250,7 +273,7 @@ const latestVersion = Effect.fn("latestVersion")(function* () {
 type Report = {
   harnesses: readonly Harness[];
   installed: string | undefined;
-  latest: string;
+  wanted: Client;
   unwired: readonly Harness[];
   config: Record<string, unknown>;
   credentials: readonly RepoCredential[];
@@ -274,18 +297,69 @@ const inspect = Effect.fn("inspectHindsight")(function* (
   for (const harness of harnesses) {
     if (!(yield* wired(paths, harness))) unwired.push(harness);
   }
-  return { harnesses, installed, latest, unwired, config, credentials } satisfies Report;
+  return {
+    harnesses,
+    installed,
+    wanted: wantedClient(latest),
+    unwired,
+    config,
+    credentials,
+  } satisfies Report;
 });
 
 const drift = (report: Report): string[] => [
-  ...(report.installed === report.latest
+  ...(report.installed === report.wanted.version
     ? []
-    : [`runtime ${report.installed ?? "missing"} differs from published ${report.latest}`]),
+    : [`runtime ${report.installed ?? "missing"} differs from wanted ${report.wanted.version}`]),
   ...report.unwired.map(
     (harness) => `${HARNESS_INFO[harness].label} is not wired with HINDSIGHT_MCP_HARNESS`,
   ),
   ...report.credentials.map(({ bank }) => `${bank} lacks its paths credentials`),
 ];
+
+const runInstaller = Effect.fn("runInstaller")(function* (args: string[]) {
+  const runner = yield* CommandRunner;
+  yield* Console.log(`hindsight: npx ${args.join(" ")}`);
+  const result = yield* runner
+    .run("npx", args, { output: "inherit", timeoutMs: 10 * 60_000 })
+    .pipe(Effect.mapError((error) => failure(`npx failed: ${error.message}`)));
+  if (result.status !== 0) return yield* fail(`hindsight install exited with ${result.status}`);
+});
+
+const installClient = Effect.fn("installClient")(function* (
+  client: Client,
+  targets: readonly string[],
+) {
+  const tarball = client.tarball;
+  if (tarball === undefined)
+    return yield* runInstaller(["-y", `${PACKAGE}@latest`, "install", ...targets]);
+  const fs = yield* FileSystem.FileSystem;
+  const runner = yield* CommandRunner;
+  yield* Effect.scoped(
+    Effect.gen(function* () {
+      const directory = yield* fs.makeTempDirectoryScoped({ prefix: "dotfiles-hindsight." });
+      const file = join(directory, "client.tgz");
+      const download = yield* runner
+        .run("curl", ["-fsSL", "--retry", "2", "-o", file, tarball.url], { timeoutMs: 5 * 60_000 })
+        .pipe(Effect.mapError((error) => failure(`curl failed: ${error.message}`)));
+      if (download.status !== 0)
+        return yield* fail(`download of ${tarball.url} failed: ${download.stderr.trim()}`);
+      const bytes = yield* fs
+        .readFile(file)
+        .pipe(Effect.mapError(() => failure(`cannot read the download of ${tarball.url}`)));
+      const digest = createHash("sha256").update(bytes).digest("hex");
+      if (digest !== tarball.sha256)
+        return yield* fail(`${tarball.url} has sha256 ${digest}, expected ${tarball.sha256}`);
+      yield* runInstaller([
+        "-y",
+        `--package=${file}`,
+        "hindsight-coding-agents",
+        "install",
+        ...targets,
+      ]);
+    }),
+  );
+});
 
 // The installer is idempotent per harness: it re-stages the runtime and rewrites
 // exactly its own hook and MCP entries, leaving user config alone.
@@ -309,27 +383,19 @@ export const configureHindsight = Effect.fn("configureHindsight")(function* (
   const reasons = drift(report);
   if (reasons.length === 0) {
     yield* Console.log(
-      `hindsight: ${report.latest} wired for ${report.harnesses.map((h) => INSTALLER_NAMES[h]).join(", ")}`,
+      `hindsight: ${report.wanted.version} wired for ${report.harnesses.map((h) => INSTALLER_NAMES[h]).join(", ")}`,
     );
     return;
   }
   if (check) return yield* fail(`hindsight drift:\n  - ${reasons.join("\n  - ")}`);
 
-  const runner = yield* CommandRunner;
   const targets = report.harnesses.map((harness) => INSTALLER_NAMES[harness]);
   yield* Console.log(`hindsight: ${reasons.join("; ")}`);
-  yield* Console.log(`hindsight: npx -y ${PACKAGE}@latest install ${targets.join(" ")}`);
-  const result = yield* runner
-    .run("npx", ["-y", `${PACKAGE}@latest`, "install", ...targets], {
-      output: "inherit",
-      timeoutMs: 10 * 60_000,
-    })
-    .pipe(Effect.mapError((error) => failure(`npx failed: ${error.message}`)));
-  if (result.status !== 0) return yield* fail(`hindsight install exited with ${result.status}`);
+  yield* installClient(report.wanted, targets);
 
   const after = yield* inspect(paths, commandExists);
   const remaining = drift(after);
   if (remaining.length > 0)
     return yield* fail(`hindsight drift after install:\n  - ${remaining.join("\n  - ")}`);
-  yield* Console.log(`hindsight: ${after.latest} wired for ${targets.join(", ")}`);
+  yield* Console.log(`hindsight: ${after.wanted.version} wired for ${targets.join(", ")}`);
 });

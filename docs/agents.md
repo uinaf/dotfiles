@@ -183,6 +183,11 @@ re-stages code but never rewires hosts; a harness whose MCP entry lacks
 `HINDSIGHT_MCP_HARNESS` fails its handshake, so the step reinstalls whenever the
 version or that wiring drifts. Daily maintenance repeats the step.
 
+When a published release lacks a fix, `CLIENT_OVERRIDE` in that file pins a
+build of it: the step downloads the tarball, checks its SHA-256, and installs
+it instead while npm still publishes the release it patches. The first newer
+release replaces it; delete the override then.
+
 The server endpoint and token stay in owner-only `~/.hindsight/coding-agent.json`;
 setup requires them and never writes them. Each machine gets its own token from
 the owning private system; never copy one machine's token to another, so a
