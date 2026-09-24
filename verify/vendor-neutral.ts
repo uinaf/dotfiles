@@ -69,6 +69,7 @@ function allowed(file: string, content: string): boolean {
         '"source": "uinaf/agent-skills"',
         '"source": "uinaf/design"',
         '"source": "https://cdn.uinaf.dev/skills/ui"',
+        '"source": "uinaf/zebroid-infra"',
       ]);
     case "agents/plugins/developer.json":
     case "agents/plugins/workstation.json":

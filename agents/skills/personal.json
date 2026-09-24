@@ -11,6 +11,10 @@
     {
       "name": "putio-sdk-dev",
       "source": "putdotio/agent-skills"
+    },
+    {
+      "name": "zebroid-fleet",
+      "source": "uinaf/zebroid-infra"
     }
   ]
 }
