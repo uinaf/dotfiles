@@ -252,6 +252,7 @@ const program = Effect.scoped(
       'cask "1password"',
       'cask "google-chrome"',
       'cask "chatgpt"',
+      'cask "claude"',
       'cask "t3-code"',
       'cask "zed"',
       'brew "ykman"',
