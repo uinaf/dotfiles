@@ -112,6 +112,28 @@ function trufflehogSource(repoRoot: string, command: CommandRunner): string {
   return source && existsSync(join(source, ".git")) ? source : repoRoot;
 }
 
+// The filesystem pass covers what Git would commit: tracked and unignored
+// files. Ignored dependency trees such as node_modules carry third-party
+// test fixtures that look like credentials. A path that does not decode as
+// UTF-8 fails the listing instead of dropping out of the scan.
+function worktreeFiles(repoRoot: string, command: CommandRunner): string[] | undefined {
+  const listed = command("git", [
+    "-C",
+    repoRoot,
+    "ls-files",
+    "-z",
+    "--cached",
+    "--others",
+    "--exclude-standard",
+  ]);
+  if (listed.error || listed.status !== 0 || listed.stdout.includes("\uFFFD")) return undefined;
+  return listed.stdout
+    .split("\0")
+    .filter(Boolean)
+    .map((path) => join(repoRoot, path))
+    .filter((path) => existsSync(path));
+}
+
 export function runRepoAudit(
   options: RepoAuditOptions,
   dependencies: AuditDependencies & { repoRoot?: string } = {},
@@ -160,25 +182,29 @@ export function runRepoAudit(
     "trufflehog is not installed",
   );
   if (source !== repoRoot && trufflehogAvailable) {
-    scannerResult(
-      report,
-      command(
-        "trufflehog",
-        [
-          "filesystem",
-          repoRoot,
-          "--no-update",
-          "--results=verified,unknown",
-          "--fail",
-          "--force-skip-binaries",
-          "--force-skip-archives",
-        ],
-        output,
-      ),
-      "trufflehog found no verified or unknown leaks in linked worktree files",
-      "trufflehog reported verified/unknown leaks or failed in linked worktree files",
-      "trufflehog is not installed",
-    );
+    const files = worktreeFiles(repoRoot, command);
+    if (files === undefined) report.fail("cannot list linked worktree files");
+    else if (files.length > 0) {
+      scannerResult(
+        report,
+        command(
+          "trufflehog",
+          [
+            "filesystem",
+            ...files,
+            "--no-update",
+            "--results=verified,unknown",
+            "--fail",
+            "--force-skip-binaries",
+            "--force-skip-archives",
+          ],
+          output,
+        ),
+        "trufflehog found no verified or unknown leaks in linked worktree files",
+        "trufflehog reported verified/unknown leaks or failed in linked worktree files",
+        "trufflehog is not installed",
+      );
+    }
   }
 
   report.section("macOS compliance baseline");
