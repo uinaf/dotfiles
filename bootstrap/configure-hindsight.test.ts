@@ -14,7 +14,12 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { test } from "vite-plus/test";
 
-import { pathCredentialDrift, wiredInText } from "../agents/hindsight.ts";
+import {
+  CLIENT_OVERRIDE,
+  pathCredentialDrift,
+  wantedClient,
+  wiredInText,
+} from "../agents/hindsight.ts";
 
 const script = resolve(import.meta.dirname, "configure-hindsight.ts");
 
@@ -57,6 +62,11 @@ done
 `,
     { mode: 0o700 },
   );
+  writeFileSync(
+    join(bin, "curl"),
+    `#!/bin/sh\nprintf '%s\\n' "$*" >> "${log}.curl"\nwhile [ "$1" != "-o" ]; do shift; done\nprintf 'not the pinned client' > "$2"\n`,
+    { mode: 0o700 },
+  );
   for (const harness of options.harnesses ?? ["claude", "codex", "grok"])
     writeFileSync(join(bin, harness), "#!/bin/sh\n", { mode: 0o700 });
   // The current Node's bin directory is not on PATH: mise installs npm-backed agents such as grok next to node.
@@ -64,6 +74,7 @@ done
   return {
     root,
     home,
+    bin,
     log,
     // Only fixture binaries and system tools are visible, so host agents never leak in.
     env: {
@@ -121,6 +132,52 @@ test("rewires a harness whose MCP entry lost its harness env", (t) => {
   assert.equal(run(paths).status, 0);
   assert.equal(npxCalls(paths).length, 2);
   assert.equal(run(paths, ["--check"]).status, 0);
+});
+
+test("installs the pinned client build only while npm publishes the release it patches", () => {
+  const override = {
+    base: "1.0.0",
+    version: "1.0.1-fork.0",
+    url: "https://example.test/client.tgz",
+    sha256: "0".repeat(64),
+  };
+  assert.deepEqual(wantedClient("1.0.0", override), {
+    version: "1.0.1-fork.0",
+    tarball: { url: override.url, sha256: override.sha256 },
+  });
+  assert.deepEqual(wantedClient("1.0.1", override), { version: "1.0.1" });
+  assert.deepEqual(wantedClient("1.0.0", undefined), { version: "1.0.0" });
+});
+
+test("accepts the pinned client build as converged", (t) => {
+  if (CLIENT_OVERRIDE === undefined) return t.skip("no client override pinned");
+  const paths = fixture({ published: CLIENT_OVERRIDE.base });
+  t.onTestFinished(() => rmSync(paths.root, { recursive: true, force: true }));
+  spawnSync(join(paths.bin, "npx"), ["install", "claude-code", "codex", "grok-build"], {
+    env: paths.env,
+  });
+  writeFileSync(
+    join(paths.home, ".hindsight/coding-agents/package.json"),
+    JSON.stringify({ version: CLIENT_OVERRIDE.version }),
+  );
+  rmSync(paths.log);
+
+  const check = run(paths, ["--check"]);
+  assert.equal(check.status, 0, check.stderr);
+  assert.ok(check.stdout.includes(`${CLIENT_OVERRIDE.version} wired`), check.stdout);
+  assert.deepEqual(npxCalls(paths), []);
+});
+
+test("refuses a pinned client download whose checksum differs", (t) => {
+  if (CLIENT_OVERRIDE === undefined) return t.skip("no client override pinned");
+  const paths = fixture({ published: CLIENT_OVERRIDE.base, installed: CLIENT_OVERRIDE.base });
+  t.onTestFinished(() => rmSync(paths.root, { recursive: true, force: true }));
+
+  const result = run(paths);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, new RegExp(`expected ${CLIENT_OVERRIDE.sha256}`));
+  assert.ok(readFileSync(`${paths.log}.curl`, "utf8").endsWith(` ${CLIENT_OVERRIDE.url}\n`));
+  assert.deepEqual(npxCalls(paths), []);
 });
 
 test("requires a machine-local server configuration and never writes one", (t) => {
