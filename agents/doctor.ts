@@ -235,28 +235,51 @@ function grokFinding(server: McpServer, doctor: GrokDoctor | undefined, text: st
 // A global npm install (including one under a mise-managed Node) or the
 // Homebrew cask shadows the mise pin that every managed host installs. The pin's npm postinstall stages the versioned binary
 // under ~/.grok/bin itself, so that directory is part of the managed layout.
+// A mise shim can still dispatch to a global npm install under the mise Node,
+// so a shim path is resolved and checked against the pin's install prefix.
+function resolvedGrokPath(runtime: Runtime, home: string, path: string): string | undefined {
+  if (!path.startsWith(`${home}/.local/share/mise/shims/`)) {
+    return path;
+  }
+  const which = capture(runtime, "mise", ["which", "grok"]);
+  const where = capture(runtime, "mise", ["where", "npm:@xai-official/grok"]);
+  const resolved = which.stdout.trim();
+  const pin = where.stdout.trim();
+  if (which.status !== 0 || resolved.length === 0) {
+    return undefined;
+  }
+  if (where.status === 0 && pin.length > 0 && resolved.startsWith(`${pin}/`)) {
+    return undefined;
+  }
+  return resolved;
+}
+
 function grokDriftFindings(runtime: Runtime): Finding[] {
-  const findings: Finding[] = [];
   const home = runtime.env.HOME;
   const which = capture(runtime, "sh", ["-c", "command -v grok"]);
   const path = which.stdout.trim();
+  if (which.status !== 0 || path.length === 0) {
+    return [];
+  }
+  const resolved = home === undefined ? path : resolvedGrokPath(runtime, home, path);
   if (
-    which.status === 0 &&
-    path.length > 0 &&
-    (home === undefined ||
-      !path.startsWith(`${home}/.local/share/mise/`) ||
-      path.startsWith(`${home}/.local/share/mise/installs/node/`))
+    resolved === undefined ||
+    (home !== undefined &&
+      resolved.startsWith(`${home}/.local/share/mise/`) &&
+      !resolved.startsWith(`${home}/.local/share/mise/installs/node/`))
   ) {
-    findings.push({
+    return [];
+  }
+  return [
+    {
       harness: "grok",
       server: "install",
       status: "failed",
-      detail: `grok resolves to ${path}, not the mise pin`,
+      detail: `grok resolves to ${resolved}, not the mise pin`,
       repair:
         "npm uninstall -g @xai-official/grok; brew uninstall --cask grok-build; mise install npm:@xai-official/grok; mise reshim",
-    });
-  }
-  return findings;
+    },
+  ];
 }
 
 function collect(runtime: Runtime, servers: readonly McpServer[]): Finding[] {
