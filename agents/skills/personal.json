@@ -1,6 +1,10 @@
 {
   "skills": [
     {
+      "name": "oss-pnpm",
+      "source": "altaywtf/agent-skills"
+    },
+    {
       "name": "putio-cli",
       "source": "putdotio/putio-cli"
     },
