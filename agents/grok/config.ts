@@ -231,9 +231,16 @@ export const configureGrokDefaults = Effect.fn("configureGrokDefaults")(function
 
 const PinnedPackage = Schema.Struct({ version: Schema.String });
 
+// mise's npm backend installs either a local tree or a global prefix.
+const PIN_LAYOUTS = [
+  { manifest: "node_modules/@xai-official/grok/package.json", launcher: "node_modules/.bin/grok" },
+  { manifest: "lib/node_modules/@xai-official/grok/package.json", launcher: "bin/grok" },
+] as const;
+
 // Grok's launcher runs ~/.grok/bin/grok whatever version it links to, and
 // mise installs without lifecycle scripts, so a pin bump never restages it.
-// Unlinking a stale binary makes the pinned launcher stage its own version.
+// Moving a stale link aside makes the pinned launcher stage its own version;
+// the previous link returns if staging fails.
 export const alignPinnedBinary = Effect.fn("alignPinnedBinary")(function* (grokHome: string) {
   const runner = yield* CommandRunner;
   const fs = yield* FileSystem.FileSystem;
@@ -243,20 +250,39 @@ export const alignPinnedBinary = Effect.fn("alignPinnedBinary")(function* (grokH
     return yield* fail(`mise could not resolve the Grok pin: ${where.stderr.trim()}`);
   }
   const installDir = where.stdout.trim();
-  const manifest = yield* fs.readFileString(
-    join(installDir, "node_modules/@xai-official/grok/package.json"),
-  );
+  let layout: (typeof PIN_LAYOUTS)[number] | undefined;
+  for (const candidate of PIN_LAYOUTS)
+    if (yield* fs.exists(join(installDir, candidate.manifest))) {
+      layout = candidate;
+      break;
+    }
+  if (layout === undefined) return yield* fail(`no Grok package under the pin at ${installDir}`);
   const { version } = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(PinnedPackage))(
-    manifest,
+    yield* fs.readFileString(join(installDir, layout.manifest)),
   );
   const canonical = join(grokHome, "bin", "grok");
   const target = yield* fs.readLink(canonical).pipe(Effect.option);
   if (Option.isSome(target) && target.value === `grok-${version}`) return Option.some(version);
-  yield* fs.remove(canonical, { force: true });
-  const launched = yield* runner.run(join(installDir, "node_modules/.bin/grok"), ["--version"], {
-    env: { GROK_HOME: grokHome },
-  });
-  if (launched.status !== 0 || !launched.stdout.startsWith(`grok ${version} `))
-    return yield* fail(`pinned Grok ${version} did not stage: ${launched.stdout.trim()}`);
-  return Option.some(version);
+  const previous = `${canonical}.previous`;
+  yield* fs.remove(previous, { force: true });
+  const movedAside = Option.isSome(yield* fs.rename(canonical, previous).pipe(Effect.option));
+  const launched = yield* runner
+    .run(join(installDir, layout.launcher), ["--version"], { env: { GROK_HOME: grokHome } })
+    .pipe(
+      Effect.catch((error) => Effect.succeed({ status: -1, stdout: "", stderr: error.message })),
+    );
+  if (
+    launched.status === 0 &&
+    new RegExp(`^grok ${version.replace(/\./g, "\\.")}(\\s|$)`).test(launched.stdout)
+  ) {
+    yield* fs.remove(previous, { force: true });
+    return Option.some(version);
+  }
+  if (movedAside) {
+    yield* fs.remove(canonical, { force: true });
+    yield* fs.rename(previous, canonical);
+  }
+  return yield* fail(
+    `pinned Grok ${version} did not stage (exit ${launched.status}): ${`${launched.stdout}\n${launched.stderr}`.trim()}`,
+  );
 });

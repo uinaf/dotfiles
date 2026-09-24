@@ -4,6 +4,7 @@ import {
   existsSync,
   mkdirSync,
   readlinkSync,
+  renameSync,
   mkdtempSync,
   readFileSync,
   rmSync,
@@ -169,5 +170,34 @@ test("a launcher that stages a different version fails setup", () => {
   );
   const result = run(home, bin);
   assert.notEqual(result.status, 0);
-  assert.match(result.stderr, /pinned Grok 1\.0\.2 did not stage: grok 1\.0\.1/);
+  assert.match(result.stderr, /pinned Grok 1\.0\.2 did not stage \(exit 0\): grok 1\.0\.1/);
+});
+
+test("a failed staging restores the previous link", () => {
+  const { root, home } = fixture();
+  mkdirSync(join(home, "bin"), { recursive: true });
+  symlinkSync("grok-1.0.0", join(home, "bin/grok"));
+  const bin = pin(root, "1.0.1");
+  writeFileSync(
+    join(root, "install/node_modules/.bin/grok"),
+    "#!/bin/sh\necho 'download failed' >&2\nexit 7\n",
+    { mode: 0o755 },
+  );
+  const result = run(home, bin);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /did not stage \(exit 7\): download failed/);
+  assert.equal(readlinkSync(join(home, "bin/grok")), "grok-1.0.0");
+});
+
+test("a global-prefix pin layout is aligned too", () => {
+  const { root, home } = fixture();
+  const bin = pin(root, "1.0.1");
+  const install = join(root, "install");
+  mkdirSync(join(install, "lib"), { recursive: true });
+  renameSync(join(install, "node_modules"), join(install, "lib/node_modules"));
+  mkdirSync(join(install, "bin"));
+  renameSync(join(install, "lib/node_modules/.bin/grok"), join(install, "bin/grok"));
+  const result = run(home, bin);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(readlinkSync(join(home, "bin/grok")), "grok-1.0.1");
 });
