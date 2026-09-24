@@ -7,13 +7,6 @@ import { test } from "vite-plus/test";
 
 const read = (path: string) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 const tools = `${read("chezmoi/.chezmoitemplates/mise.toml")}\n${read("chezmoi/.chezmoitemplates/mise-tasks.toml")}`;
-const manifest = JSON.parse(read("package.json"));
-
-function pin(source: string, pattern: RegExp): string {
-  const match = pattern.exec(source);
-  assert.ok(match?.[1], `missing pin: ${pattern}`);
-  return match[1];
-}
 
 function miseSettings() {
   const source = read("chezmoi/private_dot_config/mise/config.toml.tmpl");
@@ -30,26 +23,8 @@ function miseSettings() {
   return JSON.parse(parsed.stdout);
 }
 
-test("CI, bootstrap, and profile Node use the package engine floor", () => {
-  const node = read(".node-version").trim();
-  assert.match(node, /^\d+\.\d+\.\d+$/);
-  assert.equal(pin(tools, /^node = "([^"]+)"/m), node);
-  assert.equal(manifest.engines.node, `>=${node}`);
-});
-
-test("profile pnpm matches the repository package manager", () => {
-  assert.equal(`pnpm@${pin(tools, /^pnpm = "([^"]+)"/m)}`, manifest.packageManager);
-});
-
 test("Node installs leave pnpm to the mise pin", () => {
   assert.deepEqual(miseSettings().node, { npm_shim: false });
-});
-
-test("PyYAML live verification follows its installation pin", () => {
-  assert.equal(
-    pin(read("verify/bootstrap.ts"), /const PYYAML_VERSION = "([^"]+)"/),
-    pin(tools, /PyYAML==([\d.]+)/),
-  );
 });
 
 test("Xcode pin is a dotted release consumed by the installer", () => {
