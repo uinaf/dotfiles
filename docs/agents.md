@@ -188,6 +188,15 @@ setup requires them and never writes them. Each machine gets its own token from
 the owning private system; never copy one machine's token to another, so a
 single machine can be rotated or revoked alone. To rotate, replace `apiToken`
 in that file; restart running sessions so their MCP servers reload it.
+
+A directory whose repositories belong to another tenant gets a
+`paths.<prefix>` entry with that tenant's `apiToken` (and `apiUrl` if it
+differs). The published runtime selects credentials only per bank, so the
+setup step copies each entry's credentials into
+`banks.coding-agent::<repository>` for every Git repository directly under the
+prefix, and `--check` reports a repository that lacks them. The longest prefix
+wins. This is the only thing setup writes to the file, and it skips configs
+with a custom `bankId` or `bankIdTemplate`.
 Provision a new machine once:
 
 ```zsh
