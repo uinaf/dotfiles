@@ -118,6 +118,12 @@ function upsert(
   assignment: string,
 ): Line[] {
   const span = keySpan(lines, section, key);
+  if (
+    span &&
+    span[0] === span[1] &&
+    lines[span[0]].code.replace(/\s+/g, "") === assignment.replace(/\s+/g, "")
+  )
+    return [...lines];
   const texts = lines.map((line) => line.text);
   if (span) texts.splice(span[0], span[1] - span[0] + 1, assignment);
   else {
@@ -133,21 +139,23 @@ const render = (value: boolean | string) =>
 
 function pruneRetiredPlugins(lines: Line[]): Line[] {
   const section = sectionOf(lines, "plugins");
-  const span = section && keySpan(lines, section, "enabled");
+  const key = section ? "enabled" : "plugins.enabled";
+  const span = keySpan(lines, section ?? rootSection(lines), key);
   if (!span) return lines;
   const assignment = lines
     .slice(span[0], span[1] + 1)
     .map((line) => line.code)
     .join("\n");
-  const ids = [...assignment.matchAll(/"((?:[^"\\]|\\.)*)"|'([^']*)'/g)].map(
-    (match) => match[1] ?? match[2],
-  );
-  if (!ids.some((id) => RETIRED_PLUGINS.has(id))) return lines;
-  const kept = ids.filter((id) => !RETIRED_PLUGINS.has(id));
+  const entries = [...assignment.matchAll(/"((?:[^"\\]|\\.)*)"|'([^']*)'/g)].map((match) => ({
+    id: match[1] ?? match[2],
+    token: match[0],
+  }));
+  if (!entries.some(({ id }) => RETIRED_PLUGINS.has(id))) return lines;
+  const kept = entries.filter(({ id }) => !RETIRED_PLUGINS.has(id));
   const replacement =
     kept.length === 0
-      ? ["enabled = []"]
-      : ["enabled = [", ...kept.map((id) => `    ${JSON.stringify(id)},`), "]"];
+      ? [`${key} = []`]
+      : [`${key} = [`, ...kept.map(({ token }) => `    ${token},`), "]"];
   return scan(
     [
       ...lines.slice(0, span[0]).map((line) => line.text),

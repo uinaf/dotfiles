@@ -112,3 +112,15 @@ test("multi-line strings are never read as tables or keys", () => {
   assert.ok(updated.startsWith(prompt));
   assertManaged(updated.slice(prompt.length));
 });
+
+test("root dotted plugin lists lose retired ids and keep escaped ids verbatim", () => {
+  const updated = applyManagedSettings('plugins.enabled = ["ffsstack", "a\\u0062"]\n');
+  const root = updated.split(/^\[/m)[0];
+  assert.ok(root.includes('plugins.enabled = [\n    "a\\u0062",\n]'), root);
+  assert.doesNotMatch(updated, /ffsstack/);
+});
+
+test("compliant assignments keep their trailing comments", () => {
+  const updated = applyManagedSettings("[cli]\nauto_update = false # pinned by mise\n");
+  assert.ok(table(updated, "cli").includes("auto_update = false # pinned by mise"));
+});
