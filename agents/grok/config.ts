@@ -238,7 +238,10 @@ export const alignPinnedBinary = Effect.fn("alignPinnedBinary")(function* (grokH
   const runner = yield* CommandRunner;
   const fs = yield* FileSystem.FileSystem;
   const where = yield* runner.run("mise", ["where", "npm:@xai-official/grok"]);
-  if (where.status !== 0) return Option.none<string>();
+  if (where.status !== 0) {
+    if (/ not installed$/m.test(where.stderr)) return Option.none<string>();
+    return yield* fail(`mise could not resolve the Grok pin: ${where.stderr.trim()}`);
+  }
   const installDir = where.stdout.trim();
   const manifest = yield* fs.readFileString(
     join(installDir, "node_modules/@xai-official/grok/package.json"),

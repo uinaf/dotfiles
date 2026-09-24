@@ -38,7 +38,9 @@ function pin(root: string, version?: string) {
   mkdirSync(bin, { recursive: true });
   writeFileSync(
     join(bin, "mise"),
-    version === undefined ? "#!/bin/sh\nexit 1\n" : `#!/bin/sh\nprintf '%s\\n' '${install}'\n`,
+    version === undefined
+      ? "#!/bin/sh\necho 'mise ERROR npm:@xai-official/grok@1.0.1 not installed' >&2\nexit 1\n"
+      : `#!/bin/sh\nprintf '%s\\n' '${install}'\n`,
     { mode: 0o755 },
   );
   if (version !== undefined) {
@@ -140,4 +142,32 @@ test("a missing pin leaves staged binaries alone", () => {
   assert.match(result.stdout, /skipping binary alignment/);
   assert.equal(readlinkSync(join(home, "bin/grok")), "grok-1.0.0");
   assert.equal(existsSync(join(root, "launches")), false);
+});
+
+test("other mise failures stop setup instead of skipping alignment", () => {
+  const { root, home } = fixture();
+  const bin = join(root, "bin");
+  mkdirSync(bin, { recursive: true });
+  writeFileSync(
+    join(bin, "mise"),
+    "#!/bin/sh\necho 'mise ERROR config is untrusted' >&2\nexit 1\n",
+    {
+      mode: 0o755,
+    },
+  );
+  const result = run(home, bin);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /could not resolve the Grok pin: mise ERROR config is untrusted/);
+});
+
+test("a launcher that stages a different version fails setup", () => {
+  const { root, home } = fixture();
+  const bin = pin(root, "1.0.1");
+  writeFileSync(
+    join(root, "install/node_modules/@xai-official/grok/package.json"),
+    JSON.stringify({ version: "1.0.2" }),
+  );
+  const result = run(home, bin);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /pinned Grok 1\.0\.2 did not stage: grok 1\.0\.1/);
 });
