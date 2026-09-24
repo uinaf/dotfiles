@@ -169,7 +169,9 @@ Over SSH the callback port stays on the remote host: run the login under
 `ssh -t` (Claude and Codex need a TTY) and forward the printed loopback port
 with `ssh -L PORT:127.0.0.1:PORT` before opening the URL locally.
 
-The doctor also reports Grok installation drift and prints the repair command.
+The doctor also reports Grok installation drift and prints the repair command:
+any `grok` on `PATH` other than the mise pin, a mise shim that dispatches
+elsewhere, or a global npm install.
 Review it before removing a conflicting installation.
 
 ## Hindsight Memory
