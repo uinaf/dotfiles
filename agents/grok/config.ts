@@ -71,7 +71,11 @@ const isHeader = (line: Line) => !line.open && /^\s*\[/.test(line.code);
 
 function headerName(line: Line): string | undefined {
   const match = /^\s*\[([^[\]]+)\]\s*$/.exec(line.code);
-  return !line.open && match ? match[1].trim() : undefined;
+  if (line.open || !match) return undefined;
+  return match[1]
+    .split(".")
+    .map((part) => part.trim().replace(/^"([^"\\]*)"$|^'([^']*)'$/, "$1$2"))
+    .join(".");
 }
 
 function sectionOf(lines: readonly Line[], table: string): [number, number] | undefined {
@@ -148,7 +152,8 @@ function pruneRetiredPlugins(lines: Line[]): Line[] {
     .slice(span[0], span[1] + 1)
     .map((line) => line.code)
     .join("\n");
-  const entries = [...assignment.matchAll(/"((?:[^"\\]|\\.)*)"|'([^']*)'/g)].map((match) => ({
+  const values = assignment.slice(assignment.indexOf("=") + 1);
+  const entries = [...values.matchAll(/"((?:[^"\\]|\\.)*)"|'([^']*)'/g)].map((match) => ({
     id: match[1] ?? match[2],
     token: match[0],
   }));

@@ -143,3 +143,12 @@ test("a compliant configuration is returned byte for byte", () => {
   for (const variant of [compliant.trimEnd(), `${compliant}\n\n`])
     assert.equal(applyManagedSettings(variant), variant);
 });
+
+test("quoted table and key spellings are recognized", () => {
+  const updated = applyManagedSettings(
+    '["ui"]\ntheme = "groknight"\n\n[plugins]\n"enabled" = ["ffsstack", "ffss"]\n',
+  );
+  assert.equal(updated.match(/^\[/gm)?.length, 6);
+  assert.match(updated, /^\["ui"\]\ntheme = "groknight"\npermission_mode = "auto"$/m);
+  assert.match(updated, /^enabled = \[\n {4}"ffss",\n\]$/m);
+});
