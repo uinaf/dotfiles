@@ -39,8 +39,9 @@ For generated agent worktrees whose mise configs need trust:
 mise run bootstrap:trust-agent-worktrees
 ```
 
-Bootstrap runs this helper for existing configs near `~/.codex/worktrees` and
-`~/.claude/worktrees`; new worktrees may need another run.
+Bootstrap runs this helper for existing configs near `~/.codex/worktrees`,
+`~/.claude/worktrees`, and `~/.t3/worktrees`; new worktrees may need another
+run.
 
 ## Runtime Pins
 
