@@ -232,8 +232,8 @@ function grokFinding(server: McpServer, doctor: GrokDoctor | undefined, text: st
   };
 }
 
-// A global npm install or the Homebrew cask shadows the mise pin that every
-// managed host installs. The pin's npm postinstall stages the versioned binary
+// A global npm install (including one under a mise-managed Node) or the
+// Homebrew cask shadows the mise pin that every managed host installs. The pin's npm postinstall stages the versioned binary
 // under ~/.grok/bin itself, so that directory is part of the managed layout.
 function grokDriftFindings(runtime: Runtime): Finding[] {
   const findings: Finding[] = [];
@@ -243,7 +243,9 @@ function grokDriftFindings(runtime: Runtime): Finding[] {
   if (
     which.status === 0 &&
     path.length > 0 &&
-    (home === undefined || !path.startsWith(`${home}/.local/share/mise/`))
+    (home === undefined ||
+      !path.startsWith(`${home}/.local/share/mise/`) ||
+      path.startsWith(`${home}/.local/share/mise/installs/node/`))
   ) {
     findings.push({
       harness: "grok",

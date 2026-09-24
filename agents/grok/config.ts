@@ -1,5 +1,6 @@
-import { Effect, FileSystem, Option } from "effect";
+import { Effect, FileSystem, Option, Schema } from "effect";
 import { dirname, join } from "node:path";
+import { CommandRunner } from "../../lib/command.ts";
 import { fail } from "../../lib/program.ts";
 
 type Setting = { table: string; key: string; value: boolean | string };
@@ -226,4 +227,33 @@ export const configureGrokDefaults = Effect.fn("configureGrokDefaults")(function
     }),
   );
   return true;
+});
+
+const PinnedPackage = Schema.Struct({ version: Schema.String });
+
+// Grok's launcher runs ~/.grok/bin/grok whatever version it links to, and
+// mise installs without lifecycle scripts, so a pin bump never restages it.
+// Unlinking a stale binary makes the pinned launcher stage its own version.
+export const alignPinnedBinary = Effect.fn("alignPinnedBinary")(function* (grokHome: string) {
+  const runner = yield* CommandRunner;
+  const fs = yield* FileSystem.FileSystem;
+  const where = yield* runner.run("mise", ["where", "npm:@xai-official/grok"]);
+  if (where.status !== 0) return Option.none<string>();
+  const installDir = where.stdout.trim();
+  const manifest = yield* fs.readFileString(
+    join(installDir, "node_modules/@xai-official/grok/package.json"),
+  );
+  const { version } = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(PinnedPackage))(
+    manifest,
+  );
+  const canonical = join(grokHome, "bin", "grok");
+  const target = yield* fs.readLink(canonical).pipe(Effect.option);
+  if (Option.isSome(target) && target.value === `grok-${version}`) return Option.some(version);
+  yield* fs.remove(canonical, { force: true });
+  const launched = yield* runner.run(join(installDir, "node_modules/.bin/grok"), ["--version"], {
+    env: { GROK_HOME: grokHome },
+  });
+  if (launched.status !== 0 || !launched.stdout.startsWith(`grok ${version} `))
+    return yield* fail(`pinned Grok ${version} did not stage: ${launched.stdout.trim()}`);
+  return Option.some(version);
 });
