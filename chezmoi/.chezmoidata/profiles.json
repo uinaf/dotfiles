@@ -52,9 +52,9 @@
           "install-gh-extensions",
           "configure-helium",
           "configure-codex",
-          "configure-grok",
           "configure-llm-gateway",
           "configure-bifrost-clients",
+          "configure-grok",
           "sync-agents",
           "configure-hindsight"
         ]
@@ -80,9 +80,9 @@
           "trust-agent-worktrees",
           "install-gh-extensions",
           "configure-codex",
-          "configure-grok",
           "configure-llm-gateway",
           "configure-bifrost-clients",
+          "configure-grok",
           "sync-agents",
           "configure-hindsight",
           "install-t3-service"
@@ -133,8 +133,8 @@
           "trust-agent-worktrees",
           "install-gh-extensions",
           "configure-codex",
-          "configure-grok",
           "configure-llm-gateway",
+          "configure-grok",
           "sync-agents",
           "install-t3-service"
         ],
