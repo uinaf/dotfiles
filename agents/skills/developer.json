@@ -27,10 +27,6 @@
     {
       "name": "improve",
       "source": "shadcn/improve"
-    },
-    {
-      "name": "vite-plus",
-      "source": "uinaf/agent-skills"
     }
   ]
 }
