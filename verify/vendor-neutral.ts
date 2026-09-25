@@ -66,6 +66,7 @@ function allowed(file: string, content: string): boolean {
     case "agents/skills/personal.json":
       return containsAny(content, [
         '"name": "uinaf-design"',
+        '"name": "uinaf-intake"',
         '"source": "uinaf/agent-skills"',
         '"source": "uinaf/design"',
         '"source": "https://cdn.uinaf.dev/skills/ui"',
