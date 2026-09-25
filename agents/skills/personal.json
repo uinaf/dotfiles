@@ -21,6 +21,10 @@
       "source": "altaywtf/agent-skills"
     },
     {
+      "name": "uinaf-notion",
+      "source": "altaywtf/agent-skills"
+    },
+    {
       "name": "zebroid-fleet",
       "source": "uinaf/zebroid-infra"
     }

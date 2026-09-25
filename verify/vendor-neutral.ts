@@ -67,6 +67,7 @@ function allowed(file: string, content: string): boolean {
       return containsAny(content, [
         '"name": "uinaf-design"',
         '"name": "uinaf-intake"',
+        '"name": "uinaf-notion"',
         '"source": "uinaf/agent-skills"',
         '"source": "uinaf/design"',
         '"source": "https://cdn.uinaf.dev/skills/ui"',
