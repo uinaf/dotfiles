@@ -29,10 +29,6 @@
       "source": "shadcn/improve"
     },
     {
-      "name": "ui-design",
-      "source": "https://cdn.uinaf.dev/skills/ui"
-    },
-    {
       "name": "vite-plus",
       "source": "uinaf/agent-skills"
     }

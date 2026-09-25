@@ -73,9 +73,9 @@ Keep React, TanStack, shadcn, and Swift skills in the consuming repository. Use 
 the [configured workflow plugin](../agents/plugins/developer.json) to select
 and install them from repository evidence and the current task.
 Global manifests retain shared workflows, codebase design and domain modeling
-references, plus `effect-ts` and `ui-design`.
+references, plus `effect-ts`.
 The plugin catalog supplies stack recommendations; explicit global selections
-do not need duplicate repo-local installs. Keep licensed UI skill files out of Git.
+do not need duplicate repo-local installs.
 
 Run from the checkout after bootstrap has stored the profile:
 
