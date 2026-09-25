@@ -68,6 +68,12 @@ export PATH="$(mise --no-config where node@"$(cat .node-version)")/bin:$PATH"
 
 Run Homebrew commands as the user who owns its prefix.
 
+On a Mac set up over SSH, run the power step from
+[Apply a Profile](#apply-a-profile) right after `prepare`. A fresh Mac mini
+idle-sleeps; SSH work then runs in DarkWake, macOS forces sleep under load
+(`Dark Wake Thermal Emergency` in `pmset -g log`), and connections time out
+until someone wakes it locally. Applying `sleep 0` does not wake a sleeping Mac.
+
 `prepare` installs the pinned Node runtime and locked repository dependencies.
 
 ### Gitless First Fetch
@@ -224,3 +230,4 @@ For package-only refreshes, use
 | Git dubious ownership under `/opt/homebrew`                                | Rerun `configure-git.ts` with the selected profile.                                                                                                                                                                                                 |
 | GitHub SSH authentication                                                  | Check the local key and rerun [Git configuration](identities.md#developer-git-and-ssh).                                                                                                                                                             |
 | Secret access over SSH                                                     | Check the deployment recipient and encrypted repository policy in [Identity provisioning](identities.md).                                                                                                                                           |
+| SSH to a new Mac times out intermittently                                  | Check `pmset -g log` for `Idle Sleep` or `Dark Wake Thermal Emergency`; wake it locally and run `configure-power.ts`.                                                                                                                               |
