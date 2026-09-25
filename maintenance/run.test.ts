@@ -11,32 +11,71 @@ import { BoundedCommand, BoundedCommandError } from "./bounded-command.ts";
 import { runUpdate } from "./run.ts";
 import { dailyLog, logDirectory, rotateUpdateLog } from "./logs.ts";
 
+const alertConfig = {
+  endpoint: "https://mail.example/v4/accounts/fixture/email/sending/send",
+  token: "secret-token",
+  from: "alerts@example.test",
+  to: "admin@example.test",
+};
+
+const writeAlertConfig = (home: string, content = JSON.stringify(alertConfig)) =>
+  mkdir(join(home, ".config/dotfiles"), { recursive: true }).then(() =>
+    writeFile(join(home, ".config/dotfiles/update-alerts.json"), content, { mode: 0o600 }),
+  );
+
+const accepted = (overrides: Record<string, unknown> = {}) =>
+  new Response(
+    JSON.stringify({
+      success: true,
+      result: { delivered: [], queued: [alertConfig.to], permanent_bounces: [], ...overrides },
+    }),
+    { status: 200 },
+  );
+
+type SentAlert = { url: string; token: string | undefined; subject: string; text: string };
+
+const recordingSender = (sent: SentAlert[], respond: () => Response = () => accepted()) =>
+  (async (input, init) => {
+    assert.equal(init?.method, "POST");
+    assert.equal(init?.redirect, "error");
+    assert.ok(init?.signal);
+    assert.equal(typeof init?.body, "string");
+    const body = JSON.parse(init.body as string);
+    assert.equal(body.from, alertConfig.from);
+    assert.equal(body.to, alertConfig.to);
+    sent.push({
+      url: input instanceof Request ? input.url : input.toString(),
+      token: new Headers(init?.headers).get("authorization") ?? undefined,
+      subject: body.subject,
+      text: body.text,
+    });
+    return respond();
+  }) satisfies typeof fetch;
+
 for (const scenario of [
   "success",
   "failure",
   "timeout",
   "spawn",
-  "delivery",
-  "retried",
+  "rejected",
   "invalid",
   "unconfigured",
 ] as const) {
   test(`update reporting preserves ${scenario} without repeating the command`, async (t) => {
     const home = await mkdtemp(join(tmpdir(), "dotfiles-report-"));
     t.onTestFinished(() => rm(home, { recursive: true, force: true }));
-    await mkdir(join(home, ".config/dotfiles"), { recursive: true });
-    const url = "https://monitor.example/secret-token";
-    if (scenario !== "unconfigured") {
-      await writeFile(
-        join(home, ".config/dotfiles/update-heartbeats.json"),
-        scenario === "invalid" ? "not-json" : JSON.stringify({ "software-update": url }),
-        { mode: 0o600 },
-      );
-    }
+    if (scenario !== "unconfigured")
+      await writeAlertConfig(home, scenario === "invalid" ? "not-json" : undefined);
     let executions = 0;
-    const sent: string[] = [];
+    const sent: SentAlert[] = [];
     const expected =
-      scenario === "failure" ? 23 : scenario === "spawn" ? 127 : scenario === "timeout" ? 124 : 0;
+      scenario === "failure" || scenario === "rejected"
+        ? 23
+        : scenario === "spawn"
+          ? 127
+          : scenario === "timeout"
+            ? 124
+            : 0;
     const runner = BoundedCommand.of({
       run: () => {
         executions++;
@@ -54,19 +93,11 @@ for (const scenario of [
             });
       },
     });
-    const rejections = scenario === "delivery" ? 2 : scenario === "retried" ? 1 : 0;
-    const send: typeof fetch = async (input, init) => {
-      sent.push(input instanceof Request ? input.url : input.toString());
-      assert.equal(init?.redirect, "error");
-      assert.ok(init?.signal);
-      return new Response(null, { status: sent.length <= rejections ? 503 : 200 });
-    };
-    let waits = 0;
-    const wait = Effect.sync(() => {
-      waits += 1;
-    });
+    const send = recordingSender(sent, () =>
+      scenario === "rejected" ? new Response(null, { status: 503 }) : accepted(),
+    );
     const result = await Effect.runPromise(
-      runUpdate("software-update", home, "fixture", [], send, wait).pipe(
+      runUpdate("software-update", home, "fixture", [], send).pipe(
         Effect.provideService(BoundedCommand, runner),
         Effect.provide(NodeServices.layer),
       ),
@@ -97,27 +128,28 @@ for (const scenario of [
     assert.deepEqual(records[2], JSON.parse(receipt));
     assert.equal((await stat(historyPath)).mode & 0o777, 0o600);
     assert.equal(
-      JSON.parse(receipt).heartbeat,
-      scenario === "delivery" || scenario === "invalid"
+      JSON.parse(receipt).alert,
+      scenario === "rejected" || scenario === "invalid"
         ? "failed"
         : scenario === "unconfigured"
           ? "not-configured"
-          : "sent",
+          : scenario === "success"
+            ? "not-needed"
+            : "sent",
     );
-    const attempt = `${url}${expected ? "/fail" : ""}`;
-    assert.deepEqual(
-      sent,
-      scenario === "invalid" || scenario === "unconfigured"
-        ? []
-        : scenario === "delivery" || scenario === "retried"
-          ? [attempt, attempt]
-          : [attempt],
-    );
-    assert.equal(
-      waits,
-      rejections > 0 ? 1 : 0,
-      "exactly one bounded retry after a failed delivery",
-    );
+    const alerted = expected !== 0 && scenario !== "invalid";
+    assert.equal(sent.length, alerted ? 1 : 0, "one attempt, never retried");
+    if (alerted) {
+      assert.equal(sent[0].url, alertConfig.endpoint);
+      assert.equal(sent[0].token, "Bearer secret-token");
+      assert.match(
+        sent[0].subject,
+        new RegExp(`software-update failed with exit code ${expected}$`),
+      );
+      assert.match(sent[0].text, new RegExp(`Exit code: ${expected}\n`));
+      assert.doesNotMatch(sent[0].text, /secret-token|secret diagnostic/);
+      assert.equal(/Timed out: yes/.test(sent[0].text), scenario === "timeout");
+    }
   });
 }
 
@@ -177,73 +209,57 @@ test("rotation preserves launchd's append descriptor and expires only owned date
   assert.equal(history, join(directory, "software-update-history-2026-09-08.log"));
 });
 
-for (const status of ["network", 400, 401, 403, 404, 408, 429, 500, 503] as const) {
-  test(`heartbeat HTTP ${status} preserves the update result and retries only transient failures`, async (t) => {
-    const home = await mkdtemp(join(tmpdir(), "dotfiles-heartbeat-status-"));
+for (const outcome of ["network", 401, 500, "malformed", "unacknowledged", "bounced"] as const) {
+  test(`an unconfirmed ${outcome} alert is not retried and stays pending for the next run`, async (t) => {
+    const home = await mkdtemp(join(tmpdir(), "dotfiles-alert-outcome-"));
     t.onTestFinished(() => rm(home, { recursive: true, force: true }));
-    await mkdir(join(home, ".config/dotfiles"), { recursive: true });
-    await writeFile(
-      join(home, ".config/dotfiles/update-heartbeats.json"),
-      JSON.stringify({ "software-update": "https://monitor.example/fixture" }),
-      { mode: 0o600 },
-    );
+    await writeAlertConfig(home);
     let commands = 0;
-    let sends = 0;
-    let waits = 0;
+    const sent: SentAlert[] = [];
     const runner = BoundedCommand.of({
       run: () => {
         commands++;
         return Effect.succeed({ status: 23, timedOut: false, cleanupComplete: true });
       },
     });
-    const send: typeof fetch = async () => {
-      sends++;
-      if (status === "network") throw new TypeError("fetch failed");
-      return new Response(null, { status });
-    };
-    const result = await Effect.runPromise(
-      runUpdate(
-        "software-update",
-        home,
-        "fixture",
-        [],
-        send,
-        Effect.sync(() => {
-          waits++;
-        }),
-      ).pipe(Effect.provideService(BoundedCommand, runner), Effect.provide(NodeServices.layer)),
-    );
-    assert.equal(result, 23);
+    const failing = recordingSender(sent, () => {
+      if (outcome === "network") throw new TypeError("fetch failed");
+      if (typeof outcome === "number") return new Response(null, { status: outcome });
+      if (outcome === "malformed") return new Response("<html>", { status: 200 });
+      return outcome === "bounced"
+        ? accepted({ permanent_bounces: [alertConfig.to] })
+        : accepted({ queued: [] });
+    });
+    const execute = (send: typeof fetch) =>
+      Effect.runPromise(
+        runUpdate("software-update", home, "fixture", [], send).pipe(
+          Effect.provideService(BoundedCommand, runner),
+          Effect.provide(NodeServices.layer),
+        ),
+      );
+    const receiptPath = join(home, ".local/state/dotfiles/updates/software-update.json");
+    assert.equal(await execute(failing), 23);
     assert.equal(commands, 1);
-    const retryable = status === "network" || status === 408 || status === 429 || status >= 500;
-    assert.equal(sends, retryable ? 2 : 1);
-    assert.equal(waits, retryable ? 1 : 0);
-    const receipt = JSON.parse(
-      await readFile(join(home, ".local/state/dotfiles/updates/software-update.json"), "utf8"),
-    );
-    assert.equal(receipt.exitCode, 23);
-    assert.equal(receipt.heartbeat, "failed");
+    assert.equal(sent.length, 1);
+    assert.equal(JSON.parse(await readFile(receiptPath, "utf8")).alert, "failed");
+    assert.equal(await execute(recordingSender(sent)), 23);
+    assert.equal(sent.length, 2, "the next failing run delivers the pending alert");
+    assert.equal(JSON.parse(await readFile(receiptPath, "utf8")).alert, "sent");
   });
 }
 
-test("interrupting heartbeat delivery aborts fetch without retrying the update or heartbeat", async (t) => {
-  const home = await mkdtemp(join(tmpdir(), "dotfiles-heartbeat-cancel-"));
-  await mkdir(join(home, ".config/dotfiles"), { recursive: true });
-  await writeFile(
-    join(home, ".config/dotfiles/update-heartbeats.json"),
-    JSON.stringify({ "software-update": "https://monitor.example/fixture" }),
-    { mode: 0o600 },
-  );
+test("interrupting alert delivery aborts fetch without retrying the update or alert", async (t) => {
+  const home = await mkdtemp(join(tmpdir(), "dotfiles-alert-cancel-"));
+  await writeAlertConfig(home);
   let commands = 0;
   let sends = 0;
-  let waits = 0;
   let aborted = false;
   const started = Promise.withResolvers<void>();
   const controller = new AbortController();
   const runner = BoundedCommand.of({
     run: () => {
       commands++;
-      return Effect.succeed({ status: 0, timedOut: false, cleanupComplete: true });
+      return Effect.succeed({ status: 1, timedOut: false, cleanupComplete: true });
     },
   });
   const send: typeof fetch = (_input, init) =>
@@ -261,16 +277,10 @@ test("interrupting heartbeat delivery aborts fetch without retrying the update o
       started.resolve();
     });
   const completion = Effect.runPromiseExit(
-    runUpdate(
-      "software-update",
-      home,
-      "fixture",
-      [],
-      send,
-      Effect.sync(() => {
-        waits++;
-      }),
-    ).pipe(Effect.provideService(BoundedCommand, runner), Effect.provide(NodeServices.layer)),
+    runUpdate("software-update", home, "fixture", [], send).pipe(
+      Effect.provideService(BoundedCommand, runner),
+      Effect.provide(NodeServices.layer),
+    ),
     { signal: controller.signal },
   );
   t.onTestFinished(async () => {
@@ -284,23 +294,14 @@ test("interrupting heartbeat delivery aborts fetch without retrying the update o
   assert.equal(aborted, true);
   assert.equal(commands, 1);
   assert.equal(sends, 1);
-  assert.equal(waits, 0);
 });
 
-test("a real timeout sends failure and a following run replaces the failed receipt", async (t) => {
+test("alerts follow transitions: one failure email, silence while failing, one recovery email", async (t) => {
   const home = await mkdtemp(join(tmpdir(), "dotfiles-update-deadline-"));
   t.onTestFinished(() => rm(home, { recursive: true, force: true }));
-  await mkdir(join(home, ".config/dotfiles"), { recursive: true });
-  await writeFile(
-    join(home, ".config/dotfiles/update-heartbeats.json"),
-    JSON.stringify({ "software-update": "https://monitor.example/private-token" }),
-    { mode: 0o600 },
-  );
-  const sent: string[] = [];
-  const send: typeof fetch = async (input) => {
-    sent.push(input instanceof Request ? input.url : input.toString());
-    return new Response(null, { status: 200 });
-  };
+  await writeAlertConfig(home);
+  const sent: SentAlert[] = [];
+  const send = recordingSender(sent);
   const receiptPath = join(home, ".local/state/dotfiles/updates/software-update.json");
   const execute = (script: string) =>
     Effect.runPromise(
@@ -332,21 +333,28 @@ test("a real timeout sends failure and a following run replaces the failed recei
         Effect.provide(NodeServices.layer),
       ),
     );
+  const alertOf = async () => JSON.parse(await readFile(receiptPath, "utf8")).alert;
+  assert.equal(await execute("process.exit(0)"), 0);
+  assert.equal(await alertOf(), "not-needed");
   assert.equal(await execute("setInterval(() => {}, 1000)"), 124);
   const failure = JSON.parse(await readFile(receiptPath, "utf8"));
   assert.equal(failure.state, "finished");
   assert.equal(failure.timedOut, true);
   assert.equal(failure.cleanupComplete, true);
-  assert.equal(failure.heartbeat, "sent");
+  assert.equal(failure.alert, "sent");
+  assert.equal(await execute("process.exit(3)"), 3);
+  assert.equal(await alertOf(), "not-needed");
   assert.equal(await execute("process.exit(0)"), 0);
   const recovery = JSON.parse(await readFile(receiptPath, "utf8"));
   assert.equal(recovery.exitCode, 0);
   assert.equal(recovery.timedOut, undefined);
-  assert.equal(recovery.heartbeat, "sent");
-  assert.deepEqual(sent, [
-    "https://monitor.example/private-token/fail",
-    "https://monitor.example/private-token",
-  ]);
+  assert.equal(recovery.alert, "sent");
+  assert.equal(await execute("process.exit(0)"), 0);
+  assert.equal(await alertOf(), "not-needed");
+  assert.deepEqual(
+    sent.map(({ subject }) => subject.replace(/^[^:]+: /, "")),
+    ["software-update failed with exit code 124", "software-update recovered"],
+  );
 });
 
 for (const previous of ["incomplete", "unreadable"] as const) {
@@ -386,14 +394,7 @@ for (const previous of ["incomplete", "unreadable"] as const) {
 
 test("interrupted failure delivery retains the cleanup gate", async (t) => {
   const home = await mkdtemp(join(tmpdir(), "dotfiles-update-interrupted-"));
-  await mkdir(join(home, ".config/dotfiles"), { recursive: true });
-  await writeFile(
-    join(home, ".config/dotfiles/update-heartbeats.json"),
-    JSON.stringify({
-      "software-update": "https://monitor.example/fixture",
-    }),
-    { mode: 0o600 },
-  );
+  await writeAlertConfig(home);
   const controller = new AbortController();
   const started = Promise.withResolvers<void>();
   let executions = 0;
@@ -429,13 +430,10 @@ test("interrupted failure delivery retains the cleanup gate", async (t) => {
   );
   assert.equal(receipt.cleanupComplete, false);
   const result = await Effect.runPromise(
-    runUpdate(
-      "software-update",
-      home,
-      "fixture",
-      [],
-      async () => new Response(null, { status: 200 }),
-    ).pipe(Effect.provideService(BoundedCommand, runner), Effect.provide(NodeServices.layer)),
+    runUpdate("software-update", home, "fixture", [], async () => accepted()).pipe(
+      Effect.provideService(BoundedCommand, runner),
+      Effect.provide(NodeServices.layer),
+    ),
   );
   assert.equal(result, 125);
   assert.equal(executions, 1);
