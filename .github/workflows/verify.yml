@@ -11,14 +11,13 @@ permissions: {}
 
 jobs:
   verify:
-    if: ${{ github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' }}
     runs-on: macos-26
     timeout-minutes: 20
     permissions:
       contents: read
     concurrency:
       group: verify-${{ github.workflow }}-${{ github.ref }}
-      cancel-in-progress: true
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     env:
       HOMEBREW_NO_INSTALL_CLEANUP: "1"
     steps:
@@ -28,15 +27,22 @@ jobs:
           persist-credentials: false
 
       - name: Set up Vite+
+        if: ${{ github.event_name != 'push' }}
         uses: voidzero-dev/setup-vp@3754dd7dbdb32bd8f6d28b6043de13ad3a75f21f # v1.21.1
         with:
           node-version-file: ".node-version"
 
       - name: Install verification tools
+        if: ${{ github.event_name != 'push' }}
         run: brew install actionlint chezmoi mise shellcheck
 
       - name: Verify repository
+        if: ${{ github.event_name != 'push' }}
         run: ./verify/run.ts --skip-security
+
+      - name: Scan
+        if: ${{ !cancelled() }}
+        uses: uinaf/.github/.github/actions/scan@7bc3f9ea25b5494f4026dfdb64fb866a520afcd0 # v3.0.0
 
   verify-linux:
     if: ${{ github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' }}

@@ -43,8 +43,9 @@ For a real secret:
 
 ## Repository and Scope Policy
 
-- [Repository scan selection](../audit/repo.ts) and the
-  [CI workflow](../.github/workflows/scan.yml) own scan scope and triggers.
+- [Repository scan selection](../audit/repo.ts) owns local scan scope. In CI,
+  the last step of the [`verify` job](../.github/workflows/verify.yml) scans
+  each push to `main`; pull requests are not scanned.
 - In a linked worktree, the TruffleHog filesystem pass scans only tracked and
   unignored files, so dependency trees such as `node_modules` stay out.
   Ignored files are not scanned.

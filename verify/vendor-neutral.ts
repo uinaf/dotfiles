@@ -42,7 +42,6 @@ function allowed(file: string, content: string): boolean {
         "Copyright (c) 2026 uinaf",
       ]);
     case ".github/zizmor.yml":
-    case ".github/workflows/scan.yml":
       return content.includes("uinaf/.github");
     case "renovate.json":
       return containsAny(content, [
@@ -51,7 +50,10 @@ function allowed(file: string, content: string): boolean {
         '"github:uinaf/ffss"',
       ]);
     case ".github/workflows/verify.yml":
-      return content.includes("mise exec github:uinaf/ffss -- slopguard version");
+      return containsAny(content, [
+        "mise exec github:uinaf/ffss -- slopguard version",
+        "uses: uinaf/.github/.github/actions/scan@",
+      ]);
     case "docs/identities.md":
       return content.includes("github.com/uinaf/sops-vault-template");
     case "docs/agents.md":
