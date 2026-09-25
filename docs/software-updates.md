@@ -31,8 +31,8 @@ and [Linux timer](../chezmoi/private_dot_config/systemd/user/dotfiles-software-u
   update steps; the host owns Linux packages.
 - Requests acknowledge launch, not completion. Check status and the log summary.
   Updates have a one-hour execution limit. A timeout captures diagnostics,
-  stops the observed update processes, reports exit code `124`, and sends a
-  failure heartbeat. The next scheduled run can proceed after cleanup succeeds.
+  stops the observed update processes, reports exit code `124`, and counts as
+  a failure for alerts. The next scheduled run can proceed after cleanup succeeds.
 - `maintenance:update` preserves an active run. Separate `topgrade` or `brew`
   processes can overlap it; check for idle before interactive work.
 - No sudo credentials or interactive input are supplied. Privileged installers
@@ -120,8 +120,8 @@ logs live under `~/.local/state/dotfiles/logs/`.
 
 - macOS GUI failures request native notifications; permissions/Focus can
   suppress them. Success stays silent. Headless jobs use logs and optional
-  heartbeats.
-- JSON history records start/finish, exit code, and heartbeat outcome. Applied
+  failure emails.
+- JSON history records start/finish, exit code, and alert outcome. Applied
   hygiene logs removals/retentions and cache output; previews/skips do not append.
 - Each update archives the previous output; [log policy](../maintenance/logs.ts)
   owns retention and size limits.
@@ -143,20 +143,34 @@ logs live under `~/.local/state/dotfiles/logs/`.
   Notifications alone cannot detect a scheduler that never starts.
 
 For always-on hosts, provision an owner-only regular file at
-`~/.config/dotfiles/update-heartbeats.json` through the host's secret owner:
+`~/.config/dotfiles/update-alerts.json` through the host's secret owner:
 
 ```json
 {
-  "software-update": "https://monitor.example/software-heartbeat"
+  "endpoint": "https://api.cloudflare.com/client/v4/accounts/ACCOUNT_ID/email/sending/send",
+  "token": "EMAIL_SENDING_API_TOKEN",
+  "from": "alerts@example.test",
+  "to": "admin@example.test"
 }
 ```
 
-- URLs accept GET for success and GET `/fail` for failure, after completion.
-- [Heartbeat delivery](../maintenance/run.ts) is bounded and does not
-  follow redirects. Failure is logged without rerunning updates or changing
-  their exit code.
-- Missing config disables delivery; invalid config records failure but updates run.
-- Allow scheduling/update grace. Sleeping laptops should not use always-on alerts.
+- [Alert delivery](../maintenance/run.ts) posts one email to the
+  [Cloudflare Email Sending API](https://developers.cloudflare.com/email-service/api/send-emails/rest-api/)
+  when a run fails after a success, and one when a run succeeds after a
+  notified failure. Consecutive failures and ordinary successes send nothing.
+  Any nonzero exit counts as failure, including timeout (`124`), a blocked
+  start (`125`), and a missing executable (`127`).
+- Each send is one HTTPS request bounded to ten seconds, without redirects or
+  retries. It counts as sent only when the API acknowledges the recipient.
+  An unconfirmed transition stays pending, so the next scheduled run sends it;
+  a timed-out request the API had accepted can therefore arrive twice.
+- Delivery failure is logged without rerunning updates or changing their exit
+  code. The token never reaches logs, receipts, or history.
+- Notified state lives at `~/.local/state/dotfiles/updates/software-update-alert.json`.
+  Missing config disables alerts; invalid config records failure but updates run.
+- Alerts only report runs that finish. A scheduler that never starts, a
+  sleeping laptop, or a powered-off host sends nothing; check
+  `maintenance:status` for freshness.
 
 ## Disable, Reload, And Recover
 

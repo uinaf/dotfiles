@@ -2,6 +2,7 @@
 
 import { NodeServices } from "@effect/platform-node";
 import { Console, Effect, FileSystem, Option, Schema } from "effect";
+import { hostname, userInfo } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { CommandRunner } from "../lib/command.ts";
@@ -11,14 +12,24 @@ import { dailyLog, rotateUpdateLog } from "./logs.ts";
 
 const Job = Schema.Literal("software-update");
 type Job = typeof Job.Type;
-const Config = Schema.Record(Schema.String, Schema.String);
+const Address = Schema.String.check(Schema.isPattern(/^[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]+$/));
+const AlertConfig = Schema.Struct({
+  endpoint: Schema.String,
+  token: Schema.String.check(Schema.isMinLength(1)),
+  from: Address,
+  to: Address,
+});
+const AlertState = Schema.Struct({ failing: Schema.Boolean });
+const SendResult = Schema.Struct({
+  success: Schema.Literal(true),
+  result: Schema.Struct({
+    delivered: Schema.Array(Schema.String),
+    queued: Schema.Array(Schema.String),
+    permanent_bounces: Schema.Array(Schema.String),
+  }),
+});
 const PreviousReceipt = Schema.Struct({ cleanupComplete: Schema.optionalKey(Schema.Boolean) });
-type Delivery = "not-configured" | "sent" | "failed";
-
-class HeartbeatFailure extends Schema.TaggedError<HeartbeatFailure>()("HeartbeatFailure", {
-  retryable: Schema.Boolean,
-  cause: Schema.Defect(),
-}) {}
+type Alert = "not-configured" | "not-needed" | "sent" | "failed";
 
 export const runUpdate = Effect.fn("runMonitoredUpdate")(function* (
   job: Job,
@@ -26,15 +37,15 @@ export const runUpdate = Effect.fn("runMonitoredUpdate")(function* (
   command: string,
   args: readonly string[],
   send: typeof fetch = fetch,
-  retryWait: Effect.Effect<void> = Effect.sleep("10 seconds"),
 ) {
   const fs = yield* FileSystem.FileSystem;
   const runner = yield* BoundedCommand;
   const startedAt = new Date().toISOString();
   const directory = join(home, ".local/state/dotfiles/updates");
   const path = join(directory, `${job}.json`);
-  const configPath = join(home, ".config/dotfiles/update-heartbeats.json");
-  let delivery: Delivery = "not-configured";
+  const configPath = join(home, ".config/dotfiles/update-alerts.json");
+  const alertStatePath = join(directory, `${job}-alert.json`);
+  let alert: Alert = "not-configured";
   yield* Effect.try(() => rotateUpdateLog(home, job)).pipe(
     Effect.catch(() => Console.error("Could not rotate update logs; updates will continue.")),
   );
@@ -73,26 +84,24 @@ export const runUpdate = Effect.fn("runMonitoredUpdate")(function* (
       Option.getOrUndefined(info.uid) !== process.getuid?.() ||
       (info.mode & 0o077) !== 0
     ) {
-      return yield* fail("heartbeat config must be an owner-only regular file");
+      return yield* fail("alert config must be an owner-only regular file");
     }
-    const config = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(Config))(
+    const config = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(AlertConfig))(
       yield* fs.readFileString(configPath),
     );
-    const value = config[job];
-    if (!value) return undefined;
-    const url = yield* Effect.try(() => new URL(value));
+    const url = yield* Effect.try(() => new URL(config.endpoint));
     if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash) {
       return yield* fail(
-        "heartbeat destinations must be HTTPS URLs without credentials, queries, or fragments",
+        "alert endpoints must be HTTPS URLs without credentials, queries, or fragments",
       );
     }
-    return url.href.replace(/\/$/, "");
+    return config;
   }).pipe(
     Effect.catch(() =>
       Effect.gen(function* () {
-        delivery = "failed";
+        alert = "failed";
         yield* Console.error(
-          "Invalid update heartbeat configuration; updates will continue without delivery.",
+          "Invalid update alert configuration; updates will continue without alerts.",
         );
         return undefined;
       }),
@@ -147,47 +156,72 @@ export const runUpdate = Effect.fn("runMonitoredUpdate")(function* (
     ...(execution.timedOut ? { timedOut: true } : {}),
   });
   if (destination) {
-    const deliver = Effect.tryPromise({
-      try: async (signal) => {
-        const response = await send(`${destination}${status === 0 ? "" : "/fail"}`, {
-          method: "GET",
-          redirect: "error",
-          signal: AbortSignal.any([signal, AbortSignal.timeout(15_000)]),
-        });
-        await response.body?.cancel();
-        if (!response.ok)
-          throw new HeartbeatFailure({
-            retryable: response.status === 408 || response.status === 429 || response.status >= 500,
-            cause: new Error(`heartbeat rejected with HTTP ${response.status}`),
-          });
-        return "sent" as const;
-      },
-      catch: (cause) =>
-        Schema.is(HeartbeatFailure)(cause)
-          ? cause
-          : new HeartbeatFailure({ retryable: true, cause }),
-    });
-    delivery = yield* deliver.pipe(
-      // One bounded retry: a transient blip must not page as a missed heartbeat.
-      // The update result is already final, so retrying repeats no package work.
-      Effect.catch((error) =>
-        error.retryable ? retryWait.pipe(Effect.flatMap(() => deliver)) : Effect.fail(error),
-      ),
-      Effect.catch(() =>
-        Effect.gen(function* () {
-          yield* Console.error(
-            "Update heartbeat delivery failed; the update will not be repeated.",
-          );
-          return "failed" as const;
-        }),
-      ),
+    const failing = status !== 0;
+    const notified = yield* fs.readFileString(alertStatePath).pipe(
+      Effect.flatMap(Schema.decodeUnknownEffect(Schema.fromJsonString(AlertState))),
+      Effect.map((state) => state.failing),
+      Effect.orElseSucceed(() => false),
     );
+    if (failing === notified) alert = "not-needed";
+    else {
+      const host = hostname();
+      const subject = failing
+        ? `${host}: ${job} failed with exit code ${status}`
+        : `${host}: ${job} recovered`;
+      const text = [
+        failing ? `The scheduled ${job} failed.` : `The scheduled ${job} succeeded again.`,
+        "",
+        `Host: ${host}`,
+        `User: ${userInfo().username}`,
+        `Exit code: ${status}`,
+        ...(execution.timedOut ? ["Timed out: yes"] : []),
+        ...(execution.cleanupComplete ? [] : ["Process cleanup: incomplete"]),
+        `Started: ${startedAt}`,
+        `Receipt: ${path}`,
+        "",
+        "Inspect with `mise run maintenance:status` and the update log.",
+        "",
+      ].join("\n");
+      // One attempt only: a timed-out send may have been accepted. An unconfirmed
+      // transition stays pending, so the next scheduled run notifies again.
+      alert = yield* Effect.tryPromise(async (signal) => {
+        const response = await send(destination.endpoint, {
+          method: "POST",
+          redirect: "error",
+          headers: {
+            Authorization: `Bearer ${destination.token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ from: destination.from, to: destination.to, subject, text }),
+          signal: AbortSignal.any([signal, AbortSignal.timeout(10_000)]),
+        });
+        const body = await response.text();
+        if (!response.ok) throw new Error(`alert rejected with HTTP ${response.status}`);
+        return body.slice(0, 65_536);
+      }).pipe(
+        Effect.flatMap(Schema.decodeUnknownEffect(Schema.fromJsonString(SendResult))),
+        Effect.filterOrFail(
+          ({ result }) =>
+            result.permanent_bounces.length === 0 &&
+            [...result.delivered, ...result.queued].includes(destination.to),
+        ),
+        Effect.andThen(
+          fs.writeFileString(alertStatePath, `${JSON.stringify({ failing })}\n`, { mode: 0o600 }),
+        ),
+        Effect.as("sent" as const),
+        Effect.catch(() =>
+          Console.error("Update alert delivery failed; the update will not be repeated.").pipe(
+            Effect.as("failed" as const),
+          ),
+        ),
+      );
+    }
   }
   yield* receipt({
     state: "finished",
     finishedAt: new Date().toISOString(),
     exitCode: status,
-    heartbeat: delivery,
+    alert,
     ...(execution.timedOut ? { timedOut: true } : {}),
     ...(execution.timedOut || !execution.cleanupComplete
       ? { cleanupComplete: execution.cleanupComplete }

@@ -58,7 +58,7 @@
         "maintenance/run.test.ts",
         "maintenance/bounded-command.test.ts"
       ],
-      "output": "Update deadlines, detached child cleanup, private diagnostics, receipts, and heartbeat delivery"
+      "output": "Update deadlines, detached child cleanup, private diagnostics, receipts, and failure alerts"
     },
     {
       "id": "static",
