@@ -60,6 +60,10 @@ export class CommandRunner extends Context.Service<
               cwd: options.cwd,
               env: options.env,
               extendEnv: options.extendEnv ?? true,
+              // A detached child starts a new session without a controlling
+              // terminal, so password prompts (sudo, xcodes) fall back to echoed
+              // stdin. Interactive children stay in the caller's session.
+              detached: options.stdin !== "inherit",
               stdin:
                 options.stdin instanceof Uint8Array
                   ? Stream.make(options.stdin)

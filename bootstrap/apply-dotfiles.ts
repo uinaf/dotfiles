@@ -97,7 +97,9 @@ const ensureBootstrapTools = Effect.fn("ensureBootstrapTools")(function* () {
       );
     const directory = located.stdout.trim().split("\n").at(-1) || "";
     if (located.status !== 0 || !directory.startsWith("/"))
-      return yield* fail(`cannot provision ${tool}@${pin} through mise`);
+      return yield* fail(
+        `cannot provision ${tool}@${pin} through mise (exit ${located.status}): ${located.stderr.trim() || "no stderr"}`,
+      );
     process.env.PATH = `${directory}:${process.env.PATH || ""}`;
   }
 });

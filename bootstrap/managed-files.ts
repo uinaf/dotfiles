@@ -23,7 +23,13 @@ const runChezmoi = Effect.fn("runChezmoi")(function* (
       output,
     })
     .pipe(Effect.mapError((error) => new CliFailure({ exitCode: 1, message: error.message })));
-  if (result.status !== 0) return yield* fail(`chezmoi exited ${result.status}`, result.status);
+  if (result.status !== 0) {
+    const detail = result.stderr.trim();
+    return yield* fail(
+      `chezmoi ${args[0]} exited ${result.status}${detail ? `: ${detail}` : ""}`,
+      result.status,
+    );
+  }
   return result;
 });
 
