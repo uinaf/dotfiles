@@ -130,6 +130,9 @@ sudo ./bootstrap/darwin/install-devbox-service-daemons.ts --user example --colim
 ```
 
 - Retire competing user LaunchAgents before installation.
+- The service runs the user's own `~/.local/bin/colima-ensure`; dotfiles does
+  not ship it. Make it exit 0 when `colima status` succeeds and otherwise run
+  `colima start` with the host's sizing.
 - Reference owner-only wrappers or files; never embed secrets.
 
 Set `T3_SERVICE=1` in [local configuration](#local-configuration), then run
