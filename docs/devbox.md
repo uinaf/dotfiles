@@ -222,8 +222,9 @@ the new one passes every check below.
 4. On the old host, push or deliberately archive unpushed branches, stashes,
    worktrees, and ignored work. Clone repositories on the new host from their
    remotes. Never copy coding-agent logins, sessions, caches, or browser profiles.
-5. Install [system services](#system-services) and enroll
-   [headless updates](software-updates.md#headless-devbox-updates).
+5. Enroll [headless updates](software-updates.md#headless-devbox-updates).
+   Add [system services](#system-services) only when the owner asks for them;
+   Colima otherwise starts on demand.
 6. Run [verification](#verification), then each moved repository's own build
    and test gate on the new host.
 
