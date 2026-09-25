@@ -5,6 +5,11 @@ import { Effect } from "effect";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
+import {
+  codexPrivateDirectories,
+  codexPrivateFileDepth,
+  codexPrivateFilePattern,
+} from "../agents/codex/projects.ts";
 import { runMain } from "../lib/program.ts";
 import { type AuditFormat, type AuditPolicy, readSettingsFile, runPolicy } from "./engine.ts";
 import { readProfileModel, requireProfile } from "../profiles/model.ts";
@@ -26,14 +31,9 @@ export function devboxPolicy(
   profileName = "devbox",
 ): AuditPolicy {
   requireProfile(readProfileModel(profileModelPath), profileName);
-  const codexPrivateDirectories = [
-    ".codex",
-    ".codex/sessions",
-    ".codex/archived_sessions",
-    ".codex/shell_snapshots",
-    ".codex/log",
-    ".codex/app-server-control",
-  ].map((path) => ({ kind: "path", path }) as const);
+  const codexPrivateSources = codexPrivateDirectories.map(
+    (name) => ({ kind: "path", path: join(".codex", name) }) as const,
+  );
   return {
     name: "devbox-security",
     summary: "devbox security audit summary",
@@ -89,15 +89,15 @@ export function devboxPolicy(
       {
         title: "Codex private state",
         checks: [
-          { kind: "private-mode", sources: codexPrivateDirectories, mode: 0o700, mismatch: "fail" },
+          { kind: "private-mode", sources: codexPrivateSources, mode: 0o700, mismatch: "fail" },
           {
             kind: "private-mode",
             sources: [
               {
                 kind: "files",
                 path: ".codex",
-                maxDepth: 2,
-                pathPattern: /(?:[.]sqlite3?|[.]db(?:-.*)?|[.]log)$|\/log\//,
+                maxDepth: codexPrivateFileDepth,
+                pathPattern: codexPrivateFilePattern,
               },
             ],
             mismatch: "fail",

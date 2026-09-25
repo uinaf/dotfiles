@@ -133,9 +133,10 @@
         "vp",
         "test",
         "agents/codex/config.test.ts",
+        "agents/codex/projects.test.ts",
         "bootstrap/configure-codex.test.ts"
       ],
-      "output": "Codex typed atomic edits plus native write integration when Codex is installed"
+      "output": "Codex typed atomic edits, project trust, and private state modes plus native write integration when Codex is installed"
     },
     {
       "id": "grok-settings",

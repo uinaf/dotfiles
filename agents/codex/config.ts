@@ -1,8 +1,9 @@
 import { spawn } from "node:child_process";
 import { Schema } from "effect";
-import { chmodSync, mkdirSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, realpathSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import readline from "node:readline";
+import { discoverCheckouts, projectTrustEdits, restrictCodexState } from "./projects.ts";
 
 type RpcMessage = { id?: number; result?: unknown; error?: { message?: string } };
 const RpcMessage = Schema.Struct({
@@ -18,6 +19,34 @@ type Scalar =
   | readonly string[]
   | Readonly<Record<string, string>>;
 export type ConfigEdit = { keyPath: string; value: Scalar; mergeStrategy: "replace" | "upsert" };
+type UserConfig = { projects: Readonly<Record<string, unknown>> };
+type PlanEdits = (user: UserConfig) => readonly ConfigEdit[];
+
+const ConfigRead = Schema.Struct({
+  layers: Schema.Array(
+    Schema.Struct({
+      name: Schema.Struct({ type: Schema.String, file: Schema.optional(Schema.String) }),
+      version: Schema.String,
+      config: Schema.Struct({
+        projects: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
+      }),
+    }),
+  ),
+});
+
+function userLayer(result: unknown, configPath: string) {
+  const real = (path: string) => (existsSync(path) ? realpathSync(path) : resolve(path));
+  const layer = Schema.decodeUnknownSync(ConfigRead)(result).layers.find(
+    (candidate) =>
+      candidate.name.type === "user" &&
+      candidate.name.file !== undefined &&
+      real(candidate.name.file) === real(configPath),
+  );
+  return {
+    version: layer?.version,
+    user: { projects: layer?.config.projects ?? {} },
+  };
+}
 
 function managedEdits(): ConfigEdit[] {
   return [
@@ -58,8 +87,14 @@ function managedEdits(): ConfigEdit[] {
   ];
 }
 
-export async function writeConfigEdits(edits: readonly ConfigEdit[]): Promise<string> {
-  const codexHome = resolve(process.env.CODEX_HOME || join(process.env.HOME || "", ".codex"));
+function codexHomePath(): string {
+  return resolve(process.env.CODEX_HOME || join(process.env.HOME || "", ".codex"));
+}
+
+// A planner reads the user layer first and writes against its version, so a
+// concurrent Codex edit fails the write instead of being overwritten.
+export async function writeConfigEdits(edits: readonly ConfigEdit[] | PlanEdits): Promise<string> {
+  const codexHome = codexHomePath();
   const configPath = resolve(process.env.CODEX_CONFIG_PATH || join(codexHome, "config.toml"));
   mkdirSync(dirname(configPath), { recursive: true, mode: 0o700 });
 
@@ -104,7 +139,28 @@ export async function writeConfigEdits(edits: readonly ConfigEdit[]): Promise<st
         if (message.error)
           return fail(new Error(message.error.message || "Codex app-server initialization failed"));
         send({ method: "initialized", params: {} });
-        send({ method: "config/batchWrite", id: 1, params: { edits, filePath: configPath } });
+        if (typeof edits !== "function")
+          send({ method: "config/batchWrite", id: 1, params: { edits, filePath: configPath } });
+        else send({ method: "config/read", id: 2, params: { includeLayers: true } });
+      }
+      if (message.id === 2 && typeof edits === "function") {
+        if (message.error)
+          return fail(new Error(message.error.message || "Codex config read failed"));
+        let current: ReturnType<typeof userLayer>;
+        try {
+          current = userLayer(message.result, configPath);
+        } catch {
+          return fail(new Error("Codex app-server returned an unexpected configuration"));
+        }
+        send({
+          method: "config/batchWrite",
+          id: 1,
+          params: {
+            edits: edits(current.user),
+            filePath: configPath,
+            ...(current.version ? { expectedVersion: current.version } : {}),
+          },
+        });
       }
       if (message.id === 1) {
         if (message.error)
@@ -125,6 +181,14 @@ export async function writeConfigEdits(edits: readonly ConfigEdit[]): Promise<st
   return configPath;
 }
 
-export async function configureDefaults(): Promise<string> {
-  return writeConfigEdits(managedEdits());
+export type CodexDefaults = { configPath: string; restricted: readonly string[] };
+
+// projectRoot opts into trusting every checkout directly under it.
+export async function configureDefaults(projectRoot?: string): Promise<CodexDefaults> {
+  const checkouts = projectRoot ? discoverCheckouts(projectRoot) : [];
+  const configPath = await writeConfigEdits((user) => [
+    ...managedEdits(),
+    ...(projectRoot ? projectTrustEdits(projectRoot, checkouts, user.projects) : []),
+  ]);
+  return { configPath, restricted: restrictCodexState(codexHomePath()) };
 }

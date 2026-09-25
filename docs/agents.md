@@ -20,6 +20,16 @@ original enrollment snapshot semantics.
 If a native TOML rewrite drops block comments, the exact configured gateway
 sections are still recognized; conflicting values remain an error.
 
+[Codex project trust](../agents/codex/projects.ts) runs with the Codex defaults
+on setup and maintenance. Personal and devbox profiles trust each Git checkout
+at `~/projects/NAME` or `~/projects/OWNER/NAME`; linked worktrees inherit their
+main checkout's trust. Existing entries keep their trust level. Entries for
+checkout-shaped paths under `~/projects` that no longer exist are removed so the
+[security audit](security-audits.md) stays quiet; other entries, including broad
+ones the audit warns about, are left for the operator. Every profile also
+removes group and other access from the Codex state the devbox audit checks,
+since Codex creates it with the process umask.
+
 ## Permissions and Privacy
 
 Every harness starts in its auto-approval mode; switch to full access per
