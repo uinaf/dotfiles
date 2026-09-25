@@ -20,6 +20,10 @@ mise tasks
 mise tasks validate
 ```
 
+- Tasks run with the repository's own Node (`.node-version`) and pnpm
+  (`package.json` `packageManager`), installing them on first use, so they work
+  before a profile is applied. mise drops undeclared tool paths from the
+  inherited `PATH`, so a caller's exported Node does not reach tasks.
 - The [verification registry](../verify/checks.json) lists commands,
   domains, and proof. Focused runs omit checks marked `scope: "complete"`.
 - [Contributing](../CONTRIBUTING.md#verify) owns repository verification commands

@@ -1,5 +1,11 @@
 # Profile runtime pins live in chezmoi/.chezmoitemplates/mise.toml.
 
+# Tasks take Node from .node-version and pnpm from package.json. mise strips
+# undeclared tool install paths from the inherited PATH, so a task cannot rely
+# on the caller's Node before a profile declares one globally.
+[settings]
+idiomatic_version_file_enable_tools = ["node", "pnpm"]
+
 [tasks.verify]
 description = "Run the complete repository gate"
 depends = ["verify:fast", "verify:history"]
