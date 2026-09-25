@@ -163,7 +163,7 @@ const privileged = Effect.fn("runPrivilegedXcodeCommand")(function* (
     : yield* runner.run("sudo", ["-n", resolved, ...args], { output: "inherit" });
   if (result.status !== 0) {
     return yield* fail(
-      `privileged ${command} exited ${result.status}; run \`${command} ${args.join(" ")}\` with sudo, or configure sops-devbox-sudo on a headless host`,
+      `privileged ${command} exited ${result.status}; run \`sudo ${[resolved, ...args].join(" ")}\` in a terminal, then rerun mise run xcode:install; on a headless host, configure sops-devbox-sudo (docs/devbox.md)`,
       result.status,
     );
   }

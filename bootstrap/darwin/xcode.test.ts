@@ -137,3 +137,38 @@ esac
   assert.match(result.stdout, /input received/);
   assert.match(result.stderr, /xcodes install exited 23/);
 });
+
+test("a refused non-interactive select names the exact sudo command", (t) => {
+  const home = mkdtempSync(join(tmpdir(), "xcode-select."));
+  t.onTestFinished(() => rmSync(home, { recursive: true, force: true }));
+  const bin = join(home, "bin");
+  mkdirSync(bin);
+  writeFileSync(join(home, "xcode.json"), JSON.stringify({ version: 1, release: "27.0" }));
+  writeFileSync(join(bin, "brew"), '#!/bin/sh\nprintf "%s\\n" "$HOME"\n', { mode: 0o755 });
+  writeFileSync(
+    join(bin, "xcodes"),
+    "#!/bin/sh\n[ \"$1\" = installed ] && printf '27.0 (27A266a) [Apple Silicon]\\t/Applications/Xcode-27.0.0.app\\n'\nexit 0\n",
+    { mode: 0o755 },
+  );
+  writeFileSync(join(bin, "sudo"), '#!/bin/sh\n[ "$1" = -n ] && exit 1\nexit 27\n', {
+    mode: 0o755,
+  });
+  const result = spawnSync(process.execPath, [resolve(import.meta.dirname, "xcode.ts")], {
+    encoding: "utf8",
+    timeout: 10_000,
+    env: {
+      ...process.env,
+      PATH: `${bin}:${process.env.PATH}`,
+      HOME: home,
+      DOTFILES_XCODE_FILE: join(home, "xcode.json"),
+      DEVBOX_CONFIG: join(home, "missing-devbox.env"),
+    },
+  });
+  assert.equal(result.status, 1, result.stderr);
+  assert.ok(
+    result.stderr.includes(
+      `run \`sudo ${join(bin, "xcodes")} select --no-color 27.0\` in a terminal`,
+    ),
+    result.stderr,
+  );
+});

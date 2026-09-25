@@ -22,7 +22,12 @@ xcrun simctl list devicetypes | rg 'Apple TV'
 
 The install task passes terminal input to `xcodes` for its Apple Developer
 login and 2FA prompts. Run it in an interactive terminal when authentication
-is needed. Simulator runtimes are a multi-GB download. Run the
+is needed. Over SSH, use `ssh -t` and run `security unlock-keychain` first;
+`xcodes` stores the Apple ID session in the login keychain, and a locked
+keychain fails with `OSStatus error:[-25308]`. Selecting the release needs
+sudo: devbox hosts with a [sudo config](devbox.md#sudo-without-a-plaintext-password-file)
+use `sops-devbox-sudo`; otherwise the task prints the exact `sudo` command to
+run. Simulator runtimes are a multi-GB download. Run the
 application’s build afterward to verify its Xcode/runtime combination.
 
 ## Android TV
