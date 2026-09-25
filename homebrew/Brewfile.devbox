@@ -2,3 +2,6 @@
 
 # Remote devbox CLIs
 brew "tailscale"
+
+# The desktop baseline pins Chrome as the only Dock app
+cask "google-chrome"
