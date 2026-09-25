@@ -69,3 +69,35 @@ test("nonzero native exits reject with the diagnostic and preserve configuration
   assert.equal(readFileSync(config, "utf8"), "# preserved\n");
   assert.equal(statSync(config).mode & 0o777, 0o644);
 });
+
+test("planned edits read the user layer and write against its version", async () => {
+  const { config, home } = fixture(`
+    if (request.method === "initialize") process.stdout.write('{"id":0,"result":{}}\\n');
+    if (request.method === "config/read") {
+      const layers = [
+        { name: { type: "system", file: "/etc/codex/config.toml" }, version: "system", config: { projects: { "/system": {} } } },
+        { name: { type: "user", file: process.env.CODEX_CONFIG_PATH }, version: "sha256:user", config: { projects: { "/kept": {} } } },
+      ];
+      process.stdout.write(JSON.stringify({ id: 2, result: { config: {}, layers } }) + "\\n");
+    }
+    if (request.method === "config/batchWrite") {
+      fs.writeFileSync(require("node:path").join(process.env.CODEX_HOME, "request.json"), JSON.stringify(request.params));
+      process.stdout.write('{"id":1,"result":{}}\\n');
+    }
+  `);
+  const seen: unknown[] = [];
+  const edit = { keyPath: "example", value: true, mergeStrategy: "upsert" } as const;
+  assert.equal(
+    await writeConfigEdits((user) => {
+      seen.push(user.projects);
+      return [edit];
+    }),
+    config,
+  );
+  assert.deepEqual(seen, [{ "/kept": {} }]);
+  assert.deepEqual(JSON.parse(readFileSync(join(home, "request.json"), "utf8")), {
+    edits: [edit],
+    filePath: config,
+    expectedVersion: "sha256:user",
+  });
+});

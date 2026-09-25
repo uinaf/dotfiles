@@ -7,6 +7,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  realpathSync,
   rmSync,
   statSync,
   writeFileSync,
@@ -19,10 +20,10 @@ import { fileURLToPath } from "node:url";
 const script = resolve(dirname(fileURLToPath(import.meta.url)), "configure-codex.ts");
 const codexInstalled = spawnSync("codex", ["--version"], { stdio: "ignore" }).status === 0;
 
-function run(home: string, profile = "workstation") {
+function run(home: string, profile = "workstation", userHome = process.env.HOME) {
   return spawnSync(script, ["--profile", profile], {
     encoding: "utf8",
-    env: { ...process.env, CODEX_HOME: home },
+    env: { ...process.env, CODEX_HOME: home, HOME: userHome },
   });
 }
 
@@ -121,3 +122,41 @@ test("installed Codex does not overwrite malformed input", { skip: !codexInstall
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test(
+  "installed Codex trusts project checkouts on personal and devbox profiles only",
+  { skip: !codexInstalled },
+  () => {
+    const root = realpathSync(mkdtempSync(join(tmpdir(), "dotfiles-codex-trust-")));
+    const home = join(root, ".codex");
+    const config = join(home, "config.toml");
+    const repo = join(root, "projects/owner/repo");
+    try {
+      mkdirSync(join(repo, ".git"), { recursive: true });
+      mkdirSync(join(home, "sessions"), { recursive: true });
+      chmodSync(home, 0o755);
+      chmodSync(join(home, "sessions"), 0o755);
+      const kept = `[projects."${root}"]\ntrust_level = "trusted"\n`;
+      const gone = `[projects."${root}/projects/owner/gone"]\ntrust_level = "trusted"\n`;
+      writeFileSync(config, `${kept}\n${gone}`);
+
+      const skipped = run(home, "workstation", root);
+      assert.equal(skipped.status, 0, skipped.stderr);
+      assert.ok(!readFileSync(config, "utf8").includes(repo));
+
+      const first = run(home, "personal-devbox", root);
+      assert.equal(first.status, 0, first.stderr);
+      const contents = readFileSync(config, "utf8");
+      assert.ok(contents.includes(kept));
+      assert.ok(contents.includes(`[projects."${repo}"]\ntrust_level = "trusted"\n`));
+      assert.ok(!contents.includes("owner/gone"));
+      assert.equal(statSync(join(home, "sessions")).mode & 0o777, 0o700);
+
+      const second = run(home, "personal-devbox", root);
+      assert.equal(second.status, 0, second.stderr);
+      assert.equal(readFileSync(config, "utf8"), contents);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  },
+);
