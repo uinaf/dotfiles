@@ -121,7 +121,8 @@ own command when you no longer need its vendor login.
 
 ## System Services
 
-On macOS, install Colima's boot service from an authorized administrator
+Install system services only when the owner asks; otherwise Colima starts on
+demand. On macOS, install Colima's boot service from an authorized administrator
 account for the user who owns Colima:
 
 ```zsh
@@ -225,9 +226,8 @@ the new one passes every check below.
    not cover (for example the put.io skill's `repos.json` clone loop). Clone in
    full, not blobless: tests that swap `HOME` cannot fetch missing blobs over
    SSH. Never copy coding-agent logins, sessions, caches, or browser profiles.
-5. Enroll [headless updates](software-updates.md#headless-devbox-updates).
-   Add [system services](#system-services) only when the owner asks for them;
-   Colima otherwise starts on demand.
+5. Enroll [headless updates](software-updates.md#headless-devbox-updates) and
+   any requested [system services](#system-services).
 6. Run [verification](#verification), then each moved repository's own build
    and test gate on the new host.
 
