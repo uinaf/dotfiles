@@ -221,7 +221,10 @@ the new one passes every check below.
    owner; do not copy the old host's.
 4. On the old host, push or deliberately archive unpushed branches, stashes,
    worktrees, and ignored work. Clone repositories on the new host from their
-   remotes. Never copy coding-agent logins, sessions, caches, or browser profiles.
+   remotes: each workspace's registry clone, plus every registry that route does
+   not cover (for example the put.io skill's `repos.json` clone loop). Clone in
+   full, not blobless: tests that swap `HOME` cannot fetch missing blobs over
+   SSH. Never copy coding-agent logins, sessions, caches, or browser profiles.
 5. Enroll [headless updates](software-updates.md#headless-devbox-updates).
    Add [system services](#system-services) only when the owner asks for them;
    Colima otherwise starts on demand.
