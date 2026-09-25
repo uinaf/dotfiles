@@ -179,6 +179,9 @@ the logged-in owner may apply the optional desktop baseline:
 ./verify/bootstrap.ts --profile devbox --desktop
 ```
 
+An unattended macOS devbox turns FileVault off and logs its owner in
+automatically, so a reboot brings back user services without a local unlock.
+
 ### Verify
 
 Run as each intended Unix user:
