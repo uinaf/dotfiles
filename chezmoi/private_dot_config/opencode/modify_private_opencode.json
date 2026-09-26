@@ -1,6 +1,0 @@
-{{- /* chezmoi:modify-template */ -}}
-{{- $config := dict -}}
-{{- if ne (trim .chezmoi.stdin) "" -}}
-{{- $config = fromJson .chezmoi.stdin -}}
-{{- end -}}
-{{ $config | setValueAtPath "share" "disabled" | toPrettyJson }}

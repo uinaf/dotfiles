@@ -171,7 +171,6 @@ for (const failure of [false, true]) {
       "configure-codex.ts",
       "configure-grok.ts",
       "configure-llm-gateway.ts",
-      "configure-bifrost-clients.ts",
       "configure-hindsight.ts",
     ])
       stub(join(root, "bootstrap", name), name);

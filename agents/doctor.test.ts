@@ -23,7 +23,7 @@ class FixtureRuntime implements Runtime {
   readonly env: NodeJS.ProcessEnv;
   readonly stdout = new BufferWriter();
   readonly stderr = new BufferWriter();
-  readonly installedCommands = new Set(["claude", "codex", "grok", "opencode", "sh"]);
+  readonly installedCommands = new Set(["claude", "codex", "grok", "sh"]);
   readonly repoDir: string;
   readonly replies: ReadonlyMap<string, Reply>;
 
@@ -92,10 +92,6 @@ const healthy = new Map<string, Reply>([
     { stdout: JSON.stringify([{ name: "shared-mcp", auth_status: "o_auth" }]) },
   ],
   [
-    "opencode mcp list",
-    { stdout: "●  ✓ shared-mcp [90mconnected\n│      https://mcp.fixture.test/mcp\n" },
-  ],
-  [
     "grok mcp doctor --json",
     {
       stdout: JSON.stringify({
@@ -133,7 +129,6 @@ test("reports every harness usable and exits 0", () => {
   assert.equal(main([], runtime), 0);
   assert.match(runtime.stdout.value, /ok {4}Claude Code: shared-mcp - connected/);
   assert.match(runtime.stdout.value, /\? {5}Codex: shared-mcp - o_auth/);
-  assert.match(runtime.stdout.value, /ok {4}OpenCode: shared-mcp - connected/);
   assert.match(runtime.stdout.value, /ok {4}Grok: shared-mcp - 9 tools discovered/);
   assert.match(runtime.stdout.value, /All managed MCP servers are usable\./);
   assert.doesNotMatch(runtime.stdout.value, /repair:/);
@@ -145,7 +140,6 @@ test("names the login command for each expired harness and exits 1", () => {
   replies.set("claude mcp get shared-mcp", {
     stdout: "shared-mcp:\n  Status: ! Needs authentication\n",
   });
-  replies.set("opencode mcp list", { stdout: "●  ⚠ shared-mcp needs authentication\n" });
   replies.set("grok mcp doctor --json", {
     stdout: JSON.stringify({
       servers: [
@@ -171,13 +165,9 @@ test("names the login command for each expired harness and exits 1", () => {
   );
   assert.match(
     runtime.stdout.value,
-    /LOGIN OpenCode: shared-mcp[^\n]*\n {6}repair: opencode mcp auth shared-mcp/,
-  );
-  assert.match(
-    runtime.stdout.value,
     /LOGIN Grok: shared-mcp[^\n]*\n {6}repair: \.\/agents\/grok-mcp-login\.ts shared-mcp/,
   );
-  assert.match(runtime.stdout.value, /3 MCP server state\(s\) need attention\./);
+  assert.match(runtime.stdout.value, /2 MCP server state\(s\) need attention\./);
 });
 
 test("flags Grok config parse errors and installation drift", () => {

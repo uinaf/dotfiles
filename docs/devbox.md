@@ -81,8 +81,7 @@ and URLs:
 own optional fields and validation. Gatewai-only enrollment omits both
 `credentials.bifrost` and `bifrostBaseUrl`; supplying only one is rejected. It
 configures Codex and Claude through Gatewai without adding a Bifrost provider.
-Existing unrelated provider settings are preserved. Run the Bifrost-specific
-client commands below only when that provider is allocated.
+Existing unrelated provider settings are preserved.
 
 Credentials stay in owner-only configuration
 or client stores. Gateway state uses version 9; unsupported state must be migrated
@@ -91,8 +90,6 @@ before enrollment or maintenance.
 ```zsh
 ./bootstrap/configure-llm-gateway.ts
 ./bootstrap/configure-llm-gateway.ts --check
-./bootstrap/configure-bifrost-clients.ts
-./bootstrap/configure-bifrost-clients.ts --check
 ```
 
 Gateway setup and maintenance preserve existing vendor logins. Grok enrollment

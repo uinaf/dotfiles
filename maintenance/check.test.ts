@@ -289,7 +289,7 @@ test("interrupting the collector reaps every owned probe before completing", asy
     await completion;
     await rm(root, { recursive: true, force: true });
   });
-  const commands = ["mise", "npm", "node", "codex", "claude", "opencode"];
+  const commands = ["mise", "npm", "node", "codex", "claude"];
   for (const command of commands) {
     await writeFile(
       join(bin, command),

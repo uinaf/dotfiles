@@ -202,7 +202,6 @@ function agentProbes(context: MaintenanceContext): Probe[] {
     ["npm", "npm", ["--version"]],
     ["codex", "codex", ["--version"]],
     ["claude", "claude", ["--version"]],
-    ["opencode", "opencode", ["--version"]],
   ];
   if (profile.capabilities.personal && profile.capabilities.workstation)
     versions.push(["grok", "grok", ["--version"]]);

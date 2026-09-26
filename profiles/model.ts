@@ -21,7 +21,6 @@ const InstallStep = Schema.Literals([
   "configure-grok",
   "configure-helium",
   "configure-llm-gateway",
-  "configure-bifrost-clients",
   "configure-hindsight",
   "sync-agents",
 ]);

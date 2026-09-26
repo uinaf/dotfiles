@@ -33,7 +33,6 @@ const INSTALLER_NAMES: Record<Harness, string> = {
   claude: "claude-code",
   codex: "codex",
   grok: "grok-build",
-  opencode: "opencode",
 };
 
 const ServerConfig = Schema.Union([
@@ -203,7 +202,7 @@ const writeBankCredentials = Effect.fn("writeBankCredentials")(function* (
 // Every managed harness reads its own config; a missing HINDSIGHT_MCP_HARNESS
 // is the drift that leaves the MCP server dead after a runtime update.
 export function wiredInText(
-  harness: Exclude<Harness, "claude" | "opencode">,
+  harness: Exclude<Harness, "claude">,
   toml: string | undefined,
 ): boolean {
   if (toml === undefined) return false;
@@ -239,16 +238,6 @@ const wired = Effect.fn("wired")(function* (paths: Paths, harness: Harness) {
       return wiredInText(harness, yield* readText(join(paths.home, ".codex/config.toml")));
     case "grok":
       return wiredInText(harness, yield* readText(join(paths.home, ".grok/config.toml")));
-    case "opencode": {
-      const config = yield* readJson(join(paths.home, ".config/opencode/opencode.json")).pipe(
-        Effect.orElseSucceed(() => undefined),
-      );
-      const plugins = config?.plugin;
-      return (
-        Array.isArray(plugins) &&
-        plugins.some((plugin) => typeof plugin === "string" && plugin === paths.runtimeDir)
-      );
-    }
   }
 });
 

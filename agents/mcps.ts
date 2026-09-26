@@ -2,15 +2,6 @@
 
 import { sanitizeDiagnostic } from "../lib/diagnostics.ts";
 
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  renameSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Effect } from "effect";
@@ -24,9 +15,11 @@ import {
   harnessPresent,
   isSafeName,
   parseSyncArgs,
+  onlyRetiredHarnesses,
   readHarnesses,
   reportSyncFailures,
   type SyncFailure,
+  withoutRetiredHarnesses,
 } from "./harness.ts";
 import { type McpServer, readLayeredServers } from "./mcps/catalog.ts";
 import { planOwnership } from "./ownership.ts";
@@ -70,7 +63,7 @@ function readServerLock(lockPath: string): LockedServer[] | undefined {
     );
   }
 
-  const servers = parsed.servers.map((server, index) => {
+  const servers = parsed.servers.flatMap((server, index) => {
     if (
       typeof server !== "object" ||
       server === null ||
@@ -82,10 +75,14 @@ function readServerLock(lockPath: string): LockedServer[] | undefined {
         `Invalid managed MCP lock at ${lockPath}: servers[${index}] must have a safe name`,
       );
     }
+    const harnesses = "harnesses" in server ? server.harnesses : undefined;
+    if (onlyRetiredHarnesses(harnesses)) {
+      return [];
+    }
     return {
       name: server.name,
       harnesses: readHarnesses(
-        "harnesses" in server ? server.harnesses : undefined,
+        withoutRetiredHarnesses(harnesses),
         `Invalid managed MCP lock at ${lockPath}: ${server.name} harnesses must be an explicit unique non-empty subset of ${HARNESSES.join(", ")}`,
       ),
     };
@@ -104,7 +101,7 @@ function writeServerLock(lockPath: string, servers: readonly LockedServer[]): vo
 
 const serverName = (server: { name: string; harnesses: readonly Harness[] }) => server.name;
 
-function mcpRemoveArgs(harness: Exclude<Harness, "opencode">, name: string): string[] {
+function mcpRemoveArgs(harness: Harness, name: string): string[] {
   switch (harness) {
     case "claude":
       return ["mcp", "remove", "-s", "user", name];
@@ -123,17 +120,12 @@ type CommandSpec = {
   addArgs(server: McpServer): string[];
 };
 
-// grok and opencode `mcp add` are plain config upserts: re-adding a name updates it.
+// grok `mcp add` is a plain config upsert: re-adding a name updates it.
 const COMMAND_SPECS: Record<CommandHarness, CommandSpec> = {
   grok: {
     binary: "grok",
     label: "Grok",
     addArgs: (server) => ["mcp", "add", "-t", "http", "-s", "user", server.name, server.url],
-  },
-  opencode: {
-    binary: "opencode",
-    label: "OpenCode",
-    addArgs: (server) => ["mcp", "add", server.name, "--url", server.url],
   },
 };
 
@@ -284,216 +276,12 @@ function applyClaude(
   }
 }
 
-type JsonObject = Record<string, unknown>;
-
-function stripJsonc(text: string): string {
-  let output = "";
-  let inString = false;
-  let escaped = false;
-  let lineComment = false;
-  let blockComment = false;
-
-  for (let index = 0; index < text.length; index += 1) {
-    const current = text[index] ?? "";
-    const next = text[index + 1] ?? "";
-
-    if (lineComment) {
-      if (current === "\n") {
-        lineComment = false;
-        output += current;
-      }
-      continue;
-    }
-    if (blockComment) {
-      if (current === "*" && next === "/") {
-        blockComment = false;
-        index += 1;
-      }
-      continue;
-    }
-    if (inString) {
-      output += current;
-      if (escaped) {
-        escaped = false;
-      } else if (current === "\\") {
-        escaped = true;
-      } else if (current === '"') {
-        inString = false;
-      }
-      continue;
-    }
-    if (current === "/" && next === "/") {
-      lineComment = true;
-      index += 1;
-      continue;
-    }
-    if (current === "/" && next === "*") {
-      blockComment = true;
-      index += 1;
-      continue;
-    }
-    if (current === '"') {
-      inString = true;
-    }
-    output += current;
-  }
-
-  return stripTrailingCommas(output);
-}
-
-function stripTrailingCommas(text: string): string {
-  let output = "";
-  let inString = false;
-  let escaped = false;
-
-  for (let index = 0; index < text.length; index += 1) {
-    const current = text[index] ?? "";
-    if (inString) {
-      output += current;
-      if (escaped) {
-        escaped = false;
-      } else if (current === "\\") {
-        escaped = true;
-      } else if (current === '"') {
-        inString = false;
-      }
-      continue;
-    }
-    if (current === '"') {
-      inString = true;
-      output += current;
-      continue;
-    }
-    if (current === ",") {
-      let lookahead = index + 1;
-      while (lookahead < text.length && /\s/.test(text[lookahead] ?? "")) {
-        lookahead += 1;
-      }
-      const follower = text[lookahead] ?? "";
-      if (follower === "}" || follower === "]") {
-        continue;
-      }
-    }
-    output += current;
-  }
-
-  return output;
-}
-
-function parseJsonDocument(text: string, jsonc: boolean): unknown {
-  try {
-    return JSON.parse(text);
-  } catch (error) {
-    if (!jsonc) {
-      throw error;
-    }
-    return JSON.parse(stripJsonc(text));
-  }
-}
-
-function readJsonObjectFile(
-  path: string,
-  label: string,
-  failures: McpFailure[],
-  jsonc = false,
-): JsonObject | undefined {
-  let parsed: unknown;
-  try {
-    parsed = parseJsonDocument(readFileSync(path, "utf8"), jsonc);
-  } catch (error) {
-    failures.push({
-      diagnostic: sanitizeDiagnostic(errorMessage(error)),
-      summary: `${label}: ${path} is not valid ${jsonc ? "JSONC" : "JSON"}`,
-    });
-    return undefined;
-  }
-  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-    failures.push({
-      diagnostic: `${path} must contain a JSON object`,
-      summary: `${label}: ${path} has an unexpected shape`,
-    });
-    return undefined;
-  }
-  return parsed as JsonObject;
-}
-
-function writeJsonObjectFile(path: string, value: JsonObject): void {
-  mkdirSync(dirname(path), { recursive: true });
-  const temporaryDirectory = mkdtempSync(join(dirname(path), ".mcp-json-"));
-  try {
-    const temporaryPath = join(temporaryDirectory, "mcp.json");
-    writeFileSync(temporaryPath, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 });
-    renameSync(temporaryPath, path);
-  } finally {
-    rmSync(temporaryDirectory, { force: true, recursive: true });
-  }
-}
-
-function opencodeConfigPath(home: string): string | undefined {
-  const jsonc = join(home, ".config", "opencode", "opencode.jsonc");
-  const json = join(home, ".config", "opencode", "opencode.json");
-  if (existsSync(jsonc)) {
-    return jsonc;
-  }
-  if (existsSync(json)) {
-    return json;
-  }
-  return undefined;
-}
-
-function removeOpenCodeServers(
-  runtime: Runtime,
-  names: readonly string[],
-  failures: McpFailure[],
-): boolean {
-  const home = runtime.env.HOME;
-  if (!home) {
-    failures.push({
-      diagnostic: "HOME is required to manage the OpenCode MCP config",
-      summary: "OpenCode: ~/.config/opencode/opencode.jsonc (missing HOME)",
-    });
-    return false;
-  }
-
-  const configPath = opencodeConfigPath(home);
-  if (configPath === undefined) {
-    return true;
-  }
-
-  const config = readJsonObjectFile(configPath, "OpenCode", failures, true);
-  if (config === undefined) {
-    return false;
-  }
-
-  const existing = Object.hasOwn(config, "mcp") ? config.mcp : undefined;
-  if (typeof existing !== "object" || existing === null || Array.isArray(existing)) {
-    return true;
-  }
-
-  const mcp = existing as JsonObject;
-  let changed = false;
-  for (const name of names) {
-    if (Object.hasOwn(mcp, name)) {
-      delete mcp[name];
-      changed = true;
-    }
-  }
-  if (!changed) {
-    return true;
-  }
-
-  writeJsonObjectFile(configPath, config);
-  writeLine(runtime.stdout, `OpenCode: removed ${names.join(", ")} from ${configPath}`);
-  return true;
-}
-
 function removeStaleServers(
   runtime: Runtime,
   stale: readonly LockedServer[],
   failures: McpFailure[],
 ): LockedServer[] {
   const leftover: LockedServer[] = [];
-  const opencodeNames: string[] = [];
 
   for (const server of stale) {
     const leftoverHarnesses: Harness[] = [];
@@ -502,11 +290,6 @@ function removeStaleServers(
       if (!runtime.commandExists(binary)) {
         leftoverHarnesses.push(harness);
         writeLine(runtime.stdout, `Skipping ${label} MCP removal: '${binary}' is not installed`);
-        continue;
-      }
-
-      if (harness === "opencode") {
-        opencodeNames.push(server.name);
         continue;
       }
 
@@ -520,16 +303,6 @@ function removeStaleServers(
 
     if (leftoverHarnesses.length > 0) {
       leftover.push({ name: server.name, harnesses: leftoverHarnesses });
-    }
-  }
-
-  if (opencodeNames.length > 0 && !removeOpenCodeServers(runtime, opencodeNames, failures)) {
-    for (const name of opencodeNames) {
-      if (
-        !leftover.some((server) => server.name === name && server.harnesses.includes("opencode"))
-      ) {
-        leftover.push({ name, harnesses: ["opencode"] });
-      }
     }
   }
 

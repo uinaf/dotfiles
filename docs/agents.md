@@ -35,12 +35,11 @@ since Codex creates it with the process umask.
 Every harness starts in its auto-approval mode; switch to full access per
 session. Setup replaces drifted values on each run.
 
-| Harness     | Owner                                                                                    | Managed defaults                                                                                                            |
-| ----------- | ---------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| Claude Code | [settings modifier](../chezmoi/private_dot_claude/modify_private_settings.json)          | auto mode; no error reports, `/feedback`, or session surveys                                                                |
-| Codex       | [Codex configuration](../agents/codex/config.ts)                                         | on-request approvals routed to auto review in the `:workspace` profile; no analytics, feedback, or Statsig metrics          |
-| Grok        | [Grok configuration](../agents/grok/config.ts)                                           | auto permission mode; no self-update, telemetry, feedback, trace, workspace, or codebase uploads; retired plugin ids pruned |
-| OpenCode    | [OpenCode modifier](../chezmoi/private_dot_config/opencode/modify_private_opencode.json) | sharing disabled; its build agent already allows tools without a review mode                                                |
+| Harness     | Owner                                                                           | Managed defaults                                                                                                            |
+| ----------- | ------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Claude Code | [settings modifier](../chezmoi/private_dot_claude/modify_private_settings.json) | auto mode; no error reports, `/feedback`, or session surveys                                                                |
+| Codex       | [Codex configuration](../agents/codex/config.ts)                                | on-request approvals routed to auto review in the `:workspace` profile; no analytics, feedback, or Statsig metrics          |
+| Grok        | [Grok configuration](../agents/grok/config.ts)                                  | auto permission mode; no self-update, telemetry, feedback, trace, workspace, or codebase uploads; retired plugin ids pruned |
 
 Grok's launcher runs whatever `~/.grok/bin/grok` links to, and mise installs
 the package without running the postinstall step that restages that link.
@@ -56,8 +55,8 @@ Model-training choices are account settings, not client configuration.
 [Rule sources](../agents/rules.json) supply the shared text.
 [Chezmoi](../chezmoi/private_AGENTS.md.tmpl) combines it with private fragments
 into `~/AGENTS.md`; `~/.claude/CLAUDE.md` and `~/.codex/AGENTS.md` link there.
-Grok and OpenCode read `~/.claude/CLAUDE.md` through their default Claude
-compatibility, so they need no separate link.
+Grok reads `~/.claude/CLAUDE.md` through its default Claude compatibility,
+so it needs no separate link.
 Edit shared rules at their configured source and private instructions in:
 
 | File                                 | Position            |
@@ -155,14 +154,6 @@ harnesses. Syncs execute those removals and pass deferred entries back to the
 plan; the lock is written only after successful apply and removal operations.
 Plugin-specific ownership changes stay in
 [plugin sync](../agents/plugins.ts).
-
-## Plugin Sync
-
-- OpenCode uses skill links from
-  `~/.claude/plugins/marketplaces/<marketplaceId>/skills/`, so the Claude
-  marketplace checkout must exist. Links follow its updates.
-- Existing files or never-owned links at a selected skill name are reported
-  rather than replaced. First sync does not prune links.
 
 ## MCP Sync
 

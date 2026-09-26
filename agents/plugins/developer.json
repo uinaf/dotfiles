@@ -3,7 +3,7 @@
     {
       "marketplace": "uinaf/ffss",
       "name": "ffss",
-      "harnesses": ["claude", "codex", "grok", "opencode"]
+      "harnesses": ["claude", "codex", "grok"]
     }
   ]
 }

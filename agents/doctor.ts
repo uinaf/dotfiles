@@ -132,39 +132,6 @@ function codexFinding(runtime: Runtime, server: McpServer): Finding {
   };
 }
 
-function opencodeFinding(server: McpServer, text: string): Finding {
-  const line = text
-    .split("\n")
-    .map((item) => item.trim())
-    .find((item) => item.includes(` ${server.name} `) || item.endsWith(` ${server.name}`));
-  const repair = `opencode mcp auth ${server.name}`;
-  if (line === undefined) {
-    return {
-      harness: "opencode",
-      server: server.name,
-      status: "failed",
-      detail: "not listed",
-      repair: "mise run agents:sync",
-    };
-  }
-  if (line.includes("connected")) {
-    return { harness: "opencode", server: server.name, status: "ok", detail: "connected" };
-  }
-  if (/auth|expired|failed/i.test(line)) {
-    return {
-      harness: "opencode",
-      server: server.name,
-      status: "needs_login",
-      detail: line
-        .replace(/^[^a-z]*/i, "")
-        .replace(server.name, "")
-        .trim(),
-      repair,
-    };
-  }
-  return { harness: "opencode", server: server.name, status: "unknown", detail: line, repair };
-}
-
 type GrokDoctor = {
   servers: Array<{
     name: string;
@@ -356,11 +323,6 @@ function collect(runtime: Runtime, servers: readonly McpServer[]): Finding[] {
       case "codex":
         findings.push(...chosen.map((server) => codexFinding(runtime, server)));
         break;
-      case "opencode": {
-        const text = capture(runtime, "opencode", ["mcp", "list"]).text;
-        findings.push(...chosen.map((server) => opencodeFinding(server, text)));
-        break;
-      }
       case "grok": {
         const result = capture(runtime, "grok", ["mcp", "doctor", "--json"]);
         const doctor = parseGrokDoctor(result.stdout);

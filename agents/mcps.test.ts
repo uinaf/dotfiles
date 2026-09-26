@@ -51,7 +51,7 @@ class FixtureRuntime implements Runtime {
   readonly stdout = new BufferWriter();
   readonly stderr = new BufferWriter();
   readonly calls: CommandCall[] = [];
-  readonly installedCommands = new Set(["claude", "codex", "grok", "opencode"]);
+  readonly installedCommands = new Set(["claude", "codex", "grok"]);
   readonly failures: ReadonlyMap<string, FixtureFailure>;
   readonly outputs: ReadonlyMap<string, string>;
   readonly sequences: Map<string, FixtureResult[]>;
@@ -157,10 +157,6 @@ function writeMcpLock(repoDir: string, servers: unknown): void {
   writeFileSync(mcpLockPath(repoDir), JSON.stringify({ version: 1, servers }, null, 2));
 }
 
-function opencodeConfigPath(home: string): string {
-  return join(home, ".config", "opencode", "opencode.jsonc");
-}
-
 test("adds each server through the upsert CLIs", () => {
   const { repoDir, home } = createFixture();
   const runtime = new FixtureRuntime(repoDir, home);
@@ -172,9 +168,6 @@ test("adds each server through the upsert CLIs", () => {
   ]);
   assert.deepEqual(harnessCalls(runtime, "grok"), [
     "mcp add -t http -s user shared-mcp https://mcp.fixture.test/mcp",
-  ]);
-  assert.deepEqual(harnessCalls(runtime, "opencode"), [
-    "mcp add shared-mcp --url https://mcp.fixture.test/mcp",
   ]);
   assert.match(runtime.stdout.value, /MCP layers: developer, workstation/);
   assert.match(runtime.stdout.value, /Done\./);
@@ -371,29 +364,12 @@ test("removes only servers dropped from the previous managed lock", () => {
     { name: "shared-mcp", harnesses: [...HARNESSES] },
     { name: "retired-mcp", harnesses: [...HARNESSES] },
   ]);
-  mkdirSync(join(home, ".config", "opencode"), { recursive: true });
-  writeFileSync(
-    opencodeConfigPath(home),
-    JSON.stringify(
-      {
-        mcp: {
-          "retired-mcp": { type: "remote", url: "https://retired.fixture.test/mcp" },
-          manual: { type: "remote", url: "https://manual.fixture.test/mcp" },
-        },
-      },
-      null,
-      2,
-    ),
-  );
   const runtime = new FixtureRuntime(repoDir, home);
 
   assert.equal(main([], runtime), 0);
   assert.ok(harnessCalls(runtime, "claude").includes("mcp remove -s user retired-mcp"));
   assert.ok(harnessCalls(runtime, "codex").includes("mcp remove retired-mcp"));
   assert.ok(harnessCalls(runtime, "grok").includes("mcp remove -s user retired-mcp"));
-  const opencode = JSON.parse(readFileSync(opencodeConfigPath(home), "utf8"));
-  assert.equal(opencode.mcp["retired-mcp"], undefined);
-  assert.deepEqual(opencode.mcp.manual, { type: "remote", url: "https://manual.fixture.test/mcp" });
   assert.deepEqual(JSON.parse(readFileSync(mcpLockPath(repoDir), "utf8")), {
     version: 1,
     servers: [{ name: "shared-mcp", harnesses: [...HARNESSES] }],
@@ -492,34 +468,26 @@ test("records only MCP harnesses whose CLI was present", () => {
   assert.deepEqual(JSON.parse(readFileSync(mcpLockPath(repoDir), "utf8")).servers[0]?.harnesses, [
     "claude",
     "codex",
-    "opencode",
   ]);
 });
 
-test("removes an owned OpenCode server from JSONC with comments", () => {
+test("drops retired harnesses from the previous managed lock", () => {
   const { repoDir, home } = createFixture();
   writeMcpLock(repoDir, [
-    { name: "shared-mcp", harnesses: [...HARNESSES] },
+    { name: "shared-mcp", harnesses: [...HARNESSES, "opencode"] },
     { name: "retired-mcp", harnesses: ["opencode"] },
   ]);
-  mkdirSync(join(home, ".config", "opencode"), { recursive: true });
-  writeFileSync(
-    opencodeConfigPath(home),
-    `{
-  // user comment
-  "mcp": {
-    "retired-mcp": { "type": "remote", "url": "https://retired.fixture.test/mcp" },
-    "manual": { "type": "remote", "url": "https://manual.fixture.test/mcp" },
-  }
-}
-`,
-  );
   const runtime = new FixtureRuntime(repoDir, home);
 
   assert.equal(main([], runtime), 0);
-  const opencode = JSON.parse(readFileSync(opencodeConfigPath(home), "utf8"));
-  assert.equal(opencode.mcp["retired-mcp"], undefined);
-  assert.deepEqual(opencode.mcp.manual, { type: "remote", url: "https://manual.fixture.test/mcp" });
+  assert.equal(
+    runtime.calls.some((call) => call.args.includes("retired-mcp")),
+    false,
+  );
+  assert.deepEqual(JSON.parse(readFileSync(mcpLockPath(repoDir), "utf8")), {
+    version: 1,
+    servers: [{ name: "shared-mcp", harnesses: [...HARNESSES] }],
+  });
 });
 
 test("rejects an unsafe ownership lock before changing servers", () => {
@@ -542,30 +510,6 @@ test("keeps previously owned MCP harnesses when that CLI is temporarily absent",
   assert.ok(
     JSON.parse(readFileSync(mcpLockPath(repoDir), "utf8")).servers[0]?.harnesses.includes("grok"),
   );
-});
-
-test("does not rewrite string contents that look like trailing commas", () => {
-  const { repoDir, home } = createFixture();
-  writeMcpLock(repoDir, [
-    { name: "shared-mcp", harnesses: [...HARNESSES] },
-    { name: "retired-mcp", harnesses: ["opencode"] },
-  ]);
-  mkdirSync(join(home, ".config", "opencode"), { recursive: true });
-  writeFileSync(
-    opencodeConfigPath(home),
-    `{
-  "mcp": {
-    "retired-mcp": { "type": "remote", "url": "https://retired.fixture.test/mcp" },
-    "manual": { "type": "remote", "url": "https://example.test/keep,}" }
-  }
-}
-`,
-  );
-  const runtime = new FixtureRuntime(repoDir, home);
-
-  assert.equal(main([], runtime), 0);
-  const opencode = JSON.parse(readFileSync(opencodeConfigPath(home), "utf8"));
-  assert.equal(opencode.mcp.manual.url, "https://example.test/keep,}");
 });
 
 test("the executable TypeScript entrypoint runs the CLI", () => {

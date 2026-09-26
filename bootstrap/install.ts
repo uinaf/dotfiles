@@ -83,11 +83,6 @@ const runStep = Effect.fn("runInstallStep")(function* (
       return yield* execute(step, bootstrap("configure-llm-gateway.ts"), [
         maintenance ? "--maintenance" : "--setup",
       ]);
-    case "configure-bifrost-clients":
-      yield* execute(step, bootstrap("configure-bifrost-clients.ts"), []);
-      return yield* execute(`${step} check`, bootstrap("configure-bifrost-clients.ts"), [
-        "--check",
-      ]);
     case "configure-hindsight":
       yield* execute(step, bootstrap("configure-hindsight.ts"), []);
       return yield* execute(`${step} check`, bootstrap("configure-hindsight.ts"), ["--check"]);

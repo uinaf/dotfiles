@@ -57,8 +57,6 @@ node verify/home-fixture.ts
   incompatible SSH agent.
 - The [Claude settings modifier](../chezmoi/private_dot_claude/modify_private_settings.json)
   changes selected defaults while preserving other fields, including `env`.
-  The [OpenCode modifier](../chezmoi/private_dot_config/opencode/modify_private_opencode.json)
-  does the same for OpenCode's sharing default.
   Provider routing belongs to the [gateway configurator](devbox.md#opt-in-coding-llm-gateway).
 
 ## Source Boundaries

@@ -152,12 +152,6 @@
       "output": "Grok permission, update, and privacy defaults plus native key recognition when Grok is installed"
     },
     {
-      "id": "opencode-settings",
-      "domain": "agents",
-      "command": ["pnpm", "exec", "vp", "test", "verify/opencode-settings.test.ts"],
-      "output": "OpenCode sharing is disabled while unrelated settings survive"
-    },
-    {
       "id": "llm-gateway",
       "domain": "agents",
       "command": [
@@ -172,12 +166,6 @@
         "agents/gateway/enrollment.test.ts"
       ],
       "output": "Standalone Effect gateway adapters, ACP framing and lifecycle, credential isolation, provider routing, check, and exact rollback"
-    },
-    {
-      "id": "bifrost-clients",
-      "domain": "agents",
-      "command": ["pnpm", "exec", "vp", "test", "bootstrap/configure-bifrost-clients.test.ts"],
-      "output": "OpenCode Bifrost credential and six-model catalog convergence"
     },
     {
       "id": "hindsight",

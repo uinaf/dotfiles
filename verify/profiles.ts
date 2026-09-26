@@ -168,7 +168,6 @@ const program = Effect.scoped(
       "gitleaks",
       "trufflehog",
       "topgrade",
-      "opencode",
       "awscli",
       "glab",
       "git-filter-repo",

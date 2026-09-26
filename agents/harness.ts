@@ -1,9 +1,7 @@
 import { type AgentLayer } from "../profiles/model.ts";
 import { type Runtime, writeLine } from "./runtime.ts";
 
-// Claude must precede opencode: their skill links resolve into the
-// Claude marketplace checkout that Claude's own sync creates and updates.
-export const HARNESSES = ["claude", "codex", "grok", "opencode"] as const;
+export const HARNESSES = ["claude", "codex", "grok"] as const;
 
 export type Harness = (typeof HARNESSES)[number];
 
@@ -11,7 +9,6 @@ export const HARNESS_INFO: Record<Harness, { binary: string; label: string }> = 
   claude: { binary: "claude", label: "Claude Code" },
   codex: { binary: "codex", label: "Codex" },
   grok: { binary: "grok", label: "Grok" },
-  opencode: { binary: "opencode", label: "OpenCode" },
 };
 
 const NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
@@ -19,6 +16,24 @@ const RESERVED_NAMES = new Set(["__proto__", "constructor", "prototype"]);
 
 export function isSafeName(value: string): boolean {
   return NAME_PATTERN.test(value) && !RESERVED_NAMES.has(value);
+}
+
+// Locks written before a harness was retired still name it; its config is no
+// longer managed, so ownership of it is dropped rather than rejected.
+const RETIRED_HARNESSES: readonly unknown[] = ["opencode"];
+
+export function withoutRetiredHarnesses(value: unknown): unknown {
+  return Array.isArray(value)
+    ? value.filter((harness) => !RETIRED_HARNESSES.includes(harness))
+    : value;
+}
+
+export function onlyRetiredHarnesses(value: unknown): boolean {
+  return (
+    Array.isArray(value) &&
+    value.length > 0 &&
+    value.every((harness) => RETIRED_HARNESSES.includes(harness))
+  );
 }
 
 function isHarness(value: unknown): value is Harness {
