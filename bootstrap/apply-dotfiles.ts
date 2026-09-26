@@ -157,6 +157,9 @@ const program = Effect.gen(function* () {
     offline: process.env.DOTFILES_AGENT_RULES_OFFLINE === "1",
   });
   yield* backupPreexistingTargets(context);
+  // chezmoi writes non-private targets with the process umask; a UMask=0002
+  // caller would leave shell startup files writable by the staff group.
+  process.umask(0o022);
   const applyArgs = [...context.baseArgs, "--force", "apply"];
   if (args.dryRun) applyArgs.push("--dry-run");
   if (args.verbose) applyArgs.push("--verbose");
