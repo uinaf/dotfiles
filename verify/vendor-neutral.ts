@@ -72,7 +72,6 @@ function allowed(file: string, content: string): boolean {
         '"name": "uinaf-notion"',
         '"source": "uinaf/agent-skills"',
         '"source": "uinaf/design"',
-        '"source": "uinaf/zebroid-infra"',
       ]);
     case "agents/plugins/developer.json":
     case "agents/plugins/workstation.json":
