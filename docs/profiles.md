@@ -13,7 +13,9 @@ Profiles configure one Unix user; host permissions provide isolation.
 | `personal-workstation` | Workstation with personal apps and gateway routing          |
 
 - `./dotfiles diff|apply|check` without a profile uses the stored
-  `~/.config/dotfiles/profile`, or `developer` on a fresh user.
+  `~/.config/dotfiles/profile`, or `developer` on a fresh user. Apply writes
+  that marker as `0600` under any umask; commands refuse a marker that is a
+  symlink, owned by another user, or group- or world-writable.
 - [profiles.json](../chezmoi/.chezmoidata/profiles.json) owns capabilities,
   Homebrew layers, agent selections, and install steps. The referenced
   Brewfiles own macOS packages; [mise templates](mise.md) own runtime and tool pins.

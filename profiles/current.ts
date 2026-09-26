@@ -40,7 +40,11 @@ export const readPersistedProfile = Effect.fn("readPersistedProfile")(function* 
   expectedUid?: number,
 ) {
   const fs = yield* FileSystem.FileSystem;
-  const unsafe = () => resolutionFailure(`profile marker is missing or unsafe: ${path}`, 3);
+  const unsafe = () =>
+    resolutionFailure(
+      `profile marker is missing or unsafe: ${path}; it must be a regular file you own that group and others cannot write (chmod 600 ${path})`,
+      3,
+    );
   const link = yield* fs.readLink(path).pipe(Effect.option);
   if (Option.isSome(link)) {
     return yield* unsafe();
@@ -82,7 +86,10 @@ export const resolveProfile = Effect.fn("resolveProfile")(function* (
     candidate = env.DOTFILES_PROFILE;
   }
   if (!candidate?.trim()) {
-    return yield* resolutionFailure("a supported profile is required", 1);
+    return yield* resolutionFailure(
+      "a supported profile is required: developer, devbox, workstation, personal-devbox, or personal-workstation",
+      1,
+    );
   }
   return yield* normalizeProfile(candidate);
 });

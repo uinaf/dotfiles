@@ -140,14 +140,7 @@ const program = Effect.gen(function* () {
   }
 
   const profile = yield* resolveProfile(profileInput).pipe(
-    Effect.mapError(
-      () =>
-        new CliFailure({
-          exitCode: 2,
-          message:
-            "a supported profile is required: developer, devbox, workstation, personal-devbox, or personal-workstation",
-        }),
-    ),
+    Effect.mapError((error) => new CliFailure({ exitCode: 2, message: error.message })),
   );
   const modelPath =
     repoRoot === sourceRoot

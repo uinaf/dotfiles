@@ -130,14 +130,7 @@ const program = Effect.gen(function* () {
   if (!home) return yield* fail("HOME is required");
   yield* ensureBootstrapTools();
   const profile = yield* resolveProfile(args.profile).pipe(
-    Effect.mapError(
-      () =>
-        new CliFailure({
-          exitCode: 2,
-          message:
-            "a supported profile is required: developer, devbox, workstation, personal-devbox, or personal-workstation",
-        }),
-    ),
+    Effect.mapError((error) => new CliFailure({ exitCode: 2, message: error.message })),
   );
   const configLink = yield* fs.readLink(configDir).pipe(Effect.option);
   if (Option.isSome(configLink))

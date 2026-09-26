@@ -111,6 +111,13 @@ const program = Effect.scoped(
     yield* fs.writeFileString(marker, "devbox\n", { mode: 0o666 });
     yield* fs.chmod(marker, 0o666);
     assert.equal((yield* readPersistedProfile(marker).pipe(Effect.option))._tag, "None");
+    const unsafeMarker = yield* run(
+      process.execPath,
+      [join(repoRoot, "bootstrap/install.ts"), "--print-steps"],
+      { env: { HOME: profileHome } },
+    );
+    assert.equal(unsafeMarker.status, 2, unsafeMarker.stderr);
+    assert.match(unsafeMarker.stderr, /profile marker is missing or unsafe: .*chmod 600/);
 
     const agentHome = join(temporary, "agent-home");
     yield* fs.makeDirectory(join(agentHome, ".config/dotfiles"), { recursive: true });
