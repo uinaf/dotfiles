@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "vite-plus/test";
 import { CommandRunner } from "../../lib/command.ts";
-import { configureHelium, disabledFlags } from "./configure-helium.ts";
+import { configureHelium, disabledFlags, externalExtensions } from "./configure-helium.ts";
 
 function run(root: string, status = 1, skipRunning = false) {
   return Effect.runPromise(
@@ -20,6 +20,14 @@ function run(root: string, status = 1, skipRunning = false) {
       Effect.provide(NodeServices.layer),
     ),
   );
+}
+
+function assertExternalExtensions(root: string) {
+  for (const [id, url] of Object.entries(externalExtensions)) {
+    const path = join(root, "External Extensions", `${id}.json`);
+    assert.deepEqual(JSON.parse(readFileSync(path, "utf8")), { external_update_url: url });
+    assert.equal(statSync(path).mode & 0o777, 0o600);
+  }
 }
 
 function profile(root: string, name: string, contents: string) {
@@ -65,11 +73,19 @@ test("all user profiles preserve unrelated preferences and converge without rewr
       keep: 1,
     });
     assert.equal(statSync(state).mode & 0o777, 0o640);
+    assertExternalExtensions(root);
+    const extension = join(
+      root,
+      "External Extensions",
+      `${Object.keys(externalExtensions)[0]}.json`,
+    );
     const modified = statSync(first).mtimeMs;
     const stateModified = statSync(state).mtimeMs;
+    const extensionModified = statSync(extension).mtimeMs;
     await run(root);
     assert.equal(statSync(first).mtimeMs, modified);
     assert.equal(statSync(state).mtimeMs, stateModified);
+    assert.equal(statSync(extension).mtimeMs, extensionModified);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -88,6 +104,7 @@ test("a fresh installation seeds a private Default profile", async () => {
       browser: { enabled_labs_experiments: disabledFlags },
     });
     assert.equal(statSync(state).mode & 0o777, 0o600);
+    assertExternalExtensions(root);
   } finally {
     rmSync(temporary, { recursive: true, force: true });
   }

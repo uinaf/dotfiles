@@ -166,6 +166,12 @@ the result, even with this flag set.
   flags in `Local State`. Together they make Stytch device fingerprinting
   return a block verdict, which sends magic-link sign-ins to
   `stytch.com/redirect-error`; each flag alone is not enough. Other flags stay.
+- The Helium step also writes `External Extensions/<id>.json` files so every
+  Helium profile installs 1Password. New installs stay disabled until you accept
+  Helium's "extension added" prompt; an existing Web Store install stays
+  enabled. The files point at Helium's extension proxy because Helium ignores
+  the Web Store update URL there. Deleting a file uninstalls that extension
+  from every profile.
 - For simulators, SDKs, and signing certificates, follow
   [Mobile and TV development](mobile-and-tv-development.md).
 

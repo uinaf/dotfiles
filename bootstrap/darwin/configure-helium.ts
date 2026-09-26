@@ -14,6 +14,10 @@ const decodeStrings = Schema.decodeUnknownEffect(Schema.Array(Schema.String));
 // Helium's canvas and audio noise trip Stytch device-fingerprint verdicts, which
 // breaks magic-link sign-in; "@2" is Chromium's disabled state for a flag entry.
 export const disabledFlags = ["helium-noise-canvas@2", "helium-noise-audio@2"];
+// Helium ignores Web Store update URLs from external files; its extension proxy works.
+export const externalExtensions = {
+  aeblfdkhhhdcdjpifhhbdiojplfjncoa: "https://services.helium.imput.net/ext",
+};
 
 export const configureHelium = Effect.fn("configureHelium")(function* (
   root: string,
@@ -25,7 +29,7 @@ export const configureHelium = Effect.fn("configureHelium")(function* (
   const running = yield* runner.run("pgrep", ["-u", String(process.getuid()), "-x", "Helium"]);
   if (running.status === 0) {
     const message =
-      "Quit Helium and rerun bootstrap/darwin/configure-helium.ts to apply vertical tabs and flags.";
+      "Quit Helium and rerun bootstrap/darwin/configure-helium.ts to apply vertical tabs, flags, and extensions.";
     if (!skipRunning) return yield* fail(message);
     yield* Console.log(`Deferred Helium preferences: ${message}`);
     return;
@@ -90,6 +94,15 @@ export const configureHelium = Effect.fn("configureHelium")(function* (
     });
     const mode = stateExists ? (yield* fs.stat(statePath)).mode & 0o777 : 0o600;
     updates.push({ path: statePath, contents, mode });
+  }
+
+  for (const [id, url] of Object.entries(externalExtensions)) {
+    const path = join(root, "External Extensions", `${id}.json`);
+    const contents = JSON.stringify({ external_update_url: url });
+    const exists = yield* fs.exists(path);
+    if (exists && (yield* fs.readFileString(path)) === `${contents}\n`) continue;
+    const mode = exists ? (yield* fs.stat(path)).mode & 0o777 : 0o600;
+    updates.push({ path, contents, mode });
   }
 
   for (const { path, contents, mode } of updates) {
